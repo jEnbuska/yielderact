@@ -123,6 +123,31 @@ Or use the automatic JSX transform:
 }
 ```
 
+Either configuration provides full JSX type checking out of the box —
+including `JSX.IntrinsicElements` support for all HTML / SVG tags.
+No additional `/// <reference>` directives or manual type imports are needed.
+
+> **Local / monorepo usage (pre-publish)**
+>
+> If you are running yielderact directly from source (e.g. inside the
+> `examples/` folder of this repo) and your editor shows
+> _"Cannot find module 'yielderact'"_, add the following to your
+> project's `tsconfig.json` so the TypeScript language server resolves
+> the package from source:
+>
+> ```json
+> {
+>   "compilerOptions": {
+>     "baseUrl": ".",
+>     "paths": {
+>       "yielderact": ["../src/index.ts"],
+>       "yielderact/jsx-runtime": ["../src/jsx-runtime.ts"],
+>       "yielderact/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
+>     }
+>   }
+> }
+> ```
+
 ---
 
 ## Running the tests
