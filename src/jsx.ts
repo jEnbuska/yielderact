@@ -1,3 +1,5 @@
+import type { IntrinsicElements as IntrinsicElementsDef } from './jsx-types';
+
 /**
  * Virtual DOM node produced by createElement / JSX.
  */
@@ -92,10 +94,10 @@ export const Fragment: unique symbol = Symbol('Fragment');
  *   createElement(MyComponent, { name: 'world' })
  */
 
-// Overload 1: HTML element (string tag)
-export function createElement(
-  type: string,
-  props: Record<string, unknown> | null,
+// Overload 1: intrinsic HTML / SVG element (validated tag name)
+export function createElement<T extends keyof JSX.IntrinsicElements>(
+  type: T,
+  props: JSX.IntrinsicElements[T] | null,
   ...children: Child[]
 ): VNode;
 
@@ -134,22 +136,20 @@ export function createElement(
  * for both the classic transform (`jsxFactory: "createElement"`) and the
  * automatic transform (`jsxImportSource: "yielderact"`).
  *
- * Only `IntrinsicElements` is declared here.  `JSX.Element` is intentionally
- * omitted so TypeScript falls back to the return type of the `jsx()` factory
- * (i.e. `VNode`), which means:
+ * `IntrinsicElements` is derived from {@link IntrinsicElementsDef} in
+ * `jsx-types.ts`, which provides strongly-typed props for every standard
+ * HTML and SVG element.  Only valid element names are accepted – arbitrary
+ * strings cause a compile-time error.
+ *
+ * `JSX.Element` is intentionally omitted so TypeScript falls back to the
+ * return type of the `jsx()` factory (i.e. `VNode`), which means:
  *   - Plain-function components that return `VNode` are accepted.
  *   - Generator components that return `Generator<Child, Child, unknown>` are
  *     also accepted without a type error.
- *
- * `IntrinsicElements` uses an index signature so every lowercase HTML / SVG
- * tag is accepted without needing an exhaustive element map.
  */
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
-    /** Permits any intrinsic element name (e.g. `<div>`, `<span>`, …). */
-    interface IntrinsicElements {
-      [elemName: string]: Record<string, unknown>;
-    }
+    interface IntrinsicElements extends IntrinsicElementsDef {}
   }
 }

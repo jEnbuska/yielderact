@@ -91,6 +91,7 @@ function removeSyntheticListener(el: HTMLElement, eventName: string): void {
  *
  * - `onXxx` props become synthetic-event listeners
  * - `className` maps to `element.className`
+ * - `htmlFor` maps to the `for` HTML attribute
  * - `style` (object) is merged into `element.style`
  * - Everything else becomes an HTML attribute
  */
@@ -101,6 +102,8 @@ function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
       addSyntheticListener(el, key.slice(2).toLowerCase(), value as (e: SyntheticEvent) => void);
     } else if (key === 'className') {
       el.className = String(value);
+    } else if (key === 'htmlFor') {
+      el.setAttribute('for', String(value));
     } else if (key === 'style' && typeof value === 'object' && value !== null) {
       Object.assign(el.style, value);
     } else if (
@@ -139,6 +142,8 @@ function updateProps(
     } else if (!(key in nextProps)) {
       if (key === 'className') {
         el.className = '';
+      } else if (key === 'htmlFor') {
+        el.removeAttribute('for');
       } else {
         el.removeAttribute(key);
       }
