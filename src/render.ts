@@ -1,5 +1,6 @@
 import { Fragment, VNode, Child, GeneratorComponentFn, PlainComponentFn, AnyComponentFn } from './jsx';
 import { _getCtxMap, _setCtxMap, _getProviderCtx, type Context } from './context';
+import { createSyntheticEvent } from './events';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -47,11 +48,48 @@ function flattenChildren(children: Child[]): Child[] {
 // ---------------------------------------------------------------------------
 // Prop application
 // ---------------------------------------------------------------------------
+// Event listener tracking
+// ---------------------------------------------------------------------------
+
+/**
+ * Maps each DOM element to its currently-registered synthetic event wrappers.
+ * Key is the lowercase event name (e.g. `"click"`).
+ * This lets `updateProps` remove the exact wrapper added by `applyProps`.
+ */
+const listenerWrappers = new WeakMap<HTMLElement, Map<string, EventListener>>();
+
+function addSyntheticListener(
+  el: HTMLElement,
+  eventName: string,
+  handler: (e: SyntheticEvent) => void
+): void {
+  const wrapper: EventListener = (nativeEvent: Event) =>
+    handler(createSyntheticEvent(nativeEvent));
+  el.addEventListener(eventName, wrapper);
+  let map = listenerWrappers.get(el);
+  if (!map) {
+    map = new Map();
+    listenerWrappers.set(el, map);
+  }
+  map.set(eventName, wrapper);
+}
+
+function removeSyntheticListener(el: HTMLElement, eventName: string): void {
+  const wrapper = listenerWrappers.get(el)?.get(eventName);
+  if (wrapper) {
+    el.removeEventListener(eventName, wrapper);
+    listenerWrappers.get(el)!.delete(eventName);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Prop application
+// ---------------------------------------------------------------------------
 
 /**
  * Apply a VNode's props to a real DOM element.
  *
- * - `onXxx` props become event listeners (`addEventListener`)
+ * - `onXxx` props become synthetic-event listeners
  * - `className` maps to `element.className`
  * - `style` (object) is merged into `element.style`
  * - Everything else becomes an HTML attribute
@@ -60,7 +98,11 @@ function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(props)) {
     if (key === 'children') continue;
     if (key.startsWith('on') && typeof value === 'function') {
-      el.addEventListener(key.slice(2).toLowerCase(), value as EventListener);
+      addSyntheticListener(
+        el,
+        key.slice(2).toLowerCase(),
+        value as (e: SyntheticEvent) => void
+      );
     } else if (key === 'className') {
       el.className = String(value);
     } else if (key === 'style' && typeof value === 'object' && value !== null) {
@@ -84,10 +126,7 @@ function updateProps(
   for (const key of Object.keys(prevProps)) {
     if (key === 'children' || key === 'style') continue;
     if (key.startsWith('on') && typeof prevProps[key] === 'function') {
-      el.removeEventListener(
-        key.slice(2).toLowerCase(),
-        prevProps[key] as EventListener
-      );
+      removeSyntheticListener(el, key.slice(2).toLowerCase());
     } else if (!(key in nextProps)) {
       if (key === 'className') {
         el.className = '';
