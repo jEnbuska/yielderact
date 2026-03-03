@@ -392,6 +392,114 @@ describe('render – generator components with usePromise', () => {
     setLabel!('updated');
     expect(container.querySelector('#result')!.textContent).toBe('updated:world');
   });
+
+  it('useState change while promise is pending triggers fresh run and shows correct state after resolve', async () => {
+    let resolvePromise!: (data: string) => void;
+    const promise = new Promise<string>(res => { resolvePromise = res; });
+    let setLabel: ((v: string) => void) | null = null;
+
+    function* DataComp() {
+      const [label, sl] = yield* useState('prefix');
+      setLabel = sl;
+      const data = yield* usePromise({
+        fn: () => promise,
+        loading: createElement('span', { id: 'loading' }, 'Loading…'),
+        error: createElement('span', null, 'Error'),
+      });
+      return createElement('p', { id: 'result' }, `${label}:${data}`);
+    }
+
+    render(createElement(DataComp as never, {}), container);
+    expect(container.querySelector('#loading')).not.toBeNull();
+
+    // Change state WHILE the promise is still pending
+    setLabel!('updated');
+    // Still loading, but label should be reflected after resolve
+    expect(container.querySelector('#loading')).not.toBeNull();
+
+    resolvePromise('world');
+    await promise;
+
+    // The fresh run after setLabel captured 'updated'; resume uses that generator
+    expect(container.querySelector('#result')!.textContent).toBe('updated:world');
+  });
+
+  it('usePromise re-runs when deps change', async () => {
+    let resolveFirst!: (data: string) => void;
+    let resolveSecond!: (data: string) => void;
+    const firstPromise = new Promise<string>(res => { resolveFirst = res; });
+    const secondPromise = new Promise<string>(res => { resolveSecond = res; });
+
+    let setId: ((v: number) => void) | null = null;
+    let fetchCount = 0;
+
+    function* DataComp() {
+      const [id, si] = yield* useState(1);
+      setId = si;
+      const data = yield* usePromise({
+        fn: () => { fetchCount++; return id === 1 ? firstPromise : secondPromise; },
+        loading: createElement('span', { id: 'loading' }, 'Loading…'),
+        error: createElement('span', null, 'Error'),
+        deps: [id],
+      });
+      return createElement('p', { id: 'result' }, `${id}:${data}`);
+    }
+
+    render(createElement(DataComp as never, {}), container);
+    expect(fetchCount).toBe(1);
+    expect(container.querySelector('#loading')).not.toBeNull();
+
+    resolveFirst('user1');
+    await firstPromise;
+    expect(container.querySelector('#result')!.textContent).toBe('1:user1');
+
+    // Change the dep – should re-run the promise
+    setId!(2);
+    expect(fetchCount).toBe(2);
+    expect(container.querySelector('#loading')).not.toBeNull();
+
+    resolveSecond('user2');
+    await secondPromise;
+    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+  });
+
+  it('stale promise result is ignored when deps change before it resolves', async () => {
+    let resolveFirst!: (data: string) => void;
+    let resolveSecond!: (data: string) => void;
+    const firstPromise = new Promise<string>(res => { resolveFirst = res; });
+    const secondPromise = new Promise<string>(res => { resolveSecond = res; });
+
+    let setId: ((v: number) => void) | null = null;
+
+    function* DataComp() {
+      const [id, si] = yield* useState(1);
+      setId = si;
+      const data = yield* usePromise({
+        fn: () => id === 1 ? firstPromise : secondPromise,
+        loading: createElement('span', { id: 'loading' }, 'Loading…'),
+        error: createElement('span', null, 'Error'),
+        deps: [id],
+      });
+      return createElement('p', { id: 'result' }, `${id}:${data}`);
+    }
+
+    render(createElement(DataComp as never, {}), container);
+    expect(container.querySelector('#loading')).not.toBeNull();
+
+    // Change dep before first promise resolves
+    setId!(2);
+    expect(container.querySelector('#loading')).not.toBeNull();
+
+    // Resolve second promise first
+    resolveSecond('user2');
+    await secondPromise;
+    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+
+    // Now resolve the stale first promise – should NOT update the DOM
+    resolveFirst('user1');
+    await firstPromise;
+    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+  });
 });
 
 describe('buildNode', () => {

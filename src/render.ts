@@ -309,37 +309,55 @@ function mountGeneratorComponent(
   // eslint-disable-next-line prefer-const
   let instance: GenInstance;
 
-  function rerender(): void {
+  /**
+   * Called when the settled promise wants to show its result.
+   * If the generator is still paused (waiting for the promise), resume it.
+   * If the generator has already completed (e.g. due to a concurrent
+   * state-change re-render), there is nothing to do.
+   */
+  function resume(): void {
+    if (instance.gen === null) return;
+
     const prevCtx = _getCtxMap();
     _setCtxMap(instance.capturedCtx);
 
     let vnode: Child;
+    try {
+      const { value, done } = instance.gen.next();
+      if (done) {
+        instance.gen = null;
+      }
+      vnode = (value as Child) ?? null;
+    } finally {
+      _setCtxMap(prevCtx);
+    }
 
-    if (instance.gen !== null) {
-      // ── Resume paused generator (a hook yielded an intermediate VNode) ──
-      // Do NOT call _initHooks: the hook closures already captured their
-      // rerender / hookStates references from when the generator first ran.
-      try {
-        const { value, done } = instance.gen.next();
-        if (done) {
-          instance.gen = null;
-        }
-        vnode = (value as Child) ?? null;
-      } finally {
-        _setCtxMap(prevCtx);
-      }
-    } else {
-      // ── Fresh run (generator completed on last render) ──
-      _initHooks(rerender, instance.hookStates);
-      try {
-        const gen = instance.fn(instance.props, rerender);
-        const { value, done } = gen.next();
-        instance.gen = done ? null : gen;
-        vnode = (value as Child) ?? null;
-      } finally {
-        _clearHooks();
-        _setCtxMap(prevCtx);
-      }
+    instance.slots = reconcileSlots(host, instance.slots, [vnode]);
+  }
+
+  /**
+   * Called by useState setters and external rerender requests.
+   * Always performs a fresh generator run so that the component body
+   * re-executes and picks up the latest state / props / context values.
+   * Any currently-paused generator is discarded first.
+   */
+  function rerender(): void {
+    const prevCtx = _getCtxMap();
+    _setCtxMap(instance.capturedCtx);
+
+    // Discard a paused generator so the fresh run starts from the top.
+    instance.gen = null;
+
+    _initHooks(rerender, resume, instance.hookStates);
+    let vnode: Child;
+    try {
+      const gen = instance.fn(instance.props, rerender);
+      const { value, done } = gen.next();
+      instance.gen = done ? null : gen;
+      vnode = (value as Child) ?? null;
+    } finally {
+      _clearHooks();
+      _setCtxMap(prevCtx);
     }
 
     instance.slots = reconcileSlots(host, instance.slots, [vnode]);
@@ -348,7 +366,7 @@ function mountGeneratorComponent(
   // ── Initial mount ──
   const prevCtx = _getCtxMap();
   _setCtxMap(capturedCtx);
-  _initHooks(rerender, hookStates);
+  _initHooks(rerender, resume, hookStates);
   try {
     const gen = fn(props, rerender);
     const { value, done } = gen.next();
