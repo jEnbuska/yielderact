@@ -19,7 +19,7 @@ export type Child = VNode | string | number | boolean | null | undefined;
  *
  * The component body runs from top to bottom on each render and **returns**
  * its JSX (not `yield`s it).  Hooks are invoked with `yield*` and may
- * temporarily intercept rendering (e.g. `usePromise` shows a loading state
+ * temporarily intercept rendering (e.g. `useResolve` shows a loading state
  * while a promise is pending).
  *
  * Call `rerender()` (the second argument) or use a hook setter to trigger
@@ -36,11 +36,11 @@ export type Child = VNode | string | number | boolean | null | undefined;
  *
  * @example
  * function* UserCard(_props: object) {
- *   const user = yield* usePromise({
+ *   const user = yield* useResolve({
  *     fn: () => fetchUser(1),
  *     loading: <Spinner />,
  *     error:   <ErrorMsg />,
- *   });
+ *   }, []);
  *   return <div>{user.name}</div>;
  * }
  */

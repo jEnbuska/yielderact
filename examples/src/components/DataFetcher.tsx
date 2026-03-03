@@ -1,12 +1,12 @@
 /**
- * DataFetcher – demonstrates `usePromise` for async data loading.
+ * DataFetcher – demonstrates `useResolve` for async data loading.
  *
- * `yield* usePromise(...)` suspends the component rendering and shows a
+ * `yield* useResolve(...)` suspends the component rendering and shows a
  * loading placeholder until the promise resolves (or an error placeholder
  * if it rejects).  Once resolved, execution continues and the component
  * returns its final JSX.
  */
-import { render, usePromise, useId } from 'yielderact';
+import { render, useResolve, useId } from 'yielderact';
 
 interface User {
   id: number;
@@ -41,17 +41,17 @@ function* ErrorMessage() {
 export function* DataFetcher() {
   const userDataId = yield* useId();
 
-  const user = yield* usePromise<User>({
+  const user = yield* useResolve<User>({
     fn: fetchUser,
     loading: <Spinner />,
     error: <ErrorMessage />,
-  });
+  }, []);
 
   return (
     <section aria-label="Data fetcher example">
       <h2>Data Fetcher</h2>
       <p>
-        <code>yield* usePromise</code> suspends rendering while a promise is pending and
+        <code>yield* useResolve</code> suspends rendering while a promise is pending and
         automatically resumes when it resolves.
       </p>
       <div

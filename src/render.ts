@@ -182,7 +182,7 @@ interface GenInstance {
    * The active generator for this component.
    *
    * - Non-null when the generator has yielded (a hook intercepted rendering,
-   *   e.g. `usePromise` is waiting for a promise).  The generator will be
+   *   e.g. `useResolve` is waiting for a promise).  The generator will be
    *   resumed via `gen.next()` on the next `rerender()` call.
    * - `null` when the generator has returned (component completed its render).
    *   A fresh generator is created on the next `rerender()` call.
@@ -197,7 +197,7 @@ interface GenInstance {
   /**
    * Persistent hook state storage.  Each entry corresponds to one `yield*`
    * hook call in the component body (by call-order index).  This array
-   * survives across re-renders so that `useState` values and `usePromise`
+   * survives across re-renders so that `useState` values and `useResolve`
    * promise statuses are preserved.
    */
   hookStates: unknown[];

@@ -1,6 +1,6 @@
 import { createElement, Fragment } from '../jsx';
 import { render, buildNode } from '../render';
-import { useState, usePromise } from '../hooks';
+import { useState, useResolve } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
@@ -314,7 +314,7 @@ describe('render – generator components with useState', () => {
   });
 });
 
-describe('render – generator components with usePromise', () => {
+describe('render – generator components with useResolve', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -333,11 +333,11 @@ describe('render – generator components with usePromise', () => {
     });
 
     function* DataComp() {
-      const data = yield* usePromise({
+      const data = yield* useResolve({
         fn: () => promise,
         loading: createElement('span', { id: 'loading' }, 'Loading…'),
         error: createElement('span', { id: 'error' }, 'Error'),
-      });
+      }, []);
       return createElement('span', { id: 'data' }, data);
     }
 
@@ -360,11 +360,11 @@ describe('render – generator components with usePromise', () => {
     });
 
     function* DataComp() {
-      const data = yield* usePromise({
+      const data = yield* useResolve({
         fn: () => promise,
         loading: createElement('span', { id: 'loading' }, 'Loading…'),
         error: createElement('span', { id: 'error' }, 'Error'),
-      });
+      }, []);
       return createElement('span', { id: 'data' }, data);
     }
 
@@ -378,7 +378,7 @@ describe('render – generator components with usePromise', () => {
     expect(container.querySelector('#data')).toBeNull();
   });
 
-  it('usePromise can coexist with useState in the same component', async () => {
+  it('useResolve can coexist with useState in the same component', async () => {
     let resolvePromise!: (data: string) => void;
     const promise = new Promise<string>((res) => {
       resolvePromise = res;
@@ -388,11 +388,11 @@ describe('render – generator components with usePromise', () => {
     function* DataComp() {
       const [label, sl] = yield* useState('prefix');
       setLabel = sl;
-      const data = yield* usePromise({
+      const data = yield* useResolve({
         fn: () => promise,
         loading: createElement('span', { id: 'loading' }, 'Loading…'),
         error: createElement('span', null, 'Error'),
-      });
+      }, []);
       return createElement('p', { id: 'result' }, `${label}:${data}`);
     }
 
@@ -418,11 +418,11 @@ describe('render – generator components with usePromise', () => {
     function* DataComp() {
       const [label, sl] = yield* useState('prefix');
       setLabel = sl;
-      const data = yield* usePromise({
+      const data = yield* useResolve({
         fn: () => promise,
         loading: createElement('span', { id: 'loading' }, 'Loading…'),
         error: createElement('span', null, 'Error'),
-      });
+      }, []);
       return createElement('p', { id: 'result' }, `${label}:${data}`);
     }
 
@@ -441,7 +441,7 @@ describe('render – generator components with usePromise', () => {
     expect(container.querySelector('#result')!.textContent).toBe('updated:world');
   });
 
-  it('usePromise re-runs when deps change', async () => {
+  it('useResolve re-runs when deps change', async () => {
     let resolveFirst!: (data: string) => void;
     let resolveSecond!: (data: string) => void;
     const firstPromise = new Promise<string>((res) => {
@@ -457,15 +457,14 @@ describe('render – generator components with usePromise', () => {
     function* DataComp() {
       const [id, si] = yield* useState(1);
       setId = si;
-      const data = yield* usePromise({
+      const data = yield* useResolve({
         fn: () => {
           fetchCount++;
           return id === 1 ? firstPromise : secondPromise;
         },
         loading: createElement('span', { id: 'loading' }, 'Loading…'),
         error: createElement('span', null, 'Error'),
-        deps: [id],
-      });
+      }, [id]);
       return createElement('p', { id: 'result' }, `${id}:${data}`);
     }
 
@@ -502,12 +501,11 @@ describe('render – generator components with usePromise', () => {
     function* DataComp() {
       const [id, si] = yield* useState(1);
       setId = si;
-      const data = yield* usePromise({
+      const data = yield* useResolve({
         fn: () => (id === 1 ? firstPromise : secondPromise),
         loading: createElement('span', { id: 'loading' }, 'Loading…'),
         error: createElement('span', null, 'Error'),
-        deps: [id],
-      });
+      }, [id]);
       return createElement('p', { id: 'result' }, `${id}:${data}`);
     }
 
