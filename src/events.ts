@@ -35,7 +35,7 @@
  *   }
  * }
  */
-export interface SyntheticEvent<E extends Event = Event> {
+export interface SyntheticEvent<E extends Event = Event, T extends EventTarget = EventTarget> {
   /** The underlying native browser event. */
   readonly nativeEvent: E;
   /** The DOM node that triggered the event (same as `nativeEvent.target`). */
@@ -43,8 +43,10 @@ export interface SyntheticEvent<E extends Event = Event> {
   /**
    * The DOM node whose event-listener prop was matched
    * (same as `nativeEvent.currentTarget`).
+   * Typed as `T` so element-specific properties (e.g. `.value` on
+   * `HTMLInputElement`) are accessible without casting.
    */
-  readonly currentTarget: EventTarget | null;
+  readonly currentTarget: T | null;
   /** Lowercase name of the event, e.g. `"click"`. */
   readonly type: string;
   /** Whether the event bubbles up through the DOM. */

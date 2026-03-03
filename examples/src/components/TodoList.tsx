@@ -2,7 +2,7 @@
  * TodoList – a generator component demonstrating array state management
  * with `yield* useState`.
  */
-import { render, useState, type SEvent } from 'yielderact';
+import { render, useState } from 'yielderact';
 
 interface Todo {
   id: number;
@@ -59,10 +59,10 @@ export function* TodoList() {
           type="text"
           value={inputValue}
           placeholder="New todo…"
-          onInput={(e: SEvent<'input'>) => {
-            setState({ ...state, inputValue: (e.target as HTMLInputElement).value });
+          onInput={(e) => {
+            setState({ ...state, inputValue: e.currentTarget?.value ?? '' });
           }}
-          onKeydown={(e: SEvent<'keydown'>) => {
+          onKeydown={(e) => {
             if (e.nativeEvent.key === 'Enter') addTodo();
           }}
         />
