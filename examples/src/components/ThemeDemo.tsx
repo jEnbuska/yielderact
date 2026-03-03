@@ -1,8 +1,7 @@
 /**
- * ThemeDemo – demonstrates createContext / useContext for passing values
- * through the component tree without prop-drilling.
+ * ThemeDemo – demonstrates createContext / useContext with `yield* useState`.
  */
-import { createContext, useContext, render } from 'yielderact';
+import { createContext, useContext, render, useState } from 'yielderact';
 
 type Theme = 'light' | 'dark';
 
@@ -16,7 +15,7 @@ const styles: Record<Theme, { background: string; color: string; border: string 
 function* ThemedCard() {
   const theme = useContext(ThemeContext);
   const s = styles[theme];
-  yield (
+  return (
     <div
       id="themed-card"
       style={{
@@ -35,33 +34,28 @@ function* ThemedCard() {
   );
 }
 
-export function* ThemeDemo(_props: object, rerender: () => void) {
-  let theme: Theme = 'light';
+export function* ThemeDemo() {
+  const [theme, setTheme] = yield* useState<Theme>('light');
 
-  while (true) {
-    yield (
-      <section aria-label="Theme context example">
-        <h2>Context API</h2>
-        <p>
-          <code>createContext</code> / <code>useContext</code> let child
-          components consume values without prop-drilling.
-        </p>
-        <button
-          id="toggle-theme-btn"
-          onClick={() => {
-            theme = theme === 'light' ? 'dark' : 'light';
-            rerender();
-          }}
-          style={{ marginBottom: '0.75rem' }}
-        >
-          Toggle theme (current: {theme})
-        </button>
-        <ThemeContext.Provider value={theme}>
-          <ThemedCard />
-        </ThemeContext.Provider>
-      </section>
-    );
-  }
+  return (
+    <section aria-label="Theme context example">
+      <h2>Context API</h2>
+      <p>
+        <code>createContext</code> / <code>useContext</code> let child
+        components consume values without prop-drilling.
+      </p>
+      <button
+        id="toggle-theme-btn"
+        onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
+        style={{ marginBottom: '0.75rem' }}
+      >
+        Toggle theme (current: {theme})
+      </button>
+      <ThemeContext.Provider value={theme}>
+        <ThemedCard />
+      </ThemeContext.Provider>
+    </section>
+  );
 }
 
 export function mountThemeDemo(container: HTMLElement): void {

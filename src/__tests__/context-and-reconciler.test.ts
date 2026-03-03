@@ -1,6 +1,7 @@
 import { createElement, Fragment } from '../jsx';
 import { createContext, useContext } from '../context';
 import { render, buildNode } from '../render';
+import { useState } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
@@ -25,7 +26,7 @@ describe('createContext / useContext', () => {
 
     function* Consumer() {
       const value = useContext(Ctx);
-      yield createElement('span', null, value);
+      return createElement('span', null, value);
     }
 
     render(createElement(Consumer as never, {}), container);
@@ -37,7 +38,7 @@ describe('createContext / useContext', () => {
 
     function* Consumer() {
       const value = useContext(Ctx);
-      yield createElement('span', null, value);
+      return createElement('span', null, value);
     }
 
     render(
@@ -54,7 +55,7 @@ describe('createContext / useContext', () => {
 
     function* Consumer() {
       const value = useContext(Ctx);
-      yield createElement('span', null, value);
+      return createElement('span', null, value);
     }
 
     render(
@@ -75,7 +76,7 @@ describe('createContext / useContext', () => {
 
     function* Consumer() {
       const val = useContext(Ctx);
-      yield createElement('span', null, String(val));
+      return createElement('span', null, String(val));
     }
 
     render(
@@ -87,29 +88,33 @@ describe('createContext / useContext', () => {
       ),
       container
     );
-    // Consumer is outside Provider so it should use the default (42)
     const spans = container.querySelectorAll('span');
     const consumerSpan = Array.from(spans).find(s => s.textContent === '42');
     expect(consumerSpan).toBeTruthy();
   });
 
-  it('generator component can read context at every yield', () => {
+  it('generator component reads context on every re-render', () => {
     const Ctx = createContext(0);
+    let setTheme: ((v: number) => void) | null = null;
 
-    function* Consumer(_: Record<string, unknown>, rerender: () => void) {
-      while (true) {
-        const val = useContext(Ctx);
-        yield createElement('span', null, String(val));
-      }
+    function* Consumer() {
+      const val = useContext(Ctx);
+      return createElement('span', null, String(val));
     }
 
-    render(
-      createElement(Ctx.Provider as never, { value: 7 },
+    function* Parent() {
+      const [theme, st] = yield* useState(7);
+      setTheme = st;
+      return createElement(Ctx.Provider as never, { value: theme },
         createElement(Consumer as never, {})
-      ),
-      container
-    );
+      );
+    }
+
+    render(createElement(Parent as never, {}), container);
     expect(container.querySelector('span')!.textContent).toBe('7');
+
+    setTheme!(99);
+    expect(container.querySelector('span')!.textContent).toBe('99');
   });
 });
 
@@ -131,19 +136,16 @@ describe('prop memoization', () => {
 
   it('does not re-mount a child component when the parent re-renders with unchanged child props', () => {
     let mountCount = 0;
+    let parentRerender: (() => void) | null = null;
 
     function* Child({ label }: { label: string }) {
       mountCount++;
-      yield createElement('span', null, label);
+      return createElement('span', null, label);
     }
 
     function* Parent(_: Record<string, unknown>, rerender: () => void) {
-      // First yield
-      yield createElement('div', null,
-        createElement(Child as never, { label: 'hello' })
-      );
-      // Second yield (same props for Child)
-      yield createElement('div', null,
+      parentRerender = rerender;
+      return createElement('div', null,
         createElement(Child as never, { label: 'hello' })
       );
     }
@@ -152,49 +154,26 @@ describe('prop memoization', () => {
     expect(mountCount).toBe(1);
     expect(container.querySelector('span')!.textContent).toBe('hello');
 
-    // Advance generator (simulated via the rerender held inside a closure)
-    // We can trigger rerender by reading the component's inner rerender via
-    // a button click pattern:
-    let parentRerender: (() => void) | null = null;
-
-    function* ParentWithTrigger(_: Record<string, unknown>, rerender: () => void) {
-      parentRerender = rerender;
-      yield createElement('div', null,
-        createElement(Child as never, { label: 'hello' })
-      );
-      yield createElement('div', null,
-        createElement(Child as never, { label: 'hello' })
-      );
-    }
-
-    const container2 = document.createElement('div');
-    document.body.appendChild(container2);
-    mountCount = 0;
-    render(createElement(ParentWithTrigger as never, {}), container2);
-    expect(mountCount).toBe(1);
-
+    // Trigger parent re-render with same child props
     parentRerender!();
     // Child was NOT remounted (same props)
     expect(mountCount).toBe(1);
-    document.body.removeChild(container2);
   });
 
   it('remounts a child component when props change', () => {
     let mountCount = 0;
-    let parentRerender: (() => void) | null = null;
+    let setPhase: ((v: number) => void) | null = null;
 
     function* Child({ label }: { label: string }) {
       mountCount++;
-      yield createElement('span', null, label);
+      return createElement('span', null, label);
     }
 
-    function* Parent(_: Record<string, unknown>, rerender: () => void) {
-      parentRerender = rerender;
-      yield createElement('div', null,
-        createElement(Child as never, { label: 'first' })
-      );
-      yield createElement('div', null,
-        createElement(Child as never, { label: 'second' })
+    function* Parent() {
+      const [phase, sp] = yield* useState(0);
+      setPhase = sp;
+      return createElement('div', null,
+        createElement(Child as never, { label: phase === 0 ? 'first' : 'second' })
       );
     }
 
@@ -202,7 +181,7 @@ describe('prop memoization', () => {
     expect(mountCount).toBe(1);
     expect(container.querySelector('span')!.textContent).toBe('first');
 
-    parentRerender!();
+    setPhase!(1);
     expect(mountCount).toBe(2);
     expect(container.querySelector('span')!.textContent).toBe('second');
   });
@@ -230,7 +209,7 @@ describe('component renders component', () => {
     }
 
     function* App() {
-      yield createElement('div', null,
+      return createElement('div', null,
         createElement(Greeting as never, { name: 'World' })
       );
     }
@@ -241,11 +220,11 @@ describe('component renders component', () => {
 
   it('generator renders a generator component child', () => {
     function* Label({ text }: { text: string }) {
-      yield createElement('em', null, text);
+      return createElement('em', null, text);
     }
 
     function* App() {
-      yield createElement('div', null,
+      return createElement('div', null,
         createElement(Label as never, { text: 'from-child' })
       );
     }
@@ -255,58 +234,49 @@ describe('component renders component', () => {
   });
 
   it('child generator component maintains its own state across parent re-renders', () => {
-    let childRerender: (() => void) | null = null;
+    let incrementCounter: (() => void) | null = null;
     let parentRerender: (() => void) | null = null;
 
-    function* Counter(_: Record<string, unknown>, rerender: () => void) {
-      childRerender = rerender;
-      let count = 0;
-      while (true) {
-        yield createElement('span', { id: 'counter' }, String(count));
-        count++;
-      }
+    function* Counter() {
+      const [count, setCount] = yield* useState(0);
+      incrementCounter = () => setCount(count + 1);
+      return createElement('span', { id: 'counter' }, String(count));
     }
 
     function* Wrapper(_: Record<string, unknown>, rerender: () => void) {
       parentRerender = rerender;
-      while (true) {
-        yield createElement('div', null,
-          createElement(Counter as never, {})
-        );
-      }
+      return createElement('div', null,
+        createElement(Counter as never, {})
+      );
     }
 
     render(createElement(Wrapper as never, {}), container);
     expect(container.querySelector('#counter')!.textContent).toBe('0');
 
     // Increment child
-    childRerender!();
+    incrementCounter!();
     expect(container.querySelector('#counter')!.textContent).toBe('1');
 
-    // Parent re-renders with SAME Counter props → child is reused
+    // Parent re-renders with SAME Counter props → child is reused (not remounted)
     parentRerender!();
     // Counter state is preserved (still at 1)
     expect(container.querySelector('#counter')!.textContent).toBe('1');
   });
 
   it('parent switching child component type unmounts old and mounts new', () => {
-    let parentRerender: (() => void) | null = null;
-    let phase = 0;
+    let setPhase: ((v: number) => void) | null = null;
 
     function* CompA() {
-      yield createElement('span', { id: 'a' }, 'A');
+      return createElement('span', { id: 'a' }, 'A');
     }
     function* CompB() {
-      yield createElement('span', { id: 'b' }, 'B');
+      return createElement('span', { id: 'b' }, 'B');
     }
 
-    function* Parent(_: Record<string, unknown>, rerender: () => void) {
-      parentRerender = rerender;
-      yield createElement('div', null, phase === 0
-        ? createElement(CompA as never, {})
-        : createElement(CompB as never, {})
-      );
-      yield createElement('div', null, phase === 0
+    function* Parent() {
+      const [phase, sp] = yield* useState(0);
+      setPhase = sp;
+      return createElement('div', null, phase === 0
         ? createElement(CompA as never, {})
         : createElement(CompB as never, {})
       );
@@ -316,20 +286,20 @@ describe('component renders component', () => {
     expect(container.querySelector('#a')).not.toBeNull();
     expect(container.querySelector('#b')).toBeNull();
 
-    phase = 1;
-    parentRerender!();
+    setPhase!(1);
     expect(container.querySelector('#a')).toBeNull();
     expect(container.querySelector('#b')).not.toBeNull();
   });
 
   it('reconciles HTML element children in place across re-renders', () => {
-    let rerender: (() => void) | null = null;
-    let step = 0;
+    let setStep: ((v: number) => void) | null = null;
 
-    function* App(_: Record<string, unknown>, r: () => void) {
-      rerender = r;
-      yield createElement('p', { className: 'first' }, 'hello');
-      yield createElement('p', { className: 'second' }, 'world');
+    function* App() {
+      const [step, ss] = yield* useState(0);
+      setStep = ss;
+      return step === 0
+        ? createElement('p', { className: 'first' }, 'hello')
+        : createElement('p', { className: 'second' }, 'world');
     }
 
     render(createElement(App as never, {}), container);
@@ -337,7 +307,7 @@ describe('component renders component', () => {
     expect(p.className).toBe('first');
     expect(p.textContent).toBe('hello');
 
-    rerender!();
+    setStep!(1);
     // Same <p> element is reused (updated in place)
     expect(container.querySelector('p')).toBe(p);
     expect(p.className).toBe('second');
@@ -345,11 +315,11 @@ describe('component renders component', () => {
   });
 
   it('generator renders Fragment with multiple component children', () => {
-    function* A() { yield createElement('span', { id: 'a' }, 'A'); }
-    function* B() { yield createElement('span', { id: 'b' }, 'B'); }
+    function* A() { return createElement('span', { id: 'a' }, 'A'); }
+    function* B() { return createElement('span', { id: 'b' }, 'B'); }
 
     function* App() {
-      yield createElement(Fragment, null,
+      return createElement(Fragment, null,
         createElement(A as never, {}),
         createElement(B as never, {})
       );

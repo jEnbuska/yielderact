@@ -1,5 +1,6 @@
 import { createElement, Fragment } from '../jsx';
 import { render, buildNode } from '../render';
+import { useState, usePromise } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
@@ -45,11 +46,17 @@ describe('render – HTML elements', () => {
     expect(input.getAttribute('placeholder')).toBe('name');
   });
 
-  it('applies event listeners', () => {
+  it('applies event listeners and wraps in SyntheticEvent', () => {
     const onClick = jest.fn();
     render(createElement('button', { onClick }, 'click me'), container);
     container.querySelector('button')!.click();
     expect(onClick).toHaveBeenCalledTimes(1);
+    // The handler receives a SyntheticEvent, not the raw native event
+    const syntheticEvent = onClick.mock.calls[0][0];
+    expect(syntheticEvent).toHaveProperty('nativeEvent');
+    expect(syntheticEvent).toHaveProperty('type', 'click');
+    expect(typeof syntheticEvent.preventDefault).toBe('function');
+    expect(typeof syntheticEvent.stopPropagation).toBe('function');
   });
 
   it('applies inline styles', () => {
@@ -104,7 +111,6 @@ describe('render – plain function components', () => {
   it('renders an empty host when the component returns null', () => {
     function Empty() { return null; }
     render(createElement(Empty as never, {}), container);
-    // The host span is present but has no element children
     const host = container.firstChild as HTMLElement;
     expect(host.childElementCount).toBe(0);
   });
@@ -129,24 +135,41 @@ describe('render – generator components', () => {
     document.body.removeChild(container);
   });
 
-  it('renders the initial yield', () => {
+  it('renders a generator component that returns JSX', () => {
     function* Greeting({ name }: { name: string }) {
-      yield createElement('h2', null, `Hi, ${name}!`);
+      return createElement('h2', null, `Hi, ${name}!`);
     }
     render(createElement(Greeting as never, { name: 'Alice' }), container);
     expect(container.querySelector('h2')!.textContent).toBe('Hi, Alice!');
   });
 
-  it('rerenders when rerender() is called from an event handler', () => {
+  it('rerenders via useState setter', () => {
+    let setCount: ((v: number) => void) | null = null;
+
+    function* Counter() {
+      const [count, sc] = yield* useState(0);
+      setCount = sc;
+      return createElement('button', {}, String(count));
+    }
+
+    render(createElement(Counter as never, {}), container);
+    expect(container.querySelector('button')!.textContent).toBe('0');
+
+    setCount!(1);
+    expect(container.querySelector('button')!.textContent).toBe('1');
+
+    setCount!(5);
+    expect(container.querySelector('button')!.textContent).toBe('5');
+  });
+
+  it('rerenders when rerender() is called directly from an event handler', () => {
     function* Counter(_props: Record<string, unknown>, rerender: () => void) {
-      let count = 0;
-      while (true) {
-        yield createElement(
-          'button',
-          { onClick: () => { count++; rerender(); } },
-          String(count)
-        );
-      }
+      const [count, setCount] = yield* useState(0);
+      return createElement(
+        'button',
+        { onClick: () => { setCount(count + 1); } },
+        String(count)
+      );
     }
 
     render(createElement(Counter as never, {}), container);
@@ -158,21 +181,9 @@ describe('render – generator components', () => {
     expect(container.querySelector('button')!.textContent).toBe('2');
   });
 
-  it('stops rerendering when the generator is exhausted', () => {
-    function* Once(_props: Record<string, unknown>, rerender: () => void) {
-      yield createElement('p', null, 'first');
-      rerender(); // should be a no-op because generator is done after this
-    }
-
-    render(createElement(Once as never, {}), container);
-    // 'first' was rendered; calling rerender inside the component exhausted
-    // the generator so the host keeps showing 'first'
-    expect(container.querySelector('p')!.textContent).toBe('first');
-  });
-
   it('renders generator components nested inside HTML elements', () => {
     function* Label({ text }: { text: string }) {
-      yield createElement('span', null, text);
+      return createElement('span', null, text);
     }
 
     render(
@@ -187,7 +198,7 @@ describe('render – generator components', () => {
 
   it('passes children in props', () => {
     function* Wrapper({ children }: { children: unknown }) {
-      yield createElement('section', null, ...(children as never[]));
+      return createElement('section', null, ...(children as never[]));
     }
 
     render(
@@ -198,6 +209,149 @@ describe('render – generator components', () => {
     );
 
     expect(container.querySelector('p')!.textContent).toBe('child content');
+  });
+});
+
+describe('render – generator components with useState', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+  });
+
+  it('useState persists value across re-renders', () => {
+    let setLabel: ((v: string) => void) | null = null;
+
+    function* Label() {
+      const [text, st] = yield* useState('initial');
+      setLabel = st;
+      return createElement('p', null, text);
+    }
+
+    render(createElement(Label as never, {}), container);
+    expect(container.querySelector('p')!.textContent).toBe('initial');
+
+    setLabel!('updated');
+    expect(container.querySelector('p')!.textContent).toBe('updated');
+
+    setLabel!('again');
+    expect(container.querySelector('p')!.textContent).toBe('again');
+  });
+
+  it('multiple useState calls maintain independent state', () => {
+    let setA: ((v: string) => void) | null = null;
+    let setB: ((v: number) => void) | null = null;
+
+    function* Multi() {
+      const [a, sa] = yield* useState('hello');
+      const [b, sb] = yield* useState(0);
+      setA = sa;
+      setB = sb;
+      return createElement('p', null, `${a}-${b}`);
+    }
+
+    render(createElement(Multi as never, {}), container);
+    expect(container.querySelector('p')!.textContent).toBe('hello-0');
+
+    setA!('world');
+    expect(container.querySelector('p')!.textContent).toBe('world-0');
+
+    setB!(42);
+    expect(container.querySelector('p')!.textContent).toBe('world-42');
+  });
+});
+
+describe('render – generator components with usePromise', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+  });
+
+  it('shows loading state while promise is pending', async () => {
+    let resolvePromise!: (data: string) => void;
+    const promise = new Promise<string>(res => { resolvePromise = res; });
+
+    function* DataComp() {
+      const data = yield* usePromise({
+        fn: () => promise,
+        loading: createElement('span', { id: 'loading' }, 'Loading…'),
+        error: createElement('span', { id: 'error' }, 'Error'),
+      });
+      return createElement('span', { id: 'data' }, data);
+    }
+
+    render(createElement(DataComp as never, {}), container);
+    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector('#data')).toBeNull();
+
+    resolvePromise('Hello World');
+    await promise;
+
+    expect(container.querySelector('#loading')).toBeNull();
+    expect(container.querySelector('#data')).not.toBeNull();
+    expect(container.querySelector('#data')!.textContent).toBe('Hello World');
+  });
+
+  it('shows error state when promise rejects', async () => {
+    let rejectPromise!: (reason: unknown) => void;
+    const promise = new Promise<string>((_res, rej) => { rejectPromise = rej; });
+
+    function* DataComp() {
+      const data = yield* usePromise({
+        fn: () => promise,
+        loading: createElement('span', { id: 'loading' }, 'Loading…'),
+        error: createElement('span', { id: 'error' }, 'Error'),
+      });
+      return createElement('span', { id: 'data' }, data);
+    }
+
+    render(createElement(DataComp as never, {}), container);
+    expect(container.querySelector('#loading')).not.toBeNull();
+
+    rejectPromise(new Error('network error'));
+    await promise.catch(() => {}); // wait for rejection to propagate
+
+    expect(container.querySelector('#error')).not.toBeNull();
+    expect(container.querySelector('#data')).toBeNull();
+  });
+
+  it('usePromise can coexist with useState in the same component', async () => {
+    let resolvePromise!: (data: string) => void;
+    const promise = new Promise<string>(res => { resolvePromise = res; });
+    let setLabel: ((v: string) => void) | null = null;
+
+    function* DataComp() {
+      const [label, sl] = yield* useState('prefix');
+      setLabel = sl;
+      const data = yield* usePromise({
+        fn: () => promise,
+        loading: createElement('span', { id: 'loading' }, 'Loading…'),
+        error: createElement('span', null, 'Error'),
+      });
+      return createElement('p', { id: 'result' }, `${label}:${data}`);
+    }
+
+    render(createElement(DataComp as never, {}), container);
+    expect(container.querySelector('#loading')).not.toBeNull();
+
+    resolvePromise('world');
+    await promise;
+
+    expect(container.querySelector('#result')!.textContent).toBe('prefix:world');
+
+    setLabel!('updated');
+    expect(container.querySelector('#result')!.textContent).toBe('updated:world');
   });
 });
 

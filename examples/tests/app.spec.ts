@@ -1,9 +1,9 @@
 /**
  * Playwright end-to-end tests for the yielderact examples app.
  *
- * These tests verify that the three example components (Counter, TodoList, and
- * ThemeDemo) are correctly rendered and interactive in real browsers
- * (Chromium, Firefox, WebKit/Safari).
+ * These tests verify that the four example components (Counter, TodoList,
+ * ThemeDemo, DataFetcher) are correctly rendered and interactive in real
+ * browsers (Chromium, Firefox, WebKit/Safari).
  *
  * The Vite dev server is started automatically by playwright.config.ts.
  */
@@ -35,11 +35,12 @@ test.describe('App shell', () => {
     await page.screenshot({ path: 'test-results/app-loaded.png' });
   });
 
-  test('shows all three tabs', async ({ page }) => {
+  test('shows all four tabs', async ({ page }) => {
     await goToApp(page);
     await expect(page.getByRole('tab', { name: 'Counter' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Todo List' })).toBeVisible();
     await expect(page.getByRole('tab', { name: 'Context / Theme' })).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'Data Fetcher' })).toBeVisible();
   });
 });
 
@@ -172,5 +173,28 @@ test.describe('Context / Theme example', () => {
   test('themed card is visible', async ({ page }) => {
     await expect(page.locator('#themed-card')).toBeVisible();
     await page.screenshot({ path: 'test-results/theme-card.png' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Data Fetcher example
+// ---------------------------------------------------------------------------
+
+test.describe('Data Fetcher example', () => {
+  test.beforeEach(async ({ page }) => {
+    await goToApp(page);
+    await clickTab(page, 'Data Fetcher');
+  });
+
+  test('shows loading state initially', async ({ page }) => {
+    await expect(page.locator('#loading-message')).toBeVisible();
+    await page.screenshot({ path: 'test-results/data-loading.png' });
+  });
+
+  test('shows user data after promise resolves', async ({ page }) => {
+    // Wait up to 5 s for the simulated 1.5 s fetch to complete
+    await expect(page.locator('#user-data')).toBeVisible({ timeout: 5000 });
+    await expect(page.locator('#user-data')).toContainText('Jane Doe');
+    await page.screenshot({ path: 'test-results/data-loaded.png' });
   });
 });

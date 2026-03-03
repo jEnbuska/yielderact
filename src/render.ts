@@ -1,6 +1,7 @@
 import { Fragment, VNode, Child, GeneratorComponentFn, PlainComponentFn, AnyComponentFn } from './jsx';
 import { _getCtxMap, _setCtxMap, _getProviderCtx, type Context } from './context';
-import { createSyntheticEvent } from './events';
+import { createSyntheticEvent, type SyntheticEvent } from './events';
+import { _initHooks, _clearHooks } from './hooks';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -164,13 +165,29 @@ interface Slot {
 /** State held for one running generator component. */
 interface GenInstance {
   fn: GeneratorComponentFn;
-  gen: Generator<VNode | null | undefined>;
+  /**
+   * The active generator for this component.
+   *
+   * - Non-null when the generator has yielded (a hook intercepted rendering,
+   *   e.g. `usePromise` is waiting for a promise).  The generator will be
+   *   resumed via `gen.next()` on the next `rerender()` call.
+   * - `null` when the generator has returned (component completed its render).
+   *   A fresh generator is created on the next `rerender()` call.
+   */
+  gen: Generator<Child, Child, unknown> | null;
   props: Record<string, unknown>;
   host: HTMLElement;
   /** The context map that was active when this component was mounted. */
   capturedCtx: ReadonlyMap<Context<unknown>, unknown>;
   /** Reconciled slots representing the generator's last rendered output. */
   slots: Slot[];
+  /**
+   * Persistent hook state storage.  Each entry corresponds to one `yield*`
+   * hook call in the component body (by call-order index).  This array
+   * survives across re-renders so that `useState` values and `usePromise`
+   * promise statuses are preserved.
+   */
+  hookStates: unknown[];
 }
 
 /** Map from a generator component's host span to its instance. */
@@ -265,6 +282,12 @@ function buildVNodeList(vnodes: Child[]): { nodes: Node[]; slots: Slot[] } {
 /**
  * Mount a generator-function component into a `display:contents` host span.
  * Registers a GenInstance so that `rerender()` can reconcile efficiently.
+ *
+ * Components **return** their JSX (done=true).  Hooks may **yield** intermediate
+ * VNodes (done=false) to intercept rendering (e.g. show a loading spinner while
+ * a promise is pending).  When a hook yields, the generator is stored and
+ * resumed on the next `rerender()`.  When the generator returns, it is discarded
+ * and a fresh one is created on the next `rerender()`.
  */
 function mountGeneratorComponent(
   fn: GeneratorComponentFn,
@@ -274,35 +297,63 @@ function mountGeneratorComponent(
   host.style.display = 'contents';
 
   const capturedCtx = _getCtxMap();
+  const hookStates: unknown[] = [];
 
   // `instance` is fully populated below before any external code can observe it.
-  // We use a partial object here so `rerender` can close over it.
   // eslint-disable-next-line prefer-const
   let instance: GenInstance;
 
   function rerender(): void {
     const prevCtx = _getCtxMap();
     _setCtxMap(instance.capturedCtx);
-    try {
-      const { value: vnode, done } = instance.gen.next();
-      if (!done) {
-        instance.slots = reconcileSlots(host, instance.slots, [vnode ?? null]);
+
+    let vnode: Child;
+
+    if (instance.gen !== null) {
+      // ── Resume paused generator (a hook yielded an intermediate VNode) ──
+      // Do NOT call _initHooks: the hook closures already captured their
+      // rerender / hookStates references from when the generator first ran.
+      try {
+        const { value, done } = instance.gen.next();
+        if (done) {
+          instance.gen = null;
+        }
+        vnode = (value as Child) ?? null;
+      } finally {
+        _setCtxMap(prevCtx);
       }
-    } finally {
-      _setCtxMap(prevCtx);
+    } else {
+      // ── Fresh run (generator completed on last render) ──
+      _initHooks(rerender, instance.hookStates);
+      try {
+        const gen = instance.fn(instance.props, rerender);
+        const { value, done } = gen.next();
+        instance.gen = done ? null : gen;
+        vnode = (value as Child) ?? null;
+      } finally {
+        _clearHooks();
+        _setCtxMap(prevCtx);
+      }
     }
+
+    instance.slots = reconcileSlots(host, instance.slots, [vnode]);
   }
 
+  // ── Initial mount ──
   const prevCtx = _getCtxMap();
   _setCtxMap(capturedCtx);
+  _initHooks(rerender, hookStates);
   try {
     const gen = fn(props, rerender);
-    const { value: initialVNode } = gen.next();
-    const { nodes, slots } = buildVNodeList([initialVNode ?? null]);
-    instance = { fn, gen, props, host, capturedCtx, slots };
+    const { value, done } = gen.next();
+    const initialGen = done ? null : gen;
+    const initialVNode: Child = (value as Child) ?? null;
+    const { nodes, slots } = buildVNodeList([initialVNode]);
+    instance = { fn, gen: initialGen, props, host, capturedCtx, slots, hookStates };
     genInstanceMap.set(host, instance);
     for (const n of nodes) host.appendChild(n);
   } finally {
+    _clearHooks();
     _setCtxMap(prevCtx);
   }
 

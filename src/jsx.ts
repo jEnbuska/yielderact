@@ -15,23 +15,37 @@ export type Child = VNode | string | number | boolean | null | undefined;
 /**
  * A generator-function component.
  *
- * Each `yield` produces the JSX for the current render.
- * The `rerender` callback – received as the second argument – can be
- * called from inside event handlers to advance the generator and
- * repaint the component.
+ * The component body runs from top to bottom on each render and **returns**
+ * its JSX (not `yield`s it).  Hooks are invoked with `yield*` and may
+ * temporarily intercept rendering (e.g. `usePromise` shows a loading state
+ * while a promise is pending).
+ *
+ * Call `rerender()` (the second argument) or use a hook setter to trigger
+ * a re-render; the generator body is re-executed from the top and the DOM
+ * is reconciled with the new output.
  *
  * @example
- * function* Counter(props: { initial?: number }, rerender: () => void) {
- *   let count = props.initial ?? 0;
- *   while (true) {
- *     yield <button onClick={() => { count++; rerender(); }}>{count}</button>;
- *   }
+ * function* Counter(_props: object) {
+ *   const [count, setCount] = yield* useState(0);
+ *   return (
+ *     <button onClick={() => setCount(count + 1)}>{count}</button>
+ *   );
+ * }
+ *
+ * @example
+ * function* UserCard(_props: object) {
+ *   const user = yield* usePromise({
+ *     fn: () => fetchUser(1),
+ *     loading: <Spinner />,
+ *     error:   <ErrorMsg />,
+ *   });
+ *   return <div>{user.name}</div>;
  * }
  */
 export type GeneratorComponentFn<P extends Record<string, unknown> = Record<string, unknown>> = (
   props: P,
   rerender: () => void
-) => Generator<VNode | null | undefined>;
+) => Generator<Child, Child, unknown>;
 
 /**
  * A plain-function component (no state, returns JSX once).
