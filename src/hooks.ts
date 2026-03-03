@@ -71,19 +71,32 @@ export function _clearHooks(): void {
  *     <button onClick={() => setCount(count + 1)}>{count}</button>
  *   );
  * }
+ *
+ * // Lazy initializer – function is called only on the first render:
+ * const [value, setValue] = yield* useState(() => expensiveComputation());
+ *
+ * // Functional updater – receives the previous state:
+ * setValue(prev => prev + 1);
+ *
+ * NOTE: As in React, any function passed as `initialValue` or to the setter is
+ * treated as a lazy initializer / updater respectively.  To store a function as
+ * state, wrap it: `useState(() => myFn)` / `setState(() => newFn)`.
  */
-export function* useState<T>(initialValue: T): Generator<never, [T, (value: T) => void], unknown> {
+export function* useState<T>(
+  initialValue: T | (() => T),
+): Generator<never, [T, (value: T | ((prev: T) => T)) => void], unknown> {
   const rerender = _currentRerender!;
   const states = _hookStates!;
   const index = _hookIndex++;
 
   if (!(index in states)) {
-    states[index] = initialValue;
+    states[index] = typeof initialValue === 'function' ? (initialValue as () => T)() : initialValue;
   }
 
   const value = states[index] as T;
-  const setter = (newValue: T): void => {
-    states[index] = newValue;
+  const setter = (newValue: T | ((prev: T) => T)): void => {
+    states[index] =
+      typeof newValue === 'function' ? (newValue as (prev: T) => T)(states[index] as T) : newValue;
     rerender();
   };
 
