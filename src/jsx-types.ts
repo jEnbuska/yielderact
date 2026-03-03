@@ -410,6 +410,8 @@ export interface HTMLAttributes<T extends HTMLElement = HTMLElement> extends Ari
   key?: string | number;
   /** Nested children. */
   children?: Child | Child[];
+  /** When false, the element/component is not rendered (and unmounted if previously mounted). Defaults to true. */
+  shown?: boolean;
 
   // ── Global HTML attributes ───────────────────────────────────────────────
   accessKey?: string;
@@ -911,6 +913,8 @@ export interface VideoHTMLAttributes extends HTMLAttributes<HTMLVideoElement> {
 export interface SVGAttributes<T extends SVGElement = SVGElement> extends AriaAttributes, EventHandlers<T> {
   key?: string | number;
   children?: Child | Child[];
+  /** When false, the element/component is not rendered (and unmounted if previously mounted). Defaults to true. */
+  shown?: boolean;
   className?: string;
   id?: string;
   style?: CSSProperties;
