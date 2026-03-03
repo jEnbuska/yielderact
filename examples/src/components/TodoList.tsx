@@ -53,6 +53,7 @@ export function* TodoList() {
         <input
           id="todo-input"
           type="text"
+          value={inputValue}
           placeholder="New todo…"
           onInput={(e: SEvent<'input'>) => {
             setState({ ...state, inputValue: (e.target as HTMLInputElement).value });

@@ -108,6 +108,12 @@ function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
       el.className = String(value);
     } else if (key === 'style' && typeof value === 'object' && value !== null) {
       Object.assign(el.style, value);
+    } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+      // Use the DOM property so the live value is updated, not just the default
+      (el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = String(value ?? '');
+    } else if (key === 'checked' && el instanceof HTMLInputElement) {
+      // Use the DOM property for checkboxes
+      el.checked = Boolean(value);
     } else if (value != null) {
       el.setAttribute(key, String(value));
     }

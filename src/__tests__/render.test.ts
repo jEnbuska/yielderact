@@ -86,6 +86,45 @@ describe('render – HTML elements', () => {
     render(createElement('div', null, null, undefined, 'visible'), container);
     expect(container.querySelector('div')!.textContent).toBe('visible');
   });
+  it('sets input value as DOM property (not just attribute)', () => {
+    let setValue: ((v: string) => void) | null = null;
+
+    function* Controlled() {
+      const [val, sv] = yield* useState('initial');
+      setValue = sv;
+      return createElement('input', { type: 'text', value: val });
+    }
+
+    render(createElement(Controlled as never, {}), container);
+    const input = container.querySelector('input') as HTMLInputElement;
+    expect(input.value).toBe('initial');
+
+    setValue!('updated');
+    expect(input.value).toBe('updated');
+
+    setValue!('');
+    expect(input.value).toBe('');
+  });
+
+  it('sets checkbox checked as DOM property', () => {
+    let setChecked: ((v: boolean) => void) | null = null;
+
+    function* CheckBox() {
+      const [checked, sc] = yield* useState(false);
+      setChecked = sc;
+      return createElement('input', { type: 'checkbox', checked });
+    }
+
+    render(createElement(CheckBox as never, {}), container);
+    const cb = container.querySelector('input') as HTMLInputElement;
+    expect(cb.checked).toBe(false);
+
+    setChecked!(true);
+    expect(cb.checked).toBe(true);
+
+    setChecked!(false);
+    expect(cb.checked).toBe(false);
+  });
 });
 
 describe('render – plain function components', () => {
