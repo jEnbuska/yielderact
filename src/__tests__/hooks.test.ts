@@ -141,11 +141,11 @@ describe('useMemo', () => {
   });
 
   it('computes the initial value by calling fn with deps', () => {
-    const factory = jest.fn((...args: unknown[]) => (args[0] as number) + (args[1] as number));
+    const factory = jest.fn((a: number, b: number) => a + b);
     let capturedValue: number | null = null;
 
     function* Comp() {
-      capturedValue = (yield* useMemo(factory, [2, 3])) as number;
+      capturedValue = yield* useMemo(factory, [2, 3]);
       return createElement('div', null);
     }
 
@@ -156,13 +156,13 @@ describe('useMemo', () => {
   });
 
   it('does not recompute when deps are the same', () => {
-    const factory = jest.fn((...args: unknown[]) => (args[0] as number) * 2);
+    const factory = jest.fn((a: number) => a * 2);
     let setValue: ((v: number) => void) | null = null;
 
     function* Comp() {
       const [v, sv] = yield* useState(10);
       setValue = sv;
-      yield* useMemo(factory as never, [5]);
+      yield* useMemo(factory, [5]);
       return createElement('div', null, String(v));
     }
 
@@ -173,14 +173,14 @@ describe('useMemo', () => {
   });
 
   it('recomputes when deps change', () => {
-    const factory = jest.fn((...args: unknown[]) => (args[0] as number) * 2);
+    const factory = jest.fn((a: number) => a * 2);
     let setValue: ((v: number) => void) | null = null;
     let capturedValue: number | null = null;
 
     function* Comp() {
       const [v, sv] = yield* useState(1);
       setValue = sv;
-      capturedValue = (yield* useMemo(factory, [v])) as number;
+      capturedValue = yield* useMemo(factory, [v]);
       return createElement('div', null);
     }
 
@@ -192,5 +192,26 @@ describe('useMemo', () => {
     expect(capturedValue).toBe(6);
     expect(factory).toHaveBeenCalledTimes(2);
     expect(factory).toHaveBeenLastCalledWith(3);
+  });
+
+  it('works with empty deps (zero-arg factory)', () => {
+    const factory = jest.fn(() => 42);
+    let setValue: ((v: number) => void) | null = null;
+    let capturedValue: number | null = null;
+
+    function* Comp() {
+      const [, sv] = yield* useState(0);
+      setValue = sv;
+      capturedValue = yield* useMemo(factory, []);
+      return createElement('div', null);
+    }
+
+    render(createElement(Comp as never, {}), container);
+    expect(capturedValue).toBe(42);
+    expect(factory).toHaveBeenCalledTimes(1);
+
+    setValue!(1); // re-render, empty deps never change
+    expect(capturedValue).toBe(42);
+    expect(factory).toHaveBeenCalledTimes(1);
   });
 });

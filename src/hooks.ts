@@ -186,6 +186,11 @@ type MemoState<T> = { value: T; deps: unknown[] };
  *   return <div>{result}</div>;
  * }
  */
+export function useMemo<T>(fn: () => T, deps: []): Generator<never, T, unknown>;
+export function useMemo<T, Deps extends [unknown, ...unknown[]]>(
+  fn: (...args: Deps) => T,
+  deps: [...Deps],
+): Generator<never, T, unknown>;
 export function* useMemo<T>(
   fn: (...args: unknown[]) => T,
   deps: unknown[],
