@@ -26,13 +26,7 @@ export { createElement, Fragment } from './jsx';
 export { render } from './render';
 export { createContext, useContext } from './context';
 export { useState, usePromise } from './hooks';
-export type {
-  VNode,
-  Child,
-  GeneratorComponentFn,
-  PlainComponentFn,
-  AnyComponentFn,
-} from './jsx';
+export type { VNode, Child, GeneratorComponentFn, PlainComponentFn, AnyComponentFn } from './jsx';
 export type { Context } from './context';
 export type { SyntheticEvent, SEvent } from './events';
 export type { UsePromiseOptions, Renderable } from './hooks';

@@ -32,7 +32,9 @@ describe('createElement', () => {
   });
 
   it('stores a function component as the type', () => {
-    function* MyComponent() { yield createElement('div', null); }
+    function* MyComponent() {
+      yield createElement('div', null);
+    }
     const vnode: VNode = createElement(MyComponent as unknown as VNode['type'], { id: '1' });
     expect(vnode.type).toBe(MyComponent);
     expect(vnode.props).toEqual({ id: '1' });

@@ -81,8 +81,7 @@ export interface SyntheticEvent<E extends Event = Event> {
  * `K` is the **lowercase** DOM event name (matching
  * `keyof HTMLElementEventMap`).
  */
-export type SEvent<K extends keyof HTMLElementEventMap> =
-  SyntheticEvent<HTMLElementEventMap[K]>;
+export type SEvent<K extends keyof HTMLElementEventMap> = SyntheticEvent<HTMLElementEventMap[K]>;
 
 // ---------------------------------------------------------------------------
 // Factory

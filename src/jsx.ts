@@ -44,7 +44,7 @@ export type Child = VNode | string | number | boolean | null | undefined;
  */
 export type GeneratorComponentFn<P extends Record<string, unknown> = Record<string, unknown>> = (
   props: P,
-  rerender: () => void
+  rerender: () => void,
 ) => Generator<Child, Child, unknown>;
 
 /**
@@ -56,7 +56,7 @@ export type GeneratorComponentFn<P extends Record<string, unknown> = Record<stri
  * }
  */
 export type PlainComponentFn<P extends Record<string, unknown> = Record<string, unknown>> = (
-  props: P
+  props: P,
 ) => VNode | null | undefined;
 
 export type AnyComponentFn<P extends Record<string, unknown> = Record<string, unknown>> =
@@ -107,11 +107,7 @@ export function createElement<P extends Record<string, unknown>>(
 ): VNode;
 
 // Overload 3: symbol (Fragment)
-export function createElement(
-  type: symbol,
-  props: null,
-  ...children: Child[]
-): VNode;
+export function createElement(type: symbol, props: null, ...children: Child[]): VNode;
 
 // Overload 4: escape-hatch (union type)
 export function createElement(

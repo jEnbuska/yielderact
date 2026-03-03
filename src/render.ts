@@ -1,4 +1,11 @@
-import { Fragment, VNode, Child, GeneratorComponentFn, PlainComponentFn, AnyComponentFn } from './jsx';
+import {
+  Fragment,
+  VNode,
+  Child,
+  GeneratorComponentFn,
+  PlainComponentFn,
+  AnyComponentFn,
+} from './jsx';
 import { _getCtxMap, _setCtxMap, _getProviderCtx, type Context } from './context';
 import { createSyntheticEvent, type SyntheticEvent } from './events';
 import { _initHooks, _clearHooks } from './hooks';
@@ -20,24 +27,17 @@ function clearChildren(node: Node): void {
 }
 
 /** Shallow equality check for props objects. */
-function shallowEqual(
-  a: Record<string, unknown>,
-  b: Record<string, unknown>
-): boolean {
+function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
   const aKeys = Object.keys(a);
   if (aKeys.length !== Object.keys(b).length) return false;
-  return aKeys.every(k => Object.is(a[k], b[k]));
+  return aKeys.every((k) => Object.is(a[k], b[k]));
 }
 
 /** Flatten Fragment VNodes into a flat list of non-Fragment children. */
 function flattenChildren(children: Child[]): Child[] {
   const result: Child[] = [];
   for (const child of children) {
-    if (
-      child != null &&
-      typeof child === 'object' &&
-      (child as VNode).type === Fragment
-    ) {
+    if (child != null && typeof child === 'object' && (child as VNode).type === Fragment) {
       result.push(...flattenChildren((child as VNode).children));
     } else {
       result.push(child);
@@ -62,10 +62,9 @@ const listenerWrappers = new WeakMap<HTMLElement, Map<string, EventListener>>();
 function addSyntheticListener(
   el: HTMLElement,
   eventName: string,
-  handler: (e: SyntheticEvent) => void
+  handler: (e: SyntheticEvent) => void,
 ): void {
-  const wrapper: EventListener = (nativeEvent: Event) =>
-    handler(createSyntheticEvent(nativeEvent));
+  const wrapper: EventListener = (nativeEvent: Event) => handler(createSyntheticEvent(nativeEvent));
   el.addEventListener(eventName, wrapper);
   let map = listenerWrappers.get(el);
   if (!map) {
@@ -99,18 +98,21 @@ function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(props)) {
     if (key === 'children') continue;
     if (key.startsWith('on') && typeof value === 'function') {
-      addSyntheticListener(
-        el,
-        key.slice(2).toLowerCase(),
-        value as (e: SyntheticEvent) => void
-      );
+      addSyntheticListener(el, key.slice(2).toLowerCase(), value as (e: SyntheticEvent) => void);
     } else if (key === 'className') {
       el.className = String(value);
     } else if (key === 'style' && typeof value === 'object' && value !== null) {
       Object.assign(el.style, value);
-    } else if (key === 'value' && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) {
+    } else if (
+      key === 'value' &&
+      (el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        el instanceof HTMLSelectElement)
+    ) {
       // Use the DOM property so the live value is updated, not just the default
-      (el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = String(value ?? '');
+      (el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = String(
+        value ?? '',
+      );
     } else if (key === 'checked' && el instanceof HTMLInputElement) {
       // Use the DOM property for checkboxes
       el.checked = Boolean(value);
@@ -127,7 +129,7 @@ function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
 function updateProps(
   el: HTMLElement,
   prevProps: Record<string, unknown>,
-  nextProps: Record<string, unknown>
+  nextProps: Record<string, unknown>,
 ): void {
   // Always remove old event listeners (they may be replaced by new functions)
   for (const key of Object.keys(prevProps)) {
@@ -207,9 +209,7 @@ const genInstanceMap = new WeakMap<HTMLElement, GenInstance>();
  * Compute the merged props for a VNode (includes children if any).
  */
 function mergedProps(vnode: VNode): Record<string, unknown> {
-  return vnode.children.length > 0
-    ? { ...vnode.props, children: vnode.children }
-    : vnode.props;
+  return vnode.children.length > 0 ? { ...vnode.props, children: vnode.children } : vnode.props;
 }
 
 /**
@@ -230,7 +230,13 @@ function buildVNodeList(vnodes: Child[]): { nodes: Node[]; slots: Slot[] } {
     if (typeof child === 'string' || typeof child === 'number') {
       const node = document.createTextNode(String(child));
       nodes.push(node);
-      slots.push({ type: 'text', node, props: { text: String(child) }, childSlots: [], genInstance: null });
+      slots.push({
+        type: 'text',
+        node,
+        props: { text: String(child) },
+        childSlots: [],
+        genInstance: null,
+      });
       continue;
     }
 
@@ -256,8 +262,7 @@ function buildVNodeList(vnodes: Child[]): { nodes: Node[]; slots: Slot[] } {
       } else {
         node = mountPlainComponent(fn as PlainComponentFn, allProps);
       }
-      const genInstance =
-        node instanceof HTMLElement ? (genInstanceMap.get(node) ?? null) : null;
+      const genInstance = node instanceof HTMLElement ? (genInstanceMap.get(node) ?? null) : null;
       nodes.push(node);
       slots.push({ type: vnode.type, node, props: allProps, childSlots: [], genInstance });
       continue;
@@ -295,10 +300,7 @@ function buildVNodeList(vnodes: Child[]): { nodes: Node[]; slots: Slot[] } {
  * resumed on the next `rerender()`.  When the generator returns, it is discarded
  * and a fresh one is created on the next `rerender()`.
  */
-function mountGeneratorComponent(
-  fn: GeneratorComponentFn,
-  props: Record<string, unknown>
-): Node {
+function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string, unknown>): Node {
   const host = document.createElement('span');
   host.style.display = 'contents';
 
@@ -391,7 +393,7 @@ function mountGeneratorComponent(
 function mountContextProvider(
   fn: PlainComponentFn,
   props: Record<string, unknown>,
-  providerCtx: object
+  providerCtx: object,
 ): Node {
   const prevCtxMap = _getCtxMap();
   const newCtxMap = new Map(prevCtxMap);
@@ -419,10 +421,7 @@ function mountContextProvider(
  * Mount a plain (non-generator) function component.
  * Called once; has no state of its own.
  */
-function mountPlainComponent(
-  fn: PlainComponentFn,
-  props: Record<string, unknown>
-): Node {
+function mountPlainComponent(fn: PlainComponentFn, props: Record<string, unknown>): Node {
   const host = document.createElement('span');
   host.style.display = 'contents';
   const vnode = fn(props);
@@ -444,11 +443,7 @@ function mountPlainComponent(
  *
  * Returns the updated slot array.
  */
-function reconcileSlots(
-  parent: HTMLElement,
-  prevSlots: Slot[],
-  nextVNodes: Child[]
-): Slot[] {
+function reconcileSlots(parent: HTMLElement, prevSlots: Slot[], nextVNodes: Child[]): Slot[] {
   // Flatten fragments before reconciling
   const flatNext = flattenChildren(nextVNodes);
   const nextSlots: Slot[] = [];
@@ -495,7 +490,7 @@ function reconcileSlots(
  */
 function reconcileOne(
   prevSlot: Slot | null,
-  nextChild: Child
+  nextChild: Child,
 ): { slot: Slot; node: Node; replaced: boolean } {
   // ---- Empty / null ----
   if (nextChild == null || nextChild === false) {
@@ -560,8 +555,7 @@ function reconcileOne(
     } else {
       node = mountPlainComponent(fn as PlainComponentFn, allProps);
     }
-    const genInstance =
-      node instanceof HTMLElement ? (genInstanceMap.get(node) ?? null) : null;
+    const genInstance = node instanceof HTMLElement ? (genInstanceMap.get(node) ?? null) : null;
     return {
       slot: { type: vnode.type, node, props: allProps, childSlots: [], genInstance },
       node,
@@ -574,11 +568,7 @@ function reconcileOne(
     if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
       // Same tag → update props in place and reconcile children
       updateProps(prevSlot.node, prevSlot.props, vnode.props);
-      prevSlot.childSlots = reconcileSlots(
-        prevSlot.node,
-        prevSlot.childSlots,
-        vnode.children
-      );
+      prevSlot.childSlots = reconcileSlots(prevSlot.node, prevSlot.childSlots, vnode.children);
       prevSlot.props = vnode.props;
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }

@@ -72,9 +72,7 @@ export function _clearHooks(): void {
  *   );
  * }
  */
-export function* useState<T>(
-  initialValue: T
-): Generator<never, [T, (value: T) => void], unknown> {
+export function* useState<T>(initialValue: T): Generator<never, [T, (value: T) => void], unknown> {
   const rerender = _currentRerender!;
   const states = _hookStates!;
   const index = _hookIndex++;
@@ -125,12 +123,9 @@ type PromiseHookState<T> =
   | { status: 'rejected'; reason: unknown; gen: number; deps: unknown[] | undefined };
 
 /** Returns true when the dependency arrays differ. */
-function depsChanged(
-  prev: unknown[] | undefined,
-  next: unknown[] | undefined
-): boolean {
+function depsChanged(prev: unknown[] | undefined, next: unknown[] | undefined): boolean {
   if (next === undefined) return false; // no deps = run once, never re-run
-  if (prev === undefined) return true;  // deps just introduced
+  if (prev === undefined) return true; // deps just introduced
   if (prev.length !== next.length) return true;
   return prev.some((v, i) => !Object.is(v, next[i]));
 }
@@ -168,9 +163,7 @@ function toChild(renderable: Renderable): Child {
  *   return <div>{user.name}</div>;
  * }
  */
-export function* usePromise<T>(
-  options: UsePromiseOptions<T>
-): Generator<Child, T, unknown> {
+export function* usePromise<T>(options: UsePromiseOptions<T>): Generator<Child, T, unknown> {
   const resume = _currentResume!;
   const states = _hookStates!;
   const index = _hookIndex++;
@@ -190,20 +183,36 @@ export function* usePromise<T>(
     const idleState = states[index] as { status: 'idle'; gen: number };
     const currentGen = idleState.gen + 1;
     const promise = options.fn();
-    states[index] = { status: 'pending', gen: currentGen, deps: options.deps } as PromiseHookState<T>;
-    promise.then((data: T) => {
-      const s = states[index] as PromiseHookState<T>;
-      if (s.status === 'pending' && s.gen === currentGen) {
-        states[index] = { status: 'resolved', data, gen: currentGen, deps: options.deps } as PromiseHookState<T>;
-        resume();
-      }
-    }).catch((reason: unknown) => {
-      const s = states[index] as PromiseHookState<T>;
-      if (s.status === 'pending' && s.gen === currentGen) {
-        states[index] = { status: 'rejected', reason, gen: currentGen, deps: options.deps } as PromiseHookState<T>;
-        resume();
-      }
-    });
+    states[index] = {
+      status: 'pending',
+      gen: currentGen,
+      deps: options.deps,
+    } as PromiseHookState<T>;
+    promise
+      .then((data: T) => {
+        const s = states[index] as PromiseHookState<T>;
+        if (s.status === 'pending' && s.gen === currentGen) {
+          states[index] = {
+            status: 'resolved',
+            data,
+            gen: currentGen,
+            deps: options.deps,
+          } as PromiseHookState<T>;
+          resume();
+        }
+      })
+      .catch((reason: unknown) => {
+        const s = states[index] as PromiseHookState<T>;
+        if (s.status === 'pending' && s.gen === currentGen) {
+          states[index] = {
+            status: 'rejected',
+            reason,
+            gen: currentGen,
+            deps: options.deps,
+          } as PromiseHookState<T>;
+          resume();
+        }
+      });
   }
 
   // Yield the loading VNode on each resume while the promise is still pending.

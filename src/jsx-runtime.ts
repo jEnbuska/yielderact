@@ -17,7 +17,7 @@ export { Fragment };
 /** Used by the JSX transform for single-child expressions. */
 export function jsx(
   type: VNode['type'],
-  props: { children?: Child } & Record<string, unknown>
+  props: { children?: Child } & Record<string, unknown>,
 ): VNode {
   const { children, ...rest } = props;
   if (children === undefined) {

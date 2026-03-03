@@ -41,8 +41,8 @@ export function* ThemeDemo() {
     <section aria-label="Theme context example">
       <h2>Context API</h2>
       <p>
-        <code>createContext</code> / <code>useContext</code> let child
-        components consume values without prop-drilling.
+        <code>createContext</code> / <code>useContext</code> let child components consume values
+        without prop-drilling.
       </p>
       <button
         id="toggle-theme-btn"

@@ -8,7 +8,13 @@
     "jsxImportSource": "yielderact",
     "strict": true,
     "esModuleInterop": true,
-    "skipLibCheck": true
+    "skipLibCheck": true,
+    "baseUrl": ".",
+    "paths": {
+      "yielderact": ["../src/index.ts"],
+      "yielderact/jsx-runtime": ["../src/jsx-runtime.ts"],
+      "yielderact/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
+    }
   },
   "include": ["src", "vite.config.ts", "playwright.config.ts", "tests"]
 }

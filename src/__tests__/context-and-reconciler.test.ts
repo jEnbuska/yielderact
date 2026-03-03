@@ -42,10 +42,12 @@ describe('createContext / useContext', () => {
     }
 
     render(
-      createElement(Ctx.Provider as never, { value: 'provided' },
-        createElement(Consumer as never, {})
+      createElement(
+        Ctx.Provider as never,
+        { value: 'provided' },
+        createElement(Consumer as never, {}),
       ),
-      container
+      container,
     );
     expect(container.querySelector('span')!.textContent).toBe('provided');
   });
@@ -59,14 +61,20 @@ describe('createContext / useContext', () => {
     }
 
     render(
-      createElement(Ctx.Provider as never, { value: 'outer' },
-        createElement('div', null,
-          createElement(Ctx.Provider as never, { value: 'inner' },
-            createElement(Consumer as never, {})
-          )
-        )
+      createElement(
+        Ctx.Provider as never,
+        { value: 'outer' },
+        createElement(
+          'div',
+          null,
+          createElement(
+            Ctx.Provider as never,
+            { value: 'inner' },
+            createElement(Consumer as never, {}),
+          ),
+        ),
       ),
-      container
+      container,
     );
     expect(container.querySelector('span')!.textContent).toBe('inner');
   });
@@ -80,16 +88,20 @@ describe('createContext / useContext', () => {
     }
 
     render(
-      createElement('div', null,
-        createElement(Ctx.Provider as never, { value: 99 },
-          createElement('span', { id: 'inside' }, 'ignored')
+      createElement(
+        'div',
+        null,
+        createElement(
+          Ctx.Provider as never,
+          { value: 99 },
+          createElement('span', { id: 'inside' }, 'ignored'),
         ),
-        createElement(Consumer as never, {})
+        createElement(Consumer as never, {}),
       ),
-      container
+      container,
     );
     const spans = container.querySelectorAll('span');
-    const consumerSpan = Array.from(spans).find(s => s.textContent === '42');
+    const consumerSpan = Array.from(spans).find((s) => s.textContent === '42');
     expect(consumerSpan).toBeTruthy();
   });
 
@@ -105,8 +117,10 @@ describe('createContext / useContext', () => {
     function* Parent() {
       const [theme, st] = yield* useState(7);
       setTheme = st;
-      return createElement(Ctx.Provider as never, { value: theme },
-        createElement(Consumer as never, {})
+      return createElement(
+        Ctx.Provider as never,
+        { value: theme },
+        createElement(Consumer as never, {}),
       );
     }
 
@@ -145,9 +159,7 @@ describe('prop memoization', () => {
 
     function* Parent(_: Record<string, unknown>, rerender: () => void) {
       parentRerender = rerender;
-      return createElement('div', null,
-        createElement(Child as never, { label: 'hello' })
-      );
+      return createElement('div', null, createElement(Child as never, { label: 'hello' }));
     }
 
     render(createElement(Parent as never, {}), container);
@@ -172,8 +184,10 @@ describe('prop memoization', () => {
     function* Parent() {
       const [phase, sp] = yield* useState(0);
       setPhase = sp;
-      return createElement('div', null,
-        createElement(Child as never, { label: phase === 0 ? 'first' : 'second' })
+      return createElement(
+        'div',
+        null,
+        createElement(Child as never, { label: phase === 0 ? 'first' : 'second' }),
       );
     }
 
@@ -209,9 +223,7 @@ describe('component renders component', () => {
     }
 
     function* App() {
-      return createElement('div', null,
-        createElement(Greeting as never, { name: 'World' })
-      );
+      return createElement('div', null, createElement(Greeting as never, { name: 'World' }));
     }
 
     render(createElement(App as never, {}), container);
@@ -224,9 +236,7 @@ describe('component renders component', () => {
     }
 
     function* App() {
-      return createElement('div', null,
-        createElement(Label as never, { text: 'from-child' })
-      );
+      return createElement('div', null, createElement(Label as never, { text: 'from-child' }));
     }
 
     render(createElement(App as never, {}), container);
@@ -245,9 +255,7 @@ describe('component renders component', () => {
 
     function* Wrapper(_: Record<string, unknown>, rerender: () => void) {
       parentRerender = rerender;
-      return createElement('div', null,
-        createElement(Counter as never, {})
-      );
+      return createElement('div', null, createElement(Counter as never, {}));
     }
 
     render(createElement(Wrapper as never, {}), container);
@@ -276,9 +284,10 @@ describe('component renders component', () => {
     function* Parent() {
       const [phase, sp] = yield* useState(0);
       setPhase = sp;
-      return createElement('div', null, phase === 0
-        ? createElement(CompA as never, {})
-        : createElement(CompB as never, {})
+      return createElement(
+        'div',
+        null,
+        phase === 0 ? createElement(CompA as never, {}) : createElement(CompB as never, {}),
       );
     }
 
@@ -315,13 +324,19 @@ describe('component renders component', () => {
   });
 
   it('generator renders Fragment with multiple component children', () => {
-    function* A() { return createElement('span', { id: 'a' }, 'A'); }
-    function* B() { return createElement('span', { id: 'b' }, 'B'); }
+    function* A() {
+      return createElement('span', { id: 'a' }, 'A');
+    }
+    function* B() {
+      return createElement('span', { id: 'b' }, 'B');
+    }
 
     function* App() {
-      return createElement(Fragment, null,
+      return createElement(
+        Fragment,
+        null,
         createElement(A as never, {}),
-        createElement(B as never, {})
+        createElement(B as never, {}),
       );
     }
 

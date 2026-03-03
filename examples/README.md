@@ -5,10 +5,10 @@ features of the **yielderact** library running in a real browser.
 
 Three interactive demos are included:
 
-| Demo | What it shows |
-|------|--------------|
-| **Counter** | Generator component with local `let` state and `rerender()` |
-| **Todo List** | Array state, keyboard events, and conditional rendering |
+| Demo                | What it shows                                                        |
+| ------------------- | -------------------------------------------------------------------- |
+| **Counter**         | Generator component with local `let` state and `rerender()`          |
+| **Todo List**       | Array state, keyboard events, and conditional rendering              |
 | **Context / Theme** | `createContext` / `useContext` — value passing without prop-drilling |
 
 ---
@@ -38,6 +38,31 @@ npm run dev
 Open **http://localhost:5173** in your browser.
 The dev server resolves `yielderact` directly from the library source files
 in `../src`, so there is no separate build step needed.
+
+### TypeScript / editor support
+
+If your editor shows _"Cannot find module 'yielderact' or its corresponding type
+declarations"_, that is because `yielderact` is not installed as an npm package
+here — it is resolved at runtime by the Vite alias above.
+
+The `tsconfig.json` in this folder already contains a `paths` mapping that
+points your TypeScript language server to the source files:
+
+```json
+{
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "yielderact": ["../src/index.ts"],
+      "yielderact/jsx-runtime": ["../src/jsx-runtime.ts"],
+      "yielderact/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
+    }
+  }
+}
+```
+
+This tells TypeScript (and VS Code / other editors) where to find the module
+without needing a separate build or `npm link` step.
 
 ---
 

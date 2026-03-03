@@ -47,8 +47,8 @@ export function* DataFetcher() {
     <section aria-label="Data fetcher example">
       <h2>Data Fetcher</h2>
       <p>
-        <code>yield* usePromise</code> suspends rendering while a promise is
-        pending and automatically resumes when it resolves.
+        <code>yield* usePromise</code> suspends rendering while a promise is pending and
+        automatically resumes when it resolves.
       </p>
       <div
         id="user-data"
@@ -59,8 +59,12 @@ export function* DataFetcher() {
           fontFamily: 'monospace',
         }}
       >
-        <div><strong>Name:</strong> {user.name}</div>
-        <div><strong>Email:</strong> {user.email}</div>
+        <div>
+          <strong>Name:</strong> {user.name}
+        </div>
+        <div>
+          <strong>Email:</strong> {user.email}
+        </div>
       </div>
     </section>
   );
