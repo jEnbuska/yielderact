@@ -1,0 +1,42 @@
+{
+  "name": "yielderact",
+  "version": "0.1.0",
+  "description": "JSX UI library focused on ease of use and easy to understanding the internals of the library it self",
+  "main": "dist/index.js",
+  "module": "dist/index.esm.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.esm.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    },
+    "./jsx-runtime": {
+      "import": "./dist/jsx-runtime.esm.js",
+      "require": "./dist/jsx-runtime.js",
+      "types": "./dist/jsx-runtime.d.ts"
+    }
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jEnbuska/yielderact.git"
+  },
+  "keywords": ["jsx", "ui", "generator", "yield", "library"],
+  "author": "jEnbuska",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/jEnbuska/yielderact/issues"
+  },
+  "homepage": "https://github.com/jEnbuska/yielderact#readme",
+  "devDependencies": {
+    "@types/jest": "^30.0.0",
+    "jest": "^30.2.0",
+    "jest-environment-jsdom": "^30.2.0",
+    "ts-jest": "^29.4.6",
+    "typescript": "^5.9.3"
+  }
+}
