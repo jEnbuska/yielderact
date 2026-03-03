@@ -9,8 +9,9 @@ import { TodoList } from './components/TodoList';
 import { ThemeDemo } from './components/ThemeDemo';
 import { DataFetcher } from './components/DataFetcher';
 import { HooksShowcase } from './components/HooksShowcase';
+import { ShownDemo } from './components/ShownDemo';
 
-type Tab = 'counter' | 'todos' | 'theme' | 'data' | 'hooks';
+type Tab = 'counter' | 'todos' | 'theme' | 'data' | 'hooks' | 'shown';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'counter', label: 'Counter' },
@@ -18,6 +19,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'theme', label: 'Context / Theme' },
   { id: 'data', label: 'Data Fetcher' },
   { id: 'hooks', label: 'Hooks Showcase' },
+  { id: 'shown', label: 'shown prop' },
 ];
 
 function* App() {
@@ -60,6 +62,7 @@ function* App() {
         {activeTab === 'theme' && <ThemeDemo />}
         {activeTab === 'data' && <DataFetcher />}
         {activeTab === 'hooks' && <HooksShowcase />}
+        {activeTab === 'shown' && <ShownDemo />}
       </div>
     </div>
   );
