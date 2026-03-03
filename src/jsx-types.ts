@@ -411,10 +411,9 @@ export interface HTMLAttributes<T extends HTMLElement = HTMLElement> extends Ari
   /** Nested children. */
   children?: Child | Child[];
   /** When false, the element/component is not rendered (and unmounted if previously mounted). Defaults to true. */
-  shown?: boolean;
+  ':shown'?: boolean;
 
   // ── Global HTML attributes ───────────────────────────────────────────────
-  accessKey?: string;
   autoCapitalize?: string;
   autoFocus?: boolean;
   className?: string;
@@ -914,7 +913,7 @@ export interface SVGAttributes<T extends SVGElement = SVGElement> extends AriaAt
   key?: string | number;
   children?: Child | Child[];
   /** When false, the element/component is not rendered (and unmounted if previously mounted). Defaults to true. */
-  shown?: boolean;
+  ':shown'?: boolean;
   className?: string;
   id?: string;
   style?: CSSProperties;
