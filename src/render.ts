@@ -97,7 +97,7 @@ function removeSyntheticListener(el: HTMLElement, eventName: string): void {
  */
 function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(props)) {
-    if (key === 'children' || key === ':shown') continue;
+    if (key === 'children' || key === 'shown') continue;
     if (key.startsWith('on') && typeof value === 'function') {
       addSyntheticListener(el, key.slice(2).toLowerCase(), value as (e: SyntheticEvent) => void);
     } else if (key === 'className') {
@@ -136,7 +136,7 @@ function updateProps(
 ): void {
   // Always remove old event listeners (they may be replaced by new functions)
   for (const key of Object.keys(prevProps)) {
-    if (key === 'children' || key === 'style' || key === ':shown') continue;
+    if (key === 'children' || key === 'style' || key === 'shown') continue;
     if (key.startsWith('on') && typeof prevProps[key] === 'function') {
       removeSyntheticListener(el, key.slice(2).toLowerCase());
     } else if (!(key in nextProps)) {
@@ -217,9 +217,9 @@ function mergedProps(vnode: VNode): Record<string, unknown> {
   return vnode.children.length > 0 ? { ...vnode.props, children: vnode.children } : vnode.props;
 }
 
-/** Returns false only when the `':shown'` prop is explicitly set to `false`. */
+/** Returns false only when the `shown` prop is explicitly set to `false`. */
 function isShown(props: Record<string, unknown>): boolean {
-  return props[':shown'] !== false;
+  return props['shown'] !== false;
 }
 
 /**
@@ -260,7 +260,7 @@ function buildVNodeList(vnodes: Child[]): { nodes: Node[]; slots: Slot[] } {
       continue;
     }
 
-    // Check :shown prop – render empty placeholder when :shown === false
+    // Check shown prop – render empty placeholder when shown === false
     const allPropsForShown = mergedProps(vnode);
     if (!isShown(allPropsForShown)) {
       const node = document.createTextNode('');
@@ -544,7 +544,7 @@ function reconcileOne(
 
   const vnode = nextChild as VNode;
 
-  // ---- :shown === false: unmount and render empty placeholder ----
+  // ---- shown === false: unmount and render empty placeholder ----
   const allPropsForShown = mergedProps(vnode);
   if (!isShown(allPropsForShown)) {
     if (prevSlot?.type === 'empty') {
