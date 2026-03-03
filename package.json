@@ -15,6 +15,11 @@
       "import": "./dist/jsx-runtime.esm.js",
       "require": "./dist/jsx-runtime.js",
       "types": "./dist/jsx-runtime.d.ts"
+    },
+    "./jsx-dev-runtime": {
+      "import": "./dist/jsx-runtime.esm.js",
+      "require": "./dist/jsx-runtime.js",
+      "types": "./dist/jsx-runtime.d.ts"
     }
   },
   "scripts": {
