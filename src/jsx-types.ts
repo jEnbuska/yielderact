@@ -21,8 +21,12 @@ import type { Child } from './jsx';
  * Numbers are passed through as-is (the browser interprets them as pixels
  * for length properties where that is valid).
  *
- * Any arbitrary CSS property (e.g. a vendor-prefixed one) is also accepted
- * via the `[key: string]` index signature.
+ * CSS custom properties (variables) are also accepted via the
+ * `--${string}` template-literal index signature, e.g.:
+ *   `{ '--primary-color': '#3498db', '--spacing': '8px' }`
+ *
+ * Vendor-prefixed properties (e.g. `-webkit-*`, `-moz-*`) are intentionally
+ * not supported; use standard CSS properties instead.
  */
 export interface CSSProperties {
   accentColor?: string;
@@ -308,8 +312,8 @@ export interface CSSProperties {
   writingMode?: string;
   zIndex?: string | number;
   zoom?: string | number;
-  /** Any vendor-prefixed or custom CSS property. */
-  [key: string]: string | number | undefined;
+  /** CSS custom properties (variables), e.g. `'--primary-color': '#3498db'`. */
+  [key: `--${string}`]: string | number | undefined;
 }
 
 // ---------------------------------------------------------------------------
