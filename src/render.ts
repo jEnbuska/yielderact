@@ -1,4 +1,5 @@
 import { Fragment, VNode, Child, GeneratorComponentFn, PlainComponentFn, AnyComponentFn } from './jsx';
+import { _getCtxMap, _setCtxMap, _getProviderCtx, type Context } from './context';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -16,6 +17,33 @@ function clearChildren(node: Node): void {
   }
 }
 
+/** Shallow equality check for props objects. */
+function shallowEqual(
+  a: Record<string, unknown>,
+  b: Record<string, unknown>
+): boolean {
+  const aKeys = Object.keys(a);
+  if (aKeys.length !== Object.keys(b).length) return false;
+  return aKeys.every(k => Object.is(a[k], b[k]));
+}
+
+/** Flatten Fragment VNodes into a flat list of non-Fragment children. */
+function flattenChildren(children: Child[]): Child[] {
+  const result: Child[] = [];
+  for (const child of children) {
+    if (
+      child != null &&
+      typeof child === 'object' &&
+      (child as VNode).type === Fragment
+    ) {
+      result.push(...flattenChildren((child as VNode).children));
+    } else {
+      result.push(child);
+    }
+  }
+  return result;
+}
+
 // ---------------------------------------------------------------------------
 // Prop application
 // ---------------------------------------------------------------------------
@@ -30,7 +58,7 @@ function clearChildren(node: Node): void {
  */
 function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(props)) {
-    if (key === 'children') continue; // children are handled separately
+    if (key === 'children') continue;
     if (key.startsWith('on') && typeof value === 'function') {
       el.addEventListener(key.slice(2).toLowerCase(), value as EventListener);
     } else if (key === 'className') {
@@ -43,8 +71,432 @@ function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
   }
 }
 
+/**
+ * Diff and update props on an existing DOM element.
+ * Removes stale event listeners/attributes and applies new ones.
+ */
+function updateProps(
+  el: HTMLElement,
+  prevProps: Record<string, unknown>,
+  nextProps: Record<string, unknown>
+): void {
+  // Always remove old event listeners (they may be replaced by new functions)
+  for (const key of Object.keys(prevProps)) {
+    if (key === 'children' || key === 'style') continue;
+    if (key.startsWith('on') && typeof prevProps[key] === 'function') {
+      el.removeEventListener(
+        key.slice(2).toLowerCase(),
+        prevProps[key] as EventListener
+      );
+    } else if (!(key in nextProps)) {
+      if (key === 'className') {
+        el.className = '';
+      } else {
+        el.removeAttribute(key);
+      }
+    }
+  }
+  // Apply all current props (re-adds event listeners + sets attrs)
+  applyProps(el, nextProps);
+}
+
 // ---------------------------------------------------------------------------
-// Virtual DOM → real DOM
+// Instance tracking
+// ---------------------------------------------------------------------------
+
+/**
+ * A "slot" tracks one reconciled position in the rendered DOM tree.
+ * It records the type that was rendered, the DOM node, and (for components)
+ * the running generator instance.
+ */
+interface Slot {
+  /** The VNode type that produced this slot, or 'text'/'empty' for primitives. */
+  type: VNode['type'] | 'text' | 'empty';
+  /** The actual DOM node (Text, HTMLElement, or component host span). */
+  node: Node;
+  /** The props at last render (used for shallow-equality memoization). */
+  props: Record<string, unknown>;
+  /** Slots for the element's direct children (HTML elements only). */
+  childSlots: Slot[];
+  /** Running generator instance, present only for generator components. */
+  genInstance: GenInstance | null;
+}
+
+/** State held for one running generator component. */
+interface GenInstance {
+  fn: GeneratorComponentFn;
+  gen: Generator<VNode | null | undefined>;
+  props: Record<string, unknown>;
+  host: HTMLElement;
+  /** The context map that was active when this component was mounted. */
+  capturedCtx: ReadonlyMap<Context<unknown>, unknown>;
+  /** Reconciled slots representing the generator's last rendered output. */
+  slots: Slot[];
+}
+
+/** Map from a generator component's host span to its instance. */
+const genInstanceMap = new WeakMap<HTMLElement, GenInstance>();
+
+// ---------------------------------------------------------------------------
+// Build helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Compute the merged props for a VNode (includes children if any).
+ */
+function mergedProps(vnode: VNode): Record<string, unknown> {
+  return vnode.children.length > 0
+    ? { ...vnode.props, children: vnode.children }
+    : vnode.props;
+}
+
+/**
+ * Build DOM nodes from a list of VNodes and return them alongside Slot
+ * tracking data.  Fragments are flattened into the parent list.
+ */
+function buildVNodeList(vnodes: Child[]): { nodes: Node[]; slots: Slot[] } {
+  const nodes: Node[] = [];
+  const slots: Slot[] = [];
+
+  for (const child of vnodes) {
+    if (child == null || child === false) {
+      const node = document.createTextNode('');
+      nodes.push(node);
+      slots.push({ type: 'empty', node, props: {}, childSlots: [], genInstance: null });
+      continue;
+    }
+    if (typeof child === 'string' || typeof child === 'number') {
+      const node = document.createTextNode(String(child));
+      nodes.push(node);
+      slots.push({ type: 'text', node, props: { text: String(child) }, childSlots: [], genInstance: null });
+      continue;
+    }
+
+    const vnode = child as VNode;
+
+    if (vnode.type === Fragment) {
+      // Flatten fragment children into this level
+      const inner = buildVNodeList(vnode.children);
+      nodes.push(...inner.nodes);
+      slots.push(...inner.slots);
+      continue;
+    }
+
+    if (typeof vnode.type === 'function') {
+      const fn = vnode.type as AnyComponentFn;
+      const allProps = mergedProps(vnode);
+      const providerCtx = _getProviderCtx(fn);
+      let node: Node;
+      if (providerCtx) {
+        node = mountContextProvider(fn as PlainComponentFn, allProps, providerCtx);
+      } else if (isGeneratorFn(fn)) {
+        node = mountGeneratorComponent(fn, allProps);
+      } else {
+        node = mountPlainComponent(fn as PlainComponentFn, allProps);
+      }
+      const genInstance =
+        node instanceof HTMLElement ? (genInstanceMap.get(node) ?? null) : null;
+      nodes.push(node);
+      slots.push({ type: vnode.type, node, props: allProps, childSlots: [], genInstance });
+      continue;
+    }
+
+    // HTML element
+    const el = document.createElement(vnode.type as string);
+    applyProps(el, vnode.props);
+    const inner = buildVNodeList(vnode.children);
+    for (const c of inner.nodes) el.appendChild(c);
+    nodes.push(el);
+    slots.push({
+      type: vnode.type as string,
+      node: el,
+      props: vnode.props,
+      childSlots: inner.slots,
+      genInstance: null,
+    });
+  }
+
+  return { nodes, slots };
+}
+
+// ---------------------------------------------------------------------------
+// Component mounting
+// ---------------------------------------------------------------------------
+
+/**
+ * Mount a generator-function component into a `display:contents` host span.
+ * Registers a GenInstance so that `rerender()` can reconcile efficiently.
+ */
+function mountGeneratorComponent(
+  fn: GeneratorComponentFn,
+  props: Record<string, unknown>
+): Node {
+  const host = document.createElement('span');
+  host.style.display = 'contents';
+
+  const capturedCtx = _getCtxMap();
+
+  // `instance` is fully populated below before any external code can observe it.
+  // We use a partial object here so `rerender` can close over it.
+  // eslint-disable-next-line prefer-const
+  let instance: GenInstance;
+
+  function rerender(): void {
+    const prevCtx = _getCtxMap();
+    _setCtxMap(instance.capturedCtx);
+    try {
+      const { value: vnode, done } = instance.gen.next();
+      if (!done) {
+        instance.slots = reconcileSlots(host, instance.slots, [vnode ?? null]);
+      }
+    } finally {
+      _setCtxMap(prevCtx);
+    }
+  }
+
+  const prevCtx = _getCtxMap();
+  _setCtxMap(capturedCtx);
+  try {
+    const gen = fn(props, rerender);
+    const { value: initialVNode } = gen.next();
+    const { nodes, slots } = buildVNodeList([initialVNode ?? null]);
+    instance = { fn, gen, props, host, capturedCtx, slots };
+    genInstanceMap.set(host, instance);
+    for (const n of nodes) host.appendChild(n);
+  } finally {
+    _setCtxMap(prevCtx);
+  }
+
+  return host;
+}
+
+/**
+ * Mount a context Provider.  Updates `_ctxMap` before building children,
+ * then restores it afterwards.
+ */
+function mountContextProvider(
+  fn: PlainComponentFn,
+  props: Record<string, unknown>,
+  providerCtx: object
+): Node {
+  const prevCtxMap = _getCtxMap();
+  const newCtxMap = new Map(prevCtxMap);
+  newCtxMap.set(providerCtx as never, props.value);
+  _setCtxMap(newCtxMap);
+
+  const host = document.createElement('span');
+  host.style.display = 'contents';
+
+  try {
+    const vnode = fn(props);
+    if (vnode != null) {
+      // The Provider returns a Fragment wrapping its children – build them
+      const { nodes } = buildVNodeList([vnode]);
+      for (const n of nodes) host.appendChild(n);
+    }
+  } finally {
+    _setCtxMap(prevCtxMap);
+  }
+
+  return host;
+}
+
+/**
+ * Mount a plain (non-generator) function component.
+ * Called once; has no state of its own.
+ */
+function mountPlainComponent(
+  fn: PlainComponentFn,
+  props: Record<string, unknown>
+): Node {
+  const host = document.createElement('span');
+  host.style.display = 'contents';
+  const vnode = fn(props);
+  if (vnode != null) host.appendChild(buildNode(vnode));
+  return host;
+}
+
+// ---------------------------------------------------------------------------
+// Reconciler
+// ---------------------------------------------------------------------------
+
+/**
+ * Reconcile the DOM children of `parent` against a new list of VNodes.
+ *
+ * Children are matched by position.  For each position:
+ *  - Same type + same props (shallow equal) → keep existing DOM node unchanged
+ *  - Same type + changed props → update in place (elements) or remount (components)
+ *  - Different type → replace
+ *
+ * Returns the updated slot array.
+ */
+function reconcileSlots(
+  parent: HTMLElement,
+  prevSlots: Slot[],
+  nextVNodes: Child[]
+): Slot[] {
+  // Flatten fragments before reconciling
+  const flatNext = flattenChildren(nextVNodes);
+  const nextSlots: Slot[] = [];
+
+  for (let i = 0; i < flatNext.length; i++) {
+    const prevSlot = prevSlots[i] ?? null;
+    const { slot, node, replaced } = reconcileOne(prevSlot, flatNext[i]);
+    nextSlots.push(slot);
+
+    if (replaced) {
+      if (prevSlot && prevSlot.node.parentNode === parent) {
+        parent.replaceChild(node, prevSlot.node);
+      } else {
+        // Insertion point: before the (i+1)-th existing child
+        const ref = parent.childNodes[i] ?? null;
+        if (ref) {
+          parent.insertBefore(node, ref);
+        } else {
+          parent.appendChild(node);
+        }
+      }
+    }
+    // If not replaced, the existing node is already in the correct place.
+  }
+
+  // Remove any extra old DOM nodes
+  for (let i = flatNext.length; i < prevSlots.length; i++) {
+    const old = prevSlots[i];
+    if (old.node.parentNode === parent) {
+      parent.removeChild(old.node);
+    }
+  }
+
+  return nextSlots;
+}
+
+/**
+ * Reconcile a single child slot against a new VNode.
+ *
+ * Returns:
+ *  - `slot`    – the updated (or new) Slot object
+ *  - `node`    – the real DOM node for this slot
+ *  - `replaced` – true if the DOM node changed and needs to be swapped in
+ */
+function reconcileOne(
+  prevSlot: Slot | null,
+  nextChild: Child
+): { slot: Slot; node: Node; replaced: boolean } {
+  // ---- Empty / null ----
+  if (nextChild == null || nextChild === false) {
+    if (prevSlot?.type === 'empty') {
+      return { slot: prevSlot, node: prevSlot.node, replaced: false };
+    }
+    const node = document.createTextNode('');
+    return {
+      slot: { type: 'empty', node, props: {}, childSlots: [], genInstance: null },
+      node,
+      replaced: true,
+    };
+  }
+
+  // ---- Primitive (text / number) ----
+  if (typeof nextChild === 'string' || typeof nextChild === 'number') {
+    const text = String(nextChild);
+    if (prevSlot?.type === 'text' && prevSlot.node instanceof Text) {
+      if (prevSlot.node.textContent !== text) {
+        prevSlot.node.textContent = text;
+        prevSlot.props = { text };
+      }
+      return { slot: prevSlot, node: prevSlot.node, replaced: false };
+    }
+    const node = document.createTextNode(text);
+    return {
+      slot: { type: 'text', node, props: { text }, childSlots: [], genInstance: null },
+      node,
+      replaced: true,
+    };
+  }
+
+  const vnode = nextChild as VNode;
+
+  // ---- Function component ----
+  if (typeof vnode.type === 'function') {
+    const allProps = mergedProps(vnode);
+
+    // Same component type at same position
+    if (prevSlot?.type === vnode.type) {
+      // Props unchanged → skip entirely (key memoization)
+      if (shallowEqual(prevSlot.props, allProps)) {
+        return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+      // Props changed → remount the component from scratch.
+      // NOTE: for generator components this means the generator's internal
+      // state (local variables, the generator cursor) is discarded.  This
+      // differs from React's behaviour where a component receives new props
+      // on each render without losing state.  The trade-off keeps the
+      // renderer simple; components that need to survive prop changes should
+      // lift their state up or use context instead.
+    }
+
+    // Mount fresh component
+    const fn = vnode.type as AnyComponentFn;
+    const providerCtx = _getProviderCtx(fn);
+    let node: Node;
+    if (providerCtx) {
+      node = mountContextProvider(fn as PlainComponentFn, allProps, providerCtx);
+    } else if (isGeneratorFn(fn)) {
+      node = mountGeneratorComponent(fn, allProps);
+    } else {
+      node = mountPlainComponent(fn as PlainComponentFn, allProps);
+    }
+    const genInstance =
+      node instanceof HTMLElement ? (genInstanceMap.get(node) ?? null) : null;
+    return {
+      slot: { type: vnode.type, node, props: allProps, childSlots: [], genInstance },
+      node,
+      replaced: true,
+    };
+  }
+
+  // ---- HTML element ----
+  if (typeof vnode.type === 'string') {
+    if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
+      // Same tag → update props in place and reconcile children
+      updateProps(prevSlot.node, prevSlot.props, vnode.props);
+      prevSlot.childSlots = reconcileSlots(
+        prevSlot.node,
+        prevSlot.childSlots,
+        vnode.children
+      );
+      prevSlot.props = vnode.props;
+      return { slot: prevSlot, node: prevSlot.node, replaced: false };
+    }
+    // Different tag → build fresh
+    const el = document.createElement(vnode.type);
+    applyProps(el, vnode.props);
+    const inner = buildVNodeList(vnode.children);
+    for (const c of inner.nodes) el.appendChild(c);
+    return {
+      slot: {
+        type: vnode.type,
+        node: el,
+        props: vnode.props,
+        childSlots: inner.slots,
+        genInstance: null,
+      },
+      node: el,
+      replaced: true,
+    };
+  }
+
+  // ---- Fragment or anything else: full rebuild ----
+  const node = buildNode(nextChild);
+  return {
+    slot: { type: (vnode as VNode).type, node, props: {}, childSlots: [], genInstance: null },
+    node,
+    replaced: true,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Virtual DOM → real DOM  (public, used for initial mounts and in tests)
 // ---------------------------------------------------------------------------
 
 /**
@@ -59,7 +511,6 @@ function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
  *  6. HTML tag strings → real HTMLElement with props and children
  */
 export function buildNode(child: Child): Node {
-  // Primitives and empty values
   if (child == null || child === false) {
     return document.createTextNode('');
   }
@@ -69,7 +520,6 @@ export function buildNode(child: Child): Node {
 
   const vnode = child as VNode;
 
-  // Fragment – transparent wrapper
   if (vnode.type === Fragment) {
     const frag = document.createDocumentFragment();
     for (const c of vnode.children) {
@@ -78,86 +528,24 @@ export function buildNode(child: Child): Node {
     return frag;
   }
 
-  // Component (generator function or plain function)
   if (typeof vnode.type === 'function') {
     const fn = vnode.type as AnyComponentFn;
-    const allProps =
-      vnode.children.length > 0
-        ? { ...vnode.props, children: vnode.children }
-        : vnode.props;
-
+    const allProps = mergedProps(vnode);
+    const providerCtx = _getProviderCtx(fn);
+    if (providerCtx) {
+      return mountContextProvider(fn as PlainComponentFn, allProps, providerCtx);
+    }
     return isGeneratorFn(fn)
       ? mountGeneratorComponent(fn, allProps)
       : mountPlainComponent(fn as PlainComponentFn, allProps);
   }
 
-  // HTML element
   const el = document.createElement(vnode.type as string);
   applyProps(el, vnode.props);
   for (const c of vnode.children) {
     el.appendChild(buildNode(c));
   }
   return el;
-}
-
-// ---------------------------------------------------------------------------
-// Component mounting
-// ---------------------------------------------------------------------------
-
-/**
- * Mount a generator-function component.
- *
- * The component lives in a `<span style="display:contents">` host node.
- * `display:contents` makes the span transparent to layout, so the component
- * can be anywhere in the tree without affecting the visual result.
- *
- * Lifecycle:
- *  1. The generator is started with `gen.next()` → runs until the first `yield`
- *  2. The yielded VNode is rendered into the host span
- *  3. When `rerender()` is called (e.g. from an event handler), the generator
- *     is advanced with another `gen.next()`, and the host's content is replaced
- *     with the newly yielded VNode
- */
-function mountGeneratorComponent(
-  fn: GeneratorComponentFn,
-  props: Record<string, unknown>
-): Node {
-  const host = document.createElement('span');
-  host.style.display = 'contents';
-
-  function rerender(): void {
-    const { value: vnode, done } = gen.next();
-    if (!done) {
-      clearChildren(host);
-      if (vnode != null) host.appendChild(buildNode(vnode));
-    }
-  }
-
-  const gen = fn(props, rerender);
-  const { value: initialVNode } = gen.next();
-  if (initialVNode != null) host.appendChild(buildNode(initialVNode));
-
-  return host;
-}
-
-/**
- * Mount a plain (non-generator) function component.
- *
- * The function is called once with its props, and the returned VNode is
- * rendered into a host span.  Plain components have no built-in state;
- * they are re-rendered by their parent.
- */
-function mountPlainComponent(
-  fn: PlainComponentFn,
-  props: Record<string, unknown>
-): Node {
-  const host = document.createElement('span');
-  host.style.display = 'contents';
-
-  const vnode = fn(props);
-  if (vnode != null) host.appendChild(buildNode(vnode));
-
-  return host;
 }
 
 // ---------------------------------------------------------------------------
