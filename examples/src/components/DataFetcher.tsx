@@ -6,7 +6,7 @@
  * if it rejects).  Once resolved, execution continues and the component
  * returns its final JSX.
  */
-import { render, usePromise } from 'yielderact';
+import { render, usePromise, useId } from 'yielderact';
 
 interface User {
   id: number;
@@ -20,23 +20,27 @@ async function fetchUser(): Promise<User> {
   return { id: 1, name: 'Jane Doe', email: 'jane@example.com' };
 }
 
-function Spinner() {
+function* Spinner() {
+  const id = yield* useId();
   return (
-    <p id="loading-message" style={{ color: '#888', fontStyle: 'italic' }}>
+    <p id={id} data-testid="loading-message" style={{ color: '#888', fontStyle: 'italic' }}>
       Loading user data…
     </p>
   );
 }
 
-function ErrorMessage() {
+function* ErrorMessage() {
+  const id = yield* useId();
   return (
-    <p id="error-message" style={{ color: '#c00' }}>
+    <p id={id} data-testid="error-message" style={{ color: '#c00' }}>
       Failed to load data. Please try again.
     </p>
   );
 }
 
 export function* DataFetcher() {
+  const userDataId = yield* useId();
+
   const user = yield* usePromise<User>({
     fn: fetchUser,
     loading: <Spinner />,
@@ -51,7 +55,8 @@ export function* DataFetcher() {
         automatically resumes when it resolves.
       </p>
       <div
-        id="user-data"
+        id={userDataId}
+        data-testid="user-data"
         style={{
           padding: '0.75rem',
           background: '#f5f5f5',

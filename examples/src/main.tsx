@@ -1,21 +1,23 @@
 /**
  * App – top-level component rendered into `#root`.
  *
- * Provides a simple tab-based navigation between the four example demos.
+ * Provides a simple tab-based navigation between the five example demos.
  */
 import { render, useState } from 'yielderact';
 import { Counter } from './components/Counter';
 import { TodoList } from './components/TodoList';
 import { ThemeDemo } from './components/ThemeDemo';
 import { DataFetcher } from './components/DataFetcher';
+import { HooksShowcase } from './components/HooksShowcase';
 
-type Tab = 'counter' | 'todos' | 'theme' | 'data';
+type Tab = 'counter' | 'todos' | 'theme' | 'data' | 'hooks';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'counter', label: 'Counter' },
   { id: 'todos', label: 'Todo List' },
   { id: 'theme', label: 'Context / Theme' },
   { id: 'data', label: 'Data Fetcher' },
+  { id: 'hooks', label: 'Hooks Showcase' },
 ];
 
 function* App() {
@@ -28,8 +30,8 @@ function* App() {
         Generator-powered JSX components — no magic, just plain JavaScript.
       </p>
 
-      {/* Tab bar */}
-      <nav role="tablist" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
+      {/* Tab bar — ids derived from data so useId() is not applicable here */}
+      <nav role="tablist" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -57,6 +59,7 @@ function* App() {
         {activeTab === 'todos' && <TodoList />}
         {activeTab === 'theme' && <ThemeDemo />}
         {activeTab === 'data' && <DataFetcher />}
+        {activeTab === 'hooks' && <HooksShowcase />}
       </div>
     </div>
   );

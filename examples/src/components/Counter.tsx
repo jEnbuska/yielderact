@@ -2,9 +2,14 @@
  * Counter – a generator component demonstrating stateful rendering with
  * `yield* useState` and returning JSX.
  */
-import { render, useState } from 'yielderact';
+import { render, useState, useId } from 'yielderact';
 
 export function* Counter() {
+  const decrementId = yield* useId();
+  const valueId = yield* useId();
+  const incrementId = yield* useId();
+  const resetId = yield* useId();
+
   const [count, setCount] = yield* useState(0);
 
   return (
@@ -15,16 +20,21 @@ export function* Counter() {
         re-runs the component body and reconciles the DOM.
       </p>
       <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-        <button id="decrement-btn" onClick={() => setCount(count - 1)}>
+        <button id={decrementId} data-testid="decrement-btn" onClick={() => setCount(count - 1)}>
           −
         </button>
-        <span id="counter-value" data-testid="counter-value">
+        <span id={valueId} data-testid="counter-value">
           {count}
         </span>
-        <button id="increment-btn" onClick={() => setCount(count + 1)}>
+        <button id={incrementId} data-testid="increment-btn" onClick={() => setCount(count + 1)}>
           +
         </button>
-        <button id="reset-btn" onClick={() => setCount(0)} style={{ marginLeft: '0.5rem' }}>
+        <button
+          id={resetId}
+          data-testid="reset-btn"
+          onClick={() => setCount(0)}
+          style={{ marginLeft: '0.5rem' }}
+        >
           Reset
         </button>
       </div>

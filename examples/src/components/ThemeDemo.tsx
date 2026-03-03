@@ -1,7 +1,7 @@
 /**
  * ThemeDemo – demonstrates createContext / useContext with `yield* useState`.
  */
-import { createContext, useContext, render, useState } from 'yielderact';
+import { createContext, useContext, render, useState, useId } from 'yielderact';
 
 type Theme = 'light' | 'dark';
 
@@ -13,11 +13,15 @@ const styles: Record<Theme, { background: string; color: string; border: string 
 };
 
 function* ThemedCard() {
+  const cardId = yield* useId();
+  const themeValueId = yield* useId();
+
   const theme = useContext(ThemeContext);
   const s = styles[theme];
   return (
     <div
-      id="themed-card"
+      id={cardId}
+      data-testid="themed-card"
       style={{
         padding: '1rem',
         borderRadius: '6px',
@@ -28,13 +32,15 @@ function* ThemedCard() {
     >
       <strong>Themed Card</strong>
       <p style={{ margin: '0.4rem 0 0' }}>
-        Current theme: <span id="theme-value">{theme}</span>
+        Current theme: <span id={themeValueId} data-testid="theme-value">{theme}</span>
       </p>
     </div>
   );
 }
 
 export function* ThemeDemo() {
+  const toggleBtnId = yield* useId();
+
   const [theme, setTheme] = yield* useState<Theme>('light');
 
   return (
@@ -45,7 +51,8 @@ export function* ThemeDemo() {
         without prop-drilling.
       </p>
       <button
-        id="toggle-theme-btn"
+        id={toggleBtnId}
+        data-testid="toggle-theme-btn"
         onClick={() => setTheme(theme === 'light' ? 'dark' : 'light')}
         style={{ marginBottom: '0.75rem' }}
       >
