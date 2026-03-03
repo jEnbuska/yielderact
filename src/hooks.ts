@@ -4,7 +4,7 @@
  * Hooks are generator functions called with `yield*` inside a component body.
  * They can either return a value immediately (like `useState`) or yield
  * intermediate VNodes that pause rendering until an async operation completes
- * (like `usePromise`).
+ * (like `useResolve`).
  *
  * @example
  * function* Counter(_props: object) {
@@ -206,7 +206,7 @@ export function* useMemo<T>(
 }
 
 // ---------------------------------------------------------------------------
-// usePromise
+// useResolve
 // ---------------------------------------------------------------------------
 
 /**
@@ -215,32 +215,25 @@ export function* useMemo<T>(
  */
 export type Renderable = Child | AnyComponentFn;
 
-/** Options accepted by `usePromise`. */
-export interface UsePromiseOptions<T> {
+/** Options accepted by `useResolve`. */
+export interface UseResolveOptions<T> {
   /** A factory that creates the promise. Called once per component instance (or when `deps` change). */
   fn: () => Promise<T>;
   /** Shown while the promise is pending. Can be a VNode or component function. */
   loading: Renderable;
   /** Shown when the promise rejects. Can be a VNode or component function. */
   error: Renderable;
-  /**
-   * Dependency array. When provided, the promise is re-run whenever any
-   * dependency value changes (shallow `Object.is` comparison). Omitting
-   * `deps` means the promise runs exactly once per component instance.
-   */
-  deps?: unknown[];
 }
 
 type PromiseHookState<T> =
   | { status: 'idle'; gen: number }
-  | { status: 'pending'; gen: number; deps: unknown[] | undefined }
-  | { status: 'resolved'; data: T; gen: number; deps: unknown[] | undefined }
-  | { status: 'rejected'; reason: unknown; gen: number; deps: unknown[] | undefined };
+  | { status: 'pending'; gen: number; deps: unknown[] }
+  | { status: 'resolved'; data: T; gen: number; deps: unknown[] }
+  | { status: 'rejected'; reason: unknown; gen: number; deps: unknown[] };
 
 /** Returns true when the dependency arrays differ. */
-function depsChanged(prev: unknown[] | undefined, next: unknown[] | undefined): boolean {
-  if (next === undefined) return false; // no deps = run once, never re-run
-  if (prev === undefined) return true; // deps just introduced
+function depsChanged(prev: unknown[] | undefined, next: unknown[]): boolean {
+  if (prev === undefined) return true; // first run after idle
   if (prev.length !== next.length) return true;
   return prev.some((v, i) => !Object.is(v, next[i]));
 }
@@ -262,23 +255,23 @@ function toChild(renderable: Renderable): Child {
  * If the promise rejects, the error VNode is shown indefinitely.
  * Once resolved the hook returns the data and the component continues.
  *
- * When `deps` is provided the promise is re-run whenever any dependency
+ * The `deps` array is required. The promise is re-run whenever any dependency
  * value changes (useful for re-fetching when an ID or search term changes).
+ * Pass an empty array `[]` to run the promise exactly once per component instance.
  *
  * Must be called with `yield*` inside a generator component.
  *
  * @example
  * function* UserProfile({ userId }: { userId: number }) {
- *   const user = yield* usePromise({
+ *   const user = yield* useResolve({
  *     fn: () => fetchUser(userId),
  *     loading: <Spinner />,
  *     error: <ErrorMessage />,
- *     deps: [userId],
- *   });
+ *   }, [userId]);
  *   return <div>{user.name}</div>;
  * }
  */
-export function* usePromise<T>(options: UsePromiseOptions<T>): Generator<Child, T, unknown> {
+export function* useResolve<T>(options: UseResolveOptions<T>, deps: unknown[]): Generator<Child, T, unknown> {
   const resume = _currentResume!;
   const states = _hookStates!;
   const index = _hookIndex++;
@@ -290,7 +283,7 @@ export function* usePromise<T>(options: UsePromiseOptions<T>): Generator<Child, 
   const state = states[index] as PromiseHookState<T>;
 
   // Reset to idle when deps have changed so the promise is re-run.
-  if (state.status !== 'idle' && depsChanged(state.deps, options.deps)) {
+  if (state.status !== 'idle' && depsChanged(state.deps, deps)) {
     states[index] = { status: 'idle', gen: state.gen } as PromiseHookState<T>;
   }
 
@@ -301,7 +294,7 @@ export function* usePromise<T>(options: UsePromiseOptions<T>): Generator<Child, 
     states[index] = {
       status: 'pending',
       gen: currentGen,
-      deps: options.deps,
+      deps,
     } as PromiseHookState<T>;
     promise
       .then((data: T) => {
@@ -311,7 +304,7 @@ export function* usePromise<T>(options: UsePromiseOptions<T>): Generator<Child, 
             status: 'resolved',
             data,
             gen: currentGen,
-            deps: options.deps,
+            deps,
           } as PromiseHookState<T>;
           resume();
         }
@@ -323,7 +316,7 @@ export function* usePromise<T>(options: UsePromiseOptions<T>): Generator<Child, 
             status: 'rejected',
             reason,
             gen: currentGen,
-            deps: options.deps,
+            deps,
           } as PromiseHookState<T>;
           resume();
         }
