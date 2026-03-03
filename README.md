@@ -4,7 +4,7 @@
 
 **yielderact** is a tiny, transparent JSX UI library that uses plain JavaScript
 [generator functions](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function*)
-as components.  Each `yield` statement produces the JSX for the current render.
+as components. Each `yield` statement produces the JSX for the current render.
 State lives in ordinary local variables — no magic, no hidden framework machinery.
 
 ---
@@ -13,11 +13,11 @@ State lives in ordinary local variables — no magic, no hidden framework machin
 
 The whole library consists of three small modules:
 
-| File | What it does |
-|------|-------------|
-| [`src/jsx.ts`](src/jsx.ts) | Defines the `VNode` type and the `createElement` JSX factory |
-| [`src/render.ts`](src/render.ts) | Turns VNodes into real DOM nodes; mounts generator components |
-| [`src/jsx-runtime.ts`](src/jsx-runtime.ts) | Automatic JSX transform support (`jsxImportSource`) |
+| File                                       | What it does                                                  |
+| ------------------------------------------ | ------------------------------------------------------------- |
+| [`src/jsx.ts`](src/jsx.ts)                 | Defines the `VNode` type and the `createElement` JSX factory  |
+| [`src/render.ts`](src/render.ts)           | Turns VNodes into real DOM nodes; mounts generator components |
+| [`src/jsx-runtime.ts`](src/jsx-runtime.ts) | Automatic JSX transform support (`jsxImportSource`)           |
 
 ### Generator components
 
@@ -31,7 +31,12 @@ function* Counter(_props: {}, rerender: () => void) {
   let count = 0;
   while (true) {
     yield (
-      <button onClick={() => { count++; rerender(); }}>
+      <button
+        onClick={() => {
+          count++;
+          rerender();
+        }}
+      >
         Clicked {count} times
       </button>
     );
@@ -48,7 +53,7 @@ render(<Counter />, document.getElementById('root')!);
 2. The resulting DOM node is placed inside a `<span style="display:contents">`
    host element (transparent to layout) and added to the container.
 3. When `rerender()` is called (e.g. from an `onClick` handler), the library
-   calls `gen.next()` again.  The generator resumes, updates its local
+   calls `gen.next()` again. The generator resumes, updates its local
    variables, and `yield`s new JSX.
 4. The host element is cleared and repopulated with the new DOM nodes.
 5. When the generator returns (`done: true`) it stops rerendering.
@@ -117,6 +122,31 @@ Or use the automatic JSX transform:
   }
 }
 ```
+
+Either configuration provides full JSX type checking out of the box —
+including `JSX.IntrinsicElements` support for all HTML / SVG tags.
+No additional `/// <reference>` directives or manual type imports are needed.
+
+> **Local / monorepo usage (pre-publish)**
+>
+> If you are running yielderact directly from source (e.g. inside the
+> `examples/` folder of this repo) and your editor shows
+> _"Cannot find module 'yielderact'"_, add the following to your
+> project's `tsconfig.json` so the TypeScript language server resolves
+> the package from source:
+>
+> ```json
+> {
+>   "compilerOptions": {
+>     "baseUrl": ".",
+>     "paths": {
+>       "yielderact": ["../src/index.ts"],
+>       "yielderact/jsx-runtime": ["../src/jsx-runtime.ts"],
+>       "yielderact/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
+>     }
+>   }
+> }
+> ```
 
 ---
 

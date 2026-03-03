@@ -5,12 +5,15 @@ module.exports = {
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.test.ts'],
   transform: {
-    '^.+\\.tsx?$': ['ts-jest', {
-      tsconfig: {
-        jsx: 'react',
-        jsxFactory: 'createElement',
-        jsxFragmentFactory: 'Fragment',
+    '^.+\\.tsx?$': [
+      'ts-jest',
+      {
+        tsconfig: {
+          jsx: 'react',
+          jsxFactory: 'createElement',
+          jsxFragmentFactory: 'Fragment',
+        },
       },
-    }],
+    ],
   },
 };

@@ -1,3 +1,5 @@
+import type { IntrinsicElements as IntrinsicElementsDef } from './jsx-types';
+
 /**
  * Virtual DOM node produced by createElement / JSX.
  */
@@ -44,7 +46,7 @@ export type Child = VNode | string | number | boolean | null | undefined;
  */
 export type GeneratorComponentFn<P extends Record<string, unknown> = Record<string, unknown>> = (
   props: P,
-  rerender: () => void
+  rerender: () => void,
 ) => Generator<Child, Child, unknown>;
 
 /**
@@ -56,7 +58,7 @@ export type GeneratorComponentFn<P extends Record<string, unknown> = Record<stri
  * }
  */
 export type PlainComponentFn<P extends Record<string, unknown> = Record<string, unknown>> = (
-  props: P
+  props: P,
 ) => VNode | null | undefined;
 
 export type AnyComponentFn<P extends Record<string, unknown> = Record<string, unknown>> =
@@ -92,10 +94,10 @@ export const Fragment: unique symbol = Symbol('Fragment');
  *   createElement(MyComponent, { name: 'world' })
  */
 
-// Overload 1: HTML element (string tag)
-export function createElement(
-  type: string,
-  props: Record<string, unknown> | null,
+// Overload 1: intrinsic HTML / SVG element (validated tag name)
+export function createElement<T extends keyof JSX.IntrinsicElements>(
+  type: T,
+  props: JSX.IntrinsicElements[T] | null,
   ...children: Child[]
 ): VNode;
 
@@ -107,11 +109,7 @@ export function createElement<P extends Record<string, unknown>>(
 ): VNode;
 
 // Overload 3: symbol (Fragment)
-export function createElement(
-  type: symbol,
-  props: null,
-  ...children: Child[]
-): VNode;
+export function createElement(type: symbol, props: null, ...children: Child[]): VNode;
 
 // Overload 4: escape-hatch (union type)
 export function createElement(
@@ -131,4 +129,27 @@ export function createElement(
     props: props ?? {},
     children: children.flat() as Child[],
   };
+}
+
+/**
+ * Global JSX namespace – required by TypeScript to type-check JSX expressions
+ * for both the classic transform (`jsxFactory: "createElement"`) and the
+ * automatic transform (`jsxImportSource: "yielderact"`).
+ *
+ * `IntrinsicElements` is derived from {@link IntrinsicElementsDef} in
+ * `jsx-types.ts`, which provides strongly-typed props for every standard
+ * HTML and SVG element.  Only valid element names are accepted – arbitrary
+ * strings cause a compile-time error.
+ *
+ * `JSX.Element` is intentionally omitted so TypeScript falls back to the
+ * return type of the `jsx()` factory (i.e. `VNode`), which means:
+ *   - Plain-function components that return `VNode` are accepted.
+ *   - Generator components that return `Generator<Child, Child, unknown>` are
+ *     also accepted without a type error.
+ */
+declare global {
+  // eslint-disable-next-line @typescript-eslint/no-namespace
+  namespace JSX {
+    interface IntrinsicElements extends IntrinsicElementsDef {}
+  }
 }

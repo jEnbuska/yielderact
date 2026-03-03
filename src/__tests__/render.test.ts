@@ -27,10 +27,7 @@ describe('render – HTML elements', () => {
   });
 
   it('renders nested elements', () => {
-    render(
-      createElement('div', null, createElement('span', null, 'inner')),
-      container
-    );
+    render(createElement('div', null, createElement('span', null, 'inner')), container);
     expect(container.querySelector('span')!.textContent).toBe('inner');
   });
 
@@ -68,13 +65,17 @@ describe('render – HTML elements', () => {
 
   it('renders a Fragment with multiple children', () => {
     render(
-      createElement('ul', null,
-        createElement(Fragment, null,
+      createElement(
+        'ul',
+        null,
+        createElement(
+          Fragment,
+          null,
           createElement('li', null, 'one'),
-          createElement('li', null, 'two')
-        )
+          createElement('li', null, 'two'),
+        ),
       ),
-      container
+      container,
     );
     const items = container.querySelectorAll('li');
     expect(items).toHaveLength(2);
@@ -148,14 +149,18 @@ describe('render – plain function components', () => {
   });
 
   it('renders an empty host when the component returns null', () => {
-    function Empty() { return null; }
+    function Empty() {
+      return null;
+    }
     render(createElement(Empty as never, {}), container);
     const host = container.firstChild as HTMLElement;
     expect(host.childElementCount).toBe(0);
   });
 
   it('renders an empty host when the component returns undefined', () => {
-    function Empty() { return undefined; }
+    function Empty() {
+      return undefined;
+    }
     render(createElement(Empty as never, {}), container);
     const host = container.firstChild as HTMLElement;
     expect(host.childElementCount).toBe(0);
@@ -206,8 +211,12 @@ describe('render – generator components', () => {
       const [count, setCount] = yield* useState(0);
       return createElement(
         'button',
-        { onClick: () => { setCount(count + 1); } },
-        String(count)
+        {
+          onClick: () => {
+            setCount(count + 1);
+          },
+        },
+        String(count),
       );
     }
 
@@ -226,10 +235,12 @@ describe('render – generator components', () => {
     }
 
     render(
-      createElement('div', { className: 'wrapper' },
-        createElement(Label as never, { text: 'nested' })
+      createElement(
+        'div',
+        { className: 'wrapper' },
+        createElement(Label as never, { text: 'nested' }),
       ),
-      container
+      container,
     );
 
     expect(container.querySelector('span')!.textContent).toBe('nested');
@@ -241,10 +252,8 @@ describe('render – generator components', () => {
     }
 
     render(
-      createElement(Wrapper as never, {},
-        createElement('p', null, 'child content')
-      ),
-      container
+      createElement(Wrapper as never, {}, createElement('p', null, 'child content')),
+      container,
     );
 
     expect(container.querySelector('p')!.textContent).toBe('child content');
@@ -319,7 +328,9 @@ describe('render – generator components with usePromise', () => {
 
   it('shows loading state while promise is pending', async () => {
     let resolvePromise!: (data: string) => void;
-    const promise = new Promise<string>(res => { resolvePromise = res; });
+    const promise = new Promise<string>((res) => {
+      resolvePromise = res;
+    });
 
     function* DataComp() {
       const data = yield* usePromise({
@@ -344,7 +355,9 @@ describe('render – generator components with usePromise', () => {
 
   it('shows error state when promise rejects', async () => {
     let rejectPromise!: (reason: unknown) => void;
-    const promise = new Promise<string>((_res, rej) => { rejectPromise = rej; });
+    const promise = new Promise<string>((_res, rej) => {
+      rejectPromise = rej;
+    });
 
     function* DataComp() {
       const data = yield* usePromise({
@@ -367,7 +380,9 @@ describe('render – generator components with usePromise', () => {
 
   it('usePromise can coexist with useState in the same component', async () => {
     let resolvePromise!: (data: string) => void;
-    const promise = new Promise<string>(res => { resolvePromise = res; });
+    const promise = new Promise<string>((res) => {
+      resolvePromise = res;
+    });
     let setLabel: ((v: string) => void) | null = null;
 
     function* DataComp() {
@@ -395,7 +410,9 @@ describe('render – generator components with usePromise', () => {
 
   it('useState change while promise is pending triggers fresh run and shows correct state after resolve', async () => {
     let resolvePromise!: (data: string) => void;
-    const promise = new Promise<string>(res => { resolvePromise = res; });
+    const promise = new Promise<string>((res) => {
+      resolvePromise = res;
+    });
     let setLabel: ((v: string) => void) | null = null;
 
     function* DataComp() {
@@ -427,8 +444,12 @@ describe('render – generator components with usePromise', () => {
   it('usePromise re-runs when deps change', async () => {
     let resolveFirst!: (data: string) => void;
     let resolveSecond!: (data: string) => void;
-    const firstPromise = new Promise<string>(res => { resolveFirst = res; });
-    const secondPromise = new Promise<string>(res => { resolveSecond = res; });
+    const firstPromise = new Promise<string>((res) => {
+      resolveFirst = res;
+    });
+    const secondPromise = new Promise<string>((res) => {
+      resolveSecond = res;
+    });
 
     let setId: ((v: number) => void) | null = null;
     let fetchCount = 0;
@@ -437,7 +458,10 @@ describe('render – generator components with usePromise', () => {
       const [id, si] = yield* useState(1);
       setId = si;
       const data = yield* usePromise({
-        fn: () => { fetchCount++; return id === 1 ? firstPromise : secondPromise; },
+        fn: () => {
+          fetchCount++;
+          return id === 1 ? firstPromise : secondPromise;
+        },
         loading: createElement('span', { id: 'loading' }, 'Loading…'),
         error: createElement('span', null, 'Error'),
         deps: [id],
@@ -466,8 +490,12 @@ describe('render – generator components with usePromise', () => {
   it('stale promise result is ignored when deps change before it resolves', async () => {
     let resolveFirst!: (data: string) => void;
     let resolveSecond!: (data: string) => void;
-    const firstPromise = new Promise<string>(res => { resolveFirst = res; });
-    const secondPromise = new Promise<string>(res => { resolveSecond = res; });
+    const firstPromise = new Promise<string>((res) => {
+      resolveFirst = res;
+    });
+    const secondPromise = new Promise<string>((res) => {
+      resolveSecond = res;
+    });
 
     let setId: ((v: number) => void) | null = null;
 
@@ -475,7 +503,7 @@ describe('render – generator components with usePromise', () => {
       const [id, si] = yield* useState(1);
       setId = si;
       const data = yield* usePromise({
-        fn: () => id === 1 ? firstPromise : secondPromise,
+        fn: () => (id === 1 ? firstPromise : secondPromise),
         loading: createElement('span', { id: 'loading' }, 'Loading…'),
         error: createElement('span', null, 'Error'),
         deps: [id],

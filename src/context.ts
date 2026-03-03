@@ -102,5 +102,5 @@ export function _setCtxMap(map: ReadonlyMap<Context<unknown>, unknown>): void {
  * Otherwise return `null`.
  */
 export function _getProviderCtx(fn: unknown): Context<unknown> | null {
-  return (fn as Record<symbol, unknown>)?.[PROVIDER_CTX] as Context<unknown> ?? null;
+  return ((fn as Record<symbol, unknown>)?.[PROVIDER_CTX] as Context<unknown>) ?? null;
 }

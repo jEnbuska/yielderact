@@ -37,9 +37,7 @@ test.beforeAll(async () => {
  * Load a blank page with the library bundle injected and a `#root` div.
  */
 async function setupPage(page: Page): Promise<void> {
-  await page.setContent(
-    '<!DOCTYPE html><html><body><div id="root"></div></body></html>',
-  );
+  await page.setContent('<!DOCTYPE html><html><body><div id="root"></div></body></html>');
   await page.addScriptTag({ content: bundleCode });
 }
 
@@ -55,7 +53,9 @@ test('renders a plain HTML element', async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render } = (window as unknown as { Yielderact: typeof import('../src/index') }).Yielderact;
+    const { createElement, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
     render(
       createElement('h1', { id: 'heading', className: 'title' }, 'Hello yielderact'),
       document.getElementById('root')!,
@@ -71,9 +71,13 @@ test('renders nested elements', async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render } = (window as unknown as { Yielderact: typeof import('../src/index') }).Yielderact;
+    const { createElement, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
     render(
-      createElement('ul', { id: 'list' },
+      createElement(
+        'ul',
+        { id: 'list' },
         createElement('li', null, 'Item 1'),
         createElement('li', null, 'Item 2'),
         createElement('li', null, 'Item 3'),
@@ -97,14 +101,22 @@ test('generator counter increments on click', async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render } = (window as unknown as { Yielderact: typeof import('../src/index') }).Yielderact;
+    const { createElement, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
 
     function* Counter(_: object, rerender: () => void) {
       let count = 0;
       while (true) {
         yield createElement(
           'button',
-          { id: 'btn', onclick: () => { count++; rerender(); } },
+          {
+            id: 'btn',
+            onclick: () => {
+              count++;
+              rerender();
+            },
+          },
           String(count),
         );
       }
@@ -134,7 +146,9 @@ test('plain function component renders correctly', async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render } = (window as unknown as { Yielderact: typeof import('../src/index') }).Yielderact;
+    const { createElement, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
 
     function Greeting({ name }: { name: string }) {
       return createElement('p', { id: 'greeting' }, `Hello, ${name}!`);
@@ -158,14 +172,18 @@ test('generator renders child generator component', async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render } = (window as unknown as { Yielderact: typeof import('../src/index') }).Yielderact;
+    const { createElement, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
 
     function* Badge({ label }: { label: string }) {
       yield createElement('span', { id: 'badge', className: 'badge' }, label);
     }
 
     function* App() {
-      yield createElement('div', { id: 'app' },
+      yield createElement(
+        'div',
+        { id: 'app' },
         createElement('h2', null, 'App'),
         createElement(Badge as never, { label: 'Active' }),
       );
@@ -183,7 +201,9 @@ test('parent re-render preserves child generator state (memoization)', async ({ 
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render } = (window as unknown as { Yielderact: typeof import('../src/index') }).Yielderact;
+    const { createElement, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
 
     // Expose rerenders to the window for test control
     (window as unknown as Record<string, () => void>).rerenderParent = () => {};
@@ -230,8 +250,9 @@ test('context Provider supplies value to deeply nested consumer', async ({ page 
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, createContext, useContext, render } =
-      (window as unknown as { Yielderact: typeof import('../src/index') }).Yielderact;
+    const { createElement, createContext, useContext, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
 
     const ThemeCtx = createContext<string>('light');
 
@@ -241,13 +262,13 @@ test('context Provider supplies value to deeply nested consumer', async ({ page 
     }
 
     function* Section() {
-      yield createElement('div', null,
-        createElement(ThemeDisplay as never, {}),
-      );
+      yield createElement('div', null, createElement(ThemeDisplay as never, {}));
     }
 
     render(
-      createElement(ThemeCtx.Provider as never, { value: 'dark' },
+      createElement(
+        ThemeCtx.Provider as never,
+        { value: 'dark' },
         createElement(Section as never, {}),
       ),
       document.getElementById('root')!,
@@ -266,11 +287,14 @@ test('Fragment renders multiple children without a wrapper', async ({ page }) =>
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, Fragment, render } =
-      (window as unknown as { Yielderact: typeof import('../src/index') }).Yielderact;
+    const { createElement, Fragment, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
 
     function* App() {
-      yield createElement(Fragment, null,
+      yield createElement(
+        Fragment,
+        null,
         createElement('p', { id: 'p1' }, 'First'),
         createElement('p', { id: 'p2' }, 'Second'),
       );
@@ -292,14 +316,19 @@ test('inline styles are applied correctly', async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render } =
-      (window as unknown as { Yielderact: typeof import('../src/index') }).Yielderact;
+    const { createElement, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
 
     render(
-      createElement('div', {
-        id: 'styled',
-        style: { backgroundColor: 'blue', color: 'white', padding: '8px' },
-      }, 'Styled'),
+      createElement(
+        'div',
+        {
+          id: 'styled',
+          style: { backgroundColor: 'blue', color: 'white', padding: '8px' },
+        },
+        'Styled',
+      ),
       document.getElementById('root')!,
     );
   });

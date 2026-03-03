@@ -29,10 +29,7 @@ function* App() {
       </p>
 
       {/* Tab bar */}
-      <nav
-        role="tablist"
-        style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}
-      >
+      <nav role="tablist" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem' }}>
         {tabs.map((tab) => (
           <button
             key={tab.id}

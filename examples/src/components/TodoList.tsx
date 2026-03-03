@@ -2,7 +2,7 @@
  * TodoList – a generator component demonstrating array state management
  * with `yield* useState`.
  */
-import { render, useState, type SEvent } from 'yielderact';
+import { render, useState } from 'yielderact';
 
 interface Todo {
   id: number;
@@ -31,7 +31,11 @@ export function* TodoList() {
   function addTodo() {
     const text = inputValue.trim();
     if (!text) return;
-    setState({ todos: [...todos, { id: nextId, text, done: false }], nextId: nextId + 1, inputValue: '' });
+    setState({
+      todos: [...todos, { id: nextId, text, done: false }],
+      nextId: nextId + 1,
+      inputValue: '',
+    });
   }
 
   function toggleTodo(id: number) {
@@ -46,8 +50,8 @@ export function* TodoList() {
     <section aria-label="Todo list example">
       <h2>Todo List</h2>
       <p>
-        Array state lives in <code>yield* useState</code> — no special reactive
-        primitives needed, just plain objects and setters.
+        Array state lives in <code>yield* useState</code> — no special reactive primitives needed,
+        just plain objects and setters.
       </p>
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
         <input
@@ -55,10 +59,10 @@ export function* TodoList() {
           type="text"
           value={inputValue}
           placeholder="New todo…"
-          onInput={(e: SEvent<'input'>) => {
-            setState({ ...state, inputValue: (e.target as HTMLInputElement).value });
+          onInput={(e) => {
+            setState({ ...state, inputValue: e.currentTarget?.value ?? '' });
           }}
-          onKeydown={(e: SEvent<'keydown'>) => {
+          onKeydown={(e) => {
             if (e.nativeEvent.key === 'Enter') addTodo();
           }}
         />
@@ -71,16 +75,15 @@ export function* TodoList() {
           <li
             key={todo.id}
             data-id={todo.id}
-            style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', marginBottom: '0.35rem' }}
+            style={{
+              display: 'flex',
+              gap: '0.5rem',
+              alignItems: 'center',
+              marginBottom: '0.35rem',
+            }}
           >
-            <input
-              type="checkbox"
-              checked={todo.done}
-              onChange={() => toggleTodo(todo.id)}
-            />
-            <span
-              style={{ textDecoration: todo.done ? 'line-through' : 'none', flex: 1 }}
-            >
+            <input type="checkbox" checked={todo.done} onChange={() => toggleTodo(todo.id)} />
+            <span style={{ textDecoration: todo.done ? 'line-through' : 'none', flex: 1 }}>
               {todo.text}
             </span>
             <button
