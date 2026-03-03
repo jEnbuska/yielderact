@@ -9,7 +9,9 @@
  * Quick-start:
  *
  * ```tsx
- * import { createElement, Fragment, render } from 'yielderact';
+ * import { createElement, Fragment, render, createContext, useContext } from 'yielderact';
+ *
+ * const ThemeCtx = createContext<'light' | 'dark'>('light');
  *
  * function* Counter(props: {}, rerender: () => void) {
  *   let count = 0;
@@ -27,4 +29,12 @@
  */
 export { createElement, Fragment } from './jsx';
 export { render } from './render';
-export type { VNode, Child, GeneratorComponentFn, PlainComponentFn, AnyComponentFn } from './jsx';
+export { createContext, useContext } from './context';
+export type {
+  VNode,
+  Child,
+  GeneratorComponentFn,
+  PlainComponentFn,
+  AnyComponentFn,
+} from './jsx';
+export type { Context } from './context';
