@@ -2,7 +2,7 @@
  * TodoList – a generator component demonstrating array state management
  * with `yield* useState`.
  */
-import { render, useState } from 'yielderact';
+import { render, useState, useId } from 'yielderact';
 
 interface Todo {
   id: number;
@@ -17,6 +17,11 @@ interface TodoState {
 }
 
 export function* TodoList() {
+  const inputId = yield* useId();
+  const addBtnId = yield* useId();
+  const listId = yield* useId();
+  const emptyMsgId = yield* useId();
+
   const [state, setState] = yield* useState<TodoState>({
     todos: [
       { id: 1, text: 'Learn yielderact', done: false },
@@ -54,8 +59,10 @@ export function* TodoList() {
         just plain objects and setters.
       </p>
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+        <label htmlFor={inputId}>New todo:</label>
         <input
-          id="todo-input"
+          id={inputId}
+          data-testid="todo-input"
           type="text"
           value={inputValue}
           placeholder="New todo…"
@@ -66,11 +73,11 @@ export function* TodoList() {
             if (e.nativeEvent.key === 'Enter') addTodo();
           }}
         />
-        <button id="add-todo-btn" onClick={addTodo}>
+        <button id={addBtnId} data-testid="add-todo-btn" onClick={addTodo}>
           Add
         </button>
       </div>
-      <ul id="todo-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+      <ul id={listId} data-testid="todo-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {todos.map((todo) => (
           <li
             key={todo.id}
@@ -97,7 +104,7 @@ export function* TodoList() {
         ))}
       </ul>
       {todos.length === 0 && (
-        <p id="empty-message" style={{ color: '#888' }}>
+        <p id={emptyMsgId} data-testid="empty-message" style={{ color: '#888' }}>
           No todos yet. Add one above!
         </p>
       )}
