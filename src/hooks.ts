@@ -91,6 +91,116 @@ export function* useState<T>(initialValue: T): Generator<never, [T, (value: T) =
 }
 
 // ---------------------------------------------------------------------------
+// useRef
+// ---------------------------------------------------------------------------
+
+/**
+ * A mutable ref object whose `.current` property persists across re-renders.
+ */
+export interface RefObject<T> {
+  current: T;
+}
+
+/**
+ * Persistent mutable ref hook for generator components.
+ *
+ * Returns a stable `{ current }` object whose value persists across re-renders
+ * without triggering a re-render when mutated.
+ *
+ * Must be called with `yield*` inside a generator component or hook.
+ *
+ * @example
+ * function* InputFocus(_props: object) {
+ *   const ref = yield* useRef<HTMLInputElement | null>(null);
+ *   return <input ref={ref} />;
+ * }
+ */
+export function* useRef<T>(initialValue: T): Generator<never, RefObject<T>, unknown> {
+  const states = _hookStates!;
+  const index = _hookIndex++;
+
+  if (!(index in states)) {
+    states[index] = { current: initialValue } as RefObject<T>;
+  }
+
+  return states[index] as RefObject<T>;
+}
+
+// ---------------------------------------------------------------------------
+// useId
+// ---------------------------------------------------------------------------
+
+let _idCounter = 0;
+
+/**
+ * Stable unique ID hook for generator components.
+ *
+ * Returns a string ID that is stable across re-renders and unique per hook
+ * call site within the application.
+ *
+ * Must be called with `yield*` inside a generator component or hook.
+ *
+ * @example
+ * function* LabelledInput(_props: object) {
+ *   const id = yield* useId();
+ *   return (
+ *     <>
+ *       <label htmlFor={id}>Name</label>
+ *       <input id={id} />
+ *     </>
+ *   );
+ * }
+ */
+export function* useId(): Generator<never, string, unknown> {
+  const states = _hookStates!;
+  const index = _hookIndex++;
+
+  if (!(index in states)) {
+    states[index] = `:r${_idCounter++}:`;
+  }
+
+  return states[index] as string;
+}
+
+// ---------------------------------------------------------------------------
+// useMemo
+// ---------------------------------------------------------------------------
+
+type MemoState<T> = { value: T; deps: unknown[] };
+
+/**
+ * Memoized value hook for generator components.
+ *
+ * Calls `fn(...deps)` on the first render and re-calls it only when the
+ * dependency values change (shallow `Object.is` comparison).  The previous
+ * result is returned unchanged between dependency updates.
+ *
+ * Unlike React's `useMemo`, the dependency values are forwarded as arguments
+ * to the factory function.
+ *
+ * Must be called with `yield*` inside a generator component or hook.
+ *
+ * @example
+ * function* Expensive({ a, b }: { a: number; b: number }) {
+ *   const result = yield* useMemo((a, b) => heavyCalc(a, b), [a, b]);
+ *   return <div>{result}</div>;
+ * }
+ */
+export function* useMemo<T>(
+  fn: (...args: unknown[]) => T,
+  deps: unknown[],
+): Generator<never, T, unknown> {
+  const states = _hookStates!;
+  const index = _hookIndex++;
+
+  if (!(index in states) || depsChanged((states[index] as MemoState<T>).deps, deps)) {
+    states[index] = { value: fn(...deps), deps } as MemoState<T>;
+  }
+
+  return (states[index] as MemoState<T>).value;
+}
+
+// ---------------------------------------------------------------------------
 // usePromise
 // ---------------------------------------------------------------------------
 
