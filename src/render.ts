@@ -6,9 +6,19 @@ import {
   PlainComponentFn,
   AnyComponentFn,
 } from './jsx';
-import { _getCtxMap, _setCtxMap, _getProviderCtx, type Context } from './context';
+import { _getCtxMap, _setCtxMap, _getProviderCtx, USE_CONTEXT, type Context } from './context';
 import { createSyntheticEvent, type SyntheticEvent } from './events';
-import { _initHooks, _clearHooks } from './hooks';
+import {
+  USE_STATE,
+  USE_REF,
+  USE_ID,
+  USE_MEMO,
+  USE_RESOLVE,
+  USE_RENDER,
+  depsChanged,
+  type PromiseHookState,
+  type UseRenderState,
+} from './hooks';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -187,7 +197,7 @@ interface GenInstance {
    * - `null` when the generator has returned (component completed its render).
    *   A fresh generator is created on the next `rerender()` call.
    */
-  gen: Generator<Child, Child, unknown> | null;
+  gen: Generator<unknown, Child, unknown> | null;
   props: Record<string, unknown>;
   host: HTMLElement;
   /** The context map that was active when this component was mounted. */
@@ -195,16 +205,174 @@ interface GenInstance {
   /** Reconciled slots representing the generator's last rendered output. */
   slots: Slot[];
   /**
-   * Persistent hook state storage.  Each entry corresponds to one `yield*`
-   * hook call in the component body (by call-order index).  This array
-   * survives across re-renders so that `useState` values and `useResolve`
-   * promise statuses are preserved.
+   * Persistent hook state storage.  Each entry corresponds to one hook
+   * descriptor yielded in the component body (by call-order index).  This
+   * array survives across re-renders so that `useState` values and
+   * `useResolve` promise statuses are preserved.
    */
   hookStates: unknown[];
 }
 
 /** Map from a generator component's host span to its instance. */
 const genInstanceMap = new WeakMap<HTMLElement, GenInstance>();
+
+// ---------------------------------------------------------------------------
+// Hook descriptor processing
+// ---------------------------------------------------------------------------
+
+/** Counter for stable unique IDs produced by `useId`. */
+let _idCounter = 0;
+
+/** Set of all known hook descriptor type symbols for fast membership test. */
+const HOOK_SYMBOLS = new Set<symbol>([
+  USE_STATE,
+  USE_REF,
+  USE_ID,
+  USE_MEMO,
+  USE_CONTEXT,
+  USE_RESOLVE,
+  USE_RENDER,
+]);
+
+/** Returns true when a yielded value is a hook descriptor (not a VNode/Child). */
+function isHookDescriptor(value: unknown): boolean {
+  return (
+    value !== null &&
+    typeof value === 'object' &&
+    HOOK_SYMBOLS.has((value as { type: symbol }).type)
+  );
+}
+
+/**
+ * Process a single hook descriptor and return the value to send back to the
+ * generator via `gen.next(value)`.
+ */
+function processOneDescriptor(
+  descriptor: { type: symbol; [key: string]: unknown },
+  hookIndex: number,
+  hookStates: unknown[],
+  rerender: () => void,
+  resume: () => void,
+): unknown {
+  switch (descriptor.type) {
+    case USE_STATE: {
+      if (!(hookIndex in hookStates)) {
+        const init = descriptor['initialValue'];
+        hookStates[hookIndex] = typeof init === 'function' ? (init as () => unknown)() : init;
+      }
+      const setter = (newValue: unknown): void => {
+        hookStates[hookIndex] =
+          typeof newValue === 'function'
+            ? (newValue as (prev: unknown) => unknown)(hookStates[hookIndex])
+            : newValue;
+        rerender();
+      };
+      return [hookStates[hookIndex], setter];
+    }
+
+    case USE_REF: {
+      if (!(hookIndex in hookStates)) {
+        hookStates[hookIndex] = { current: descriptor['initialValue'] };
+      }
+      return hookStates[hookIndex];
+    }
+
+    case USE_ID: {
+      if (!(hookIndex in hookStates)) {
+        hookStates[hookIndex] = `:r${_idCounter++}:`;
+      }
+      return hookStates[hookIndex];
+    }
+
+    case USE_MEMO: {
+      const fn = descriptor['fn'] as (...args: unknown[]) => unknown;
+      const deps = descriptor['deps'] as unknown[];
+      const existing = hookStates[hookIndex] as { value: unknown; deps: unknown[] } | undefined;
+      if (!existing || depsChanged(existing.deps, deps)) {
+        hookStates[hookIndex] = { value: fn(...deps), deps };
+      }
+      return (hookStates[hookIndex] as { value: unknown }).value;
+    }
+
+    case USE_CONTEXT: {
+      const ctx = descriptor['ctx'] as Context<unknown>;
+      const ctxMap = _getCtxMap();
+      const value = ctxMap.get(ctx);
+      return value !== undefined ? value : ctx._defaultValue;
+    }
+
+    case USE_RESOLVE: {
+      if (!(hookIndex in hookStates)) {
+        hookStates[hookIndex] = { status: 'idle', gen: 0 } as PromiseHookState<unknown>;
+      }
+      return { slot: hookStates[hookIndex], resume };
+    }
+
+    case USE_RENDER: {
+      const deps = descriptor['deps'] as unknown[];
+      let slot = hookStates[hookIndex] as UseRenderState<unknown> | undefined;
+
+      if (!slot || depsChanged(slot.deps, deps)) {
+        // New slot – create a fresh resumeCallback that closes over the slot ref.
+        const newSlot: UseRenderState<unknown> = {
+          status: 'waiting',
+          deps,
+          value: undefined,
+          resumeCallback: null!,
+        };
+        hookStates[hookIndex] = newSlot;
+        newSlot.resumeCallback = (value: unknown): void => {
+          const s = hookStates[hookIndex] as UseRenderState<unknown>;
+          if (s.status === 'waiting') {
+            s.status = 'resolved';
+            s.value = value;
+            resume();
+          }
+        };
+        slot = newSlot;
+      } else {
+        // Same deps – reuse stable callback, just reset status for this fresh run.
+        slot.status = 'waiting';
+      }
+
+      return { slot, resumeCallback: slot.resumeCallback };
+    }
+
+    default:
+      throw new Error(`Unknown hook descriptor type: ${String(descriptor.type)}`);
+  }
+}
+
+/**
+ * Execute the component generator body, intercepting hook descriptors.
+ *
+ * Runs `gen.next()` in a loop: whenever the generator yields a hook descriptor
+ * the descriptor is processed and the result is sent back via `gen.next(result)`.
+ * The loop exits when the generator either returns (done) or yields a real VNode
+ * (render output that the reconciler should display).
+ *
+ * Returns the VNode to reconcile and the generator to store (null if done).
+ */
+function runHooks(
+  gen: Generator<unknown, Child, unknown>,
+  hookStates: unknown[],
+  rerender: () => void,
+  resume: () => void,
+): { vnode: Child; gen: Generator<unknown, Child, unknown> | null } {
+  let hookIndex = 0;
+  let result = gen.next(undefined as unknown);
+
+  while (!result.done && isHookDescriptor(result.value)) {
+    const descriptor = result.value as { type: symbol; [key: string]: unknown };
+    const value = processOneDescriptor(descriptor, hookIndex++, hookStates, rerender, resume);
+    result = gen.next(value);
+  }
+
+  return {
+    vnode: (result.value as Child) ?? null,
+    gen: result.done ? null : gen,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Build helpers
@@ -321,11 +489,12 @@ function buildVNodeList(vnodes: Child[]): { nodes: Node[]; slots: Slot[] } {
  * Mount a generator-function component into a `display:contents` host span.
  * Registers a GenInstance so that `rerender()` can reconcile efficiently.
  *
- * Components **return** their JSX (done=true).  Hooks may **yield** intermediate
- * VNodes (done=false) to intercept rendering (e.g. show a loading spinner while
- * a promise is pending).  When a hook yields, the generator is stored and
- * resumed on the next `rerender()`.  When the generator returns, it is discarded
- * and a fresh one is created on the next `rerender()`.
+ * Components **return** their JSX (done=true).  Hooks yield descriptor objects
+ * that are intercepted by `runHooks`; real VNode yields (done=false) pause the
+ * generator (e.g. `useResolve` showing a loading spinner).  When a hook yields
+ * a real VNode, the generator is stored and resumed on the next `rerender()`.
+ * When the generator returns, it is discarded and a fresh one is created on
+ * the next `rerender()`.
  */
 function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string, unknown>): Node {
   const host = document.createElement('span');
@@ -377,15 +546,13 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
     // Discard a paused generator so the fresh run starts from the top.
     instance.gen = null;
 
-    _initHooks(rerender, resume, instance.hookStates);
     let vnode: Child;
     try {
       const gen = instance.fn(instance.props, rerender);
-      const { value, done } = gen.next();
-      instance.gen = done ? null : gen;
-      vnode = (value as Child) ?? null;
+      const { vnode: v, gen: newGen } = runHooks(gen, instance.hookStates, rerender, resume);
+      instance.gen = newGen;
+      vnode = v;
     } finally {
-      _clearHooks();
       _setCtxMap(prevCtx);
     }
 
@@ -395,18 +562,16 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
   // ── Initial mount ──
   const prevCtx = _getCtxMap();
   _setCtxMap(capturedCtx);
-  _initHooks(rerender, resume, hookStates);
+  let initialVNode: Child;
   try {
     const gen = fn(props, rerender);
-    const { value, done } = gen.next();
-    const initialGen = done ? null : gen;
-    const initialVNode: Child = (value as Child) ?? null;
+    const { vnode, gen: initialGen } = runHooks(gen, hookStates, rerender, resume);
+    initialVNode = vnode;
     const { nodes, slots } = buildVNodeList([initialVNode]);
     instance = { fn, gen: initialGen, props, host, capturedCtx, slots, hookStates };
     genInstanceMap.set(host, instance);
     for (const n of nodes) host.appendChild(n);
   } finally {
-    _clearHooks();
     _setCtxMap(prevCtx);
   }
 
@@ -615,12 +780,6 @@ function reconcileOne(
       }
 
       // Other component types (or Provider whose value changed) → remount from scratch.
-      // NOTE: for generator components this means the generator's internal
-      // state (local variables, the generator cursor) is discarded.  This
-      // differs from React's behaviour where a component receives new props
-      // on each render without losing state.  The trade-off keeps the
-      // renderer simple; components that need to survive prop changes should
-      // lift their state up or use context instead.
     }
 
     // Mount fresh component
