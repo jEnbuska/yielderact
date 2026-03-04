@@ -103,6 +103,7 @@ Uses `vite-plugin-yielderact.ts` from the root to configure the JSX transform.
    - **Testing:** All tests should pass and new features and changes should be tested on the src level and in examples
    - **Lint and formatting:** All linting and (prettier) formatting should pass
    - **Build:** Build should occur without any error
+   - **Documentation:** If the PR adds, changes, or removes any public API (hooks, props, behaviour), `docs/api.md` must be updated in the same PR.
 5. **Sync with dev:** After the first commit on a new branch, always merge or rebase with `dev` and fix any conflicts before pushing.
 6. **Execution:** Use the `gh` tool or internal git commands to push and open the PR.
 7. **Close issues:** Before starting any new ticket, check for merged PRs (`gh pr list --state merged`) and close the GitHub issues they resolved (`gh issue close <number>`) if not already closed.
@@ -115,4 +116,4 @@ Uses `vite-plugin-yielderact.ts` from the root to configure the JSX transform.
 ## Non-Obvious Rules
 
 - Never modify `package-lock.json` manually.
-- If a change affects the API, update `docs/api.md` immediately.
+- `docs/api.md` is the canonical API reference. Any PR that adds, changes, or removes public API (hooks, props, special behaviour) **must** update it. This includes new hooks, changed signatures, new special props, and behaviour changes.
