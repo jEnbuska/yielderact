@@ -14,9 +14,15 @@ interface User {
   email: string;
 }
 
-/** Simulates a 1.5 s network request. */
-async function fetchUser(): Promise<User> {
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+/** Simulates a 1.5 s network request. Respects the provided AbortSignal. */
+async function fetchUser(signal: AbortSignal): Promise<User> {
+  await new Promise((resolve, reject) => {
+    const t = setTimeout(resolve, 1500);
+    signal.addEventListener('abort', () => {
+      clearTimeout(t);
+      reject(new DOMException('Aborted', 'AbortError'));
+    });
+  });
   return { id: 1, name: 'Jane Doe', email: 'jane@example.com' };
 }
 
