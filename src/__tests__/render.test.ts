@@ -1,6 +1,6 @@
 import { createElement, Fragment } from '../jsx';
 import { render, buildNode } from '../render';
-import { useState, useResolve } from '../hooks';
+import { useState, useResolve, useResolveRaw, useMemo } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
@@ -333,11 +333,14 @@ describe('render – generator components with useResolve', () => {
     });
 
     function* DataComp() {
-      const data = yield* useResolve({
-        fn: () => promise,
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', { id: 'error' }, 'Error'),
-      }, []);
+      const data = yield* useResolve(
+        {
+          fn: () => promise,
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', { id: 'error' }, 'Error'),
+        },
+        [],
+      );
       return createElement('span', { id: 'data' }, data);
     }
 
@@ -360,11 +363,14 @@ describe('render – generator components with useResolve', () => {
     });
 
     function* DataComp() {
-      const data = yield* useResolve({
-        fn: () => promise,
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', { id: 'error' }, 'Error'),
-      }, []);
+      const data = yield* useResolve(
+        {
+          fn: () => promise,
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', { id: 'error' }, 'Error'),
+        },
+        [],
+      );
       return createElement('span', { id: 'data' }, data);
     }
 
@@ -388,11 +394,14 @@ describe('render – generator components with useResolve', () => {
     function* DataComp() {
       const [label, sl] = yield* useState('prefix');
       setLabel = sl;
-      const data = yield* useResolve({
-        fn: () => promise,
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', null, 'Error'),
-      }, []);
+      const data = yield* useResolve(
+        {
+          fn: () => promise,
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', null, 'Error'),
+        },
+        [],
+      );
       return createElement('p', { id: 'result' }, `${label}:${data}`);
     }
 
@@ -418,11 +427,14 @@ describe('render – generator components with useResolve', () => {
     function* DataComp() {
       const [label, sl] = yield* useState('prefix');
       setLabel = sl;
-      const data = yield* useResolve({
-        fn: () => promise,
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', null, 'Error'),
-      }, []);
+      const data = yield* useResolve(
+        {
+          fn: () => promise,
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', null, 'Error'),
+        },
+        [],
+      );
       return createElement('p', { id: 'result' }, `${label}:${data}`);
     }
 
@@ -457,14 +469,17 @@ describe('render – generator components with useResolve', () => {
     function* DataComp() {
       const [id, si] = yield* useState(1);
       setId = si;
-      const data = yield* useResolve({
-        fn: () => {
-          fetchCount++;
-          return id === 1 ? firstPromise : secondPromise;
+      const data = yield* useResolve(
+        {
+          fn: () => {
+            fetchCount++;
+            return id === 1 ? firstPromise : secondPromise;
+          },
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', null, 'Error'),
         },
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', null, 'Error'),
-      }, [id]);
+        [id],
+      );
       return createElement('p', { id: 'result' }, `${id}:${data}`);
     }
 
@@ -501,11 +516,14 @@ describe('render – generator components with useResolve', () => {
     function* DataComp() {
       const [id, si] = yield* useState(1);
       setId = si;
-      const data = yield* useResolve({
-        fn: () => (id === 1 ? firstPromise : secondPromise),
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', null, 'Error'),
-      }, [id]);
+      const data = yield* useResolve(
+        {
+          fn: () => (id === 1 ? firstPromise : secondPromise),
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', null, 'Error'),
+        },
+        [id],
+      );
       return createElement('p', { id: 'result' }, `${id}:${data}`);
     }
 
@@ -524,6 +542,138 @@ describe('render – generator components with useResolve', () => {
     // Now resolve the stale first promise – should NOT update the DOM
     resolveFirst('user1');
     await firstPromise;
+    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+  });
+});
+
+describe('render – generator components with useResolveRaw', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+  });
+
+  it('renders loading state while promise is pending', async () => {
+    let resolvePromise!: (data: string) => void;
+    const promise = new Promise<string>((res) => {
+      resolvePromise = res;
+    });
+
+    function* DataComp() {
+      const p = yield* useMemo(() => promise, []);
+      const { data, loading } = yield* useResolveRaw<string>(p);
+      if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
+      return createElement('span', { id: 'data' }, data);
+    }
+
+    render(createElement(DataComp as never, {}), container);
+    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector('#data')).toBeNull();
+
+    resolvePromise('Hello');
+    await promise;
+
+    expect(container.querySelector('#loading')).toBeNull();
+    expect(container.querySelector('#data')).not.toBeNull();
+    expect(container.querySelector('#data')!.textContent).toBe('Hello');
+  });
+
+  it('renders error state when promise rejects', async () => {
+    let rejectPromise!: (reason: unknown) => void;
+    const promise = new Promise<string>((_res, rej) => {
+      rejectPromise = rej;
+    });
+
+    function* DataComp() {
+      const p = yield* useMemo(() => promise, []);
+      const { data, loading, error } = yield* useResolveRaw<string, Error>(p);
+      if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
+      if (error) return createElement('span', { id: 'error' }, error.message);
+      return createElement('span', { id: 'data' }, data);
+    }
+
+    render(createElement(DataComp as never, {}), container);
+    expect(container.querySelector('#loading')).not.toBeNull();
+
+    rejectPromise(new Error('network error'));
+    await promise.catch(() => {});
+
+    expect(container.querySelector('#error')).not.toBeNull();
+    expect(container.querySelector('#error')!.textContent).toBe('network error');
+    expect(container.querySelector('#data')).toBeNull();
+  });
+
+  it('re-fetches when the promise reference changes', async () => {
+    let resolveFirst!: (data: string) => void;
+    let resolveSecond!: (data: string) => void;
+    const firstPromise = new Promise<string>((res) => {
+      resolveFirst = res;
+    });
+    const secondPromise = new Promise<string>((res) => {
+      resolveSecond = res;
+    });
+    let setId: ((v: number) => void) | null = null;
+
+    function* DataComp() {
+      const [id, si] = yield* useState(1);
+      setId = si;
+      const p = yield* useMemo(() => (id === 1 ? firstPromise : secondPromise), [id]);
+      const { data, loading } = yield* useResolveRaw<string>(p);
+      if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
+      return createElement('p', { id: 'result' }, `${id}:${data}`);
+    }
+
+    render(createElement(DataComp as never, {}), container);
+    expect(container.querySelector('#loading')).not.toBeNull();
+
+    resolveFirst('user1');
+    await firstPromise;
+    expect(container.querySelector('#result')!.textContent).toBe('1:user1');
+
+    setId!(2);
+    expect(container.querySelector('#loading')).not.toBeNull();
+
+    resolveSecond('user2');
+    await secondPromise;
+    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+  });
+
+  it('ignores stale promise result when promise reference changes', async () => {
+    let resolveFirst!: (data: string) => void;
+    let resolveSecond!: (data: string) => void;
+    const firstPromise = new Promise<string>((res) => {
+      resolveFirst = res;
+    });
+    const secondPromise = new Promise<string>((res) => {
+      resolveSecond = res;
+    });
+    let setId: ((v: number) => void) | null = null;
+
+    function* DataComp() {
+      const [id, si] = yield* useState(1);
+      setId = si;
+      const p = yield* useMemo(() => (id === 1 ? firstPromise : secondPromise), [id]);
+      const { data, loading } = yield* useResolveRaw<string>(p);
+      if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
+      return createElement('p', { id: 'result' }, `${id}:${data}`);
+    }
+
+    render(createElement(DataComp as never, {}), container);
+
+    setId!(2);
+
+    resolveSecond('user2');
+    await secondPromise;
+    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+
+    resolveFirst('user1');
+    await firstPromise;
+    // Stale result must not overwrite the current render
     expect(container.querySelector('#result')!.textContent).toBe('2:user2');
   });
 });
@@ -592,7 +742,10 @@ describe('shown prop', () => {
     function Greeting() {
       return createElement('p', null, 'hello');
     }
-    render(createElement('div', null, createElement(Greeting as never, { shown: true })), container);
+    render(
+      createElement('div', null, createElement(Greeting as never, { shown: true })),
+      container,
+    );
     expect(container.querySelector('p')).not.toBeNull();
   });
 
@@ -600,7 +753,10 @@ describe('shown prop', () => {
     function Greeting() {
       return createElement('p', null, 'hello');
     }
-    render(createElement('div', null, createElement(Greeting as never, { shown: false })), container);
+    render(
+      createElement('div', null, createElement(Greeting as never, { shown: false })),
+      container,
+    );
     expect(container.querySelector('p')).toBeNull();
   });
 
@@ -616,7 +772,10 @@ describe('shown prop', () => {
     function* Counter() {
       return createElement('p', null, 'counter');
     }
-    render(createElement('div', null, createElement(Counter as never, { shown: false })), container);
+    render(
+      createElement('div', null, createElement(Counter as never, { shown: false })),
+      container,
+    );
     expect(container.querySelector('p')).toBeNull();
   });
 

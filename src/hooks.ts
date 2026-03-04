@@ -239,12 +239,6 @@ export interface UseResolveOptions<T> {
   error: Renderable;
 }
 
-type PromiseHookState<T> =
-  | { status: 'idle'; gen: number }
-  | { status: 'pending'; gen: number; deps: unknown[] }
-  | { status: 'resolved'; data: T; gen: number; deps: unknown[] }
-  | { status: 'rejected'; reason: unknown; gen: number; deps: unknown[] };
-
 /** Returns true when the dependency arrays differ. */
 function depsChanged(prev: unknown[] | undefined, next: unknown[]): boolean {
   if (prev === undefined) return true; // first run after idle
@@ -266,6 +260,82 @@ function toChild(renderable: Renderable): Child {
     return { type: renderable as AnyComponentFn, props: {}, children: [] };
   }
   return renderable as Child;
+}
+
+// ---------------------------------------------------------------------------
+// useResolveRaw
+// ---------------------------------------------------------------------------
+
+/**
+ * The return type of `useResolveRaw`.
+ * A discriminated union — narrow on `loading` or `error` to access `data`.
+ */
+export type ResolveRawResult<T, E = unknown> =
+  | { data: T; loading: false; error: undefined }
+  | { data: undefined; loading: true; error: undefined }
+  | { data: undefined; loading: false; error: E };
+
+type ResolveRawState<T, E> =
+  | { promise: Promise<T>; status: 'pending' }
+  | { promise: Promise<T>; status: 'resolved'; data: T }
+  | { promise: Promise<T>; status: 'rejected'; error: E };
+
+/**
+ * Low-level async state hook for generator components.
+ *
+ * Takes a `Promise<T>` and returns the current state as a snapshot.
+ * When the promise settles the component is re-rendered and the hook
+ * returns updated values.
+ *
+ * Unlike `useResolve`, this hook does **not** pause rendering — the
+ * component receives the state immediately and decides how to render it.
+ * Combine with `useMemo` to memoize the promise factory:
+ *
+ * @example
+ * function* UserProfile({ userId }: { userId: number }) {
+ *   const promise = yield* useMemo(() => fetchUser(userId), [userId]);
+ *   const { data, loading, error } = yield* useResolveRaw<User, Error>(promise);
+ *   if (loading) return <Spinner />;
+ *   if (error) return <ErrorMessage message={error.message} />;
+ *   return <div>{data.name}</div>;
+ * }
+ */
+export function* useResolveRaw<T, E = unknown>(
+  promise: Promise<T>,
+): Generator<never, ResolveRawResult<T, E>, unknown> {
+  const rerender = _currentRerender!;
+  const states = _hookStates!;
+  const index = _hookIndex++;
+
+  const existing = states[index] as ResolveRawState<T, E> | undefined;
+
+  if (!existing || existing.promise !== promise) {
+    const state: ResolveRawState<T, E> = { promise, status: 'pending' };
+    states[index] = state;
+    promise.then(
+      (data) => {
+        if (states[index] === state) {
+          states[index] = { promise, status: 'resolved', data };
+          rerender();
+        }
+      },
+      (error: E) => {
+        if (states[index] === state) {
+          states[index] = { promise, status: 'rejected', error };
+          rerender();
+        }
+      },
+    );
+  }
+
+  const state = states[index] as ResolveRawState<T, E>;
+  if (state.status === 'resolved') {
+    return { data: state.data, loading: false, error: undefined };
+  }
+  if (state.status === 'rejected') {
+    return { data: undefined, loading: false, error: state.error };
+  }
+  return { data: undefined, loading: true, error: undefined };
 }
 
 /**
@@ -295,71 +365,29 @@ export function* useResolve<T>(
   options: UseResolveOptions<T>,
   deps: unknown[],
 ): Generator<Child, T, unknown> {
-  const resume = _currentResume!;
+  // Memoize the promise factory inline — useMemo's overloads require deps as fn
+  // args, but here deps are captured by closure and used for change-detection only.
   const states = _hookStates!;
-  const index = _hookIndex++;
-
-  if (!(index in states)) {
-    states[index] = { status: 'idle', gen: 0 } as PromiseHookState<T>;
+  const memoIndex = _hookIndex++;
+  if (
+    !(memoIndex in states) ||
+    depsChanged((states[memoIndex] as MemoState<Promise<T>>).deps, deps)
+  ) {
+    states[memoIndex] = { value: options.fn(), deps } as MemoState<Promise<T>>;
   }
+  const promise = (states[memoIndex] as MemoState<Promise<T>>).value;
 
-  const state = states[index] as PromiseHookState<T>;
+  const { data, loading, error } = yield* useResolveRaw<T, unknown>(promise);
 
-  // Reset to idle when deps have changed so the promise is re-run.
-  if (state.status !== 'idle' && depsChanged(state.deps, deps)) {
-    states[index] = { status: 'idle', gen: state.gen } as PromiseHookState<T>;
-  }
-
-  if ((states[index] as PromiseHookState<T>).status === 'idle') {
-    const idleState = states[index] as { status: 'idle'; gen: number };
-    const currentGen = idleState.gen + 1;
-    const promise = options.fn();
-    states[index] = {
-      status: 'pending',
-      gen: currentGen,
-      deps,
-    } as PromiseHookState<T>;
-    promise
-      .then((data: T) => {
-        const s = states[index] as PromiseHookState<T>;
-        if (s.status === 'pending' && s.gen === currentGen) {
-          states[index] = {
-            status: 'resolved',
-            data,
-            gen: currentGen,
-            deps,
-          } as PromiseHookState<T>;
-          resume();
-        }
-      })
-      .catch((reason: unknown) => {
-        const s = states[index] as PromiseHookState<T>;
-        if (s.status === 'pending' && s.gen === currentGen) {
-          states[index] = {
-            status: 'rejected',
-            reason,
-            gen: currentGen,
-            deps,
-          } as PromiseHookState<T>;
-          resume();
-        }
-      });
-  }
-
-  // Yield the loading VNode on each resume while the promise is still pending.
-  // The generator is paused here until resume() is called (by the .then callback).
-  while ((states[index] as PromiseHookState<T>).status === 'pending') {
+  if (loading) {
     yield toChild(options.loading);
   }
 
-  // Yield the error VNode on each resume while in the rejected state.
-  // The generator stays paused indefinitely (no retry mechanism by default).
-  while ((states[index] as PromiseHookState<T>).status === 'rejected') {
+  if (error !== undefined) {
     yield toChild(options.error);
   }
 
-  // State must be 'resolved' now – return the data to the component.
-  return (states[index] as { status: 'resolved'; data: T }).data;
+  return data as T;
 }
 
 // ---------------------------------------------------------------------------
