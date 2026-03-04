@@ -27,6 +27,7 @@ export { render } from './render';
 export { createContext, useContext } from './context';
 export {
   useState,
+  useEffect,
   useResolve,
   useResolveRaw,
   useRef,
