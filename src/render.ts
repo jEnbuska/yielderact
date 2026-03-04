@@ -15,6 +15,7 @@ import {
   USE_MEMO,
   USE_RESOLVE_RAW,
   USE_RESOLVE,
+  USE_EFFECT,
   USE_RENDER,
   depsChanged,
   type ResolveRawResult,
@@ -218,6 +219,12 @@ interface GenInstance {
    * `useResolve` aborts its AbortController when deps change).
    */
   cleanupFns: ((() => void) | undefined)[];
+  /**
+   * Effects queued during the current render pass (by `useEffect` descriptors).
+   * Flushed after the DOM is updated, but only when the generator has fully
+   * returned (gen === null). Cleared at the start of each render pass.
+   */
+  pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }>;
 }
 
 /** Map from a generator component's host span to its instance. */
@@ -239,6 +246,7 @@ const HOOK_SYMBOLS = new Set<symbol>([
   USE_CONTEXT,
   USE_RESOLVE_RAW,
   USE_RESOLVE,
+  USE_EFFECT,
   USE_RENDER,
 ]);
 
@@ -249,6 +257,23 @@ function isHookDescriptor(value: unknown): boolean {
     typeof value === 'object' &&
     HOOK_SYMBOLS.has((value as { type: symbol }).type)
   );
+}
+
+/**
+ * Run any effects that were queued during the last render pass.
+ * Only fires when the generator has fully returned (gen === null), meaning the
+ * component is not mid-interaction (e.g. waiting inside useRender).
+ * Cleanup from the previous effect at each slot is stored in hookStates so
+ * that unmountSlot can call it via cleanupFns.
+ */
+function flushEffects(instance: GenInstance): void {
+  if (instance.gen !== null) return;
+  for (const { hookIndex, fn } of instance.pendingEffects) {
+    const cleanup = fn();
+    (instance.hookStates[hookIndex] as { deps: unknown[]; cleanup: (() => void) | void }).cleanup =
+      cleanup;
+  }
+  instance.pendingEffects.length = 0;
 }
 
 /**
@@ -278,6 +303,7 @@ function processOneDescriptor(
   hookIndex: number,
   hookStates: unknown[],
   cleanupFns: ((() => void) | undefined)[],
+  pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }>,
   rerender: () => void,
   resume: () => void,
 ): unknown {
@@ -387,6 +413,27 @@ function processOneDescriptor(
       return existing.promise;
     }
 
+    case USE_EFFECT: {
+      type EffectState = { deps: unknown[]; cleanup: (() => void) | void };
+      const fn = descriptor['fn'] as () => (() => void) | void;
+      const deps = descriptor['deps'] as unknown[];
+      const existing = hookStates[hookIndex] as EffectState | undefined;
+
+      if (!existing || depsChanged(existing.deps, deps)) {
+        // Run cleanup of the previous effect synchronously before the new one.
+        existing?.cleanup?.();
+        // Store updated deps; cleanup will be filled in by flushEffects after DOM update.
+        hookStates[hookIndex] = { deps, cleanup: undefined } satisfies EffectState;
+        // Queue the effect to run after reconciliation.
+        pendingEffects.push({ hookIndex, fn });
+        // Register unmount cleanup that reads the stored cleanup from hookStates.
+        cleanupFns[hookIndex] = () => {
+          (hookStates[hookIndex] as EffectState).cleanup?.();
+        };
+      }
+      return undefined;
+    }
+
     case USE_RENDER: {
       const deps = descriptor['deps'] as unknown[];
       let slot = hookStates[hookIndex] as UseRenderState<unknown> | undefined;
@@ -436,6 +483,7 @@ function runHooks(
   gen: Generator<unknown, Child, unknown>,
   hookStates: unknown[],
   cleanupFns: ((() => void) | undefined)[],
+  pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }>,
   rerender: () => void,
   resume: () => void,
 ): { vnode: Child; gen: Generator<unknown, Child, unknown> | null } {
@@ -449,6 +497,7 @@ function runHooks(
       hookIndex++,
       hookStates,
       cleanupFns,
+      pendingEffects,
       rerender,
       resume,
     );
@@ -590,6 +639,7 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
   const capturedCtx = _getCtxMap();
   const hookStates: unknown[] = [];
   const cleanupFns: ((() => void) | undefined)[] = [];
+  const pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }> = [];
 
   // `instance` is fully populated below before any external code can observe it.
   // eslint-disable-next-line prefer-const
@@ -619,6 +669,7 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
     }
 
     instance.slots = reconcileSlots(host, instance.slots, [vnode]);
+    flushEffects(instance);
   }
 
   /**
@@ -633,6 +684,7 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
 
     // Discard a paused generator so the fresh run starts from the top.
     instance.gen = null;
+    instance.pendingEffects.length = 0;
 
     let vnode: Child;
     try {
@@ -641,6 +693,7 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
         gen,
         instance.hookStates,
         instance.cleanupFns,
+        instance.pendingEffects,
         rerender,
         resume,
       );
@@ -651,6 +704,7 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
     }
 
     instance.slots = reconcileSlots(host, instance.slots, [vnode]);
+    flushEffects(instance);
   }
 
   // ── Initial mount ──
@@ -659,15 +713,33 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
   let initialVNode: Child;
   try {
     const gen = fn(props, rerender);
-    const { vnode, gen: initialGen } = runHooks(gen, hookStates, cleanupFns, rerender, resume);
+    const { vnode, gen: initialGen } = runHooks(
+      gen,
+      hookStates,
+      cleanupFns,
+      pendingEffects,
+      rerender,
+      resume,
+    );
     initialVNode = vnode;
     const { nodes, slots } = buildVNodeList([initialVNode]);
-    instance = { fn, gen: initialGen, props, host, capturedCtx, slots, hookStates, cleanupFns };
+    instance = {
+      fn,
+      gen: initialGen,
+      props,
+      host,
+      capturedCtx,
+      slots,
+      hookStates,
+      cleanupFns,
+      pendingEffects,
+    };
     genInstanceMap.set(host, instance);
     for (const n of nodes) host.appendChild(n);
   } finally {
     _setCtxMap(prevCtx);
   }
+  flushEffects(instance);
 
   return host;
 }

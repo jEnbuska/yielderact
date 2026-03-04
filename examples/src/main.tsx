@@ -11,8 +11,18 @@ import { DataFetcher, ResolveRawDemo } from './components/DataFetcher';
 import { HooksShowcase } from './components/HooksShowcase';
 import { ShownDemo } from './components/ShownDemo';
 import { ConfirmDialog } from './components/ConfirmDialog';
+import { EffectDemo } from './components/EffectDemo';
 
-type Tab = 'counter' | 'todos' | 'theme' | 'data' | 'raw' | 'hooks' | 'shown' | 'confirm';
+type Tab =
+  | 'counter'
+  | 'todos'
+  | 'theme'
+  | 'data'
+  | 'raw'
+  | 'hooks'
+  | 'shown'
+  | 'confirm'
+  | 'effect';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'counter', label: 'Counter' },
@@ -23,6 +33,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'hooks', label: 'Hooks Showcase' },
   { id: 'shown', label: '$shown prop' },
   { id: 'confirm', label: 'useRender' },
+  { id: 'effect', label: 'useEffect' },
 ];
 
 function* App() {
@@ -71,6 +82,7 @@ function* App() {
         {activeTab === 'hooks' && <HooksShowcase />}
         {activeTab === 'shown' && <ShownDemo />}
         {activeTab === 'confirm' && <ConfirmDialog />}
+        {activeTab === 'effect' && <EffectDemo />}
       </div>
     </div>
   );
