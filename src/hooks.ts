@@ -366,7 +366,13 @@ export function* useResolve<T>(
 // useRender
 // ---------------------------------------------------------------------------
 
-/** Inline render factory passed to `useRender`. Receives the `resume` callback. */
+/**
+ * Inline render factory passed to `useRender` (Variant 2).
+ *
+ * Receives `{ resume }` and must return the JSX to render while waiting.
+ * Call `resume(value)` when the user has made a choice – this unblocks
+ * the parent generator and makes `yield* useRender(...)` return `value`.
+ */
 export type UseRenderFn<T> = (props: { resume: (value: T) => void }) => Child;
 
 type UseRenderState<T> = {
@@ -378,30 +384,59 @@ type UseRenderState<T> = {
 };
 
 /**
- * Imperative render hook for generator components.
+ * Interactive render hook for generator components.
  *
- * Pauses the generator and renders the given JSX until the `resume` callback
- * is called. Returns whatever value was passed to `resume`.
+ * Pauses the generator and renders UI until `resume(value)` is called.
+ * Whatever is passed to `resume` is returned from `yield* useRender(...)`,
+ * and the generator then continues from where it was paused.
  *
- * Two variants:
+ * Two variants are supported:
  *
- * **Variant 1 – pass JSX directly** (child uses `useResume` to obtain `resume`):
- * ```tsx
- * const answer = yield* useRender<'YES' | 'NO'>(<ConfirmDialog />);
- * ```
+ * **Variant 1 – pass JSX directly.**  The rendered child component obtains
+ * the `resume` callback via `yield* useResume()`:
  *
- * **Variant 2 – inline render function** (`resume` is injected as a prop):
- * ```tsx
- * const answer = yield* useRender<'YES' | 'NO'>(
- *   ({ resume }) => (
+ * @example
+ * // Child component – calls useResume to get the parent's resume callback
+ * function* ConfirmDialog(_props: object) {
+ *   const resume = yield* useResume<'YES' | 'NO'>();
+ *   return (
  *     <div>
  *       <button onClick={() => resume('YES')}>Yes</button>
  *       <button onClick={() => resume('NO')}>No</button>
  *     </div>
- *   ),
- *   [],
- * );
- * ```
+ *   );
+ * }
+ *
+ * // Parent – passes JSX directly; resumes when the child calls resume()
+ * function* Form(_props: object) {
+ *   const answer = yield* useRef<'YES' | 'NO' | null>(null);
+ *   while (answer.current === null) {
+ *     answer.current = yield* useRender<'YES' | 'NO'>(<ConfirmDialog />);
+ *   }
+ *   return <p>You chose: {answer.current}</p>;
+ * }
+ *
+ * **Variant 2 – inline render function.**  `resume` is injected directly into
+ * `fn` as a prop.  The required `deps` array controls when the rendered output
+ * is considered stale – pass `[]` to render the same UI for the component's
+ * lifetime, or pass values that, when changed, should reset the interaction:
+ *
+ * @example
+ * function* Form(_props: object) {
+ *   const answer = yield* useRef<'YES' | 'NO' | null>(null);
+ *   while (answer.current === null) {
+ *     answer.current = yield* useRender<'YES' | 'NO'>(
+ *       ({ resume }) => (
+ *         <div>
+ *           <button onClick={() => resume('YES')}>Yes</button>
+ *           <button onClick={() => resume('NO')}>No</button>
+ *         </div>
+ *       ),
+ *       [],
+ *     );
+ *   }
+ *   return <p>You chose: {answer.current}</p>;
+ * }
  *
  * Must be called with `yield*` inside a generator component.
  */
@@ -459,11 +494,17 @@ export function* useRender<T>(
 /**
  * Returns the `resume` callback injected by the nearest parent `useRender` call.
  *
+ * Calling `resume(value)` unblocks the parent generator, unmounts this
+ * component, and makes `yield* useRender(...)` return `value`.  The component
+ * itself does not need to do anything further after calling `resume` – the
+ * parent takes over from that point.
+ *
  * Must be called with `yield*` inside a generator component that is rendered
- * by a parent using `useRender`. Calling `resume(value)` unblocks the parent
- * generator and makes `yield* useRender(...)` return `value`.
+ * by a parent via `useRender` (Variant 1).  Throws if called outside that
+ * context.
  *
  * @example
+ * // Child – receives resume from the parent's useRender context
  * function* ConfirmDialog(_props: object) {
  *   const resume = yield* useResume<'YES' | 'NO'>();
  *   return (
@@ -472,6 +513,15 @@ export function* useRender<T>(
  *       <button onClick={() => resume('NO')}>No</button>
  *     </div>
  *   );
+ * }
+ *
+ * // Parent – passes the child via JSX; resumes when the child calls resume()
+ * function* Form(_props: object) {
+ *   const answer = yield* useRef<'YES' | 'NO' | null>(null);
+ *   while (answer.current === null) {
+ *     answer.current = yield* useRender<'YES' | 'NO'>(<ConfirmDialog />);
+ *   }
+ *   return <p>You chose: {answer.current}</p>;
  * }
  */
 export function* useResume<T>(): Generator<never, (value: T) => void, unknown> {
