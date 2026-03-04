@@ -14,6 +14,7 @@ import {
   USE_ID,
   USE_MEMO,
   USE_RESOLVE_RAW,
+  USE_RESOLVE,
   USE_RENDER,
   depsChanged,
   type ResolveRawResult,
@@ -211,6 +212,12 @@ interface GenInstance {
    * `useResolve` promise statuses are preserved.
    */
   hookStates: unknown[];
+  /**
+   * Per-hook-slot cleanup functions (parallel to `hookStates`).
+   * Called when the component unmounts or a hook resets its state (e.g.
+   * `useResolve` aborts its AbortController when deps change).
+   */
+  cleanupFns: ((() => void) | undefined)[];
 }
 
 /** Map from a generator component's host span to its instance. */
@@ -231,6 +238,7 @@ const HOOK_SYMBOLS = new Set<symbol>([
   USE_MEMO,
   USE_CONTEXT,
   USE_RESOLVE_RAW,
+  USE_RESOLVE,
   USE_RENDER,
 ]);
 
@@ -244,6 +252,24 @@ function isHookDescriptor(value: unknown): boolean {
 }
 
 /**
+ * Recursively call cleanup functions for a slot and all its descendants.
+ * Called when a slot is about to be replaced or removed from the DOM.
+ */
+function unmountSlot(slot: Slot): void {
+  for (const child of slot.childSlots) {
+    unmountSlot(child);
+  }
+  if (slot.genInstance) {
+    for (const child of slot.genInstance.slots) {
+      unmountSlot(child);
+    }
+    for (const fn of slot.genInstance.cleanupFns) {
+      fn?.();
+    }
+  }
+}
+
+/**
  * Process a single hook descriptor and return the value to send back to the
  * generator via `gen.next(value)`.
  */
@@ -251,6 +277,7 @@ function processOneDescriptor(
   descriptor: { type: symbol; [key: string]: unknown },
   hookIndex: number,
   hookStates: unknown[],
+  cleanupFns: ((() => void) | undefined)[],
   rerender: () => void,
   resume: () => void,
 ): unknown {
@@ -337,6 +364,29 @@ function processOneDescriptor(
       return { data: undefined, loading: true, error: undefined } as ResolveRawResult<unknown>;
     }
 
+    case USE_RESOLVE: {
+      type ResolveState = {
+        deps: unknown[];
+        promise: Promise<unknown>;
+        controller: AbortController;
+      };
+      const fn = descriptor['fn'] as (signal: AbortSignal) => Promise<unknown>;
+      const deps = descriptor['deps'] as unknown[];
+      const existing = hookStates[hookIndex] as ResolveState | undefined;
+
+      if (!existing || depsChanged(existing.deps, deps)) {
+        // Abort the previous controller before starting a new fetch.
+        existing?.controller.abort();
+        const controller = new AbortController();
+        const promise = fn(controller.signal);
+        hookStates[hookIndex] = { deps, promise, controller } satisfies ResolveState;
+        // Register cleanup so the controller is aborted on component unmount.
+        cleanupFns[hookIndex] = () => controller.abort();
+        return promise;
+      }
+      return existing.promise;
+    }
+
     case USE_RENDER: {
       const deps = descriptor['deps'] as unknown[];
       let slot = hookStates[hookIndex] as UseRenderState<unknown> | undefined;
@@ -385,6 +435,7 @@ function processOneDescriptor(
 function runHooks(
   gen: Generator<unknown, Child, unknown>,
   hookStates: unknown[],
+  cleanupFns: ((() => void) | undefined)[],
   rerender: () => void,
   resume: () => void,
 ): { vnode: Child; gen: Generator<unknown, Child, unknown> | null } {
@@ -393,7 +444,14 @@ function runHooks(
 
   while (!result.done && isHookDescriptor(result.value)) {
     const descriptor = result.value as { type: symbol; [key: string]: unknown };
-    const value = processOneDescriptor(descriptor, hookIndex++, hookStates, rerender, resume);
+    const value = processOneDescriptor(
+      descriptor,
+      hookIndex++,
+      hookStates,
+      cleanupFns,
+      rerender,
+      resume,
+    );
     result = gen.next(value);
   }
 
@@ -531,6 +589,7 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
 
   const capturedCtx = _getCtxMap();
   const hookStates: unknown[] = [];
+  const cleanupFns: ((() => void) | undefined)[] = [];
 
   // `instance` is fully populated below before any external code can observe it.
   // eslint-disable-next-line prefer-const
@@ -578,7 +637,13 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
     let vnode: Child;
     try {
       const gen = instance.fn(instance.props, rerender);
-      const { vnode: v, gen: newGen } = runHooks(gen, instance.hookStates, rerender, resume);
+      const { vnode: v, gen: newGen } = runHooks(
+        gen,
+        instance.hookStates,
+        instance.cleanupFns,
+        rerender,
+        resume,
+      );
       instance.gen = newGen;
       vnode = v;
     } finally {
@@ -594,10 +659,10 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
   let initialVNode: Child;
   try {
     const gen = fn(props, rerender);
-    const { vnode, gen: initialGen } = runHooks(gen, hookStates, rerender, resume);
+    const { vnode, gen: initialGen } = runHooks(gen, hookStates, cleanupFns, rerender, resume);
     initialVNode = vnode;
     const { nodes, slots } = buildVNodeList([initialVNode]);
-    instance = { fn, gen: initialGen, props, host, capturedCtx, slots, hookStates };
+    instance = { fn, gen: initialGen, props, host, capturedCtx, slots, hookStates, cleanupFns };
     genInstanceMap.set(host, instance);
     for (const n of nodes) host.appendChild(n);
   } finally {
@@ -681,6 +746,7 @@ function reconcileSlots(parent: HTMLElement, prevSlots: Slot[], nextVNodes: Chil
     nextSlots.push(slot);
 
     if (replaced) {
+      if (prevSlot) unmountSlot(prevSlot);
       if (prevSlot && prevSlot.node.parentNode === parent) {
         parent.replaceChild(node, prevSlot.node);
       } else {
@@ -699,6 +765,7 @@ function reconcileSlots(parent: HTMLElement, prevSlots: Slot[], nextVNodes: Chil
   // Remove any extra old DOM nodes
   for (let i = flatNext.length; i < prevSlots.length; i++) {
     const old = prevSlots[i];
+    unmountSlot(old);
     if (old.node.parentNode === parent) {
       parent.removeChild(old.node);
     }

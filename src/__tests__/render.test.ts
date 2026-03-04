@@ -335,7 +335,7 @@ describe('render – generator components with useResolve', () => {
     function* DataComp() {
       const data = yield* useResolve(
         {
-          fn: () => promise,
+          fn: (_signal) => promise,
           loading: createElement('span', { id: 'loading' }, 'Loading…'),
           error: createElement('span', { id: 'error' }, 'Error'),
         },
@@ -365,7 +365,7 @@ describe('render – generator components with useResolve', () => {
     function* DataComp() {
       const data = yield* useResolve(
         {
-          fn: () => promise,
+          fn: (_signal) => promise,
           loading: createElement('span', { id: 'loading' }, 'Loading…'),
           error: createElement('span', { id: 'error' }, 'Error'),
         },
@@ -396,7 +396,7 @@ describe('render – generator components with useResolve', () => {
       setLabel = sl;
       const data = yield* useResolve(
         {
-          fn: () => promise,
+          fn: (_signal) => promise,
           loading: createElement('span', { id: 'loading' }, 'Loading…'),
           error: createElement('span', null, 'Error'),
         },
@@ -429,7 +429,7 @@ describe('render – generator components with useResolve', () => {
       setLabel = sl;
       const data = yield* useResolve(
         {
-          fn: () => promise,
+          fn: (_signal) => promise,
           loading: createElement('span', { id: 'loading' }, 'Loading…'),
           error: createElement('span', null, 'Error'),
         },
@@ -471,7 +471,7 @@ describe('render – generator components with useResolve', () => {
       setId = si;
       const data = yield* useResolve(
         {
-          fn: () => {
+          fn: (_signal) => {
             fetchCount++;
             return id === 1 ? firstPromise : secondPromise;
           },
@@ -518,7 +518,7 @@ describe('render – generator components with useResolve', () => {
       setId = si;
       const data = yield* useResolve(
         {
-          fn: () => (id === 1 ? firstPromise : secondPromise),
+          fn: (_signal) => (id === 1 ? firstPromise : secondPromise),
           loading: createElement('span', { id: 'loading' }, 'Loading…'),
           error: createElement('span', null, 'Error'),
         },
@@ -543,6 +543,70 @@ describe('render – generator components with useResolve', () => {
     resolveFirst('user1');
     await firstPromise;
     expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+  });
+
+  it('aborts the previous AbortSignal when deps change', async () => {
+    const abortedSignals: AbortSignal[] = [];
+    let setId: ((v: number) => void) | null = null;
+
+    function* DataComp() {
+      const [id, si] = yield* useState(1);
+      setId = si;
+      yield* useResolve(
+        {
+          fn: (signal) => {
+            signal.addEventListener('abort', () => abortedSignals.push(signal));
+            return new Promise(() => {}); // never resolves
+          },
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', null, 'Error'),
+        },
+        [id],
+      );
+      return createElement('span', {}, 'done');
+    }
+
+    render(createElement(DataComp as never, {}), container);
+    expect(abortedSignals).toHaveLength(0);
+
+    // Changing deps should abort the first signal and start a new fetch.
+    setId!(2);
+    expect(abortedSignals).toHaveLength(1);
+    expect(abortedSignals[0].aborted).toBe(true);
+  });
+
+  it('aborts the AbortSignal when the component unmounts', async () => {
+    let capturedSignal: AbortSignal | null = null;
+    let setShow: ((v: boolean) => void) | null = null;
+
+    function* Inner() {
+      yield* useResolve(
+        {
+          fn: (signal) => {
+            capturedSignal = signal;
+            return new Promise(() => {}); // never resolves
+          },
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', null, 'Error'),
+        },
+        [],
+      );
+      return createElement('span', {}, 'done');
+    }
+
+    function* Outer() {
+      const [show, ss] = yield* useState(true);
+      setShow = ss;
+      return show ? createElement(Inner as never, {}) : null;
+    }
+
+    render(createElement(Outer as never, {}), container);
+    expect(capturedSignal).not.toBeNull();
+    expect(capturedSignal!.aborted).toBe(false);
+
+    // Unmount Inner by hiding it – the AbortSignal should be aborted.
+    setShow!(false);
+    expect(capturedSignal!.aborted).toBe(true);
   });
 });
 

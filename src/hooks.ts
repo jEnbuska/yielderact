@@ -35,6 +35,8 @@ export const USE_MEMO = Symbol('useMemo');
 /** @internal */
 export const USE_RESOLVE_RAW = Symbol('useResolveRaw');
 /** @internal */
+export const USE_RESOLVE = Symbol('useResolve');
+/** @internal */
 export const USE_RENDER = Symbol('useRender');
 
 // ---------------------------------------------------------------------------
@@ -194,8 +196,12 @@ export type Renderable = Child | AnyComponentFn;
 
 /** Options accepted by `useResolve`. */
 export interface UseResolveOptions<T> {
-  /** A factory that creates the promise. Called once per component instance (or when `deps` change). */
-  fn: () => Promise<T>;
+  /**
+   * A factory that creates the promise. Called once per component instance (or when `deps` change).
+   * The provided `AbortSignal` is aborted when `deps` change or the component unmounts — pass it
+   * to `fetch` or any other cancellable API to avoid stale responses.
+   */
+  fn: (signal: AbortSignal) => Promise<T>;
   /** Shown while the promise is pending. Can be a VNode or component function. */
   loading: Renderable;
   /** Shown when the promise rejects. Can be a VNode or component function. */
@@ -278,9 +284,10 @@ export function* useResolve<T>(
   options: UseResolveOptions<T>,
   deps: unknown[],
 ): Generator<unknown, T, unknown> {
-  // Directly yield the USE_MEMO descriptor — useMemo's overloads require deps
-  // as fn args, but here deps are captured by closure for change-detection only.
-  const promise = (yield { type: USE_MEMO, fn: options.fn, deps }) as Promise<T>;
+  // USE_RESOLVE handles both memoization and AbortController lifecycle.
+  // The renderer creates a new AbortController on first call or when deps change,
+  // passes its signal to fn, and aborts the previous controller automatically.
+  const promise = (yield { type: USE_RESOLVE, fn: options.fn, deps }) as Promise<T>;
   const { data, loading, error } = yield* useResolveRaw<T, unknown>(promise);
 
   if (loading) {
