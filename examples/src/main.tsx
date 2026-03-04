@@ -7,18 +7,19 @@ import { render, useState } from 'yielderact';
 import { Counter } from './components/Counter';
 import { TodoList } from './components/TodoList';
 import { ThemeDemo } from './components/ThemeDemo';
-import { DataFetcher } from './components/DataFetcher';
+import { DataFetcher, ResolveRawDemo } from './components/DataFetcher';
 import { HooksShowcase } from './components/HooksShowcase';
 import { ShownDemo } from './components/ShownDemo';
 import { ConfirmDialog } from './components/ConfirmDialog';
 
-type Tab = 'counter' | 'todos' | 'theme' | 'data' | 'hooks' | 'shown' | 'confirm';
+type Tab = 'counter' | 'todos' | 'theme' | 'data' | 'raw' | 'hooks' | 'shown' | 'confirm';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'counter', label: 'Counter' },
   { id: 'todos', label: 'Todo List' },
   { id: 'theme', label: 'Context / Theme' },
   { id: 'data', label: 'Data Fetcher' },
+  { id: 'raw', label: 'useResolveRaw' },
   { id: 'hooks', label: 'Hooks Showcase' },
   { id: 'shown', label: '$shown prop' },
   { id: 'confirm', label: 'useRender' },
@@ -66,6 +67,7 @@ function* App() {
         {activeTab === 'todos' && <TodoList />}
         {activeTab === 'theme' && <ThemeDemo />}
         {activeTab === 'data' && <DataFetcher />}
+        {activeTab === 'raw' && <ResolveRawDemo />}
         {activeTab === 'hooks' && <HooksShowcase />}
         {activeTab === 'shown' && <ShownDemo />}
         {activeTab === 'confirm' && <ConfirmDialog />}

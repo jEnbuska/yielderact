@@ -33,7 +33,7 @@ export const USE_ID = Symbol('useId');
 /** @internal */
 export const USE_MEMO = Symbol('useMemo');
 /** @internal */
-export const USE_RESOLVE = Symbol('useResolve');
+export const USE_RESOLVE_RAW = Symbol('useResolveRaw');
 /** @internal */
 export const USE_RENDER = Symbol('useRender');
 
@@ -202,17 +202,6 @@ export interface UseResolveOptions<T> {
   error: Renderable;
 }
 
-/**
- * State object for one `useResolve` hook slot.
- * Stored in the component's `hookStates` array by the renderer.
- * @internal
- */
-export type PromiseHookState<T> =
-  | { status: 'idle'; gen: number }
-  | { status: 'pending'; gen: number; deps: unknown[] }
-  | { status: 'resolved'; data: T; gen: number; deps: unknown[] }
-  | { status: 'rejected'; reason: unknown; gen: number; deps: unknown[] };
-
 /** Normalise a Renderable to a `Child` value the renderer can process. */
 function toChild(renderable: Renderable): Child {
   if (renderable == null) return null;
@@ -220,6 +209,46 @@ function toChild(renderable: Renderable): Child {
     return { type: renderable as AnyComponentFn, props: {}, children: [] };
   }
   return renderable as Child;
+}
+
+// ---------------------------------------------------------------------------
+// useResolveRaw
+// ---------------------------------------------------------------------------
+
+/**
+ * The return type of `useResolveRaw`.
+ * A discriminated union — narrow on `loading` or `error` to access `data`.
+ */
+export type ResolveRawResult<T, E = unknown> =
+  | { data: T; loading: false; error: undefined }
+  | { data: undefined; loading: true; error: undefined }
+  | { data: undefined; loading: false; error: E };
+
+/**
+ * Low-level async state hook for generator components.
+ *
+ * Takes a `Promise<T>` and returns the current state as a snapshot.
+ * When the promise settles the component is re-rendered and the hook
+ * returns updated values.
+ *
+ * Unlike `useResolve`, this hook does **not** pause rendering — the
+ * component receives the state immediately and decides how to render it.
+ * Combine with `useMemo` to memoize the promise factory:
+ *
+ * @example
+ * function* UserProfile({ userId }: { userId: number }) {
+ *   const promise = yield* useMemo(() => fetchUser(userId), [userId]);
+ *   const { data, loading, error } = yield* useResolveRaw<User, Error>(promise);
+ *   if (loading) return <Spinner />;
+ *   if (error) return <ErrorMessage message={error.message} />;
+ *   return <div>{data.name}</div>;
+ * }
+ */
+export function* useResolveRaw<T, E = unknown>(
+  promise: Promise<T>,
+): Generator<unknown, ResolveRawResult<T, E>, unknown> {
+  const result = yield { type: USE_RESOLVE_RAW, promise };
+  return result as ResolveRawResult<T, E>;
 }
 
 /**
@@ -249,52 +278,20 @@ export function* useResolve<T>(
   options: UseResolveOptions<T>,
   deps: unknown[],
 ): Generator<unknown, T, unknown> {
-  // Request a persistent state slot and the instance's resume callback from the renderer.
-  const caps = yield { type: USE_RESOLVE };
-  const { slot: rawSlot, resume } = caps as { slot: PromiseHookState<T>; resume: () => void };
-  // Cast to a mutable reference so the hook can update state freely.
-  const stateRef = rawSlot as Record<string, unknown> & { status: string };
+  // Directly yield the USE_MEMO descriptor — useMemo's overloads require deps
+  // as fn args, but here deps are captured by closure for change-detection only.
+  const promise = (yield { type: USE_MEMO, fn: options.fn, deps }) as Promise<T>;
+  const { data, loading, error } = yield* useResolveRaw<T, unknown>(promise);
 
-  // Reset to idle when deps have changed so the promise is re-run.
-  if (stateRef.status !== 'idle' && depsChanged(stateRef['deps'] as unknown[], deps)) {
-    stateRef.status = 'idle';
-  }
-
-  if (stateRef.status === 'idle') {
-    const currentGen = (stateRef['gen'] as number) + 1;
-    stateRef['gen'] = currentGen;
-    stateRef['deps'] = deps;
-    stateRef.status = 'pending';
-    options
-      .fn()
-      .then((data: T) => {
-        if (stateRef.status === 'pending' && stateRef['gen'] === currentGen) {
-          stateRef.status = 'resolved';
-          stateRef['data'] = data;
-          resume();
-        }
-      })
-      .catch((reason: unknown) => {
-        if (stateRef.status === 'pending' && stateRef['gen'] === currentGen) {
-          stateRef.status = 'rejected';
-          stateRef['reason'] = reason;
-          resume();
-        }
-      });
-  }
-
-  // Yield the loading VNode on each resume while the promise is still pending.
-  while (stateRef.status === 'pending') {
+  if (loading) {
     yield toChild(options.loading);
   }
 
-  // Yield the error VNode while in the rejected state (no retry by default).
-  while (stateRef.status === 'rejected') {
+  if (error !== undefined) {
     yield toChild(options.error);
   }
 
-  // State must be 'resolved' now – return the data to the component.
-  return stateRef['data'] as T;
+  return data as T;
 }
 
 // ---------------------------------------------------------------------------

@@ -55,7 +55,7 @@ Hooks use module-level context (`_hookStates`, `_hookIndex`) set by the renderer
 ### Key Patterns
 
 - **Synthetic events**: All `onXxx` handlers receive `SyntheticEvent` wrapping native events
-- **`shown` prop**: Any element/component accepts `shown={boolean}` for conditional rendering
+- **`$shown` prop**: Any element/component accepts `$shown={boolean}` for conditional rendering
 - **Shallow equality**: Props compared shallowly for component memoization
 - **Fragment flattening**: `<>...</>` children flattened into parent during reconciliation
 - **Context capture**: Context values captured at mount, persisted across re-renders
