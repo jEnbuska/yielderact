@@ -16,7 +16,7 @@ function* ThemedCard() {
   const cardId = yield* useId();
   const themeValueId = yield* useId();
 
-  const theme = useContext(ThemeContext);
+  const theme = yield* useContext(ThemeContext);
   const s = styles[theme];
   return (
     <div
@@ -32,7 +32,10 @@ function* ThemedCard() {
     >
       <strong>Themed Card</strong>
       <p style={{ margin: '0.4rem 0 0' }}>
-        Current theme: <span id={themeValueId} data-testid="theme-value">{theme}</span>
+        Current theme:{' '}
+        <span id={themeValueId} data-testid="theme-value">
+          {theme}
+        </span>
       </p>
     </div>
   );

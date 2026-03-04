@@ -19,6 +19,14 @@ export interface Context<T> {
 
 const PROVIDER_CTX = Symbol('providerCtx');
 
+/**
+ * Hook descriptor type for `useContext`. Yielded by the `useContext` generator
+ * and processed by the renderer, which sends back the current context value.
+ *
+ * @internal
+ */
+export const USE_CONTEXT = Symbol('useContext');
+
 // ---------------------------------------------------------------------------
 // Module-level context map (updated during rendering)
 // ---------------------------------------------------------------------------
@@ -35,17 +43,18 @@ let _ctxMap: ReadonlyMap<Context<unknown>, unknown> = new Map();
  * @example
  * const ThemeCtx = createContext<'light' | 'dark'>('light');
  *
- * function* App(_, rerender) {
- *   yield (
- *     <ThemeCtx.Provider value="dark">
+ * function* App() {
+ *   const [theme] = yield* useState<'light' | 'dark'>('light');
+ *   return (
+ *     <ThemeCtx.Provider value={theme}>
  *       <Child />
  *     </ThemeCtx.Provider>
  *   );
  * }
  *
  * function* Child() {
- *   const theme = useContext(ThemeCtx);
- *   yield <div className={theme}>hello</div>;
+ *   const theme = yield* useContext(ThemeCtx);
+ *   return <div className={theme}>hello</div>;
  * }
  */
 export function createContext<T>(defaultValue: T): Context<T> {
@@ -67,20 +76,23 @@ export function createContext<T>(defaultValue: T): Context<T> {
 }
 
 /**
- * Consume a context value inside a component.
- * Must be called during component rendering (before / after any yield).
+ * Consume a context value inside a generator component.
+ * Must be called with `yield*` inside a generator component or hook.
+ *
+ * The renderer intercepts the yielded descriptor, looks up the current context
+ * value, and sends it back — the hook then returns it to the component.
  *
  * @example
  * function* Child() {
- *   const theme = useContext(ThemeCtx);
- *   while (true) {
- *     yield <div className={theme}>content</div>;
- *   }
+ *   const theme = yield* useContext(ThemeCtx);
+ *   return <div className={theme}>content</div>;
  * }
  */
-export function useContext<T>(ctx: Context<T>): T {
-  const value = _ctxMap.get(ctx as Context<unknown>);
-  return value !== undefined ? (value as T) : ctx._defaultValue;
+export function* useContext<T>(
+  ctx: Context<T>,
+): Generator<{ type: typeof USE_CONTEXT; ctx: Context<unknown> }, T, unknown> {
+  const value = yield { type: USE_CONTEXT, ctx: ctx as Context<unknown> };
+  return value as T;
 }
 
 // ---------------------------------------------------------------------------
