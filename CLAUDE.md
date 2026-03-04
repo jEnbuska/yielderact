@@ -100,7 +100,7 @@ Uses `vite-plugin-yielderact.ts` from the root to configure the JSX transform.
 4. **PR Body Template:** Use the following structure for the description:
    - **Summary:** 2-3 sentences on what changed.
    - **Changes:** Bullet points of specific code modifications.
-   - **Testing:** All tests should pass and new features and changes should be tested on the src level and in examples
+   - **Testing:** All tests should pass and new features and changes should be tested on the src level and in examples. Run both `npm test` (unit) and `npm run test:visual` (Playwright) before creating the PR.
    - **Lint and formatting:** All linting and (prettier) formatting should pass
    - **Build:** Build should occur without any error
    - **Documentation:** If the PR adds, changes, or removes any public API (hooks, props, behaviour), `docs/api.md` must be updated in the same PR.
