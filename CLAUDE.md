@@ -55,7 +55,7 @@ Hooks use module-level context (`_hookStates`, `_hookIndex`) set by the renderer
 ### Key Patterns
 
 - **Synthetic events**: All `onXxx` handlers receive `SyntheticEvent` wrapping native events
-- **`shown` prop**: Any element/component accepts `shown={boolean}` for conditional rendering
+- **`$shown` prop**: Any element/component accepts `$shown={boolean}` for conditional rendering
 - **Shallow equality**: Props compared shallowly for component memoization
 - **Fragment flattening**: `<>...</>` children flattened into parent during reconciliation
 - **Context capture**: Context values captured at mount, persisted across re-renders
@@ -103,7 +103,8 @@ Uses `vite-plugin-yielderact.ts` from the root to configure the JSX transform.
    - **Testing:** All tests should pass and new features and changes should be tested on the src level and in examples
    - **Lint and formatting:** All linting and (prettier) formatting should pass
    - **Build:** Build should occur without any error
-5. **Execution:** Use the `gh` tool or internal git commands to push and open the PR.
+5. **Sync with dev:** After the first commit on a new branch, always merge or rebase with `dev` and fix any conflicts before pushing.
+6. **Execution:** Use the `gh` tool or internal git commands to push and open the PR.
 
 ## Coding Standards
 

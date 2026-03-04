@@ -13,10 +13,10 @@ import {
   USE_REF,
   USE_ID,
   USE_MEMO,
-  USE_RESOLVE,
+  USE_RESOLVE_RAW,
   USE_RENDER,
   depsChanged,
-  type PromiseHookState,
+  type ResolveRawResult,
   type UseRenderState,
 } from './hooks';
 
@@ -230,7 +230,7 @@ const HOOK_SYMBOLS = new Set<symbol>([
   USE_ID,
   USE_MEMO,
   USE_CONTEXT,
-  USE_RESOLVE,
+  USE_RESOLVE_RAW,
   USE_RENDER,
 ]);
 
@@ -301,11 +301,40 @@ function processOneDescriptor(
       return value !== undefined ? value : ctx._defaultValue;
     }
 
-    case USE_RESOLVE: {
-      if (!(hookIndex in hookStates)) {
-        hookStates[hookIndex] = { status: 'idle', gen: 0 } as PromiseHookState<unknown>;
+    case USE_RESOLVE_RAW: {
+      type RawState =
+        | { promise: Promise<unknown>; status: 'pending' }
+        | { promise: Promise<unknown>; status: 'resolved'; data: unknown }
+        | { promise: Promise<unknown>; status: 'rejected'; error: unknown };
+
+      const promise = descriptor['promise'] as Promise<unknown>;
+      const existing = hookStates[hookIndex] as RawState | undefined;
+
+      if (!existing || existing.promise !== promise) {
+        const state: RawState = { promise, status: 'pending' };
+        hookStates[hookIndex] = state;
+        promise.then(
+          (data) => {
+            if (hookStates[hookIndex] === state) {
+              hookStates[hookIndex] = { promise, status: 'resolved', data };
+              rerender();
+            }
+          },
+          (error) => {
+            if (hookStates[hookIndex] === state) {
+              hookStates[hookIndex] = { promise, status: 'rejected', error };
+              rerender();
+            }
+          },
+        );
       }
-      return { slot: hookStates[hookIndex], resume };
+
+      const s = hookStates[hookIndex] as RawState;
+      if (s.status === 'resolved')
+        return { data: s.data, loading: false, error: undefined } as ResolveRawResult<unknown>;
+      if (s.status === 'rejected')
+        return { data: undefined, loading: false, error: s.error } as ResolveRawResult<unknown>;
+      return { data: undefined, loading: true, error: undefined } as ResolveRawResult<unknown>;
     }
 
     case USE_RENDER: {

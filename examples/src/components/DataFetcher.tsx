@@ -6,7 +6,7 @@
  * if it rejects).  Once resolved, execution continues and the component
  * returns its final JSX.
  */
-import { render, useResolve, useId } from 'yielderact';
+import { render, useResolve, useResolveRaw, useMemo, useId, useState } from 'yielderact';
 
 interface User {
   id: number;
@@ -41,11 +41,14 @@ function* ErrorMessage() {
 export function* DataFetcher() {
   const userDataId = yield* useId();
 
-  const user = yield* useResolve<User>({
-    fn: fetchUser,
-    loading: <Spinner />,
-    error: <ErrorMessage />,
-  }, []);
+  const user = yield* useResolve<User>(
+    {
+      fn: fetchUser,
+      loading: <Spinner />,
+      error: <ErrorMessage />,
+    },
+    [],
+  );
 
   return (
     <section aria-label="Data fetcher example">
@@ -71,6 +74,68 @@ export function* DataFetcher() {
           <strong>Email:</strong> {user.email}
         </div>
       </div>
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// useResolveRaw demo
+// ---------------------------------------------------------------------------
+
+async function fetchPost(id: number): Promise<{ id: number; title: string; body: string }> {
+  await new Promise((resolve) => setTimeout(resolve, 800));
+  if (id === 0) throw new Error('Invalid post ID');
+  return { id, title: `Post #${id}`, body: `This is the content of post number ${id}.` };
+}
+
+export function* ResolveRawDemo() {
+  const [postId, setPostId] = yield* useState(1);
+  const promise = yield* useMemo(() => fetchPost(postId), [postId]);
+  const { data, loading, error } = yield* useResolveRaw<
+    { id: number; title: string; body: string },
+    Error
+  >(promise);
+
+  return (
+    <section aria-label="useResolveRaw demo" style={{ marginTop: '2rem' }}>
+      <h2>
+        <code>useResolveRaw</code>
+      </h2>
+      <p>
+        Low-level async hook — returns <code>{`{ data, loading, error }`}</code> directly so the
+        component controls rendering at each stage.
+      </p>
+      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+        {[1, 2, 3, 0].map((id) => (
+          <button
+            key={id}
+            data-testid={`post-btn-${id}`}
+            onClick={() => setPostId(id)}
+            style={{ fontWeight: postId === id ? 'bold' : 'normal' }}
+          >
+            {id === 0 ? 'Error' : `Post ${id}`}
+          </button>
+        ))}
+      </div>
+      {loading && (
+        <p data-testid="raw-loading" style={{ color: '#888', fontStyle: 'italic' }}>
+          Loading…
+        </p>
+      )}
+      {error && (
+        <p data-testid="raw-error" style={{ color: '#c00' }}>
+          Error: {error.message}
+        </p>
+      )}
+      {data && (
+        <div
+          data-testid="raw-data"
+          style={{ padding: '0.75rem', background: '#f5f5f5', borderRadius: '4px' }}
+        >
+          <strong>{data.title}</strong>
+          <p style={{ margin: '0.4rem 0 0' }}>{data.body}</p>
+        </div>
+      )}
     </section>
   );
 }
