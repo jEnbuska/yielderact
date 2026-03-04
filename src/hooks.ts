@@ -14,7 +14,8 @@
  *   );
  * }
  */
-import { type Child, type AnyComponentFn } from './jsx';
+import { type Child, type AnyComponentFn, createElement } from './jsx';
+import { createContext, useContext } from './context';
 
 // ---------------------------------------------------------------------------
 // Module-level hook context – set by the renderer before each fresh run
@@ -251,6 +252,12 @@ function depsChanged(prev: unknown[] | undefined, next: unknown[]): boolean {
   return prev.some((v, i) => !Object.is(v, next[i]));
 }
 
+// ---------------------------------------------------------------------------
+// Internal resume context – set by useRender, consumed by useResume
+// ---------------------------------------------------------------------------
+
+const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
+
 /** Normalise a Renderable to a `Child` value the renderer can process. */
 function toChild(renderable: Renderable): Child {
   if (renderable == null) return null;
@@ -284,7 +291,10 @@ function toChild(renderable: Renderable): Child {
  *   return <div>{user.name}</div>;
  * }
  */
-export function* useResolve<T>(options: UseResolveOptions<T>, deps: unknown[]): Generator<Child, T, unknown> {
+export function* useResolve<T>(
+  options: UseResolveOptions<T>,
+  deps: unknown[],
+): Generator<Child, T, unknown> {
   const resume = _currentResume!;
   const states = _hookStates!;
   const index = _hookIndex++;
@@ -350,4 +360,124 @@ export function* useResolve<T>(options: UseResolveOptions<T>, deps: unknown[]): 
 
   // State must be 'resolved' now – return the data to the component.
   return (states[index] as { status: 'resolved'; data: T }).data;
+}
+
+// ---------------------------------------------------------------------------
+// useRender
+// ---------------------------------------------------------------------------
+
+/** Inline render factory passed to `useRender`. Receives the `resume` callback. */
+export type UseRenderFn<T> = (props: { resume: (value: T) => void }) => Child;
+
+type UseRenderState<T> = {
+  status: 'waiting' | 'resolved';
+  deps: unknown[];
+  value: T | undefined;
+  /** Stable callback reference – created once per deps change and reused. */
+  resumeCallback: (value: T) => void;
+};
+
+/**
+ * Imperative render hook for generator components.
+ *
+ * Pauses the generator and renders the given JSX until the `resume` callback
+ * is called. Returns whatever value was passed to `resume`.
+ *
+ * Two variants:
+ *
+ * **Variant 1 – pass JSX directly** (child uses `useResume` to obtain `resume`):
+ * ```tsx
+ * const answer = yield* useRender<'YES' | 'NO'>(<ConfirmDialog />);
+ * ```
+ *
+ * **Variant 2 – inline render function** (`resume` is injected as a prop):
+ * ```tsx
+ * const answer = yield* useRender<'YES' | 'NO'>(
+ *   ({ resume }) => (
+ *     <div>
+ *       <button onClick={() => resume('YES')}>Yes</button>
+ *       <button onClick={() => resume('NO')}>No</button>
+ *     </div>
+ *   ),
+ *   [],
+ * );
+ * ```
+ *
+ * Must be called with `yield*` inside a generator component.
+ */
+export function useRender<T>(child: Child): Generator<Child, T, unknown>;
+export function useRender<T>(fn: UseRenderFn<T>, deps: unknown[]): Generator<Child, T, unknown>;
+export function* useRender<T>(
+  fnOrChild: Child | UseRenderFn<T>,
+  deps?: unknown[],
+): Generator<Child, T, unknown> {
+  const _resume = _currentResume!;
+  const states = _hookStates!;
+  const index = _hookIndex++;
+  const effectiveDeps = deps ?? [];
+
+  if (!(index in states) || depsChanged((states[index] as UseRenderState<T>).deps, effectiveDeps)) {
+    // Create a stable callback that closes over `states` and `index`.
+    // `_resume` is also stable – same function for the lifetime of the component instance.
+    const resumeCallback = (value: T): void => {
+      const s = states[index] as UseRenderState<T>;
+      if (s.status === 'waiting') {
+        s.status = 'resolved';
+        s.value = value;
+        _resume();
+      }
+    };
+    states[index] = { status: 'waiting', deps: effectiveDeps, value: undefined, resumeCallback };
+  } else {
+    // Same deps – reuse the existing stable callback but reset status for this fresh run.
+    // This line only executes during rerender() (fresh generator), never during gen.next() resumes.
+    (states[index] as UseRenderState<T>).status = 'waiting';
+  }
+
+  const { resumeCallback } = states[index] as UseRenderState<T>;
+  const isInline = typeof fnOrChild === 'function';
+
+  while ((states[index] as UseRenderState<T>).status === 'waiting') {
+    const rawChild = isInline
+      ? (fnOrChild as UseRenderFn<T>)({ resume: resumeCallback })
+      : (fnOrChild as Child);
+    // Wrap in the internal resume context so nested components can access `resume` via useResume().
+    yield createElement(
+      _resumeCtx.Provider,
+      { value: resumeCallback as (value: unknown) => void },
+      rawChild,
+    );
+  }
+
+  return (states[index] as UseRenderState<T>).value as T;
+}
+
+// ---------------------------------------------------------------------------
+// useResume
+// ---------------------------------------------------------------------------
+
+/**
+ * Returns the `resume` callback injected by the nearest parent `useRender` call.
+ *
+ * Must be called with `yield*` inside a generator component that is rendered
+ * by a parent using `useRender`. Calling `resume(value)` unblocks the parent
+ * generator and makes `yield* useRender(...)` return `value`.
+ *
+ * @example
+ * function* ConfirmDialog(_props: object) {
+ *   const resume = yield* useResume<'YES' | 'NO'>();
+ *   return (
+ *     <div>
+ *       <button onClick={() => resume('YES')}>Yes</button>
+ *       <button onClick={() => resume('NO')}>No</button>
+ *     </div>
+ *   );
+ * }
+ */
+export function* useResume<T>(): Generator<never, (value: T) => void, unknown> {
+  const fn = useContext(_resumeCtx);
+  if (fn === null) {
+    throw new Error('useResume must be called inside a component rendered by useRender');
+  }
+  return fn as (value: T) => void;
 }
