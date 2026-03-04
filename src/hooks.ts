@@ -2,9 +2,12 @@
  * Built-in hooks for yielderact generator components.
  *
  * Hooks are generator functions called with `yield*` inside a component body.
- * They can either return a value immediately (like `useState`) or yield
- * intermediate VNodes that pause rendering until an async operation completes
- * (like `useResolve`).
+ * Each hook yields a descriptor object; the renderer intercepts it, processes
+ * the request (reads/writes persistent hook state), and sends the result back
+ * via `gen.next(result)`.  The hook then returns that result to the caller.
+ *
+ * This design keeps hooks stateless and pure – they never directly access
+ * module-level variables.  All state management happens in the renderer.
  *
  * @example
  * function* Counter(_props: object) {
@@ -18,38 +21,34 @@ import { type Child, type AnyComponentFn, createElement } from './jsx';
 import { createContext, useContext } from './context';
 
 // ---------------------------------------------------------------------------
-// Module-level hook context – set by the renderer before each fresh run
+// Hook descriptor symbols – exported so the renderer can identify them
 // ---------------------------------------------------------------------------
 
-let _currentRerender: (() => void) | null = null;
-let _currentResume: (() => void) | null = null;
-let _hookStates: unknown[] | null = null;
-let _hookIndex = 0;
+/** @internal */
+export const USE_STATE = Symbol('useState');
+/** @internal */
+export const USE_REF = Symbol('useRef');
+/** @internal */
+export const USE_ID = Symbol('useId');
+/** @internal */
+export const USE_MEMO = Symbol('useMemo');
+/** @internal */
+export const USE_RESOLVE_RAW = Symbol('useResolveRaw');
+/** @internal */
+export const USE_RENDER = Symbol('useRender');
 
-/**
- * Called by the renderer before executing a fresh generator body.
- * Sets the module-level hook context so hooks can read/write persistent state.
- *
- * @internal
- */
-export function _initHooks(rerender: () => void, resume: () => void, states: unknown[]): void {
-  _currentRerender = rerender;
-  _currentResume = resume;
-  _hookStates = states;
-  _hookIndex = 0;
-}
+// ---------------------------------------------------------------------------
+// Shared helpers
+// ---------------------------------------------------------------------------
 
-/**
- * Called by the renderer after executing a fresh generator body.
- * Clears the module-level hook context.
- *
- * @internal
- */
-export function _clearHooks(): void {
-  _currentRerender = null;
-  _currentResume = null;
-  _hookStates = null;
-  _hookIndex = 0;
+/** Returns true when the dependency arrays differ (shallow Object.is comparison). */
+export function depsChanged(prev: unknown[] | undefined, next: unknown[]): boolean {
+  if (prev === undefined) return true;
+  if (prev.length !== next.length) return true;
+  for (let i = 0; i < prev.length; i++) {
+    if (!Object.is(prev[i], next[i])) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -85,23 +84,9 @@ export function _clearHooks(): void {
  */
 export function* useState<T>(
   initialValue: T | (() => T),
-): Generator<never, [T, (value: T | ((prev: T) => T)) => void], unknown> {
-  const rerender = _currentRerender!;
-  const states = _hookStates!;
-  const index = _hookIndex++;
-
-  if (!(index in states)) {
-    states[index] = typeof initialValue === 'function' ? (initialValue as () => T)() : initialValue;
-  }
-
-  const value = states[index] as T;
-  const setter = (newValue: T | ((prev: T) => T)): void => {
-    states[index] =
-      typeof newValue === 'function' ? (newValue as (prev: T) => T)(states[index] as T) : newValue;
-    rerender();
-  };
-
-  return [value, setter];
+): Generator<unknown, [T, (value: T | ((prev: T) => T)) => void], unknown> {
+  const stateTuple = yield { type: USE_STATE, initialValue };
+  return stateTuple as [T, (value: T | ((prev: T) => T)) => void];
 }
 
 // ---------------------------------------------------------------------------
@@ -129,22 +114,14 @@ export interface RefObject<T> {
  *   return <input ref={ref} />;
  * }
  */
-export function* useRef<T>(initialValue: T): Generator<never, RefObject<T>, unknown> {
-  const states = _hookStates!;
-  const index = _hookIndex++;
-
-  if (!(index in states)) {
-    states[index] = { current: initialValue } as RefObject<T>;
-  }
-
-  return states[index] as RefObject<T>;
+export function* useRef<T>(initialValue: T): Generator<unknown, RefObject<T>, unknown> {
+  const ref = yield { type: USE_REF, initialValue };
+  return ref as RefObject<T>;
 }
 
 // ---------------------------------------------------------------------------
 // useId
 // ---------------------------------------------------------------------------
-
-let _idCounter = 0;
 
 /**
  * Stable unique ID hook for generator components.
@@ -165,22 +142,14 @@ let _idCounter = 0;
  *   );
  * }
  */
-export function* useId(): Generator<never, string, unknown> {
-  const states = _hookStates!;
-  const index = _hookIndex++;
-
-  if (!(index in states)) {
-    states[index] = `:r${_idCounter++}:`;
-  }
-
-  return states[index] as string;
+export function* useId(): Generator<unknown, string, unknown> {
+  const id = yield { type: USE_ID };
+  return id as string;
 }
 
 // ---------------------------------------------------------------------------
 // useMemo
 // ---------------------------------------------------------------------------
-
-type MemoState<T> = { value: T; deps: unknown[] };
 
 /**
  * Memoized value hook for generator components.
@@ -200,23 +169,17 @@ type MemoState<T> = { value: T; deps: unknown[] };
  *   return <div>{result}</div>;
  * }
  */
-export function useMemo<T>(fn: () => T, deps: []): Generator<never, T, unknown>;
+export function useMemo<T>(fn: () => T, deps: []): Generator<unknown, T, unknown>;
 export function useMemo<T, Deps extends [unknown, ...unknown[]]>(
   fn: (...args: Deps) => T,
   deps: [...Deps],
-): Generator<never, T, unknown>;
+): Generator<unknown, T, unknown>;
 export function* useMemo<T>(
   fn: (...args: unknown[]) => T,
   deps: unknown[],
-): Generator<never, T, unknown> {
-  const states = _hookStates!;
-  const index = _hookIndex++;
-
-  if (!(index in states) || depsChanged((states[index] as MemoState<T>).deps, deps)) {
-    states[index] = { value: fn(...deps), deps } as MemoState<T>;
-  }
-
-  return (states[index] as MemoState<T>).value;
+): Generator<unknown, T, unknown> {
+  const value = yield { type: USE_MEMO, fn, deps };
+  return value as T;
 }
 
 // ---------------------------------------------------------------------------
@@ -239,24 +202,10 @@ export interface UseResolveOptions<T> {
   error: Renderable;
 }
 
-/** Returns true when the dependency arrays differ. */
-function depsChanged(prev: unknown[] | undefined, next: unknown[]): boolean {
-  if (prev === undefined) return true; // first run after idle
-  if (prev.length !== next.length) return true;
-  return prev.some((v, i) => !Object.is(v, next[i]));
-}
-
-// ---------------------------------------------------------------------------
-// Internal resume context – set by useRender, consumed by useResume
-// ---------------------------------------------------------------------------
-
-const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
-
 /** Normalise a Renderable to a `Child` value the renderer can process. */
 function toChild(renderable: Renderable): Child {
   if (renderable == null) return null;
   if (typeof renderable === 'function') {
-    // Wrap a component function into a VNode so the renderer can mount it
     return { type: renderable as AnyComponentFn, props: {}, children: [] };
   }
   return renderable as Child;
@@ -274,11 +223,6 @@ export type ResolveRawResult<T, E = unknown> =
   | { data: T; loading: false; error: undefined }
   | { data: undefined; loading: true; error: undefined }
   | { data: undefined; loading: false; error: E };
-
-type ResolveRawState<T, E> =
-  | { promise: Promise<T>; status: 'pending' }
-  | { promise: Promise<T>; status: 'resolved'; data: T }
-  | { promise: Promise<T>; status: 'rejected'; error: E };
 
 /**
  * Low-level async state hook for generator components.
@@ -302,40 +246,9 @@ type ResolveRawState<T, E> =
  */
 export function* useResolveRaw<T, E = unknown>(
   promise: Promise<T>,
-): Generator<never, ResolveRawResult<T, E>, unknown> {
-  const rerender = _currentRerender!;
-  const states = _hookStates!;
-  const index = _hookIndex++;
-
-  const existing = states[index] as ResolveRawState<T, E> | undefined;
-
-  if (!existing || existing.promise !== promise) {
-    const state: ResolveRawState<T, E> = { promise, status: 'pending' };
-    states[index] = state;
-    promise.then(
-      (data) => {
-        if (states[index] === state) {
-          states[index] = { promise, status: 'resolved', data };
-          rerender();
-        }
-      },
-      (error: E) => {
-        if (states[index] === state) {
-          states[index] = { promise, status: 'rejected', error };
-          rerender();
-        }
-      },
-    );
-  }
-
-  const state = states[index] as ResolveRawState<T, E>;
-  if (state.status === 'resolved') {
-    return { data: state.data, loading: false, error: undefined };
-  }
-  if (state.status === 'rejected') {
-    return { data: undefined, loading: false, error: state.error };
-  }
-  return { data: undefined, loading: true, error: undefined };
+): Generator<unknown, ResolveRawResult<T, E>, unknown> {
+  const result = yield { type: USE_RESOLVE_RAW, promise };
+  return result as ResolveRawResult<T, E>;
 }
 
 /**
@@ -364,19 +277,10 @@ export function* useResolveRaw<T, E = unknown>(
 export function* useResolve<T>(
   options: UseResolveOptions<T>,
   deps: unknown[],
-): Generator<Child, T, unknown> {
-  // Memoize the promise factory inline — useMemo's overloads require deps as fn
-  // args, but here deps are captured by closure and used for change-detection only.
-  const states = _hookStates!;
-  const memoIndex = _hookIndex++;
-  if (
-    !(memoIndex in states) ||
-    depsChanged((states[memoIndex] as MemoState<Promise<T>>).deps, deps)
-  ) {
-    states[memoIndex] = { value: options.fn(), deps } as MemoState<Promise<T>>;
-  }
-  const promise = (states[memoIndex] as MemoState<Promise<T>>).value;
-
+): Generator<unknown, T, unknown> {
+  // Directly yield the USE_MEMO descriptor — useMemo's overloads require deps
+  // as fn args, but here deps are captured by closure for change-detection only.
+  const promise = (yield { type: USE_MEMO, fn: options.fn, deps }) as Promise<T>;
   const { data, loading, error } = yield* useResolveRaw<T, unknown>(promise);
 
   if (loading) {
@@ -403,13 +307,21 @@ export function* useResolve<T>(
  */
 export type UseRenderFn<T> = (props: { resume: (value: T) => void }) => Child;
 
-type UseRenderState<T> = {
+/**
+ * State object for one `useRender` hook slot.
+ * Stored in the component's `hookStates` array by the renderer.
+ * @internal
+ */
+export type UseRenderState<T> = {
   status: 'waiting' | 'resolved';
   deps: unknown[];
   value: T | undefined;
   /** Stable callback reference – created once per deps change and reused. */
   resumeCallback: (value: T) => void;
 };
+
+// Internal context propagating the resume callback to child components.
+const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
 
 /**
  * Interactive render hook for generator components.
@@ -468,39 +380,23 @@ type UseRenderState<T> = {
  *
  * Must be called with `yield*` inside a generator component.
  */
-export function useRender<T>(child: Child): Generator<Child, T, unknown>;
-export function useRender<T>(fn: UseRenderFn<T>, deps: unknown[]): Generator<Child, T, unknown>;
+export function useRender<T>(child: Child): Generator<unknown, T, unknown>;
+export function useRender<T>(fn: UseRenderFn<T>, deps: unknown[]): Generator<unknown, T, unknown>;
 export function* useRender<T>(
   fnOrChild: Child | UseRenderFn<T>,
   deps?: unknown[],
-): Generator<Child, T, unknown> {
-  const _resume = _currentResume!;
-  const states = _hookStates!;
-  const index = _hookIndex++;
+): Generator<unknown, T, unknown> {
+  // Request a persistent slot + stable resumeCallback from the renderer.
   const effectiveDeps = deps ?? [];
+  const caps = yield { type: USE_RENDER, deps: effectiveDeps };
+  const { slot, resumeCallback } = caps as {
+    slot: UseRenderState<T>;
+    resumeCallback: (value: T) => void;
+  };
 
-  if (!(index in states) || depsChanged((states[index] as UseRenderState<T>).deps, effectiveDeps)) {
-    // Create a stable callback that closes over `states` and `index`.
-    // `_resume` is also stable – same function for the lifetime of the component instance.
-    const resumeCallback = (value: T): void => {
-      const s = states[index] as UseRenderState<T>;
-      if (s.status === 'waiting') {
-        s.status = 'resolved';
-        s.value = value;
-        _resume();
-      }
-    };
-    states[index] = { status: 'waiting', deps: effectiveDeps, value: undefined, resumeCallback };
-  } else {
-    // Same deps – reuse the existing stable callback but reset status for this fresh run.
-    // This line only executes during rerender() (fresh generator), never during gen.next() resumes.
-    (states[index] as UseRenderState<T>).status = 'waiting';
-  }
-
-  const { resumeCallback } = states[index] as UseRenderState<T>;
   const isInline = typeof fnOrChild === 'function';
 
-  while ((states[index] as UseRenderState<T>).status === 'waiting') {
+  while (slot.status === 'waiting') {
     const rawChild = isInline
       ? (fnOrChild as UseRenderFn<T>)({ resume: resumeCallback })
       : (fnOrChild as Child);
@@ -512,7 +408,7 @@ export function* useRender<T>(
     );
   }
 
-  return (states[index] as UseRenderState<T>).value as T;
+  return slot.value as T;
 }
 
 // ---------------------------------------------------------------------------
@@ -552,8 +448,8 @@ export function* useRender<T>(
  *   return <p>You chose: {answer.current}</p>;
  * }
  */
-export function* useResume<T>(): Generator<never, (value: T) => void, unknown> {
-  const fn = useContext(_resumeCtx);
+export function* useResume<T>(): Generator<unknown, (value: T) => void, unknown> {
+  const fn = yield* useContext(_resumeCtx);
   if (fn === null) {
     throw new Error('useResume must be called inside a component rendered by useRender');
   }

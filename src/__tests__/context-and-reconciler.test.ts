@@ -3,6 +3,8 @@ import { createContext, useContext } from '../context';
 import { render, buildNode } from '../render';
 import { useState } from '../hooks';
 
+// useContext is now a generator – components must call it with yield*
+
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
 // ---------------------------------------------------------------------------
@@ -25,7 +27,7 @@ describe('createContext / useContext', () => {
     const Ctx = createContext('default');
 
     function* Consumer() {
-      const value = useContext(Ctx);
+      const value = yield* useContext(Ctx);
       return createElement('span', null, value);
     }
 
@@ -37,7 +39,7 @@ describe('createContext / useContext', () => {
     const Ctx = createContext('default');
 
     function* Consumer() {
-      const value = useContext(Ctx);
+      const value = yield* useContext(Ctx);
       return createElement('span', null, value);
     }
 
@@ -56,7 +58,7 @@ describe('createContext / useContext', () => {
     const Ctx = createContext('outer');
 
     function* Consumer() {
-      const value = useContext(Ctx);
+      const value = yield* useContext(Ctx);
       return createElement('span', null, value);
     }
 
@@ -83,7 +85,7 @@ describe('createContext / useContext', () => {
     const Ctx = createContext(42);
 
     function* Consumer() {
-      const val = useContext(Ctx);
+      const val = yield* useContext(Ctx);
       return createElement('span', null, String(val));
     }
 
@@ -110,7 +112,7 @@ describe('createContext / useContext', () => {
     let setTheme: ((v: number) => void) | null = null;
 
     function* Consumer() {
-      const val = useContext(Ctx);
+      const val = yield* useContext(Ctx);
       return createElement('span', null, String(val));
     }
 

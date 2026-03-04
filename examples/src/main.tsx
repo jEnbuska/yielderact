@@ -21,7 +21,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'data', label: 'Data Fetcher' },
   { id: 'raw', label: 'useResolveRaw' },
   { id: 'hooks', label: 'Hooks Showcase' },
-  { id: 'shown', label: 'shown prop' },
+  { id: 'shown', label: '$shown prop' },
   { id: 'confirm', label: 'useRender' },
 ];
 
