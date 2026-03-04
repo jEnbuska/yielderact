@@ -94,7 +94,7 @@ Uses `vite-plugin-yielderact.ts` from the root to configure the JSX transform.
 
 ## Pull Request Conventions (CRITICAL)
 
-1. **Branching:** Create a new branch using the format `feature/description` or `fix/description`. PR should be pointed to dev branch.
+1. **Branching:** Before creating a new branch, always pull the latest `dev` (`git checkout dev && git pull origin dev`) to avoid unnecessary merge conflicts. Then create a new branch using the format `feature/description` or `fix/description`. PR should be pointed to dev branch.
 2. **Commit Message:** Use Conventional Commits (e.g., `feat: add login validation`).
 3. **PR Title:** Follow the pattern `[Scope]: Brief Description`.
 4. **PR Body Template:** Use the following structure for the description:
@@ -105,6 +105,7 @@ Uses `vite-plugin-yielderact.ts` from the root to configure the JSX transform.
    - **Build:** Build should occur without any error
 5. **Sync with dev:** After the first commit on a new branch, always merge or rebase with `dev` and fix any conflicts before pushing.
 6. **Execution:** Use the `gh` tool or internal git commands to push and open the PR.
+7. **Close issues:** Before starting any new ticket, check for merged PRs (`gh pr list --state merged`) and close the GitHub issues they resolved (`gh issue close <number>`) if not already closed.
 
 ## Coding Standards
 
