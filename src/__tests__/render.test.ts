@@ -1051,3 +1051,44 @@ describe('render – useEffect', () => {
     void Comp; // silence unused warning
   });
 });
+
+describe('render – HTML defaults', () => {
+  it('sets button type to "button" when not specified', () => {
+    const node = buildNode(createElement('button', {}, 'Click')) as HTMLButtonElement;
+    expect(node.getAttribute('type')).toBe('button');
+  });
+
+  it('preserves explicit button type', () => {
+    const node = buildNode(
+      createElement('button', { type: 'submit' }, 'Submit'),
+    ) as HTMLButtonElement;
+    expect(node.getAttribute('type')).toBe('submit');
+  });
+
+  it('warns when <a target="_blank"> has no rel', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    buildNode(createElement('a', { href: 'https://example.com', target: '_blank' }, 'link'));
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('noopener'));
+    warn.mockRestore();
+  });
+
+  it('does not warn when <a target="_blank"> has rel="noopener"', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    buildNode(
+      createElement(
+        'a',
+        { href: 'https://example.com', target: '_blank', rel: 'noopener noreferrer' },
+        'link',
+      ),
+    );
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it('does not warn for <a> without target="_blank"', () => {
+    const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
+    buildNode(createElement('a', { href: 'https://example.com' }, 'link'));
+    expect(warn).not.toHaveBeenCalled();
+    warn.mockRestore();
+  });
+});

@@ -135,6 +135,25 @@ function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
       el.setAttribute(key, String(value));
     }
   }
+
+  // Default <button> type to "button" to prevent accidental form submission.
+  // The HTML default is "submit", which is almost never the intended behaviour.
+  if (el instanceof HTMLButtonElement && !el.hasAttribute('type')) {
+    el.setAttribute('type', 'button');
+  }
+
+  // Warn when <a target="_blank"> is used without rel="noopener".
+  // Without it, the opened page can navigate the opener via window.opener (tab-napping).
+  if (
+    el instanceof HTMLAnchorElement &&
+    el.getAttribute('target') === '_blank' &&
+    !el.getAttribute('rel')
+  ) {
+    console.warn(
+      'yielderact: <a target="_blank"> is missing rel="noopener". ' +
+        'Add rel="noopener noreferrer" to prevent tab-napping attacks.',
+    );
+  }
 }
 
 /**
