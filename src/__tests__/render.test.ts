@@ -1072,12 +1072,19 @@ describe('render – HTML defaults', () => {
     warn.mockRestore();
   });
 
-  it('does not warn when <a target="_blank"> has rel="noopener"', () => {
+  it('does not warn when <a target="_blank"> has any rel value', () => {
     const warn = jest.spyOn(console, 'warn').mockImplementation(() => {});
     buildNode(
       createElement(
         'a',
         { href: 'https://example.com', target: '_blank', rel: 'noopener noreferrer' },
+        'link',
+      ),
+    );
+    buildNode(
+      createElement(
+        'a',
+        { href: 'https://example.com', target: '_blank', rel: 'noreferrer' },
         'link',
       ),
     );

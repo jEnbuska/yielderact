@@ -142,8 +142,8 @@ function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
     el.setAttribute('type', 'button');
   }
 
-  // Warn when <a target="_blank"> is used without rel="noopener".
-  // Without it, the opened page can navigate the opener via window.opener (tab-napping).
+  // Warn when <a target="_blank"> is used without any rel attribute.
+  // Without rel the opened page can navigate the opener via window.opener (tab-napping).
   if (
     el instanceof HTMLAnchorElement &&
     el.getAttribute('target') === '_blank' &&
