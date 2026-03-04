@@ -135,7 +135,7 @@ function updateProps(
   nextProps: Record<string, unknown>,
 ): void {
   // Always remove old event listeners (they may be replaced by new functions)
-  for (const key of Object.keys(prevProps)) {
+  for (const key in prevProps) {
     if (key === 'children' || key === 'style' || key === '$shown') continue;
     if (key.startsWith('on') && typeof prevProps[key] === 'function') {
       removeSyntheticListener(el, key.slice(2).toLowerCase());
