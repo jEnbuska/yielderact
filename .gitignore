@@ -1,0 +1,17 @@
+node_modules/
+dist/
+examples/dist/
+examples/node_modules/
+*.js.map
+*.tsbuildinfo
+.idea
+.DS_Store
+coverage/
+.nyc_output/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+playwright-report/
+test-results/
