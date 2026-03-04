@@ -101,25 +101,20 @@ test('generator counter increments on click', async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render } = (
+    const { createElement, render, useState } = (
       window as unknown as { Yielderact: typeof import('../src/index') }
     ).Yielderact;
 
-    function* Counter(_: object, rerender: () => void) {
-      let count = 0;
-      while (true) {
-        yield createElement(
-          'button',
-          {
-            id: 'btn',
-            onclick: () => {
-              count++;
-              rerender();
-            },
-          },
-          String(count),
-        );
-      }
+    function* Counter(_: object) {
+      const [count, setCount] = yield* useState(0);
+      return createElement(
+        'button',
+        {
+          id: 'btn',
+          onclick: () => setCount((c: number) => c + 1),
+        },
+        String(count),
+      );
     }
 
     render(createElement(Counter as never, {}), document.getElementById('root')!);
@@ -201,29 +196,23 @@ test('parent re-render preserves child generator state (memoization)', async ({ 
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render } = (
+    const { createElement, render, useState } = (
       window as unknown as { Yielderact: typeof import('../src/index') }
     ).Yielderact;
 
-    // Expose rerenders to the window for test control
-    (window as unknown as Record<string, () => void>).rerenderParent = () => {};
-    (window as unknown as Record<string, () => void>).rerenderChild = () => {};
-
-    function* Child(_: object, rerender: () => void) {
-      (window as unknown as Record<string, () => void>).rerenderChild = rerender;
-      let count = 0;
-      while (true) {
-        yield createElement('span', { id: 'child-count' }, String(count));
-        count++;
-      }
+    function* Child(_: object) {
+      const [count, setCount] = yield* useState(0);
+      (window as unknown as Record<string, () => void>).rerenderChild = () =>
+        setCount((c: number) => c + 1);
+      return createElement('span', { id: 'child-count' }, String(count));
     }
 
-    function* Parent(_: object, rerender: () => void) {
-      (window as unknown as Record<string, () => void>).rerenderParent = rerender;
-      while (true) {
-        // Child props never change → should be memoized
-        yield createElement('div', null, createElement(Child as never, {}));
-      }
+    function* Parent(_: object) {
+      const [, setTick] = yield* useState(0);
+      (window as unknown as Record<string, () => void>).rerenderParent = () =>
+        setTick((t: number) => t + 1);
+      // Child props never change → should be memoized
+      return createElement('div', null, createElement(Child as never, {}));
     }
 
     render(createElement(Parent as never, {}), document.getElementById('root')!);
@@ -257,8 +246,8 @@ test('context Provider supplies value to deeply nested consumer', async ({ page 
     const ThemeCtx = createContext<string>('light');
 
     function* ThemeDisplay() {
-      const theme = useContext(ThemeCtx);
-      yield createElement('p', { id: 'theme' }, theme);
+      const theme = yield* useContext(ThemeCtx);
+      return createElement('p', { id: 'theme' }, theme);
     }
 
     function* Section() {

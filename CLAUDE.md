@@ -17,6 +17,7 @@ npm run format:check   # Check formatting
 ```
 
 Run a single test file:
+
 ```bash
 npm test -- src/__tests__/hooks.test.ts
 ```
@@ -25,15 +26,15 @@ npm test -- src/__tests__/hooks.test.ts
 
 ### Core Modules (in `src/`)
 
-| File | Purpose |
-|------|---------|
-| `jsx.ts` | `VNode` type, `createElement` factory, `Fragment` symbol |
-| `render.ts` | VNode → DOM, reconciliation, component mounting, synthetic events |
-| `hooks.ts` | `useState`, `useRef`, `useId`, `useMemo`, `useResolve` |
-| `context.ts` | `createContext`, `useContext`, Provider components |
-| `events.ts` | `SyntheticEvent` wrapper for native DOM events |
-| `jsx-runtime.ts` | Automatic JSX transform (`jsx`, `jsxs`, `jsxDEV`) |
-| `jsx-types.ts` | TypeScript definitions for all HTML/SVG attributes |
+| File             | Purpose                                                           |
+| ---------------- | ----------------------------------------------------------------- |
+| `jsx.ts`         | `VNode` type, `createElement` factory, `Fragment` symbol          |
+| `render.ts`      | VNode → DOM, reconciliation, component mounting, synthetic events |
+| `hooks.ts`       | `useState`, `useRef`, `useId`, `useMemo`, `useResolve`            |
+| `context.ts`     | `createContext`, `useContext`, Provider components                |
+| `events.ts`      | `SyntheticEvent` wrapper for native DOM events                    |
+| `jsx-runtime.ts` | Automatic JSX transform (`jsx`, `jsxs`, `jsxDEV`)                 |
+| `jsx-types.ts`   | TypeScript definitions for all HTML/SVG attributes                |
 
 ### Component Model
 
@@ -42,11 +43,7 @@ Generator components use `yield*` to call hooks and `return` to output JSX:
 ```tsx
 function* Counter(_props: object) {
   const [count, setCount] = yield* useState(0);
-  return (
-    <button onClick={() => setCount(c => c + 1)}>
-      Clicked {count} times
-    </button>
-  );
+  return <button onClick={() => setCount((c) => c + 1)}>Clicked {count} times</button>;
 }
 ```
 
@@ -63,6 +60,7 @@ Hooks use module-level context (`_hookStates`, `_hookIndex`) set by the renderer
 ## JSX Configuration
 
 Classic transform:
+
 ```json
 {
   "compilerOptions": {
@@ -74,6 +72,7 @@ Classic transform:
 ```
 
 Automatic transform:
+
 ```json
 {
   "compilerOptions": {
@@ -86,6 +85,7 @@ Automatic transform:
 ## Examples
 
 The `examples/` directory contains a Vite app demonstrating all features. Run with:
+
 ```bash
 cd examples && npm install && npm run dev
 ```
@@ -100,7 +100,7 @@ Uses `vite-plugin-yielderact.ts` from the root to configure the JSX transform.
 4. **PR Body Template:** Use the following structure for the description:
    - **Summary:** 2-3 sentences on what changed.
    - **Changes:** Bullet points of specific code modifications.
-   - **Testing:** All tests should pass and new features and changes should be tested on the src level and in examples
+   - **Testing:** All tests should pass and new features and changes should be tested on the src level and in examples. Run both `npm test` (unit) and `npm run test:visual` (Playwright) before creating the PR.
    - **Lint and formatting:** All linting and (prettier) formatting should pass
    - **Build:** Build should occur without any error
    - **Documentation:** If the PR adds, changes, or removes any public API (hooks, props, behaviour), `docs/api.md` must be updated in the same PR.
