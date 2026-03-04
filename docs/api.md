@@ -42,11 +42,7 @@ Because the function body re-runs from the top on every render, local variables 
 ```tsx
 function* Counter(_props: object) {
   const [count, setCount] = yield* useState(0);
-  return (
-    <button onClick={() => setCount((c) => c + 1)}>
-      Clicked {count} times
-    </button>
-  );
+  return <button onClick={() => setCount((c) => c + 1)}>Clicked {count} times</button>;
 }
 ```
 
@@ -142,10 +138,10 @@ import { render } from 'yielderact';
 render(<App />, document.getElementById('root')!);
 ```
 
-| Parameter   | Type        | Description                        |
-|-------------|-------------|------------------------------------|
-| `vnode`     | `VNode`     | The root VNode to mount            |
-| `container` | `Element`   | The DOM element to render into     |
+| Parameter   | Type      | Description                    |
+| ----------- | --------- | ------------------------------ |
+| `vnode`     | `VNode`   | The root VNode to mount        |
+| `container` | `Element` | The DOM element to render into |
 
 ---
 
@@ -158,14 +154,14 @@ All hooks are generator functions and must be called with `yield*` inside a gene
 ### `useState`
 
 ```ts
-const [value, setValue] = yield* useState(initialValue);
+const [value, setValue] = yield * useState(initialValue);
 ```
 
 Persistent state that survives re-renders. Calling `setValue` triggers a re-render.
 
-| Parameter      | Type               | Description                              |
-|----------------|--------------------|------------------------------------------|
-| `initialValue` | `T \| (() => T)`  | Initial value or a lazy initialiser fn   |
+| Parameter      | Type             | Description                            |
+| -------------- | ---------------- | -------------------------------------- |
+| `initialValue` | `T \| (() => T)` | Initial value or a lazy initialiser fn |
 
 **Returns** `[T, (value: T \| ((prev: T) => T)) => void]`
 
@@ -176,7 +172,7 @@ function* Counter() {
 }
 
 // Lazy initialiser — called only on first render:
-const [data, setData] = yield* useState(() => expensiveCompute());
+const [data, setData] = yield * useState(() => expensiveCompute());
 
 // Functional updater — receives previous state:
 setCount((prev) => prev + 1);
@@ -189,15 +185,15 @@ setCount((prev) => prev + 1);
 ### `useEffect`
 
 ```ts
-yield* useEffect(fn, deps);
+yield * useEffect(fn, deps);
 ```
 
 Runs a side-effect **after** the component's DOM has been updated. Re-runs when `deps` change. If `fn` returns a function, that function is called as cleanup before the next effect run and when the component unmounts.
 
-| Parameter | Type                            | Description                             |
-|-----------|---------------------------------|-----------------------------------------|
-| `fn`      | `() => (() => void) \| void`   | Effect callback; may return cleanup fn  |
-| `deps`    | `unknown[]`                     | Dependency array                        |
+| Parameter | Type                         | Description                            |
+| --------- | ---------------------------- | -------------------------------------- |
+| `fn`      | `() => (() => void) \| void` | Effect callback; may return cleanup fn |
+| `deps`    | `unknown[]`                  | Dependency array                       |
 
 ```tsx
 function* Timer() {
@@ -205,7 +201,7 @@ function* Timer() {
 
   yield* useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
-    return () => clearInterval(id);  // cleanup on unmount
+    return () => clearInterval(id); // cleanup on unmount
   }, []);
 
   return <p>Seconds: {tick}</p>;
@@ -219,13 +215,13 @@ function* Timer() {
 ### `useRef`
 
 ```ts
-const ref = yield* useRef(initialValue);
+const ref = yield * useRef(initialValue);
 ```
 
 Returns a stable `{ current }` object that persists across re-renders. Mutating `.current` does **not** trigger a re-render.
 
 | Parameter      | Type | Description   |
-|----------------|------|---------------|
+| -------------- | ---- | ------------- |
 | `initialValue` | `T`  | Initial value |
 
 **Returns** `RefObject<T>` — `{ current: T }`
@@ -236,10 +232,12 @@ function* StopWatch() {
   const [elapsed, setElapsed] = yield* useState(0);
 
   return (
-    <button onClick={() => {
-      startTime.current = Date.now();
-      setElapsed(0);
-    }}>
+    <button
+      onClick={() => {
+        startTime.current = Date.now();
+        setElapsed(0);
+      }}
+    >
       Start
     </button>
   );
@@ -251,7 +249,7 @@ function* StopWatch() {
 ### `useId`
 
 ```ts
-const id = yield* useId();
+const id = yield * useId();
 ```
 
 Returns a stable, globally unique string ID. The same component instance always gets the same ID across re-renders.
@@ -275,15 +273,15 @@ function* LabelledInput() {
 ### `useMemo`
 
 ```ts
-const result = yield* useMemo(fn, deps);
+const result = yield * useMemo(fn, deps);
 ```
 
 Memoises a computed value. Re-computes only when `deps` change. The dependency values are forwarded as arguments to `fn`.
 
-| Parameter | Type                          | Description                  |
-|-----------|-------------------------------|------------------------------|
-| `fn`      | `(...args: Deps) => T`        | Factory function              |
-| `deps`    | `[...Deps]`                   | Dependency array              |
+| Parameter | Type                   | Description      |
+| --------- | ---------------------- | ---------------- |
+| `fn`      | `(...args: Deps) => T` | Factory function |
+| `deps`    | `[...Deps]`            | Dependency array |
 
 **Returns** `T`
 
@@ -294,7 +292,7 @@ function* Expensive({ a, b }: { a: number; b: number }) {
 }
 
 // Empty deps — computed once per component instance:
-const value = yield* useMemo(() => computeOnce(), []);
+const value = yield * useMemo(() => computeOnce(), []);
 ```
 
 ---
@@ -302,19 +300,19 @@ const value = yield* useMemo(() => computeOnce(), []);
 ### `useResolve`
 
 ```ts
-const data = yield* useResolve({ fn, loading, error }, deps);
+const data = yield * useResolve({ fn, loading, error }, deps);
 ```
 
 Async data hook that **pauses rendering** while a promise is pending. Shows `loading` until the promise resolves, then returns the data. Shows `error` indefinitely if the promise rejects.
 
 The `fn` callback receives an `AbortSignal` that is aborted when `deps` change or the component unmounts — pass it to `fetch` or other cancellable APIs.
 
-| Parameter        | Type                                    | Description                                         |
-|------------------|-----------------------------------------|-----------------------------------------------------|
-| `options.fn`     | `(signal: AbortSignal) => Promise<T>`   | Promise factory; called when deps change            |
-| `options.loading`| `Renderable`                            | Shown while pending (VNode or component fn)         |
-| `options.error`  | `Renderable`                            | Shown on rejection (VNode or component fn)          |
-| `deps`           | `unknown[]`                             | Re-runs `fn` when any value changes                 |
+| Parameter         | Type                                  | Description                                 |
+| ----------------- | ------------------------------------- | ------------------------------------------- |
+| `options.fn`      | `(signal: AbortSignal) => Promise<T>` | Promise factory; called when deps change    |
+| `options.loading` | `Renderable`                          | Shown while pending (VNode or component fn) |
+| `options.error`   | `Renderable`                          | Shown on rejection (VNode or component fn)  |
+| `deps`            | `unknown[]`                           | Re-runs `fn` when any value changes         |
 
 **Returns** `T` — the resolved value
 
@@ -339,14 +337,14 @@ function* UserProfile({ userId }: { userId: number }) {
 ### `useResolveRaw`
 
 ```ts
-const { data, loading, error } = yield* useResolveRaw<T, E>(promise);
+const { data, loading, error } = yield * useResolveRaw<T, E>(promise);
 ```
 
 Low-level async hook. Does **not** pause rendering — returns the current state immediately and triggers a re-render when the promise settles. The component controls how each state is rendered.
 
-| Parameter | Type          | Description         |
-|-----------|---------------|---------------------|
-| `promise` | `Promise<T>`  | The promise to track |
+| Parameter | Type         | Description          |
+| --------- | ------------ | -------------------- |
+| `promise` | `Promise<T>` | The promise to track |
 
 **Returns** `ResolveRawResult<T, E>` — a discriminated union:
 
@@ -362,7 +360,7 @@ function* PostViewer({ postId }: { postId: number }) {
   const { data, loading, error } = yield* useResolveRaw<Post, Error>(promise);
 
   if (loading) return <p>Loading…</p>;
-  if (error)   return <p>Error: {error.message}</p>;
+  if (error) return <p>Error: {error.message}</p>;
   return <article>{data.title}</article>;
 }
 ```
@@ -423,7 +421,7 @@ function* Form() {
 ### `useResume`
 
 ```ts
-const resume = yield* useResume<T>();
+const resume = yield * useResume<T>();
 ```
 
 Returns the `resume` callback injected by the nearest parent `useRender` call (Variant 1). Calling `resume(value)` unblocks the parent generator.
@@ -451,9 +449,9 @@ const MyCtx = createContext<T>(defaultValue);
 
 Creates a context with a default value. The returned object exposes a `Provider` component.
 
-| Parameter      | Type | Description                                    |
-|----------------|------|------------------------------------------------|
-| `defaultValue` | `T`  | Value used when no Provider is in the tree     |
+| Parameter      | Type | Description                                |
+| -------------- | ---- | ------------------------------------------ |
+| `defaultValue` | `T`  | Value used when no Provider is in the tree |
 
 **Returns** `Context<T>` — `{ Provider, _defaultValue }`
 
@@ -473,7 +471,7 @@ function* App() {
 ### `useContext`
 
 ```ts
-const value = yield* useContext(MyCtx);
+const value = yield * useContext(MyCtx);
 ```
 
 Reads the nearest Provider's value. Returns the default value when no Provider is found.
@@ -515,7 +513,9 @@ function* App() {
 ### `key`
 
 ```tsx
-{items.map((item) => <Row key={item.id} item={item} />)}
+{
+  items.map((item) => <Row key={item.id} item={item} />);
+}
 ```
 
 Stable identity hint for list items. Prevents accidental reuse of a slot from a different item when the list order changes.
@@ -540,10 +540,7 @@ import type { SyntheticEvent } from 'yielderact';
 function* TextInput() {
   const [value, setValue] = yield* useState('');
   return (
-    <input
-      value={value}
-      onChange={(e: SyntheticEvent<InputEvent>) => setValue(e.target.value)}
-    />
+    <input value={value} onChange={(e: SyntheticEvent<InputEvent>) => setValue(e.target.value)} />
   );
 }
 ```
@@ -556,10 +553,10 @@ function* TextInput() {
 
 yielderact applies two opinionated defaults to prevent common HTML footguns:
 
-| Element   | Behaviour                                                                                           |
-|-----------|-----------------------------------------------------------------------------------------------------|
-| `<button>`| `type` defaults to `"button"` (not `"submit"`) to prevent accidental form submission               |
-| `<a>`     | `target="_blank"` without any `rel` logs a `console.warn` recommending `rel="noopener noreferrer"` |
+| Element    | Behaviour                                                                                          |
+| ---------- | -------------------------------------------------------------------------------------------------- |
+| `<button>` | `type` defaults to `"button"` (not `"submit"`) to prevent accidental form submission               |
+| `<a>`      | `target="_blank"` without any `rel` logs a `console.warn` recommending `rel="noopener noreferrer"` |
 
 Both can be overridden by explicitly setting the prop.
 
@@ -615,6 +612,7 @@ Context values are stored in an immutable `Map<Context, value>` that is set as a
 ### AbortSignal lifecycle
 
 `useResolve`'s `fn` receives an `AbortSignal` that is automatically aborted when:
+
 - The dependency array changes (a new fetch starts)
 - The component unmounts
 
@@ -627,6 +625,7 @@ Abort cleanup is registered via `cleanupFns[hookIndex]` on the `GenInstance`. `u
 ### Unmount and cleanup
 
 When `reconcileSlots` replaces or removes a slot, it calls `unmountSlot(slot)` which:
+
 1. Recursively unmounts all `childSlots`
 2. For generator components, recursively unmounts `genInstance.slots`
 3. Calls all `cleanupFns` entries on the `GenInstance`
