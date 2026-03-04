@@ -1,11 +1,11 @@
 /**
- * ShownDemo – demonstrates the `shown` prop, which conditionally mounts and
+ * ShownDemo – demonstrates the `$shown` prop, which conditionally mounts and
  * unmounts elements and components without any conditional-expression syntax.
  *
  * Three scenarios are shown:
- *  1. HTML element  – a <div> panel toggled via `shown`.
- *  2. Function component – a stateless component toggled via `shown`.
- *  3. Generator component – a stateful counter toggled via `shown`; the
+ *  1. HTML element  – a <div> panel toggled via `$shown`.
+ *  2. Function component – a stateless component toggled via `$shown`.
+ *  3. Generator component – a stateful counter toggled via `$shown`; the
  *     counter resets to zero each time it is re-mounted.
  */
 import { useState } from 'yielderact';
@@ -26,7 +26,7 @@ function InfoPanel() {
       }}
     >
       I am a <strong>function component</strong> – I mount and unmount based on the{' '}
-      <code>shown</code> prop.
+      <code>$shown</code> prop.
     </div>
   );
 }
@@ -71,18 +71,20 @@ export function* ShownDemo() {
   return (
     <section aria-label="shown prop demo">
       <h2>
-        <code>shown</code> Prop
+        <code>$shown</code> Prop
       </h2>
       <p>
-        The <code>shown</code> prop lets you conditionally mount and unmount any element or
-        component. When <code>shown</code> changes to <code>false</code> the node is fully removed
+        The <code>$shown</code> prop lets you conditionally mount and unmount any element or
+        component. When <code>$shown</code> changes to <code>false</code> the node is fully removed
         from the DOM (and its state is discarded); setting it back to <code>true</code> re-mounts a
         fresh instance.
       </p>
 
       {/* ── Row 1: HTML element ── */}
       <div style={{ marginBottom: '1rem' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+        <label
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}
+        >
           <input
             type="checkbox"
             data-testid="toggle-element"
@@ -92,7 +94,7 @@ export function* ShownDemo() {
           Show HTML element
         </label>
         <div
-          shown={showElement}
+          $shown={showElement}
           data-testid="shown-element"
           style={{
             padding: '0.75rem 1rem',
@@ -101,14 +103,16 @@ export function* ShownDemo() {
             borderRadius: '6px',
           }}
         >
-          I am a plain <strong>&lt;div&gt;</strong> element — toggled with the{' '}
-          <code>shown</code> prop.
+          I am a plain <strong>&lt;div&gt;</strong> element — toggled with the <code>$shown</code>{' '}
+          prop.
         </div>
       </div>
 
       {/* ── Row 2: function component ── */}
       <div style={{ marginBottom: '1rem' }}>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+        <label
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}
+        >
           <input
             type="checkbox"
             data-testid="toggle-function"
@@ -117,12 +121,14 @@ export function* ShownDemo() {
           />
           Show function component
         </label>
-        <InfoPanel shown={showFunction} />
+        <InfoPanel $shown={showFunction} />
       </div>
 
       {/* ── Row 3: generator component ── */}
       <div>
-        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}>
+        <label
+          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}
+        >
           <input
             type="checkbox"
             data-testid="toggle-generator"
@@ -131,7 +137,7 @@ export function* ShownDemo() {
           />
           Show generator component
         </label>
-        <StatefulCounter shown={showGenerator} />
+        <StatefulCounter $shown={showGenerator} />
       </div>
     </section>
   );

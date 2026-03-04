@@ -405,13 +405,14 @@ export interface AriaAttributes {
  * The type parameter `T` is the concrete `HTMLElement` subtype for this
  * element, used to narrow `event.currentTarget` in event handlers.
  */
-export interface HTMLAttributes<T extends HTMLElement = HTMLElement> extends AriaAttributes, EventHandlers<T> {
+export interface HTMLAttributes<T extends HTMLElement = HTMLElement>
+  extends AriaAttributes, EventHandlers<T> {
   /** JSX reconciliation key – not rendered to the DOM. */
   key?: string | number;
   /** Nested children. */
   children?: Child | Child[];
   /** When false, the element/component is not rendered (and unmounted if previously mounted). Defaults to true. */
-  shown?: boolean;
+  $shown?: boolean;
 
   // ── Global HTML attributes ───────────────────────────────────────────────
   autoCapitalize?: string;
@@ -909,11 +910,12 @@ export interface VideoHTMLAttributes extends HTMLAttributes<HTMLVideoElement> {
 // ---------------------------------------------------------------------------
 
 /** Presentation attributes shared by all SVG elements. */
-export interface SVGAttributes<T extends SVGElement = SVGElement> extends AriaAttributes, EventHandlers<T> {
+export interface SVGAttributes<T extends SVGElement = SVGElement>
+  extends AriaAttributes, EventHandlers<T> {
   key?: string | number;
   children?: Child | Child[];
   /** When false, the element/component is not rendered (and unmounted if previously mounted). Defaults to true. */
-  shown?: boolean;
+  $shown?: boolean;
   className?: string;
   id?: string;
   style?: CSSProperties;
