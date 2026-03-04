@@ -5,7 +5,7 @@
  *  • Variant 1: JSX passed directly to useRender; the child uses useResume.
  *  • Variant 2: Inline render function receives resume as a prop.
  */
-import { useRender, useResume, useRef } from 'yielderact';
+import { useRender, useResume, useRef, useState } from 'yielderact';
 
 // ---------------------------------------------------------------------------
 // Variant 1 – child component uses useResume
@@ -49,6 +49,7 @@ function* ProceedDialog({ acceptText, rejectText }: { acceptText: string; reject
 
 function* Variant1() {
   const answer = yield* useRef<Answer>('NONE');
+  const [, rerender] = yield* useState(0);
 
   while (answer.current === 'NONE') {
     answer.current = yield* useRender<Answer>(
@@ -62,6 +63,7 @@ function* Variant1() {
       <button
         onClick={() => {
           answer.current = 'NONE';
+          rerender((n) => n + 1);
         }}
         style={{ marginLeft: '0.5rem', cursor: 'pointer' }}
       >
@@ -77,6 +79,7 @@ function* Variant1() {
 
 function* Variant2() {
   const answer = yield* useRef<Answer>('NONE');
+  const [, rerender] = yield* useState(0);
 
   while (answer.current === 'NONE') {
     answer.current = yield* useRender<Answer>(
@@ -120,6 +123,7 @@ function* Variant2() {
       <button
         onClick={() => {
           answer.current = 'NONE';
+          rerender((n) => n + 1);
         }}
         style={{ marginLeft: '0.5rem', cursor: 'pointer' }}
       >
