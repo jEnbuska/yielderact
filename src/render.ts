@@ -273,10 +273,18 @@ function buildVNodeList(vnodes: Child[]): { nodes: Node[]; slots: Slot[] } {
       const fn = vnode.type as AnyComponentFn;
       const allProps = allPropsForShown;
       const providerCtx = _getProviderCtx(fn);
-      let node: Node;
       if (providerCtx) {
-        node = mountContextProvider(fn as PlainComponentFn, allProps, providerCtx);
-      } else if (isGeneratorFn(fn)) {
+        const { node, childSlots } = mountContextProvider(
+          fn as PlainComponentFn,
+          allProps,
+          providerCtx,
+        );
+        nodes.push(node);
+        slots.push({ type: vnode.type, node, props: allProps, childSlots, genInstance: null });
+        continue;
+      }
+      let node: Node;
+      if (isGeneratorFn(fn)) {
         node = mountGeneratorComponent(fn, allProps);
       } else {
         node = mountPlainComponent(fn as PlainComponentFn, allProps);
@@ -408,12 +416,16 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
 /**
  * Mount a context Provider.  Updates `_ctxMap` before building children,
  * then restores it afterwards.
+ *
+ * Returns both the host node and the child Slot array so that the reconciler
+ * can update children in-place on subsequent renders without remounting the
+ * Provider or its descendants.
  */
 function mountContextProvider(
   fn: PlainComponentFn,
   props: Record<string, unknown>,
   providerCtx: object,
-): Node {
+): { node: HTMLElement; childSlots: Slot[] } {
   const prevCtxMap = _getCtxMap();
   const newCtxMap = new Map(prevCtxMap);
   newCtxMap.set(providerCtx as never, props.value);
@@ -421,19 +433,21 @@ function mountContextProvider(
 
   const host = document.createElement('span');
   host.style.display = 'contents';
+  let childSlots: Slot[] = [];
 
   try {
     const vnode = fn(props);
     if (vnode != null) {
       // The Provider returns a Fragment wrapping its children – build them
-      const { nodes } = buildVNodeList([vnode]);
+      const { nodes, slots } = buildVNodeList([vnode]);
       for (const n of nodes) host.appendChild(n);
+      childSlots = slots;
     }
   } finally {
     _setCtxMap(prevCtxMap);
   }
 
-  return host;
+  return { node: host, childSlots };
 }
 
 /**
@@ -561,6 +575,8 @@ function reconcileOne(
   // ---- Function component ----
   if (typeof vnode.type === 'function') {
     const allProps = allPropsForShown;
+    const fn = vnode.type as AnyComponentFn;
+    const providerCtx = _getProviderCtx(fn);
 
     // Same component type at same position
     if (prevSlot?.type === vnode.type) {
@@ -568,7 +584,37 @@ function reconcileOne(
       if (shallowEqual(prevSlot.props, allProps)) {
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
-      // Props changed → remount the component from scratch.
+
+      // Context Provider whose value is unchanged but children differ → reconcile
+      // children in-place.  This preserves child component state (hook states,
+      // generator cursors) across parent re-renders when only the rendered
+      // subtree changes, not the context value itself.
+      //
+      // If the value DID change we fall through to the full remount so that
+      // already-mounted descendants pick up the new context (their capturedCtx
+      // is refreshed via the remount).
+      if (providerCtx && Object.is(prevSlot.props['value'], allProps['value'])) {
+        const prevCtxMap = _getCtxMap();
+        const newCtxMap = new Map(prevCtxMap);
+        newCtxMap.set(providerCtx as never, allProps.value as unknown);
+        _setCtxMap(newCtxMap);
+        try {
+          const childVNode = (fn as PlainComponentFn)(allProps);
+          if (childVNode != null) {
+            prevSlot.childSlots = reconcileSlots(
+              prevSlot.node as HTMLElement,
+              prevSlot.childSlots,
+              [childVNode],
+            );
+          }
+        } finally {
+          _setCtxMap(prevCtxMap);
+        }
+        prevSlot.props = allProps;
+        return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+
+      // Other component types (or Provider whose value changed) → remount from scratch.
       // NOTE: for generator components this means the generator's internal
       // state (local variables, the generator cursor) is discarded.  This
       // differs from React's behaviour where a component receives new props
@@ -578,12 +624,20 @@ function reconcileOne(
     }
 
     // Mount fresh component
-    const fn = vnode.type as AnyComponentFn;
-    const providerCtx = _getProviderCtx(fn);
-    let node: Node;
     if (providerCtx) {
-      node = mountContextProvider(fn as PlainComponentFn, allProps, providerCtx);
-    } else if (isGeneratorFn(fn)) {
+      const { node, childSlots } = mountContextProvider(
+        fn as PlainComponentFn,
+        allProps,
+        providerCtx,
+      );
+      return {
+        slot: { type: vnode.type, node, props: allProps, childSlots, genInstance: null },
+        node,
+        replaced: true,
+      };
+    }
+    let node: Node;
+    if (isGeneratorFn(fn)) {
       node = mountGeneratorComponent(fn, allProps);
     } else {
       node = mountPlainComponent(fn as PlainComponentFn, allProps);
@@ -673,7 +727,7 @@ export function buildNode(child: Child): Node {
     }
     const providerCtx = _getProviderCtx(fn);
     if (providerCtx) {
-      return mountContextProvider(fn as PlainComponentFn, allProps, providerCtx);
+      return mountContextProvider(fn as PlainComponentFn, allProps, providerCtx).node;
     }
     return isGeneratorFn(fn)
       ? mountGeneratorComponent(fn, allProps)

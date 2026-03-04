@@ -433,6 +433,37 @@ describe('useRender (Variant 1 – JSX child with useResume)', () => {
     expect(container.querySelector('p')?.textContent).toBe('ACCEPTED');
     expect(finalAnswer).toBe('ACCEPTED');
   });
+
+  it('does not remount the child when the parent rerenders while waiting', () => {
+    let mountCount = 0;
+    let capturedResume: ((v: string) => void) | null = null;
+    let setVal: ((v: number) => void) | null = null;
+
+    function* Dialog() {
+      mountCount++;
+      const resume = yield* useResume<string>();
+      capturedResume = resume;
+      return createElement('span', null, 'dialog');
+    }
+
+    function* Parent() {
+      const [, sv] = yield* useState(0);
+      setVal = sv;
+      yield* useRender<string>(createElement(Dialog as never, {}));
+      return createElement('div', null);
+    }
+
+    render(createElement(Parent as never, {}), container);
+    expect(mountCount).toBe(1);
+
+    // Trigger a parent rerender while the dialog is still open
+    setVal!(1);
+    expect(mountCount).toBe(1); // Dialog must NOT remount
+
+    // Resolve still works after the rerender
+    capturedResume!('OK');
+    expect(container.querySelector('div')).not.toBeNull();
+  });
 });
 
 describe('useResume', () => {
