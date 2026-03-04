@@ -10,8 +10,9 @@ import { ThemeDemo } from './components/ThemeDemo';
 import { DataFetcher } from './components/DataFetcher';
 import { HooksShowcase } from './components/HooksShowcase';
 import { ShownDemo } from './components/ShownDemo';
+import { ConfirmDialog } from './components/ConfirmDialog';
 
-type Tab = 'counter' | 'todos' | 'theme' | 'data' | 'hooks' | 'shown';
+type Tab = 'counter' | 'todos' | 'theme' | 'data' | 'hooks' | 'shown' | 'confirm';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'counter', label: 'Counter' },
@@ -20,6 +21,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'data', label: 'Data Fetcher' },
   { id: 'hooks', label: 'Hooks Showcase' },
   { id: 'shown', label: 'shown prop' },
+  { id: 'confirm', label: 'useRender' },
 ];
 
 function* App() {
@@ -33,7 +35,10 @@ function* App() {
       </p>
 
       {/* Tab bar — ids derived from data so useId() is not applicable here */}
-      <nav role="tablist" style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
+      <nav
+        role="tablist"
+        style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}
+      >
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -63,6 +68,7 @@ function* App() {
         {activeTab === 'data' && <DataFetcher />}
         {activeTab === 'hooks' && <HooksShowcase />}
         {activeTab === 'shown' && <ShownDemo />}
+        {activeTab === 'confirm' && <ConfirmDialog />}
       </div>
     </div>
   );
