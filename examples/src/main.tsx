@@ -20,7 +20,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'theme', label: 'Context / Theme' },
   { id: 'data', label: 'Data Fetcher' },
   { id: 'hooks', label: 'Hooks Showcase' },
-  { id: 'shown', label: 'shown prop' },
+  { id: 'shown', label: '$shown prop' },
   { id: 'confirm', label: 'useRender' },
 ];
 

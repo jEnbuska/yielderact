@@ -255,7 +255,7 @@ test.describe('Hooks Showcase example', () => {
 test.describe('shown prop example', () => {
   test.beforeEach(async ({ page }) => {
     await goToApp(page);
-    await clickTab(page, 'shown prop');
+    await clickTab(page, '$shown prop');
     await page.waitForSelector('[data-testid="toggle-element"]');
   });
 

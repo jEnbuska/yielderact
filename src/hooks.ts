@@ -45,7 +45,10 @@ export const USE_RENDER = Symbol('useRender');
 export function depsChanged(prev: unknown[] | undefined, next: unknown[]): boolean {
   if (prev === undefined) return true;
   if (prev.length !== next.length) return true;
-  return prev.some((v, i) => !Object.is(v, next[i]));
+  for (let i = 0; i < prev.length; i++) {
+    if (!Object.is(prev[i], next[i])) return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------

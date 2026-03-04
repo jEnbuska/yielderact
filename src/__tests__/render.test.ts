@@ -333,11 +333,14 @@ describe('render – generator components with useResolve', () => {
     });
 
     function* DataComp() {
-      const data = yield* useResolve({
-        fn: () => promise,
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', { id: 'error' }, 'Error'),
-      }, []);
+      const data = yield* useResolve(
+        {
+          fn: () => promise,
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', { id: 'error' }, 'Error'),
+        },
+        [],
+      );
       return createElement('span', { id: 'data' }, data);
     }
 
@@ -360,11 +363,14 @@ describe('render – generator components with useResolve', () => {
     });
 
     function* DataComp() {
-      const data = yield* useResolve({
-        fn: () => promise,
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', { id: 'error' }, 'Error'),
-      }, []);
+      const data = yield* useResolve(
+        {
+          fn: () => promise,
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', { id: 'error' }, 'Error'),
+        },
+        [],
+      );
       return createElement('span', { id: 'data' }, data);
     }
 
@@ -388,11 +394,14 @@ describe('render – generator components with useResolve', () => {
     function* DataComp() {
       const [label, sl] = yield* useState('prefix');
       setLabel = sl;
-      const data = yield* useResolve({
-        fn: () => promise,
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', null, 'Error'),
-      }, []);
+      const data = yield* useResolve(
+        {
+          fn: () => promise,
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', null, 'Error'),
+        },
+        [],
+      );
       return createElement('p', { id: 'result' }, `${label}:${data}`);
     }
 
@@ -418,11 +427,14 @@ describe('render – generator components with useResolve', () => {
     function* DataComp() {
       const [label, sl] = yield* useState('prefix');
       setLabel = sl;
-      const data = yield* useResolve({
-        fn: () => promise,
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', null, 'Error'),
-      }, []);
+      const data = yield* useResolve(
+        {
+          fn: () => promise,
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', null, 'Error'),
+        },
+        [],
+      );
       return createElement('p', { id: 'result' }, `${label}:${data}`);
     }
 
@@ -457,14 +469,17 @@ describe('render – generator components with useResolve', () => {
     function* DataComp() {
       const [id, si] = yield* useState(1);
       setId = si;
-      const data = yield* useResolve({
-        fn: () => {
-          fetchCount++;
-          return id === 1 ? firstPromise : secondPromise;
+      const data = yield* useResolve(
+        {
+          fn: () => {
+            fetchCount++;
+            return id === 1 ? firstPromise : secondPromise;
+          },
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', null, 'Error'),
         },
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', null, 'Error'),
-      }, [id]);
+        [id],
+      );
       return createElement('p', { id: 'result' }, `${id}:${data}`);
     }
 
@@ -501,11 +516,14 @@ describe('render – generator components with useResolve', () => {
     function* DataComp() {
       const [id, si] = yield* useState(1);
       setId = si;
-      const data = yield* useResolve({
-        fn: () => (id === 1 ? firstPromise : secondPromise),
-        loading: createElement('span', { id: 'loading' }, 'Loading…'),
-        error: createElement('span', null, 'Error'),
-      }, [id]);
+      const data = yield* useResolve(
+        {
+          fn: () => (id === 1 ? firstPromise : secondPromise),
+          loading: createElement('span', { id: 'loading' }, 'Loading…'),
+          error: createElement('span', null, 'Error'),
+        },
+        [id],
+      );
       return createElement('p', { id: 'result' }, `${id}:${data}`);
     }
 
@@ -567,13 +585,13 @@ describe('shown prop', () => {
   });
 
   it('renders an HTML element when shown is true', () => {
-    render(createElement('div', { shown: true }, 'visible'), container);
+    render(createElement('div', { $shown: true }, 'visible'), container);
     expect(container.querySelector('div')).not.toBeNull();
     expect(container.querySelector('div')!.textContent).toBe('visible');
   });
 
   it('does not render an HTML element when shown is false', () => {
-    render(createElement('div', { shown: false }, 'hidden'), container);
+    render(createElement('div', { $shown: false }, 'hidden'), container);
     expect(container.querySelector('div')).toBeNull();
   });
 
@@ -583,16 +601,19 @@ describe('shown prop', () => {
   });
 
   it('does not set shown as a DOM attribute', () => {
-    render(createElement('div', { shown: true }, 'visible'), container);
+    render(createElement('div', { $shown: true }, 'visible'), container);
     const el = container.querySelector('div')!;
-    expect(el.hasAttribute('shown')).toBe(false);
+    expect(el.hasAttribute('$shown')).toBe(false);
   });
 
   it('renders a plain function component when shown is true', () => {
     function Greeting() {
       return createElement('p', null, 'hello');
     }
-    render(createElement('div', null, createElement(Greeting as never, { shown: true })), container);
+    render(
+      createElement('div', null, createElement(Greeting as never, { $shown: true })),
+      container,
+    );
     expect(container.querySelector('p')).not.toBeNull();
   });
 
@@ -600,7 +621,10 @@ describe('shown prop', () => {
     function Greeting() {
       return createElement('p', null, 'hello');
     }
-    render(createElement('div', null, createElement(Greeting as never, { shown: false })), container);
+    render(
+      createElement('div', null, createElement(Greeting as never, { $shown: false })),
+      container,
+    );
     expect(container.querySelector('p')).toBeNull();
   });
 
@@ -608,7 +632,10 @@ describe('shown prop', () => {
     function* Counter() {
       return createElement('p', null, 'counter');
     }
-    render(createElement('div', null, createElement(Counter as never, { shown: true })), container);
+    render(
+      createElement('div', null, createElement(Counter as never, { $shown: true })),
+      container,
+    );
     expect(container.querySelector('p')).not.toBeNull();
   });
 
@@ -616,7 +643,10 @@ describe('shown prop', () => {
     function* Counter() {
       return createElement('p', null, 'counter');
     }
-    render(createElement('div', null, createElement(Counter as never, { shown: false })), container);
+    render(
+      createElement('div', null, createElement(Counter as never, { $shown: false })),
+      container,
+    );
     expect(container.querySelector('p')).toBeNull();
   });
 
@@ -624,9 +654,9 @@ describe('shown prop', () => {
     let setShown: ((v: boolean) => void) | null = null;
 
     function* Wrapper() {
-      const [shown, setS] = yield* useState(true);
+      const [$shown, setS] = yield* useState(true);
       setShown = setS;
-      return createElement('div', { shown }, 'content');
+      return createElement('div', { $shown }, 'content');
     }
 
     render(createElement(Wrapper as never, {}), container);
@@ -640,9 +670,9 @@ describe('shown prop', () => {
     let setShown: ((v: boolean) => void) | null = null;
 
     function* Wrapper() {
-      const [shown, setS] = yield* useState(false);
+      const [$shown, setS] = yield* useState(false);
       setShown = setS;
-      return createElement('div', { shown }, 'content');
+      return createElement('div', { $shown }, 'content');
     }
 
     render(createElement(Wrapper as never, {}), container);
@@ -661,9 +691,9 @@ describe('shown prop', () => {
     }
 
     function* Wrapper() {
-      const [shown, setS] = yield* useState(true);
+      const [$shown, setS] = yield* useState(true);
       setShown = setS;
-      return createElement(Inner as never, { shown });
+      return createElement(Inner as never, { $shown });
     }
 
     render(createElement(Wrapper as never, {}), container);
@@ -681,9 +711,9 @@ describe('shown prop', () => {
     }
 
     function* Wrapper() {
-      const [shown, setS] = yield* useState(false);
+      const [$shown, setS] = yield* useState(false);
       setShown = setS;
-      return createElement(Inner as never, { shown });
+      return createElement(Inner as never, { $shown });
     }
 
     render(createElement(Wrapper as never, {}), container);
