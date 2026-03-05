@@ -23,7 +23,7 @@
  * ```
  */
 export { createElement, Fragment } from './jsx';
-export { render } from './render';
+export { render, startUIPatch, commitUIPatch } from './render';
 export { createContext, useContext } from './context';
 export {
   useState,
@@ -35,6 +35,7 @@ export {
   useMemo,
   useRender,
   useResume,
+  useUIPatch,
 } from './hooks';
 export type { VNode, Child, GeneratorComponentFn, PlainComponentFn, AnyComponentFn } from './jsx';
 export type { Context } from './context';

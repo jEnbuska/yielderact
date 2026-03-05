@@ -413,6 +413,13 @@ export interface HTMLAttributes<T extends HTMLElement = HTMLElement>
   children?: Child | Child[];
   /** When false, the element/component is not rendered (and unmounted if previously mounted). Defaults to true. */
   $shown?: boolean;
+  /**
+   * Controls DOM-update behaviour during a UI patch (`startUIPatch` /
+   * `useUIPatch`).  Inherited recursively by children unless overridden.
+   * - `'default'` (default): DOM writes are deferred until the patch commits.
+   * - `'live'`: DOM writes are applied immediately, even during a patch.
+   */
+  $patch?: 'live' | 'default';
 
   // ── Global HTML attributes ───────────────────────────────────────────────
   autoCapitalize?: string;
@@ -916,6 +923,13 @@ export interface SVGAttributes<T extends SVGElement = SVGElement>
   children?: Child | Child[];
   /** When false, the element/component is not rendered (and unmounted if previously mounted). Defaults to true. */
   $shown?: boolean;
+  /**
+   * Controls DOM-update behaviour during a UI patch (`startUIPatch` /
+   * `useUIPatch`).  Inherited recursively by children unless overridden.
+   * - `'default'` (default): DOM writes are deferred until the patch commits.
+   * - `'live'`: DOM writes are applied immediately, even during a patch.
+   */
+  $patch?: 'live' | 'default';
   className?: string;
   id?: string;
   style?: CSSProperties;

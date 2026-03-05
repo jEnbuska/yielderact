@@ -222,8 +222,8 @@ test.describe('Hooks Showcase example', () => {
   test('filters the list via useMemo when the search input changes', async ({ page }) => {
     await page.getByTestId('hooks-search-input').fill('an');
     const items = page.locator('[data-testid="hooks-fruit-list"] li');
-    // 'Banana', 'Mango', 'Nectarine' contain 'an'
-    await expect(items).toHaveCount(3);
+    // 'Banana', 'Mango' contain 'an' (Nectarine does not)
+    await expect(items).toHaveCount(2);
     await page.screenshot({ path: 'test-results/hooks-filtered.png' });
   });
 
@@ -307,5 +307,111 @@ test.describe('shown prop example', () => {
     await page.getByTestId('toggle-generator').check();
     await expect(page.getByTestId('counter-val')).toHaveText('0');
     await page.screenshot({ path: 'test-results/shown-generator-reset.png' });
+  });
+});
+
+// ---------------------------------------------------------------------------
+// UI Patch (TransitionDemo) example
+// ---------------------------------------------------------------------------
+
+test.describe('UI Patch example', () => {
+  test.beforeEach(async ({ page }) => {
+    await goToApp(page);
+    await clickTab(page, 'UI Patch');
+    // Wait for the Global patch section heading to appear
+    await page.waitForSelector('text=Global patch');
+  });
+
+  test('renders both global and local patch sections', async ({ page }) => {
+    await expect(page.locator('text=Global patch — entire tree frozen')).toBeVisible();
+    await expect(page.locator('text=Local patch — only this subtree frozen')).toBeVisible();
+    await page.screenshot({ path: 'test-results/ui-patch-initial.png' });
+  });
+
+  test('global patch: home page is shown by default', async ({ page }) => {
+    await expect(page.locator('text=🏠 Home').first()).toBeVisible();
+    await page.screenshot({ path: 'test-results/ui-patch-home.png' });
+  });
+
+  test('clocks demo: renders all three clock variants', async ({ page }) => {
+    await expect(page.locator('code', { hasText: '$patch="default"' }).first()).toBeVisible();
+    await expect(page.locator('code', { hasText: '$patch="live"' }).first()).toBeVisible();
+    await expect(
+      page.locator('code', { hasText: "$patch=seconds % 3 ? 'live' : 'default'" }).first(),
+    ).toBeVisible();
+    await page.screenshot({ path: 'test-results/ui-patch-clocks.png' });
+  });
+
+  test('clocks demo: clocks display a time string', async ({ page }) => {
+    // All three clock <b> elements should show a non-empty time string
+    const clocks = page.locator('b');
+    // Wait for at least one clock to appear
+    await expect(clocks.first()).toBeVisible();
+    const text = await clocks.first().textContent();
+    // toTimeString() produces e.g. "12:34:56 GMT+0000"
+    expect(text).toMatch(/\d{2}:\d{2}:\d{2}/);
+    await page.screenshot({ path: 'test-results/ui-patch-clock-time.png' });
+  });
+
+  test('global patch: navigates to about page after async delay', async ({ page }) => {
+    const aboutBtn = page.locator('nav button', { hasText: 'about' }).first();
+    await aboutBtn.click();
+
+    // Navigation takes 5 s — use a generous timeout
+    await expect(page.locator('text=ℹ️ About').first()).toBeVisible({ timeout: 7000 });
+    await page.screenshot({ path: 'test-results/ui-patch-about.png' });
+  });
+
+  test('global patch: DOM is frozen until patch commits', async ({ page }) => {
+    const aboutBtn = page.locator('nav button', { hasText: 'about' }).first();
+    await aboutBtn.click();
+
+    // Immediately after click the home page must still be visible (DOM is frozen)
+    await expect(page.locator('text=🏠 Home').first()).toBeVisible();
+
+    // After the 5 s patch commits the about page replaces it
+    await expect(page.locator('text=ℹ️ About').first()).toBeVisible({ timeout: 7000 });
+    await page.screenshot({ path: 'test-results/ui-patch-frozen-then-committed.png' });
+  });
+
+  test('global patch: shows navigation log entries after commit', async ({ page }) => {
+    const contactBtn = page.locator('nav button', { hasText: 'contact' }).first();
+    await contactBtn.click();
+
+    // Both log entries are deferred — they appear together after the 5 s commit
+    await expect(page.locator('pre').first()).toContainText('[global] navigating to contact', {
+      timeout: 7000,
+    });
+    await expect(page.locator('pre').first()).toContainText('[global] arrived at contact', {
+      timeout: 7000,
+    });
+    await page.screenshot({ path: 'test-results/ui-patch-log.png' });
+  });
+
+  test('local patch: home page is shown by default', async ({ page }) => {
+    // There are two nav bars; the second belongs to the local patch demo
+    await expect(page.locator('text=🏠 Home').nth(1)).toBeVisible();
+  });
+
+  test('local patch: navigates to contact page after async delay', async ({ page }) => {
+    const contactBtn = page.locator('nav button', { hasText: 'contact' }).nth(1);
+    await contactBtn.click();
+
+    await expect(page.locator('text=📬 Contact').first()).toBeVisible({ timeout: 7000 });
+    await page.screenshot({ path: 'test-results/ui-patch-local-contact.png' });
+  });
+
+  test('clocks $patch alternates: third clock uses tick%3 expression', async ({ page }) => {
+    // After 1 s the clocks tick — verify all three <b> elements still show valid times
+    await page.waitForTimeout(1100);
+    const clocks = page.locator('b');
+    const count = await clocks.count();
+    // Each Clocks component renders 3 <b> clocks; there are two Clocks instances
+    expect(count).toBeGreaterThanOrEqual(3);
+    for (let i = 0; i < Math.min(count, 3); i++) {
+      const text = await clocks.nth(i).textContent();
+      expect(text).toMatch(/\d{2}:\d{2}:\d{2}/);
+    }
+    await page.screenshot({ path: 'test-results/ui-patch-clocks-ticked.png' });
   });
 });

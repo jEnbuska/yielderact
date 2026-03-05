@@ -12,6 +12,7 @@ import { HooksShowcase } from './components/HooksShowcase';
 import { ShownDemo } from './components/ShownDemo';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { EffectDemo } from './components/EffectDemo';
+import { TransitionDemo } from './components/TransitionDemo';
 
 type Tab =
   | 'counter'
@@ -22,7 +23,8 @@ type Tab =
   | 'hooks'
   | 'shown'
   | 'confirm'
-  | 'effect';
+  | 'effect'
+  | 'transition';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'counter', label: 'Counter' },
@@ -34,6 +36,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'shown', label: '$shown prop' },
   { id: 'confirm', label: 'useRender' },
   { id: 'effect', label: 'useEffect' },
+  { id: 'transition', label: 'UI Patch' },
 ];
 
 function* App() {
@@ -83,6 +86,7 @@ function* App() {
         {activeTab === 'shown' && <ShownDemo />}
         {activeTab === 'confirm' && <ConfirmDialog />}
         {activeTab === 'effect' && <EffectDemo />}
+        {activeTab === 'transition' && <TransitionDemo />}
       </div>
     </div>
   );
