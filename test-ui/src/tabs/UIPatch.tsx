@@ -53,8 +53,7 @@ function* NavigationDemo({ mode }: { mode: PatchMode }) {
 
   const navigate = async (next: Page) => {
     setIsPending(true);
-    const commit =
-      mode === 'global' ? (startUIPatch(), commitUIPatch) : startLocalPatch();
+    const commit = mode === 'global' ? (startUIPatch(), commitUIPatch) : startLocalPatch();
     try {
       setLog((prev) => [...prev, `navigating to ${next}…`]);
       await sleep(5000);
@@ -115,20 +114,30 @@ function* VisibilityDemo({ mode }: { mode: PatchMode }) {
 
   const startPatch = () => {
     if (mode === 'global') startUIPatch();
-    else { if (!commitRef.current) commitRef.current = startLocalPatch(); }
+    else {
+      if (!commitRef.current) commitRef.current = startLocalPatch();
+    }
   };
 
   const endPatch = () => {
     if (mode === 'global') commitUIPatch();
-    else { const fn = commitRef.current; commitRef.current = null; fn?.(); }
+    else {
+      const fn = commitRef.current;
+      commitRef.current = null;
+      fn?.();
+    }
   };
 
   return (
     <Card testId={`${prefix}-visibility-demo`}>
       <h4 className="mt-0 font-semibold">Visibility ({mode} patch)</h4>
       <div className="flex gap-2 flex-wrap mb-3">
-        <Button testId={`${prefix}-start-patch`} onClick={startPatch}>Start patch</Button>
-        <Button testId={`${prefix}-commit-patch`} onClick={endPatch}>Commit patch</Button>
+        <Button testId={`${prefix}-start-patch`} onClick={startPatch}>
+          Start patch
+        </Button>
+        <Button testId={`${prefix}-commit-patch`} onClick={endPatch}>
+          Commit patch
+        </Button>
         <Button testId={`${prefix}-toggle-default`} onClick={() => setShowDefault((v) => !v)}>
           Toggle default
         </Button>
@@ -137,8 +146,13 @@ function* VisibilityDemo({ mode }: { mode: PatchMode }) {
         </Button>
       </div>
       <div className="flex gap-4 min-h-8 items-center">
-        <span>default: <VisibilityTarget $shown={showDefault} $patch="default" id={`${prefix}-target-default`} /></span>
-        <span>live: <VisibilityTarget $shown={showLive} $patch="live" id={`${prefix}-target-live`} /></span>
+        <span>
+          default:{' '}
+          <VisibilityTarget $shown={showDefault} $patch="default" id={`${prefix}-target-default`} />
+        </span>
+        <span>
+          live: <VisibilityTarget $shown={showLive} $patch="live" id={`${prefix}-target-live`} />
+        </span>
       </div>
     </Card>
   );
@@ -158,7 +172,10 @@ function ModeToggle({ mode, setMode }: { mode: PatchMode; setMode: (m: PatchMode
           data-testid={`patch-mode-${m}`}
           onClick={() => setMode(m)}
           className="px-3 py-1 border rounded text-sm"
-          style={{ background: mode === m ? '#0070f3' : '#fff', color: mode === m ? '#fff' : '#333' }}
+          style={{
+            background: mode === m ? '#0070f3' : '#fff',
+            color: mode === m ? '#fff' : '#333',
+          }}
         >
           {m}
         </button>
@@ -178,8 +195,8 @@ export function* UIPatch() {
     <div>
       <h2>UI Patch</h2>
       <p>
-        <strong>UI patches</strong> freeze DOM updates while async work runs, then apply all
-        changes atomically. Mark a subtree <code>$patch="live"</code> to keep it updating.
+        <strong>UI patches</strong> freeze DOM updates while async work runs, then apply all changes
+        atomically. Mark a subtree <code>$patch="live"</code> to keep it updating.
       </p>
       <ModeToggle mode={mode} setMode={setMode} />
       <div className="flex flex-col gap-6">

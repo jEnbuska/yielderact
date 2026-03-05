@@ -1,8 +1,18 @@
 import { useId, useMemo, useRef, useState } from 'yielderact';
 
 const FRUITS = [
-  'Apple', 'Banana', 'Cherry', 'Date', 'Elderberry', 'Fig',
-  'Grape', 'Honeydew', 'Kiwi', 'Lemon', 'Mango', 'Nectarine',
+  'Apple',
+  'Banana',
+  'Cherry',
+  'Date',
+  'Elderberry',
+  'Fig',
+  'Grape',
+  'Honeydew',
+  'Kiwi',
+  'Lemon',
+  'Mango',
+  'Nectarine',
 ];
 
 export function* HooksShowcase() {

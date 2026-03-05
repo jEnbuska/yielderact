@@ -324,7 +324,9 @@ test.describe('Visibility during local patch', () => {
     await page.screenshot({ path: 'test-results/lv-live-add.png' });
   });
 
-  test('live element removed then re-added: correct immediate and final state', async ({ page }) => {
+  test('live element removed then re-added: correct immediate and final state', async ({
+    page,
+  }) => {
     const l = await visibilitySetup(page, 'lv');
     await l.startBtn.click();
     await l.toggleLive.click();

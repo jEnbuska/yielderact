@@ -44,8 +44,8 @@ export function* EffectDemo() {
 
       <h3>1. Interval timer (effect with cleanup)</h3>
       <p>
-        The timer starts a <code>setInterval</code> in a <code>useEffect</code> with{' '}
-        <code>[]</code> deps. The interval is cleared when the component unmounts.
+        The timer starts a <code>setInterval</code> in a <code>useEffect</code> with <code>[]</code>{' '}
+        deps. The interval is cleared when the component unmounts.
       </p>
       <label className="flex items-center gap-2 mb-2">
         <input type="checkbox" checked={showTimer} onChange={() => setShowTimer((v) => !v)} />
@@ -57,8 +57,8 @@ export function* EffectDemo() {
 
       <h3>2. Lifecycle log (effect re-runs when deps change)</h3>
       <p>
-        Each button changes <code>id</code>. The effect logs ▶ on run and ■ cleanup before the
-        next run.
+        Each button changes <code>id</code>. The effect logs ▶ on run and ■ cleanup before the next
+        run.
       </p>
       <div className="flex gap-2 mb-3">
         {[1, 2, 3].map((n) => (

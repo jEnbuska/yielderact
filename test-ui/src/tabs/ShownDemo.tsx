@@ -23,9 +23,13 @@ function* StatefulCounter() {
       style={{ background: '#f0fff4', border: '1px solid #b0e8c0' }}
     >
       <strong>Stateful counter (resets on re-mount):</strong>
-      <button data-testid="counter-dec" onClick={() => setCount(count - 1)}>−</button>
+      <button data-testid="counter-dec" onClick={() => setCount(count - 1)}>
+        −
+      </button>
       <span data-testid="counter-val">{count}</span>
-      <button data-testid="counter-inc" onClick={() => setCount(count + 1)}>+</button>
+      <button data-testid="counter-inc" onClick={() => setCount(count + 1)}>
+        +
+      </button>
     </div>
   );
 }
@@ -70,7 +74,12 @@ export function* ShownDemo() {
         re-mounts a fresh instance.
       </p>
 
-      <ToggleRow label="Show HTML element" testId="toggle-element" checked={showElement} onChange={() => setShowElement(!showElement)}>
+      <ToggleRow
+        label="Show HTML element"
+        testId="toggle-element"
+        checked={showElement}
+        onChange={() => setShowElement(!showElement)}
+      >
         <div
           $shown={showElement}
           data-testid="shown-element"
@@ -82,11 +91,21 @@ export function* ShownDemo() {
         </div>
       </ToggleRow>
 
-      <ToggleRow label="Show function component" testId="toggle-function" checked={showFunction} onChange={() => setShowFunction(!showFunction)}>
+      <ToggleRow
+        label="Show function component"
+        testId="toggle-function"
+        checked={showFunction}
+        onChange={() => setShowFunction(!showFunction)}
+      >
         <InfoPanel $shown={showFunction} />
       </ToggleRow>
 
-      <ToggleRow label="Show generator component" testId="toggle-generator" checked={showGenerator} onChange={() => setShowGenerator(!showGenerator)}>
+      <ToggleRow
+        label="Show generator component"
+        testId="toggle-generator"
+        checked={showGenerator}
+        onChange={() => setShowGenerator(!showGenerator)}
+      >
         <StatefulCounter $shown={showGenerator} />
       </ToggleRow>
     </section>

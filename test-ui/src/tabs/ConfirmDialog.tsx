@@ -7,8 +7,12 @@ function* ProceedDialog({ acceptText, rejectText }: { acceptText: string; reject
   const resume = yield* useResume<Answer>();
   return (
     <div className="flex gap-2">
-      <Button variant="primary" onClick={() => resume('ACCEPTED')}>{acceptText}</Button>
-      <Button variant="danger" onClick={() => resume('REJECTED')}>{rejectText}</Button>
+      <Button variant="primary" onClick={() => resume('ACCEPTED')}>
+        {acceptText}
+      </Button>
+      <Button variant="danger" onClick={() => resume('REJECTED')}>
+        {rejectText}
+      </Button>
     </div>
   );
 }
@@ -27,7 +31,10 @@ function* Variant1() {
     <p>
       Variant 1 result: <strong>{answer.current}</strong>{' '}
       <button
-        onClick={() => { answer.current = 'NONE'; rerender((n) => n + 1); }}
+        onClick={() => {
+          answer.current = 'NONE';
+          rerender((n) => n + 1);
+        }}
         className="ml-2 cursor-pointer"
       >
         Reset
@@ -44,8 +51,12 @@ function* Variant2() {
     answer.current = yield* useRender<Answer>(
       ({ resume }) => (
         <div className="flex gap-2">
-          <Button variant="primary" onClick={() => resume('ACCEPTED')}>Accept (inline)</Button>
-          <Button variant="danger" onClick={() => resume('REJECTED')}>Reject (inline)</Button>
+          <Button variant="primary" onClick={() => resume('ACCEPTED')}>
+            Accept (inline)
+          </Button>
+          <Button variant="danger" onClick={() => resume('REJECTED')}>
+            Reject (inline)
+          </Button>
         </div>
       ),
       [],
@@ -56,7 +67,10 @@ function* Variant2() {
     <p>
       Variant 2 result: <strong>{answer.current}</strong>{' '}
       <button
-        onClick={() => { answer.current = 'NONE'; rerender((n) => n + 1); }}
+        onClick={() => {
+          answer.current = 'NONE';
+          rerender((n) => n + 1);
+        }}
         className="ml-2 cursor-pointer"
       >
         Reset

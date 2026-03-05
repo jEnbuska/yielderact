@@ -56,8 +56,12 @@ export function* DataFetcher() {
         className="p-3 rounded font-mono"
         style={{ background: '#f5f5f5' }}
       >
-        <div><strong>Name:</strong> {user.name}</div>
-        <div><strong>Email:</strong> {user.email}</div>
+        <div>
+          <strong>Name:</strong> {user.name}
+        </div>
+        <div>
+          <strong>Email:</strong> {user.email}
+        </div>
       </div>
     </section>
   );

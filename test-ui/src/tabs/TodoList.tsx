@@ -32,7 +32,11 @@ export function* TodoList() {
   function addTodo() {
     const text = inputValue.trim();
     if (!text) return;
-    setState({ todos: [...todos, { id: nextId, text, done: false }], nextId: nextId + 1, inputValue: '' });
+    setState({
+      todos: [...todos, { id: nextId, text, done: false }],
+      nextId: nextId + 1,
+      inputValue: '',
+    });
   }
 
   function toggleTodo(id: number) {
@@ -59,7 +63,9 @@ export function* TodoList() {
           value={inputValue}
           placeholder="New todo…"
           onInput={(e) => setState({ ...state, inputValue: e.currentTarget?.value ?? '' })}
-          onKeydown={(e) => { if (e.nativeEvent.key === 'Enter') addTodo(); }}
+          onKeydown={(e) => {
+            if (e.nativeEvent.key === 'Enter') addTodo();
+          }}
         />
         <button id={addBtnId} data-testid="add-todo-btn" onClick={addTodo}>
           Add
