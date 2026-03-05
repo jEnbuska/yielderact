@@ -17,6 +17,7 @@ import {
   USE_RESOLVE,
   USE_EFFECT,
   USE_RENDER,
+  USE_UI_PATCH,
   depsChanged,
   type ResolveRawResult,
   type UseRenderState,
@@ -109,7 +110,7 @@ function removeSyntheticListener(el: HTMLElement, eventName: string): void {
  */
 function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(props)) {
-    if (key === 'children' || key === '$shown') continue;
+    if (key === 'children' || key === '$shown' || key === '$patch') continue;
     if (key.startsWith('on') && typeof value === 'function') {
       addSyntheticListener(el, key.slice(2).toLowerCase(), value as (e: SyntheticEvent) => void);
     } else if (key === 'className') {
@@ -131,6 +132,8 @@ function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
     } else if (key === 'checked' && el instanceof HTMLInputElement) {
       // Use the DOM property for checkboxes
       el.checked = Boolean(value);
+    } else if (value === false) {
+      el.removeAttribute(key);
     } else if (value != null) {
       el.setAttribute(key, String(value));
     }
@@ -167,7 +170,7 @@ function updateProps(
 ): void {
   // Always remove old event listeners (they may be replaced by new functions)
   for (const key in prevProps) {
-    if (key === 'children' || key === 'style' || key === '$shown') continue;
+    if (key === 'children' || key === 'style' || key === '$shown' || key === '$patch') continue;
     if (key.startsWith('on') && typeof prevProps[key] === 'function') {
       removeSyntheticListener(el, key.slice(2).toLowerCase());
     } else if (!(key in nextProps)) {
@@ -244,10 +247,120 @@ interface GenInstance {
    * returned (gen === null). Cleared at the start of each render pass.
    */
   pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }>;
+  /**
+   * Effective `$patch` behaviour for this component.
+   * Resolved from the component's own `$patch` prop (if any) falling back to
+   * the nearest ancestor's inherited value.  Defaults to `'default'`.
+   */
+  batchBehavior: 'live' | 'default';
+  /**
+   * VNode computed during an active UI patch that has not yet been reconciled
+   * to the DOM.  `undefined` when no deferred update is pending.
+   */
+  pendingVNode: Child | undefined;
+  /**
+   * Number of active local patches (`useUIPatch`) whose snapshot includes this
+   * instance.  > 0 means this instance's DOM writes are deferred by a local patch.
+   */
+  localPatchRefCount: number;
 }
 
 /** Map from a generator component's host span to its instance. */
 const genInstanceMap = new WeakMap<HTMLElement, GenInstance>();
+
+// ---------------------------------------------------------------------------
+// UI Patch state
+// ---------------------------------------------------------------------------
+
+/** Reference-counted global patch depth. DOM writes deferred while > 0. */
+let _patchDepth = 0;
+
+/**
+ * Currently inherited `$patch` behaviour propagated down during rendering.
+ * Maintained as a save/restore stack (same pattern as `_ctxMap`).
+ * Root starts as `'default'`.
+ */
+let _currentBatchBehavior: 'live' | 'default' = 'default';
+
+/**
+ * When true, `reconcileOne` skips DOM updates for `$patch="default"` components
+ * and skips `updateProps` on HTML elements — only `$patch="live"` subtrees are
+ * reconciled.  Used to flush live descendants while a parent is frozen.
+ */
+let _liveOnlyMode = false;
+
+/** Global-patch dirty set: instances with a `pendingVNode` awaiting `commitUIPatch`. */
+const _dirtyInstances = new Set<GenInstance>();
+
+// ---------------------------------------------------------------------------
+// UI Patch helpers and public API
+// ---------------------------------------------------------------------------
+
+/**
+ * Collect all descendant `GenInstance`s reachable from `instance.slots` via a
+ * depth-first traversal.  Used by `useUIPatch` to snapshot the subtree at the
+ * moment `startPatch()` is called.
+ */
+function collectDescendants(instance: GenInstance): GenInstance[] {
+  const result: GenInstance[] = [];
+  function walk(slots: Slot[]): void {
+    for (const slot of slots) {
+      if (slot.genInstance) {
+        result.push(slot.genInstance);
+        walk(slot.genInstance.slots);
+      }
+      walk(slot.childSlots);
+    }
+  }
+  walk(instance.slots);
+  return result;
+}
+
+/**
+ * Reconcile each instance in `instances` that has a pending VNode.
+ * Called by both `commitUIPatch` (global) and local-patch `commit()`.
+ */
+function _flushPendingVNodes(instances: GenInstance[]): void {
+  for (const inst of instances) {
+    if (inst.pendingVNode === undefined) continue;
+    const vnode = inst.pendingVNode;
+    inst.pendingVNode = undefined;
+    _dirtyInstances.delete(inst);
+
+    const prevBatch = _currentBatchBehavior;
+    _currentBatchBehavior = inst.batchBehavior;
+    try {
+      inst.slots = reconcileSlots(inst.host, inst.slots, [vnode]);
+    } finally {
+      _currentBatchBehavior = prevBatch;
+    }
+    flushEffects(inst);
+  }
+}
+
+/**
+ * Begin a global UI patch.  All components with `$patch="default"` (the
+ * default) will defer their DOM writes until `commitUIPatch` is called.
+ * Patches are reference-counted; `commitUIPatch` must be called once per
+ * `startUIPatch` call.
+ */
+export function startUIPatch(): void {
+  _patchDepth++;
+}
+
+/**
+ * Commit the global UI patch, applying all deferred DOM updates at once.
+ * Must be called once per matching `startUIPatch` call.
+ */
+export function commitUIPatch(): void {
+  if (_patchDepth === 0) return;
+  _patchDepth--;
+  if (_patchDepth > 0) return; // nested patch still active
+
+  const pending = [..._dirtyInstances];
+  _dirtyInstances.clear();
+  _flushPendingVNodes(pending);
+}
 
 // ---------------------------------------------------------------------------
 // Hook descriptor processing
@@ -267,6 +380,7 @@ const HOOK_SYMBOLS = new Set<symbol>([
   USE_RESOLVE,
   USE_EFFECT,
   USE_RENDER,
+  USE_UI_PATCH,
 ]);
 
 /** Returns true when a yielded value is a hook descriptor (not a VNode/Child). */
@@ -310,6 +424,10 @@ function unmountSlot(slot: Slot): void {
     for (const fn of slot.genInstance.cleanupFns) {
       fn?.();
     }
+    // Remove from global dirty set so commitUIPatch skips unmounted instances.
+    // localPatchRefCount is intentionally left as-is; the local patch commit()
+    // checks pendingVNode === undefined and skips accordingly.
+    _dirtyInstances.delete(slot.genInstance);
   }
 }
 
@@ -325,6 +443,7 @@ function processOneDescriptor(
   pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }>,
   rerender: () => void,
   resume: () => void,
+  instance: GenInstance,
 ): unknown {
   switch (descriptor.type) {
     case USE_STATE: {
@@ -483,6 +602,34 @@ function processOneDescriptor(
       return { slot, resumeCallback: slot.resumeCallback };
     }
 
+    case USE_UI_PATCH: {
+      // Return a stable `startPatch` function that, when called, snapshots the
+      // calling component's current descendant instances and defers their DOM
+      // writes until the returned `commit` function is called.
+      if (!(hookIndex in hookStates)) {
+        hookStates[hookIndex] = (): (() => void) => {
+          // Snapshot taken lazily at call time (not at hook registration time)
+          // so that `instance.slots` is fully populated.
+          const snapshot = collectDescendants(instance);
+
+          // Freeze root + all current descendants.
+          instance.localPatchRefCount++;
+          for (const inst of snapshot) inst.localPatchRefCount++;
+
+          return (): void => {
+            // Unfreeze all.
+            instance.localPatchRefCount = Math.max(0, instance.localPatchRefCount - 1);
+            for (const inst of snapshot) {
+              inst.localPatchRefCount = Math.max(0, inst.localPatchRefCount - 1);
+            }
+            // Apply any pending VNodes for the root and snapshot members.
+            _flushPendingVNodes([instance, ...snapshot]);
+          };
+        };
+      }
+      return hookStates[hookIndex];
+    }
+
     default:
       throw new Error(`Unknown hook descriptor type: ${String(descriptor.type)}`);
   }
@@ -500,9 +647,7 @@ function processOneDescriptor(
  */
 function runHooks(
   gen: Generator<unknown, Child, unknown>,
-  hookStates: unknown[],
-  cleanupFns: ((() => void) | undefined)[],
-  pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }>,
+  instance: GenInstance,
   rerender: () => void,
   resume: () => void,
 ): { vnode: Child; gen: Generator<unknown, Child, unknown> | null } {
@@ -514,11 +659,12 @@ function runHooks(
     const value = processOneDescriptor(
       descriptor,
       hookIndex++,
-      hookStates,
-      cleanupFns,
-      pendingEffects,
+      instance.hookStates,
+      instance.cleanupFns,
+      instance.pendingEffects,
       rerender,
       resume,
+      instance,
     );
     result = gen.next(value);
   }
@@ -618,10 +764,14 @@ function buildVNodeList(vnodes: Child[]): { nodes: Node[]; slots: Slot[] } {
       continue;
     }
 
-    // HTML element
+    // HTML element — propagate $patch to children if specified.
     const el = document.createElement(vnode.type as string);
     applyProps(el, vnode.props);
+    const elBatch = vnode.props['$patch'] as 'live' | 'default' | undefined;
+    const prevBatchBuild = _currentBatchBehavior;
+    if (elBatch !== undefined) _currentBatchBehavior = elBatch;
     const inner = buildVNodeList(vnode.children);
+    _currentBatchBehavior = prevBatchBuild;
     for (const c of inner.nodes) el.appendChild(c);
     nodes.push(el);
     slots.push({
@@ -660,8 +810,8 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
   const cleanupFns: ((() => void) | undefined)[] = [];
   const pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }> = [];
 
-  // `instance` is fully populated below before any external code can observe it.
-  // eslint-disable-next-line prefer-const
+  // `instance` is assigned in the initial-mount block below before any
+  // external code can observe it.  `resume` and `rerender` close over it.
   let instance: GenInstance;
 
   /**
@@ -687,8 +837,25 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
       _setCtxMap(prevCtx);
     }
 
-    instance.slots = reconcileSlots(host, instance.slots, [vnode]);
-    flushEffects(instance);
+    const shouldDefer =
+      (_patchDepth > 0 || instance.localPatchRefCount > 0) && instance.batchBehavior !== 'live';
+    if (shouldDefer) {
+      instance.pendingVNode = vnode;
+      _dirtyInstances.add(instance);
+      // Immediately flush any $patch="live" descendants even though this
+      // component itself is frozen.
+      const prevLiveOnly = _liveOnlyMode;
+      _liveOnlyMode = true;
+      try {
+        instance.slots = reconcileSlots(host, instance.slots, [vnode]);
+      } finally {
+        _liveOnlyMode = prevLiveOnly;
+      }
+    } else {
+      instance.pendingVNode = undefined;
+      instance.slots = reconcileSlots(host, instance.slots, [vnode]);
+      flushEffects(instance);
+    }
   }
 
   /**
@@ -706,56 +873,74 @@ function mountGeneratorComponent(fn: GeneratorComponentFn, props: Record<string,
     instance.pendingEffects.length = 0;
 
     let vnode: Child;
+    const prevBatch = _currentBatchBehavior;
+    _currentBatchBehavior = instance.batchBehavior;
     try {
       const gen = instance.fn(instance.props, rerender);
-      const { vnode: v, gen: newGen } = runHooks(
-        gen,
-        instance.hookStates,
-        instance.cleanupFns,
-        instance.pendingEffects,
-        rerender,
-        resume,
-      );
+      const { vnode: v, gen: newGen } = runHooks(gen, instance, rerender, resume);
       instance.gen = newGen;
       vnode = v;
     } finally {
+      _currentBatchBehavior = prevBatch;
       _setCtxMap(prevCtx);
     }
 
-    instance.slots = reconcileSlots(host, instance.slots, [vnode]);
-    flushEffects(instance);
+    const shouldDefer =
+      (_patchDepth > 0 || instance.localPatchRefCount > 0) && instance.batchBehavior !== 'live';
+    if (shouldDefer) {
+      instance.pendingVNode = vnode;
+      _dirtyInstances.add(instance);
+      // Immediately flush any $patch="live" descendants even though this
+      // component itself is frozen.
+      const prevLiveOnly = _liveOnlyMode;
+      _liveOnlyMode = true;
+      try {
+        instance.slots = reconcileSlots(host, instance.slots, [vnode]);
+      } finally {
+        _liveOnlyMode = prevLiveOnly;
+      }
+    } else {
+      instance.pendingVNode = undefined;
+      instance.slots = reconcileSlots(host, instance.slots, [vnode]);
+      flushEffects(instance);
+    }
   }
 
   // ── Initial mount ──
+  // Create the instance before calling runHooks so that processOneDescriptor
+  // (e.g. USE_UI_PATCH) can close over the fully-typed instance object.
+  // `gen` and `slots` are filled in after runHooks returns.
+  // Resolve $patch from own prop (if set) falling back to inherited value.
+  const ownBatch = (props['$patch'] as 'live' | 'default' | undefined) ?? _currentBatchBehavior;
+  instance = {
+    fn,
+    gen: null,
+    props,
+    host,
+    capturedCtx,
+    slots: [],
+    hookStates,
+    cleanupFns,
+    pendingEffects,
+    batchBehavior: ownBatch,
+    pendingVNode: undefined,
+    localPatchRefCount: 0,
+  };
+  genInstanceMap.set(host, instance);
+
   const prevCtx = _getCtxMap();
   _setCtxMap(capturedCtx);
-  let initialVNode: Child;
+  const prevBatchMount = _currentBatchBehavior;
+  _currentBatchBehavior = instance.batchBehavior;
   try {
     const gen = fn(props, rerender);
-    const { vnode, gen: initialGen } = runHooks(
-      gen,
-      hookStates,
-      cleanupFns,
-      pendingEffects,
-      rerender,
-      resume,
-    );
-    initialVNode = vnode;
-    const { nodes, slots } = buildVNodeList([initialVNode]);
-    instance = {
-      fn,
-      gen: initialGen,
-      props,
-      host,
-      capturedCtx,
-      slots,
-      hookStates,
-      cleanupFns,
-      pendingEffects,
-    };
-    genInstanceMap.set(host, instance);
+    const { vnode, gen: initialGen } = runHooks(gen, instance, rerender, resume);
+    instance.gen = initialGen;
+    const { nodes, slots } = buildVNodeList([vnode]);
+    instance.slots = slots;
     for (const n of nodes) host.appendChild(n);
   } finally {
+    _currentBatchBehavior = prevBatchMount;
     _setCtxMap(prevCtx);
   }
   flushEffects(instance);
@@ -879,6 +1064,14 @@ function reconcileOne(
 ): { slot: Slot; node: Node; replaced: boolean } {
   // ---- Empty / null ----
   if (nextChild == null || nextChild === false) {
+    // In live-only mode, skip removal unless we're in a live context OR the
+    // existing slot is a $patch="live" component (it knows it's live).
+    if (_liveOnlyMode && prevSlot) {
+      const prevIsLive = prevSlot.genInstance?.batchBehavior === 'live';
+      if (_currentBatchBehavior !== 'live' && !prevIsLive) {
+        return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+    }
     if (prevSlot?.type === 'empty') {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
@@ -894,10 +1087,18 @@ function reconcileOne(
   if (typeof nextChild === 'string' || typeof nextChild === 'number') {
     const text = String(nextChild);
     if (prevSlot?.type === 'text' && prevSlot.node instanceof Text) {
-      if (prevSlot.node.textContent !== text) {
+      // In live-only mode, only update text when the current batch context is live.
+      if (
+        (!_liveOnlyMode || _currentBatchBehavior === 'live') &&
+        prevSlot.node.textContent !== text
+      ) {
         prevSlot.node.textContent = text;
         prevSlot.props = { text };
       }
+      return { slot: prevSlot, node: prevSlot.node, replaced: false };
+    }
+    // In live-only default mode, don't insert new text nodes.
+    if (_liveOnlyMode && _currentBatchBehavior !== 'live' && prevSlot) {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
     const node = document.createTextNode(text);
@@ -913,6 +1114,14 @@ function reconcileOne(
   // ---- $shown === false: unmount and render empty placeholder ----
   const allPropsForShown = mergedProps(vnode);
   if (!isShown(allPropsForShown)) {
+    // In live-only mode, only hide immediately when the effective batch is live.
+    if (_liveOnlyMode) {
+      const effectiveBatch =
+        (allPropsForShown['$patch'] as 'live' | 'default' | undefined) ?? _currentBatchBehavior;
+      if (effectiveBatch !== 'live' && prevSlot) {
+        return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+    }
     if (prevSlot?.type === 'empty') {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
@@ -934,7 +1143,27 @@ function reconcileOne(
     if (prevSlot?.type === vnode.type) {
       // Props unchanged → skip entirely (key memoization)
       if (shallowEqual(prevSlot.props, allProps)) {
+        // Still refresh batchBehavior in case an ancestor's $patch changed.
+        if (prevSlot.genInstance) {
+          const ownBatch =
+            (allProps['$patch'] as 'live' | 'default' | undefined) ?? _currentBatchBehavior;
+          prevSlot.genInstance.batchBehavior = ownBatch;
+        }
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+
+      // In live-only mode, skip non-live components — their update is deferred.
+      if (_liveOnlyMode) {
+        const effectiveBatch =
+          (allProps['$patch'] as 'live' | 'default' | undefined) ?? _currentBatchBehavior;
+        if (effectiveBatch !== 'live') {
+          if (prevSlot.genInstance) prevSlot.genInstance.batchBehavior = effectiveBatch;
+          // Keep prevSlot.props in sync with the pending props so that the commit-time
+          // reconcile sees shallowEqual → true and skips a spurious remount.
+          // Skip for context Providers — their value change must survive to commit.
+          if (!providerCtx) prevSlot.props = allProps;
+          return { slot: prevSlot, node: prevSlot.node, replaced: false };
+        }
       }
 
       // Context Provider whose value is unchanged but children differ → reconcile
@@ -969,6 +1198,24 @@ function reconcileOne(
       // Other component types (or Provider whose value changed) → remount from scratch.
     }
 
+    // In live-only mode, structural changes (type mismatch or no prevSlot) only proceed
+    // when the effective batch for the incoming component is live.  Same-type $patch="live"
+    // components fell through the block above on purpose and proceed to the remount below.
+    if (_liveOnlyMode && prevSlot?.type !== vnode.type) {
+      const effectiveBatch =
+        (allProps['$patch'] as 'live' | 'default' | undefined) ?? _currentBatchBehavior;
+      if (effectiveBatch !== 'live') {
+        if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
+        const node = document.createTextNode('');
+        return {
+          slot: { type: 'empty', node, props: {}, childSlots: [], genInstance: null },
+          node,
+          replaced: true,
+        };
+      }
+      // effectiveBatch === 'live' → fall through and mount/replace immediately
+    }
+
     // Mount fresh component
     if (providerCtx) {
       const { node, childSlots } = mountContextProvider(
@@ -998,29 +1245,51 @@ function reconcileOne(
 
   // ---- HTML element ----
   if (typeof vnode.type === 'string') {
-    if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
-      // Same tag → update props in place and reconcile children
-      updateProps(prevSlot.node, prevSlot.props, vnode.props);
-      prevSlot.childSlots = reconcileSlots(prevSlot.node, prevSlot.childSlots, vnode.children);
-      prevSlot.props = vnode.props;
-      return { slot: prevSlot, node: prevSlot.node, replaced: false };
-    }
-    // Different tag → build fresh
-    const el = document.createElement(vnode.type);
-    applyProps(el, vnode.props);
-    const inner = buildVNodeList(vnode.children);
-    for (const c of inner.nodes) el.appendChild(c);
-    return {
-      slot: {
-        type: vnode.type,
+    // Propagate $patch to children if the element specifies it.
+    const elBatch = vnode.props['$patch'] as 'live' | 'default' | undefined;
+    const prevBatchEl = _currentBatchBehavior;
+    if (elBatch !== undefined) _currentBatchBehavior = elBatch;
+    try {
+      if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
+        // Same tag → update props in place and reconcile children.
+        // In live-only mode skip own prop updates when the context is frozen; when
+        // the context is live (inside a $patch="live" ancestor), update normally.
+        if (!_liveOnlyMode || _currentBatchBehavior === 'live') {
+          updateProps(prevSlot.node, prevSlot.props, vnode.props);
+          prevSlot.props = vnode.props;
+        }
+        prevSlot.childSlots = reconcileSlots(prevSlot.node, prevSlot.childSlots, vnode.children);
+        return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+      // Different tag: in live-only mode only build when context is live.
+      if (_liveOnlyMode && _currentBatchBehavior !== 'live') {
+        if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
+        const empty = document.createTextNode('');
+        return {
+          slot: { type: 'empty', node: empty, props: {}, childSlots: [], genInstance: null },
+          node: empty,
+          replaced: true,
+        };
+      }
+      // Different tag → build fresh
+      const el = document.createElement(vnode.type);
+      applyProps(el, vnode.props);
+      const inner = buildVNodeList(vnode.children);
+      for (const c of inner.nodes) el.appendChild(c);
+      return {
+        slot: {
+          type: vnode.type,
+          node: el,
+          props: vnode.props,
+          childSlots: inner.slots,
+          genInstance: null,
+        },
         node: el,
-        props: vnode.props,
-        childSlots: inner.slots,
-        genInstance: null,
-      },
-      node: el,
-      replaced: true,
-    };
+        replaced: true,
+      };
+    } finally {
+      _currentBatchBehavior = prevBatchEl;
+    }
   }
 
   // ---- Fragment or anything else: full rebuild ----

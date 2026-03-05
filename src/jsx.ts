@@ -151,5 +151,24 @@ declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
     interface IntrinsicElements extends IntrinsicElementsDef {}
+    /**
+     * Props that are valid on every JSX element — both intrinsic HTML/SVG
+     * elements and custom generator / plain-function components — without
+     * needing to be declared in the component's own props type.
+     *
+     * Mirrors how React handles `key` and `ref`: TypeScript merges
+     * `IntrinsicAttributes` into every JSX call site automatically.
+     */
+    interface IntrinsicAttributes {
+      key?: string | number | null;
+      /** When false, the element/component is removed from the DOM. */
+      $shown?: boolean;
+      /**
+       * Controls DOM-update behaviour during a UI patch.
+       * - `'live'`: updates flush immediately, even during an active patch.
+       * - `'default'` (default): updates are deferred until the patch commits.
+       */
+      $patch?: 'live' | 'default';
+    }
   }
 }

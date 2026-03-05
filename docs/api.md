@@ -21,12 +21,15 @@
    - [useResolveRaw](#useresolveraw)
    - [useRender](#userender)
    - [useResume](#useresume)
+   - [useUIPatch](#useuipatch)
 6. [Context](#context)
    - [createContext](#createcontext)
    - [useContext](#usecontext)
-7. [Special props](#special-props)
-8. [Events](#events)
-9. [Design decisions](#design-decisions)
+7. [UI patches](#ui-patches)
+   - [startUIPatch / commitUIPatch](#startuipatch--commituipatch)
+8. [Special props](#special-props)
+9. [Events](#events)
+10. [Design decisions](#design-decisions)
 
 ---
 
@@ -437,6 +440,43 @@ function* Modal() {
 
 ---
 
+### `useUIPatch`
+
+```ts
+const startPatch = yield * useUIPatch();
+```
+
+Returns a stable `startPatch` function that, when called, freezes the **calling component's subtree** — only its descendant components defer their DOM updates. Components outside the subtree (siblings, parents) continue updating normally.
+
+**Returns** `() => () => void` — a `startPatch` function. Calling `startPatch()` begins a local patch and returns a `commit` function. Call `commit()` to atomically flush all deferred DOM updates for the frozen subtree.
+
+```tsx
+function* PageContent() {
+  const startPatch = yield* useUIPatch();
+  const [page, setPage] = yield* useState('home');
+
+  const navigate = async (next: string) => {
+    const commit = startPatch();
+    try {
+      await fetchPageData(next); // DOM stays frozen
+      setPage(next);
+    } finally {
+      commit(); // all changes applied at once
+    }
+  };
+
+  return <main>...</main>;
+}
+```
+
+- The snapshot of descendant instances is taken **at `startPatch()` call time** (not at hook registration time), so it always reflects the current tree.
+- Components inside the subtree that have `$patch="live"` continue to update immediately even during a local patch.
+- Nesting is supported: `startPatch()` can be called while a global patch is active; `commit()` flushes the local snapshot independently.
+
+> See also: [`startUIPatch` / `commitUIPatch`](#startuipatch--commituipatch) for a global patch that freezes the entire tree.
+
+---
+
 ## Context
 
 Context lets you pass data through the component tree without prop-drilling.
@@ -485,6 +525,42 @@ function* ThemedButton() {
 
 ---
 
+## UI patches
+
+UI patches let you freeze DOM updates while async work runs, then apply all changes atomically. Components still execute their generators, process hooks, and update internal state during a patch — only the final DOM write is deferred.
+
+### `startUIPatch` / `commitUIPatch`
+
+```ts
+startUIPatch(): void
+commitUIPatch(): void
+```
+
+Global patch that freezes the **entire component tree**. Any code (event handlers, async functions, middleware) can call these — no hook needed.
+
+Calls are reference-counted: nested `startUIPatch()` calls require a matching number of `commitUIPatch()` calls before the DOM is flushed.
+
+```tsx
+import { startUIPatch, commitUIPatch } from 'yielderact';
+
+async function navigate(next: string) {
+  startUIPatch();
+  try {
+    const data = await fetchPageData(next); // DOM stays frozen
+    setPageData(data);
+    setPage(next);
+  } finally {
+    commitUIPatch(); // all changes applied at once
+  }
+}
+```
+
+Components with `$patch="live"` update immediately even during a global patch.
+
+> See also: [`useUIPatch`](#useuipatch) for a local patch scoped to a specific component's subtree.
+
+---
+
 ## Special props
 
 ### `$shown`
@@ -509,6 +585,38 @@ function* App() {
 ```
 
 > Unlike a conditional `{open && <Modal />}`, `$shown` keeps the JSX position stable in the tree, which avoids reconciler position-shift issues.
+
+### `$patch`
+
+```tsx
+<Component $patch="live" />
+<div $patch="live">...</div>
+```
+
+Controls DOM update behaviour during a [UI patch](#ui-patches). Inherited recursively by all children unless overridden deeper in the tree.
+
+| Value       | Behaviour                                                                               |
+| ----------- | --------------------------------------------------------------------------------------- |
+| `'default'` | DOM write deferred during any active patch (global or local). This is the root default. |
+| `'live'`    | Component and its subtree always update immediately, even during a patch.               |
+
+```tsx
+function* App() {
+  const startPatch = yield* useUIPatch();
+  return (
+    <div>
+      {/* continues ticking during any patch */}
+      <Header $patch="live" />
+      {/* frozen while patch is active */}
+      <PageContent />
+    </div>
+  );
+}
+```
+
+`$patch` is never set as a DOM attribute — it is a renderer-only instruction.
+
+---
 
 ### `key`
 
