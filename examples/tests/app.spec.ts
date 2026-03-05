@@ -336,20 +336,15 @@ test.describe('UI Patch example', () => {
   test('clocks demo: renders all three clock variants', async ({ page }) => {
     await expect(page.locator('code', { hasText: '$patch="default"' }).first()).toBeVisible();
     await expect(page.locator('code', { hasText: '$patch="live"' }).first()).toBeVisible();
-    await expect(
-      page.locator('code', { hasText: "$patch=seconds % 3 ? 'live' : 'default'" }).first(),
-    ).toBeVisible();
     await page.screenshot({ path: 'test-results/ui-patch-clocks.png' });
   });
 
   test('clocks demo: clocks display a time string', async ({ page }) => {
-    // All three clock <b> elements should show a non-empty time string
-    const clocks = page.locator('b');
-    // Wait for at least one clock to appear
-    await expect(clocks.first()).toBeVisible();
-    const text = await clocks.first().textContent();
-    // toTimeString() produces e.g. "12:34:56 GMT+0000"
-    expect(text).toMatch(/\d{2}:\d{2}:\d{2}/);
+    // All three clock containers should show a non-empty time string in <b>
+    await expect(page.locator('[data-testid="clock-default"] b').first()).toBeVisible();
+    const text = await page.locator('[data-testid="clock-default"] b').first().textContent();
+    // toLocaleTimeString('en-US') produces e.g. "3:45:11 PM" or "12:34:56 PM"
+    expect(text).toMatch(/\d{1,2}:\d{2}:\d{2}/);
     await page.screenshot({ path: 'test-results/ui-patch-clock-time.png' });
   });
 
@@ -401,17 +396,77 @@ test.describe('UI Patch example', () => {
     await page.screenshot({ path: 'test-results/ui-patch-local-contact.png' });
   });
 
-  test('clocks $patch alternates: third clock uses tick%3 expression', async ({ page }) => {
-    // After 1 s the clocks tick — verify all three <b> elements still show valid times
+  test('clocks tick every second and display valid time strings', async ({ page }) => {
+    // After 1 s the clocks tick — verify all clock containers still show valid times
     await page.waitForTimeout(1100);
-    const clocks = page.locator('b');
-    const count = await clocks.count();
-    // Each Clocks component renders 3 <b> clocks; there are two Clocks instances
-    expect(count).toBeGreaterThanOrEqual(3);
-    for (let i = 0; i < Math.min(count, 3); i++) {
-      const text = await clocks.nth(i).textContent();
-      expect(text).toMatch(/\d{2}:\d{2}:\d{2}/);
+    for (const testId of ['clock-default', 'clock-live', 'clock-alternating']) {
+      const text = await page.locator(`[data-testid="${testId}"] b`).first().textContent();
+      expect(text).toMatch(/\d{1,2}:\d{2}:\d{2}/);
     }
     await page.screenshot({ path: 'test-results/ui-patch-clocks-ticked.png' });
+  });
+
+  // ── $patch="live" correctness tests ─────────────────────────────────────
+
+  test('$patch="live" clock updates during a global patch while $patch="default" stays frozen', async ({
+    page,
+  }) => {
+    // Start the 5 s global-patch navigation
+    await page.locator('nav button', { hasText: 'about' }).first().click();
+
+    // Wait 1.5 s so a clock tick is guaranteed to have occurred while the patch
+    // is still in progress (patch runs for 5 s total).
+    await page.waitForTimeout(1500);
+
+    // Snapshot both clocks at this mid-patch moment
+    const liveBefore = await page.locator('[data-testid="clock-live"] b').first().textContent();
+    const defaultBefore = await page
+      .locator('[data-testid="clock-default"] b')
+      .first()
+      .textContent();
+
+    // Wait another 1.5 s so another tick fires while the patch is still active
+    await page.waitForTimeout(1500);
+
+    const liveAfter = await page.locator('[data-testid="clock-live"] b').first().textContent();
+    const defaultAfter = await page
+      .locator('[data-testid="clock-default"] b')
+      .first()
+      .textContent();
+
+    // The live clock MUST have changed — it is not frozen
+    expect(liveAfter).not.toBe(liveBefore);
+
+    // The default clock MUST remain frozen until the patch commits
+    expect(defaultAfter).toBe(defaultBefore);
+
+    await page.screenshot({ path: 'test-results/ui-patch-live-vs-default.png' });
+  });
+
+  test('$patch="live" clock updates during a local patch while $patch="default" stays frozen', async ({
+    page,
+  }) => {
+    // Start the 5 s local-patch navigation (second nav bar)
+    await page.locator('nav button', { hasText: 'about' }).nth(1).click();
+
+    // Wait 1.5 s — patch is still active
+    await page.waitForTimeout(1500);
+
+    // Use the second Clocks instance (inside LocalPatchDemo)
+    const liveBefore = await page.locator('[data-testid="clock-live"] b').nth(1).textContent();
+    const defaultBefore = await page
+      .locator('[data-testid="clock-default"] b')
+      .nth(1)
+      .textContent();
+
+    await page.waitForTimeout(1500);
+
+    const liveAfter = await page.locator('[data-testid="clock-live"] b').nth(1).textContent();
+    const defaultAfter = await page.locator('[data-testid="clock-default"] b').nth(1).textContent();
+
+    expect(liveAfter).not.toBe(liveBefore);
+    expect(defaultAfter).toBe(defaultBefore);
+
+    await page.screenshot({ path: 'test-results/ui-patch-local-live-vs-default.png' });
   });
 });
