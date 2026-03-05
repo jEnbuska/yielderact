@@ -63,6 +63,66 @@ describe('render – HTML elements', () => {
     expect(el.style.fontSize).toBe('14px');
   });
 
+  it('updates changed style properties on rerender', () => {
+    let setStyle: ((s: Record<string, string>) => void) | null = null;
+
+    function* Styled() {
+      const [style, ss] = yield* useState<Record<string, string>>({ color: 'red' });
+      setStyle = ss;
+      return createElement('div', { style });
+    }
+
+    render(createElement(Styled as never, {}), container);
+    const el = container.querySelector('div') as HTMLElement;
+    expect(el.style.color).toBe('red');
+
+    setStyle!({ color: 'blue' });
+    expect(el.style.color).toBe('blue');
+  });
+
+  it('removes style properties that are no longer present on rerender', () => {
+    let setStyle: ((s: Record<string, string>) => void) | null = null;
+
+    function* Styled() {
+      const [style, ss] = yield* useState<Record<string, string>>({
+        color: 'red',
+        fontSize: '14px',
+      });
+      setStyle = ss;
+      return createElement('div', { style });
+    }
+
+    render(createElement(Styled as never, {}), container);
+    const el = container.querySelector('div') as HTMLElement;
+    expect(el.style.color).toBe('red');
+    expect(el.style.fontSize).toBe('14px');
+
+    setStyle!({ color: 'blue' });
+    expect(el.style.color).toBe('blue');
+    expect(el.style.fontSize).toBe('');
+  });
+
+  it('clears all styles when style prop is removed', () => {
+    let setProps: ((p: Record<string, unknown>) => void) | null = null;
+
+    function* Styled() {
+      const [props, sp] = yield* useState<Record<string, unknown>>({
+        style: { color: 'red', fontWeight: 'bold' },
+      });
+      setProps = sp;
+      return createElement('div', props);
+    }
+
+    render(createElement(Styled as never, {}), container);
+    const el = container.querySelector('div') as HTMLElement;
+    expect(el.style.color).toBe('red');
+    expect(el.style.fontWeight).toBe('bold');
+
+    setProps!({});
+    expect(el.style.color).toBe('');
+    expect(el.style.fontWeight).toBe('');
+  });
+
   it('renders a Fragment with multiple children', () => {
     render(
       createElement(

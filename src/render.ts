@@ -170,8 +170,19 @@ function updateProps(
 ): void {
   // Always remove old event listeners (they may be replaced by new functions)
   for (const key in prevProps) {
-    if (key === 'children' || key === 'style' || key === '$shown' || key === '$patch') continue;
-    if (key.startsWith('on') && typeof prevProps[key] === 'function') {
+    if (key === 'children' || key === '$shown' || key === '$patch') continue;
+    if (key === 'style') {
+      // Remove style properties that are no longer present in nextProps.style
+      const prevStyle = prevProps[key] as Record<string, string> | null | undefined;
+      const nextStyle = nextProps[key] as Record<string, string> | null | undefined;
+      if (prevStyle && typeof prevStyle === 'object') {
+        for (const styleProp in prevStyle) {
+          if (!nextStyle || !(styleProp in nextStyle)) {
+            el.style[styleProp as never] = '';
+          }
+        }
+      }
+    } else if (key.startsWith('on') && typeof prevProps[key] === 'function') {
       removeSyntheticListener(el, key.slice(2).toLowerCase());
     } else if (!(key in nextProps)) {
       if (key === 'className') {
