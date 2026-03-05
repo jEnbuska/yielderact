@@ -1,6 +1,7 @@
 # CLAUDE.md - Yielderact Development Guide
 
 ## MANDATORY: READ FIRST
+
 **You are an agent for Enbuska Software Oy. Before performing ANY action, you must read and adhere to the following:**
 
 1.  **STRICT EXECUTION POLICY:** Follow the sequence below for every PR.
@@ -8,6 +9,7 @@
 3.  **NPM ONLY:** Never use `npx`. Use `npm run <script>`.
 
 ## STRICT EXECUTION POLICY
+
 **Before pushing code or opening a PR, you MUST execute this sequence in order:**
 
 1.  **Branch Sync:** `git checkout dev && git pull origin dev && git checkout -`
@@ -15,71 +17,79 @@
 3.  **Type Check & Build:** `npm run build`
 4.  **Unit Tests:** `npm test`
 5.  **Visual Tests:** `npm run test:visual`
-6.  **Documentation & CLAUDE.md:** * Update `docs/api.md` if API changed.
-    * Update `CLAUDE.md` if the workflow, scripts, or project structure changed.
+6.  **Documentation & CLAUDE.md:** \* Update `docs/api.md` if API changed.
+    - Update `CLAUDE.md` if the workflow, scripts, or project structure changed.
 7.  **Final Verification:** If any step fails, fix and **restart from Step 2.**
 
 ---
 
 ## Project Overview
+
 yielderact is a minimal JSX UI library using JavaScript generator functions.
-* **Components:** Generators using `yield*` for hooks and `return` for JSX.
-* **State:** Local variables managed by hooks.
-* **Core:** ~100 lines. Minimal, educational, transparent.
+
+- **Components:** Generators using `yield*` for hooks and `return` for JSX.
+- **State:** Local variables managed by hooks.
+- **Core:** ~100 lines. Minimal, educational, transparent.
 
 ---
 
 ## Project Workflow
 
 ### 1. Starting a Task
-* Check merged PRs: `gh pr list --state merged`
-* Close resolved issues: `gh issue close <number>`
-* Create branch: `feature/description` or `fix/description` from `dev`.
+
+- Check merged PRs: `gh pr list --state merged`
+- Close resolved issues: `gh issue close <number>`
+- Create branch: `feature/description` or `fix/description` from `dev`.
 
 ### 2. Development Commands
+
 **Use `npm run <command>` only. No `npx`.**
 
-* `npm run build` — Compile TS to `dist/`
-* `npm test` — Run Jest unit tests (jsdom)
-* `npm run test:visual` — Run Playwright visual tests
-* `npm run format` — Fix formatting with Prettier
-* `npm test -- <path>` — Run specific test file
+- `npm run build` — Compile TS to `dist/`
+- `npm test` — Run Jest unit tests (jsdom)
+- `npm run test:visual` — Run Playwright visual tests
+- `npm run format` — Fix formatting with Prettier
+- `npm test -- <path>` — Run specific test file
 
 ### 3. Creating a Pull Request
-* **Target Branch:** `dev`
-* **Commit Format:** Conventional Commits (e.g., `feat:`, `fix:`)
-* **PR Body Template:**
-    * **Summary:** 2-3 sentences.
-    * **Changes:** Bullet points.
-    * **Verification:** Confirm all `npm` checks passed.
-    * **CLAUDE.md Update:** State if this file was updated to reflect new changes.
+
+- **Target Branch:** `dev`
+- **Commit Format:** Conventional Commits (e.g., `feat:`, `fix:`)
+- **PR Body Template:**
+  - **Summary:** 2-3 sentences.
+  - **Changes:** Bullet points.
+  - **Verification:** Confirm all `npm` checks passed.
+  - **CLAUDE.md Update:** State if this file was updated to reflect new changes.
 
 ---
 
 ## Technical Architecture
 
 ### Component Model
+
 ```tsx
 function* Counter(_props: object) {
   const [count, setCount] = yield* useState(0);
-  return <button onClick={() => setCount(c => c + 1)}>Count: {count}</button>;
+  return <button onClick={() => setCount((c) => c + 1)}>Count: {count}</button>;
 }
 ```
 
 ### Core Module Map
-| File | Responsibility |
-| :--- | :--- |
-| `jsx.ts` | VNode types & `createElement` |
-| `render.ts` | Reconciliation & DOM mounting |
-| `hooks.ts` | State management (`useState`, etc.) |
-| `jsx-runtime.ts` | Automatic JSX transform |
+
+| File             | Responsibility                      |
+| :--------------- | :---------------------------------- |
+| `jsx.ts`         | VNode types & `createElement`       |
+| `render.ts`      | Reconciliation & DOM mounting       |
+| `hooks.ts`       | State management (`useState`, etc.) |
+| `jsx-runtime.ts` | Automatic JSX transform             |
 
 ---
 
 ## Coding Standards & Rules
-* **Self-Updating Documentation:** If you discover a "gotcha" or a more efficient way to run this project, update the "Non-Obvious Rules" or "Execution Policy" in this file immediately.
-* **NPM Script Policy:** Never use `npx`. Always use the existing `npm run` scripts to ensure version consistency.
-* **TypeScript:** Strictly typed; `any` is forbidden.
-* **Special Props:** Always support the `$shown={boolean}` prop.
-* **Dependencies:** Zero-dependency goal.
-* **JSX Config:** `react-jsx` with `jsxImportSource: "yielderact"`.
+
+- **Self-Updating Documentation:** If you discover a "gotcha" or a more efficient way to run this project, update the "Non-Obvious Rules" or "Execution Policy" in this file immediately.
+- **NPM Script Policy:** Never use `npx`. Always use the existing `npm run` scripts to ensure version consistency.
+- **TypeScript:** Strictly typed; `any` is forbidden.
+- **Special Props:** Always support the `$shown={boolean}` prop.
+- **Dependencies:** Zero-dependency goal.
+- **JSX Config:** `react-jsx` with `jsxImportSource: "yielderact"`.
