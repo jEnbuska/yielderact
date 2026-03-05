@@ -1,119 +1,95 @@
-# CLAUDE.md
+# CLAUDE.md - Yielderact Development Guide
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+## MANDATORY: READ FIRST
+
+**You are an agent for Enbuska Software Oy. Before performing ANY action, you must read and adhere to the following:**
+
+1.  **STRICT EXECUTION POLICY:** Follow the sequence below for every PR.
+2.  **INSTRUCTION MAINTENANCE:** This file must stay current. If you encounter a process issue, add a new feature, or change a public API, you MUST propose an update to this `CLAUDE.md` file in the same PR.
+3.  **NPM ONLY:** Never use `npx`. Use `npm run <script>`.
+
+## STRICT EXECUTION POLICY
+
+**Before pushing code or opening a PR, you MUST execute this sequence in order:**
+
+1.  **Branch Sync:** `git checkout dev && git pull origin dev && git checkout -`
+2.  **Lint & Format:** `npm run format`
+3.  **Type Check & Build:** `npm run build`
+4.  **Unit Tests:** `npm test`
+5.  **Visual Tests:** `npm run test:visual`
+6.  **Documentation & CLAUDE.md:** \* Update `docs/api.md` if API changed.
+    - Update `CLAUDE.md` if the workflow, scripts, or project structure changed.
+7.  **Final Verification:** If any step fails, fix and **restart from Step 2.**
+
+---
 
 ## Project Overview
 
-yielderact is a minimal JSX UI library that uses JavaScript generator functions as components. Each `yield*` calls hooks, and the function `return`s JSX for the current render. State lives in ordinary local variables managed by hooks. The entire core implementation is ~100 lines, making it educational and transparent.
+yielderact is a minimal JSX UI library using JavaScript generator functions.
 
-## Commands
+- **Components:** Generators using `yield*` for hooks and `return` for JSX.
+- **State:** Local variables managed by hooks.
+- **Core:** ~100 lines. Minimal, educational, transparent.
 
-```bash
-npm run build          # TypeScript compilation to dist/
-npm test               # Run Jest unit tests (jsdom)
-npm run test:visual    # Run Playwright visual tests
-npm run format         # Format code with Prettier
-npm run format:check   # Check formatting
-```
+---
 
-Run a single test file:
+## Project Workflow
 
-```bash
-npm test -- src/__tests__/hooks.test.ts
-```
+### 1. Starting a Task
 
-## Architecture
+- Check merged PRs: `gh pr list --state merged`
+- Close resolved issues: `gh issue close <number>`
+- Create branch: `feature/description` or `fix/description` from `dev`.
 
-### Core Modules (in `src/`)
+### 2. Development Commands
 
-| File             | Purpose                                                           |
-| ---------------- | ----------------------------------------------------------------- |
-| `jsx.ts`         | `VNode` type, `createElement` factory, `Fragment` symbol          |
-| `render.ts`      | VNode → DOM, reconciliation, component mounting, synthetic events |
-| `hooks.ts`       | `useState`, `useRef`, `useId`, `useMemo`, `useResolve`            |
-| `context.ts`     | `createContext`, `useContext`, Provider components                |
-| `events.ts`      | `SyntheticEvent` wrapper for native DOM events                    |
-| `jsx-runtime.ts` | Automatic JSX transform (`jsx`, `jsxs`, `jsxDEV`)                 |
-| `jsx-types.ts`   | TypeScript definitions for all HTML/SVG attributes                |
+**Use `npm run <command>` only. No `npx`.**
+
+- `npm run build` — Compile TS to `dist/`
+- `npm test` — Run Jest unit tests (jsdom)
+- `npm run test:visual` — Run Playwright visual tests
+- `npm run format` — Fix formatting with Prettier
+- `npm test -- <path>` — Run specific test file
+
+### 3. Creating a Pull Request
+
+- **Target Branch:** `dev`
+- **Commit Format:** Conventional Commits (e.g., `feat:`, `fix:`)
+- **PR Body Template:**
+  - **Summary:** 2-3 sentences.
+  - **Changes:** Bullet points.
+  - **Verification:** Confirm all `npm` checks passed.
+  - **CLAUDE.md Update:** State if this file was updated to reflect new changes.
+
+---
+
+## Technical Architecture
 
 ### Component Model
-
-Generator components use `yield*` to call hooks and `return` to output JSX:
 
 ```tsx
 function* Counter(_props: object) {
   const [count, setCount] = yield* useState(0);
-  return <button onClick={() => setCount((c) => c + 1)}>Clicked {count} times</button>;
+  return <button onClick={() => setCount((c) => c + 1)}>Count: {count}</button>;
 }
 ```
 
-Hooks use module-level context (`_hookStates`, `_hookIndex`) set by the renderer before each generator run. The reconciler tracks component instances via `GenInstance` objects stored in a WeakMap.
+### Core Module Map
 
-### Key Patterns
+| File             | Responsibility                      |
+| :--------------- | :---------------------------------- |
+| `jsx.ts`         | VNode types & `createElement`       |
+| `render.ts`      | Reconciliation & DOM mounting       |
+| `hooks.ts`       | State management (`useState`, etc.) |
+| `jsx-runtime.ts` | Automatic JSX transform             |
 
-- **Synthetic events**: All `onXxx` handlers receive `SyntheticEvent` wrapping native events
-- **`$shown` prop**: Any element/component accepts `$shown={boolean}` for conditional rendering
-- **Shallow equality**: Props compared shallowly for component memoization
-- **Fragment flattening**: `<>...</>` children flattened into parent during reconciliation
-- **Context capture**: Context values captured at mount, persisted across re-renders
+---
 
-## JSX Configuration
+## Coding Standards & Rules
 
-Classic transform:
-
-```json
-{
-  "compilerOptions": {
-    "jsx": "react",
-    "jsxFactory": "createElement",
-    "jsxFragmentFactory": "Fragment"
-  }
-}
-```
-
-Automatic transform:
-
-```json
-{
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "jsxImportSource": "yielderact"
-  }
-}
-```
-
-## Examples
-
-The `examples/` directory contains a Vite app demonstrating all features. Run with:
-
-```bash
-cd examples && npm install && npm run dev
-```
-
-Uses `vite-plugin-yielderact.ts` from the root to configure the JSX transform.
-
-## Pull Request Conventions (CRITICAL)
-
-1. **Branching:** Before creating a new branch, always pull the latest `dev` (`git checkout dev && git pull origin dev`) to avoid unnecessary merge conflicts. Then create a new branch using the format `feature/description` or `fix/description`. PR should be pointed to dev branch.
-2. **Commit Message:** Use Conventional Commits (e.g., `feat: add login validation`).
-3. **PR Title:** Follow the pattern `[Scope]: Brief Description`.
-4. **PR Body Template:** Use the following structure for the description:
-   - **Summary:** 2-3 sentences on what changed.
-   - **Changes:** Bullet points of specific code modifications.
-   - **Testing:** All tests should pass and new features and changes should be tested on the src level and in examples. Run both `npm test` (unit) and `npm run test:visual` (Playwright) before creating the PR.
-   - **Lint and formatting:** All linting and (prettier) formatting should pass
-   - **Build:** Build should occur without any error
-   - **Documentation:** If the PR adds, changes, or removes any public API (hooks, props, behaviour), `docs/api.md` must be updated in the same PR.
-5. **Sync with dev:** After the first commit on a new branch, always merge or rebase with `dev` and fix any conflicts before pushing.
-6. **Execution:** Use the `gh` tool or internal git commands to push and open the PR.
-7. **Close issues:** Before starting any new ticket, check for merged PRs (`gh pr list --state merged`) and close the GitHub issues they resolved (`gh issue close <number>`) if not already closed.
-
-## Coding Standards
-
-- Use **TypeScript** strictly; avoid `any`.
-- Avoid adding external dependencies if not really necessary.
-
-## Non-Obvious Rules
-
-- Never modify `package-lock.json` manually.
-- `docs/api.md` is the canonical API reference. Any PR that adds, changes, or removes public API (hooks, props, special behaviour) **must** update it. This includes new hooks, changed signatures, new special props, and behaviour changes.
+- **Self-Updating Documentation:** If you discover a "gotcha" or a more efficient way to run this project, update the "Non-Obvious Rules" or "Execution Policy" in this file immediately.
+- **NPM Script Policy:** Never use `npx`. Always use the existing `npm run` scripts to ensure version consistency.
+- **TypeScript:** Strictly typed; `any` is forbidden.
+- **Special Props:** Always support the `$shown={boolean}` prop.
+- **Dependencies:** Zero-dependency goal.
+- **JSX Config:** `react-jsx` with `jsxImportSource: "yielderact"`.
