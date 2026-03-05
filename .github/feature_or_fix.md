@@ -23,6 +23,7 @@ _Mention specific modules like `render.ts` or `hooks.ts` if relevant._
 
 - [ ] Code follows TypeScript strict standards (No `any`).
 - [ ] `npm run build` passes.
-- [ ] `npm test` and `npm run test:visual` pass.
+- [ ] `npm test` passes.
+- [ ] `npm run test:visual` passes.
 - [ ] `docs/api.md` updated (if applicable).
 - [ ] `CLAUDE.md` updated (if workflow/scripts changed).
