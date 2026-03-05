@@ -1064,8 +1064,14 @@ function reconcileOne(
 ): { slot: Slot; node: Node; replaced: boolean } {
   // ---- Empty / null ----
   if (nextChild == null || nextChild === false) {
-    // In live-only mode, don't unmount existing content — DOM is frozen.
-    if (_liveOnlyMode && prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
+    // In live-only mode, skip removal unless we're in a live context OR the
+    // existing slot is a $patch="live" component (it knows it's live).
+    if (_liveOnlyMode && prevSlot) {
+      const prevIsLive = prevSlot.genInstance?.batchBehavior === 'live';
+      if (_currentBatchBehavior !== 'live' && !prevIsLive) {
+        return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+    }
     if (prevSlot?.type === 'empty') {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
@@ -1081,15 +1087,20 @@ function reconcileOne(
   if (typeof nextChild === 'string' || typeof nextChild === 'number') {
     const text = String(nextChild);
     if (prevSlot?.type === 'text' && prevSlot.node instanceof Text) {
-      // In live-only mode, skip text content updates — they are deferred.
-      if (!_liveOnlyMode && prevSlot.node.textContent !== text) {
+      // In live-only mode, only update text when the current batch context is live.
+      if (
+        (!_liveOnlyMode || _currentBatchBehavior === 'live') &&
+        prevSlot.node.textContent !== text
+      ) {
         prevSlot.node.textContent = text;
         prevSlot.props = { text };
       }
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
-    // In live-only mode, don't insert new text nodes — keep whatever was there.
-    if (_liveOnlyMode && prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
+    // In live-only default mode, don't insert new text nodes.
+    if (_liveOnlyMode && _currentBatchBehavior !== 'live' && prevSlot) {
+      return { slot: prevSlot, node: prevSlot.node, replaced: false };
+    }
     const node = document.createTextNode(text);
     return {
       slot: { type: 'text', node, props: { text }, childSlots: [], genInstance: null },
@@ -1103,8 +1114,14 @@ function reconcileOne(
   // ---- $shown === false: unmount and render empty placeholder ----
   const allPropsForShown = mergedProps(vnode);
   if (!isShown(allPropsForShown)) {
-    // In live-only mode, don't change visibility — DOM is frozen.
-    if (_liveOnlyMode && prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
+    // In live-only mode, only hide immediately when the effective batch is live.
+    if (_liveOnlyMode) {
+      const effectiveBatch =
+        (allPropsForShown['$patch'] as 'live' | 'default' | undefined) ?? _currentBatchBehavior;
+      if (effectiveBatch !== 'live' && prevSlot) {
+        return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+    }
     if (prevSlot?.type === 'empty') {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
@@ -1141,6 +1158,10 @@ function reconcileOne(
           (allProps['$patch'] as 'live' | 'default' | undefined) ?? _currentBatchBehavior;
         if (effectiveBatch !== 'live') {
           if (prevSlot.genInstance) prevSlot.genInstance.batchBehavior = effectiveBatch;
+          // Keep prevSlot.props in sync with the pending props so that the commit-time
+          // reconcile sees shallowEqual → true and skips a spurious remount.
+          // Skip for context Providers — their value change must survive to commit.
+          if (!providerCtx) prevSlot.props = allProps;
           return { slot: prevSlot, node: prevSlot.node, replaced: false };
         }
       }
@@ -1177,17 +1198,22 @@ function reconcileOne(
       // Other component types (or Provider whose value changed) → remount from scratch.
     }
 
-    // In live-only mode, structural changes (type mismatch or no prevSlot) must wait
-    // for patch commit.  Same-type $patch="live" components fell through here on purpose
-    // (from the live-only block above) and should proceed to the remount below.
+    // In live-only mode, structural changes (type mismatch or no prevSlot) only proceed
+    // when the effective batch for the incoming component is live.  Same-type $patch="live"
+    // components fell through the block above on purpose and proceed to the remount below.
     if (_liveOnlyMode && prevSlot?.type !== vnode.type) {
-      if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
-      const node = document.createTextNode('');
-      return {
-        slot: { type: 'empty', node, props: {}, childSlots: [], genInstance: null },
-        node,
-        replaced: true,
-      };
+      const effectiveBatch =
+        (allProps['$patch'] as 'live' | 'default' | undefined) ?? _currentBatchBehavior;
+      if (effectiveBatch !== 'live') {
+        if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
+        const node = document.createTextNode('');
+        return {
+          slot: { type: 'empty', node, props: {}, childSlots: [], genInstance: null },
+          node,
+          replaced: true,
+        };
+      }
+      // effectiveBatch === 'live' → fall through and mount/replace immediately
     }
 
     // Mount fresh component
@@ -1226,14 +1252,24 @@ function reconcileOne(
     try {
       if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
         // Same tag → update props in place and reconcile children.
-        // In live-only mode skip own prop updates (element is frozen) but still
-        // recurse so that $patch="live" descendants can be flushed immediately.
-        if (!_liveOnlyMode) {
+        // In live-only mode skip own prop updates when the context is frozen; when
+        // the context is live (inside a $patch="live" ancestor), update normally.
+        if (!_liveOnlyMode || _currentBatchBehavior === 'live') {
           updateProps(prevSlot.node, prevSlot.props, vnode.props);
           prevSlot.props = vnode.props;
         }
         prevSlot.childSlots = reconcileSlots(prevSlot.node, prevSlot.childSlots, vnode.children);
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+      // Different tag: in live-only mode only build when context is live.
+      if (_liveOnlyMode && _currentBatchBehavior !== 'live') {
+        if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
+        const empty = document.createTextNode('');
+        return {
+          slot: { type: 'empty', node: empty, props: {}, childSlots: [], genInstance: null },
+          node: empty,
+          replaced: true,
+        };
       }
       // Different tag → build fresh
       const el = document.createElement(vnode.type);

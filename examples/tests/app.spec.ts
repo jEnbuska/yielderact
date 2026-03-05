@@ -470,3 +470,264 @@ test.describe('UI Patch example', () => {
     await page.screenshot({ path: 'test-results/ui-patch-local-live-vs-default.png' });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Visibility during patches
+// ---------------------------------------------------------------------------
+
+/** Helpers scoped to one of the two visibility demos. */
+async function visibilitySetup(page: import('@playwright/test').Page, scope: 'gv' | 'lv') {
+  const panel = page.locator(
+    `[data-testid="${scope === 'gv' ? 'global' : 'local'}-visibility-demo"]`,
+  );
+  const startBtn = panel.locator(`[data-testid="${scope}-start-patch"]`);
+  const commitBtn = panel.locator(`[data-testid="${scope}-commit-patch"]`);
+  const toggleDefault = panel.locator(`[data-testid="${scope}-toggle-default"]`);
+  const toggleLive = panel.locator(`[data-testid="${scope}-toggle-live"]`);
+  const targetDefault = page.locator(`[data-testid="${scope}-target-default"]`);
+  const targetLive = page.locator(`[data-testid="${scope}-target-live"]`);
+  return { panel, startBtn, commitBtn, toggleDefault, toggleLive, targetDefault, targetLive };
+}
+
+test.describe('Visibility during global patch', () => {
+  test.beforeEach(async ({ page }) => {
+    await goToApp(page);
+    await clickTab(page, 'UI Patch');
+    await page.waitForSelector('[data-testid="global-visibility-demo"]');
+  });
+
+  test('default element stays visible when removed during patch, gone after commit', async ({
+    page,
+  }) => {
+    const { startBtn, commitBtn, toggleDefault, targetDefault } = await visibilitySetup(page, 'gv');
+
+    await expect(targetDefault).toBeAttached();
+
+    await startBtn.click();
+    await toggleDefault.click(); // remove — frozen
+    await expect(targetDefault).toBeAttached(); // still visible
+
+    await commitBtn.click();
+    await expect(targetDefault).not.toBeAttached(); // gone after commit
+
+    await page.screenshot({ path: 'test-results/gv-default-remove.png' });
+  });
+
+  test('$patch="live" element disappears immediately when removed during patch', async ({
+    page,
+  }) => {
+    const { startBtn, commitBtn, toggleLive, targetLive } = await visibilitySetup(page, 'gv');
+
+    await expect(targetLive).toBeAttached();
+
+    await startBtn.click();
+    await toggleLive.click(); // live-remove → gone immediately
+    await expect(targetLive).not.toBeAttached();
+
+    await commitBtn.click();
+    await expect(targetLive).not.toBeAttached(); // still gone after commit
+
+    await page.screenshot({ path: 'test-results/gv-live-remove.png' });
+  });
+
+  test('default element does not appear when added during patch, appears after commit', async ({
+    page,
+  }) => {
+    const { startBtn, commitBtn, toggleDefault, targetDefault } = await visibilitySetup(page, 'gv');
+
+    // Start with element hidden
+    await toggleDefault.click(); // hide before patch
+    await expect(targetDefault).not.toBeAttached();
+
+    await startBtn.click();
+    await toggleDefault.click(); // add — frozen
+    await expect(targetDefault).not.toBeAttached(); // not yet visible
+
+    await commitBtn.click();
+    await expect(targetDefault).toBeAttached(); // appears after commit
+
+    await page.screenshot({ path: 'test-results/gv-default-add.png' });
+  });
+
+  test('$patch="live" element appears immediately when added during patch', async ({ page }) => {
+    const { startBtn, commitBtn, toggleLive, targetLive } = await visibilitySetup(page, 'gv');
+
+    await toggleLive.click(); // hide before patch
+    await expect(targetLive).not.toBeAttached();
+
+    await startBtn.click();
+    await toggleLive.click(); // live-add → appears immediately
+    await expect(targetLive).toBeAttached();
+
+    await commitBtn.click();
+    await expect(targetLive).toBeAttached(); // still present after commit
+
+    await page.screenshot({ path: 'test-results/gv-live-add.png' });
+  });
+
+  test('live element removed then re-added: disappears immediately and reappears immediately', async ({
+    page,
+  }) => {
+    const { startBtn, commitBtn, toggleLive, targetLive } = await visibilitySetup(page, 'gv');
+
+    await startBtn.click();
+    await toggleLive.click(); // live-remove
+    await expect(targetLive).not.toBeAttached();
+    await toggleLive.click(); // live-re-add
+    await expect(targetLive).toBeAttached();
+
+    await commitBtn.click();
+    await expect(targetLive).toBeAttached();
+
+    await page.screenshot({ path: 'test-results/gv-live-remove-readd.png' });
+  });
+
+  test('default element removed then re-added: visible throughout, present after commit', async ({
+    page,
+  }) => {
+    const { startBtn, commitBtn, toggleDefault, targetDefault } = await visibilitySetup(page, 'gv');
+
+    await startBtn.click();
+    await toggleDefault.click(); // frozen — still visible
+    await expect(targetDefault).toBeAttached();
+    await toggleDefault.click(); // re-add — still visible
+    await expect(targetDefault).toBeAttached();
+
+    await commitBtn.click();
+    await expect(targetDefault).toBeAttached();
+  });
+
+  test('default element added then removed during patch: absent throughout and after commit', async ({
+    page,
+  }) => {
+    const { startBtn, commitBtn, toggleDefault, targetDefault } = await visibilitySetup(page, 'gv');
+
+    await toggleDefault.click(); // hide before patch
+    await expect(targetDefault).not.toBeAttached();
+
+    await startBtn.click();
+    await toggleDefault.click(); // add (frozen — still absent)
+    await expect(targetDefault).not.toBeAttached();
+    await toggleDefault.click(); // remove again (frozen — still absent)
+    await expect(targetDefault).not.toBeAttached();
+
+    await commitBtn.click();
+    await expect(targetDefault).not.toBeAttached(); // final state: hidden
+
+    await page.screenshot({ path: 'test-results/gv-default-add-remove.png' });
+  });
+
+  test('live element added then removed: not present after commit', async ({ page }) => {
+    const { startBtn, commitBtn, toggleLive, targetLive } = await visibilitySetup(page, 'gv');
+
+    await toggleLive.click(); // hide before patch
+    await startBtn.click();
+    await toggleLive.click(); // live-add
+    await expect(targetLive).toBeAttached();
+    await toggleLive.click(); // live-remove
+    await expect(targetLive).not.toBeAttached();
+
+    await commitBtn.click();
+    await expect(targetLive).not.toBeAttached();
+
+    await page.screenshot({ path: 'test-results/gv-live-add-remove.png' });
+  });
+});
+
+test.describe('Visibility during local patch', () => {
+  test.beforeEach(async ({ page }) => {
+    await goToApp(page);
+    await clickTab(page, 'UI Patch');
+    await page.waitForSelector('[data-testid="local-visibility-demo"]');
+  });
+
+  test('default element stays visible when removed during local patch, gone after commit', async ({
+    page,
+  }) => {
+    const { startBtn, commitBtn, toggleDefault, targetDefault } = await visibilitySetup(page, 'lv');
+
+    await expect(targetDefault).toBeAttached();
+
+    await startBtn.click();
+    await toggleDefault.click();
+    await expect(targetDefault).toBeAttached(); // frozen
+
+    await commitBtn.click();
+    await expect(targetDefault).not.toBeAttached();
+
+    await page.screenshot({ path: 'test-results/lv-default-remove.png' });
+  });
+
+  test('$patch="live" element disappears immediately during local patch', async ({ page }) => {
+    const { startBtn, commitBtn, toggleLive, targetLive } = await visibilitySetup(page, 'lv');
+
+    await startBtn.click();
+    await toggleLive.click();
+    await expect(targetLive).not.toBeAttached(); // live-remove: immediate
+
+    await commitBtn.click();
+    await expect(targetLive).not.toBeAttached();
+
+    await page.screenshot({ path: 'test-results/lv-live-remove.png' });
+  });
+
+  test('default element does not appear during local patch, appears after commit', async ({
+    page,
+  }) => {
+    const { startBtn, commitBtn, toggleDefault, targetDefault } = await visibilitySetup(page, 'lv');
+
+    await toggleDefault.click(); // hide before patch
+    await startBtn.click();
+    await toggleDefault.click(); // frozen
+    await expect(targetDefault).not.toBeAttached();
+
+    await commitBtn.click();
+    await expect(targetDefault).toBeAttached();
+
+    await page.screenshot({ path: 'test-results/lv-default-add.png' });
+  });
+
+  test('$patch="live" element appears immediately during local patch', async ({ page }) => {
+    const { startBtn, commitBtn, toggleLive, targetLive } = await visibilitySetup(page, 'lv');
+
+    await toggleLive.click(); // hide before patch
+    await startBtn.click();
+    await toggleLive.click(); // live-add
+    await expect(targetLive).toBeAttached();
+
+    await commitBtn.click();
+    await expect(targetLive).toBeAttached();
+
+    await page.screenshot({ path: 'test-results/lv-live-add.png' });
+  });
+
+  test('live element removed then re-added during local patch: correct immediate and final state', async ({
+    page,
+  }) => {
+    const { startBtn, commitBtn, toggleLive, targetLive } = await visibilitySetup(page, 'lv');
+
+    await startBtn.click();
+    await toggleLive.click(); // live-remove
+    await expect(targetLive).not.toBeAttached();
+    await toggleLive.click(); // live-re-add
+    await expect(targetLive).toBeAttached();
+
+    await commitBtn.click();
+    await expect(targetLive).toBeAttached();
+  });
+
+  test('default element removed then re-added: visible throughout, present after commit', async ({
+    page,
+  }) => {
+    const { startBtn, commitBtn, toggleDefault, targetDefault } = await visibilitySetup(page, 'lv');
+
+    await startBtn.click();
+    await toggleDefault.click(); // frozen: still visible
+    await expect(targetDefault).toBeAttached();
+    await toggleDefault.click(); // frozen: still visible
+    await expect(targetDefault).toBeAttached();
+
+    await commitBtn.click();
+    await expect(targetDefault).toBeAttached();
+  });
+});
