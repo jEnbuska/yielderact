@@ -160,13 +160,15 @@ All hooks are generator functions and must be called with `yield*` inside a gene
 const [value, setValue] = yield * useState(initialValue);
 ```
 
-Persistent state that survives re-renders. Calling `setValue` triggers a re-render.
+Persistent state that survives re-renders. Calling `setValue` triggers a re-render and returns a `Promise<void>` that resolves after the new state is committed to the DOM.
 
 | Parameter      | Type             | Description                            |
 | -------------- | ---------------- | -------------------------------------- |
 | `initialValue` | `T \| (() => T)` | Initial value or a lazy initialiser fn |
 
-**Returns** `[T, (value: T \| ((prev: T) => T)) => void]`
+**Returns** `[T, (value: T \| ((prev: T) => T)) => Promise<void>]`
+
+The setter is safe to call during an active render (e.g. from inside a `useMemo` factory). When called during rendering the current render is cancelled and a single follow-up render runs with the accumulated latest state. The returned `Promise<void>` resolves after that committed render, so you can `await setValue(x)` inside an async `useMemo` factory to continue only once the DOM reflects the new value.
 
 ```tsx
 function* Counter() {
@@ -179,9 +181,20 @@ const [data, setData] = yield * useState(() => expensiveCompute());
 
 // Functional updater — receives previous state:
 setCount((prev) => prev + 1);
+
+// Await inside an async useMemo factory:
+yield *
+  useMemo(async () => {
+    if (name !== name.toUpperCase()) {
+      await setName(name.toUpperCase()); // resolves after DOM commit
+      console.log('name is now uppercase in the DOM');
+    }
+  }, [name]);
 ```
 
 > **Note:** Like React, any function passed as `initialValue` or to the setter is treated as a lazy initialiser / updater. To store a function as state, wrap it: `useState(() => myFn)`.
+>
+> **Multiple setters during one render are batched:** if two `setValue` calls happen synchronously during the same render, only a single follow-up render is executed with both values applied.
 
 ---
 
