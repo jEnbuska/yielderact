@@ -1,10 +1,17 @@
 import { type VNode, type Child, type AnyComponentFn, type PlainComponentFn } from '../jsx';
-import { _getCtxMap, _setCtxMap, _getProviderCtx, _resolveCtxValue } from '../context';
-import { type Slot } from './types';
+import {
+  _getCtxMap,
+  _setCtxMap,
+  _getProviderCtx,
+  _resolveCtxValue,
+  type Context,
+} from '../context';
+import { depsChanged } from '../hooks';
+import { type Slot, type GenInstance } from './types';
 import { renderState } from './state';
 import { applyProps, updateProps } from './props';
 import { isGeneratorFn, shallowEqual, flattenChildren, mergedProps, isShown } from './helpers';
-import { unmountSlot, propagateContextUpdate } from './hooks-runtime';
+import { unmountSlot, propagateContextUpdate, type UseContextState } from './hooks-runtime';
 import {
   mountGeneratorComponent,
   mountContextProvider,
@@ -174,14 +181,13 @@ function reconcileOne(
           const currentCtxMap = _getCtxMap();
           let contextChanged = false;
           for (const ctx of inst.consumedContexts) {
-            if (
-              !Object.is(
-                _resolveCtxValue(currentCtxMap, ctx),
-                _resolveCtxValue(inst.capturedCtx, ctx),
-              )
-            ) {
-              contextChanged = true;
-              break;
+            const currentVal = _resolveCtxValue(currentCtxMap, ctx);
+            if (!Object.is(currentVal, _resolveCtxValue(inst.capturedCtx, ctx))) {
+              // Check if all selectors for this context have stable deps.
+              if (!_hasStableContextSelectors(inst, ctx, currentVal)) {
+                contextChanged = true;
+                break;
+              }
             }
           }
 
@@ -201,10 +207,17 @@ function reconcileOne(
           renderState.currentBatchBehavior;
         if (effectiveBatch !== 'live') {
           if (prevSlot.genInstance) prevSlot.genInstance.batchBehavior = effectiveBatch;
-          // Keep prevSlot.props in sync with the pending props so that the commit-time
-          // reconcile sees shallowEqual → true and skips a spurious remount.
-          // Skip for context Providers — their value change must survive to commit.
-          if (!providerCtx) prevSlot.props = allProps;
+          // Forward only framework meta-prop changes ($patch, $shown) to prevent
+          // spurious remounts at commit time when e.g. $patch mode changed.
+          // Content prop changes (e.g. isPending: false) must NOT be written here —
+          // they must survive to commit so that shallowEqual detects the diff and
+          // the component is actually re-rendered with the new props.
+          if (!providerCtx) {
+            const hasContentChange = Object.keys({ ...prevSlot.props, ...allProps }).some(
+              (k) => k !== '$patch' && k !== '$shown' && !Object.is(prevSlot.props[k], allProps[k]),
+            );
+            if (!hasContentChange) prevSlot.props = allProps;
+          }
           return { slot: prevSlot, node: prevSlot.node, replaced: false };
         }
       }
@@ -237,7 +250,19 @@ function reconcileOne(
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
 
-      // Other component types → remount from scratch (fall through).
+      // Generator component with changed props → rerender in place to preserve
+      // hook state (useState, useRef, useEffect, etc.).
+      if (prevSlot.genInstance) {
+        prevSlot.genInstance.props = allProps;
+        prevSlot.genInstance.batchBehavior =
+          (allProps['$patch'] as 'live' | 'default' | undefined) ??
+          renderState.currentBatchBehavior;
+        prevSlot.genInstance.rerender();
+        prevSlot.props = allProps;
+        return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+
+      // Plain function component → remount from scratch.
     }
 
     // In live-only mode, structural changes (type mismatch or no prevSlot) only proceed
@@ -342,4 +367,32 @@ function reconcileOne(
     node,
     replaced: true,
   };
+}
+
+/**
+ * Returns `true` when every `useContext` hook call in `inst` that subscribes
+ * to `ctx` has a selector whose selected deps are unchanged under `newValue`.
+ *
+ * An instance that does not consume `ctx` at all is considered stable
+ * (vacuously true — no rerender needed for it).
+ * An instance that consumes `ctx` without a selector always returns `false`
+ * because it must rerender whenever the Provider value changes.
+ */
+function _hasStableContextSelectors(
+  inst: GenInstance,
+  ctx: Context<unknown>,
+  newValue: unknown,
+): boolean {
+  let foundAny = false;
+  for (const s of inst.hookStates) {
+    if (s == null || typeof s !== 'object') continue;
+    const state = s as UseContextState;
+    if (state.ctx !== ctx) continue;
+    foundAny = true;
+    if (!state.selector) return false;
+    const newDeps = state.selector(newValue);
+    if (depsChanged(state.lastDeps, newDeps)) return false;
+  }
+  // If foundAny is false the instance doesn't consume this context → stable.
+  return true;
 }

@@ -132,4 +132,94 @@ describe('render – useEffect', () => {
     expect(log).toEqual(['ran']);
     void Comp; // silence unused warning
   });
+
+  it('passes an AbortSignal to the effect callback', () => {
+    let receivedSignal: AbortSignal | null = null;
+
+    function* Comp() {
+      yield* useEffect((signal) => {
+        receivedSignal = signal;
+      }, []);
+      return createElement('span', {}, 'hi');
+    }
+
+    render(createElement(Comp as never, {}), container);
+    expect(receivedSignal).toBeInstanceOf(AbortSignal);
+    expect((receivedSignal as unknown as AbortSignal).aborted).toBe(false);
+  });
+
+  it('aborts the signal when deps change', () => {
+    const signals: AbortSignal[] = [];
+    let setId: ((v: number) => void) | null = null;
+
+    function* Comp() {
+      const [id, si] = yield* useState(1);
+      setId = si;
+      yield* useEffect(
+        (signal) => {
+          signals.push(signal);
+        },
+        [id],
+      );
+      return createElement('span', {}, String(id));
+    }
+
+    render(createElement(Comp as never, {}), container);
+    expect(signals).toHaveLength(1);
+    expect(signals[0].aborted).toBe(false);
+
+    setId!(2);
+    // The first signal should now be aborted.
+    expect(signals[0].aborted).toBe(true);
+    expect(signals).toHaveLength(2);
+    expect(signals[1].aborted).toBe(false);
+  });
+
+  it('aborts the signal on unmount', () => {
+    let capturedSignal: AbortSignal | null = null;
+    let setShow: ((v: boolean) => void) | null = null;
+
+    function* Inner() {
+      yield* useEffect((signal) => {
+        capturedSignal = signal;
+      }, []);
+      return createElement('span', {}, 'inner');
+    }
+
+    function* Outer() {
+      const [show, ss] = yield* useState(true);
+      setShow = ss;
+      return show ? createElement(Inner as never, {}) : null;
+    }
+
+    render(createElement(Outer as never, {}), container);
+    expect(capturedSignal).toBeInstanceOf(AbortSignal);
+    expect((capturedSignal as unknown as AbortSignal).aborted).toBe(false);
+
+    setShow!(false);
+    expect((capturedSignal as unknown as AbortSignal).aborted).toBe(true);
+  });
+
+  it('aborts the signal before calling the cleanup function', () => {
+    const log: string[] = [];
+    let setId: ((v: number) => void) | null = null;
+
+    function* Comp() {
+      const [id, si] = yield* useState(1);
+      setId = si;
+      yield* useEffect(
+        (signal) => {
+          return () => {
+            log.push(`cleanup:${id}:aborted=${signal.aborted}`);
+          };
+        },
+        [id],
+      );
+      return createElement('span', {}, String(id));
+    }
+
+    render(createElement(Comp as never, {}), container);
+    setId!(2);
+    expect(log).toEqual(['cleanup:1:aborted=true']);
+  });
 });

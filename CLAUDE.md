@@ -55,9 +55,11 @@ yielderact is a minimal JSX UI library using JavaScript generator functions.
 
 - **Target Branch:** `dev`
 - **Commit Format:** Conventional Commits (e.g., `feat:`, `fix:`)
+- **Issue Linking:** Every PR must link to a GitHub issue. If no issue exists for the work being done, create one first with `gh issue create`. Include `Closes #<number>` or `Fixes #<number>` in the PR body so the issue is automatically closed when the PR is merged.
 - **PR Body Template:**
   - **Summary:** 2-3 sentences.
   - **Changes:** Bullet points.
+  - **Closes:** `Closes #<issue>` or `Fixes #<issue>` (if applicable).
   - **Verification:** Confirm all `npm` checks passed.
   - **CLAUDE.md Update:** State if this file was updated to reflect new changes.
 

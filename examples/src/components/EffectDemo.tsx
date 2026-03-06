@@ -61,7 +61,7 @@ export function* EffectDemo() {
         <input type="checkbox" checked={showTimer} onChange={() => setShowTimer((v) => !v)} />
         Show timer
       </label>
-      {showTimer && <Timer />}
+      <Timer $shown={showTimer} />
 
       <hr style={{ margin: '1.5rem 0' }} />
 

@@ -3,7 +3,7 @@
  *
  * Provides a simple tab-based navigation between the five example demos.
  */
-import { render, useState } from 'yielderact';
+import { render, useEffect, useMemo, useState } from 'yielderact';
 import { Counter } from './components/Counter';
 import { TodoList } from './components/TodoList';
 import { ThemeDemo } from './components/ThemeDemo';
@@ -14,6 +14,8 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { EffectDemo } from './components/EffectDemo';
 import { TransitionDemo } from './components/TransitionDemo';
 import { ContextDemo } from './components/ContextDemo';
+import { LazyContextDemo } from './components/LazyContextDemo';
+import { AbortSignalEffectDemo } from './components/AbortSignalEffectDemo';
 
 type Tab =
   | 'counter'
@@ -26,7 +28,9 @@ type Tab =
   | 'confirm'
   | 'effect'
   | 'transition'
-  | 'context';
+  | 'context'
+  | 'lazy-ctx'
+  | 'abort-signal';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'counter', label: 'Counter' },
@@ -40,6 +44,8 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'effect', label: 'useEffect' },
   { id: 'transition', label: 'UI Patch' },
   { id: 'context', label: 'Context Scoping' },
+  { id: 'lazy-ctx', label: 'Lazy Context' },
+  { id: 'abort-signal', label: 'AbortSignal Effect' },
 ];
 
 function* App() {
@@ -47,13 +53,16 @@ function* App() {
 
   return (
     <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-      <h1 style={{ marginBottom: '0.25rem' }}>yielderact examples</h1>
+      <h1 data-testid="app-heading" style={{ marginBottom: '0.25rem' }}>
+        yielderact examples
+      </h1>
       <p style={{ color: '#555', marginBottom: '1.25rem' }}>
         Generator-powered JSX components — no magic, just plain JavaScript.
       </p>
 
       {/* Tab bar — ids derived from data so useId() is not applicable here */}
       <nav
+        data-testid="app-tablist"
         role="tablist"
         style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}
       >
@@ -61,6 +70,7 @@ function* App() {
           <button
             key={tab.id}
             role="tab"
+            data-testid={`tab-${tab.id}`}
             id={`tab-${tab.id}`}
             aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -80,17 +90,19 @@ function* App() {
 
       {/* Active panel */}
       <div id="example-panel">
-        {activeTab === 'counter' && <Counter />}
-        {activeTab === 'todos' && <TodoList />}
-        {activeTab === 'theme' && <ThemeDemo />}
-        {activeTab === 'data' && <DataFetcher />}
-        {activeTab === 'raw' && <ResolveRawDemo />}
-        {activeTab === 'hooks' && <HooksShowcase />}
-        {activeTab === 'shown' && <ShownDemo />}
-        {activeTab === 'confirm' && <ConfirmDialog />}
-        {activeTab === 'effect' && <EffectDemo />}
-        {activeTab === 'transition' && <TransitionDemo />}
-        {activeTab === 'context' && <ContextDemo />}
+        <Counter $shown={activeTab === 'counter'} />
+        <TodoList $shown={activeTab === 'todos'} />
+        <ThemeDemo $shown={activeTab === 'theme'} />
+        <DataFetcher $shown={activeTab === 'data'} />
+        <ResolveRawDemo $shown={activeTab === 'raw'} />
+        <HooksShowcase $shown={activeTab === 'hooks'} />
+        <ShownDemo $shown={activeTab === 'shown'} />
+        <ConfirmDialog $shown={activeTab === 'confirm'} />
+        <EffectDemo $shown={activeTab === 'effect'} />
+        <TransitionDemo $shown={activeTab === 'transition'} />
+        <ContextDemo $shown={activeTab === 'context'} />
+        <LazyContextDemo $shown={activeTab === 'lazy-ctx'} />
+        <AbortSignalEffectDemo $shown={activeTab === 'abort-signal'} />
       </div>
     </div>
   );

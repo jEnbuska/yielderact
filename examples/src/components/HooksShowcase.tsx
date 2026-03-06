@@ -52,7 +52,7 @@ export function* HooksShowcase() {
 
       {/* useId: the generated id wires the <label> to the <input> */}
       <div style={{ marginBottom: '0.75rem' }}>
-        <label htmlFor={inputId} style={{ marginRight: '0.5rem' }}>
+        <label data-testid="hooks-search-label" htmlFor={inputId} style={{ marginRight: '0.5rem' }}>
           Search fruits:
         </label>
         <input
@@ -71,14 +71,14 @@ export function* HooksShowcase() {
         style={{ listStyle: 'disc', paddingLeft: '1.25rem', margin: '0 0 0.5rem' }}
       >
         {filtered.map((fruit) => (
-          <li key={fruit}>{fruit}</li>
+          <li key={fruit} data-testid={`fruit-${fruit.toLowerCase()}`}>
+            {fruit}
+          </li>
         ))}
       </ul>
-      {filtered.length === 0 && (
-        <p data-testid="hooks-no-results" style={{ color: '#888' }}>
-          No fruits match "{query}".
-        </p>
-      )}
+      <p $shown={filtered.length === 0} data-testid="hooks-no-results" style={{ color: '#888' }}>
+        No fruits match "{query}".
+      </p>
 
       {/* useRef: render count is tracked without triggering a re-render */}
       <p

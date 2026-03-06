@@ -298,6 +298,324 @@ test('Fragment renders multiple children without a wrapper', async ({ page }) =>
 });
 
 // ---------------------------------------------------------------------------
+// useContext — selector and transform overloads
+// ---------------------------------------------------------------------------
+
+test('useContext selector: consumer skips rerender when selected dep is unchanged', async ({
+  page,
+}) => {
+  await setupPage(page);
+
+  await page.evaluate(() => {
+    const { createElement, createContext, useContext, useRef, useState, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
+
+    type State = { name: string; count: number };
+    const Ctx = createContext<State>({ name: 'Alice', count: 0 });
+
+    let setSt: ((v: State) => void) | null = null;
+
+    // Consumer uses selector that tracks only `name`.
+    function* Consumer() {
+      const renders = yield* useRef(0);
+      renders.current++;
+      // Overload 2: selector only — rerender only when name changes
+      const ctx = yield* useContext(Ctx, (c) => [c.name]);
+      return createElement('div', { id: 'consumer' }, [
+        createElement('span', { id: 'name' }, ctx.name),
+        createElement('span', { id: 'renders' }, String(renders.current)),
+      ]);
+    }
+
+    function* App() {
+      const [st, set] = yield* useState<State>({ name: 'Alice', count: 0 });
+      setSt = set;
+      return createElement(
+        Ctx.Provider as never,
+        { value: st },
+        createElement(Consumer as never, {}),
+      );
+    }
+
+    render(createElement(App as never, {}), document.getElementById('root')!);
+
+    // Expose setter on window for Playwright to call
+    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt!(v);
+  });
+
+  // Initial state
+  await expect(page.locator('#name')).toHaveText('Alice');
+  await expect(page.locator('#renders')).toHaveText('1');
+
+  // Change only `count` — selector tracks `name`, so Consumer must NOT rerender.
+  await page.evaluate(() => {
+    type State = { name: string; count: number };
+    const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
+    set({ name: 'Alice', count: 99 });
+  });
+
+  await expect(page.locator('#name')).toHaveText('Alice');
+  await expect(page.locator('#renders')).toHaveText('1');
+
+  await page.screenshot({ path: '/tmp/visual-ctx-selector-stable.png' });
+});
+
+test('useContext selector: consumer rerenders in-place (useRef preserved) when selected dep changes', async ({
+  page,
+}) => {
+  await setupPage(page);
+
+  await page.evaluate(() => {
+    const { createElement, createContext, useContext, useRef, useState, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
+
+    type State = { name: string; count: number };
+    const Ctx = createContext<State>({ name: 'Alice', count: 0 });
+
+    let setSt: ((v: State) => void) | null = null;
+
+    function* Consumer() {
+      const renders = yield* useRef(0);
+      renders.current++;
+      // Selector tracks `name`. Rerender is in-place so useRef survives.
+      const ctx = yield* useContext(Ctx, (c) => [c.name]);
+      return createElement('div', { id: 'consumer' }, [
+        createElement('span', { id: 'name' }, ctx.name),
+        createElement('span', { id: 'renders' }, String(renders.current)),
+      ]);
+    }
+
+    function* App() {
+      const [st, set] = yield* useState<State>({ name: 'Alice', count: 0 });
+      setSt = set;
+      return createElement(
+        Ctx.Provider as never,
+        { value: st },
+        createElement(Consumer as never, {}),
+      );
+    }
+
+    render(createElement(App as never, {}), document.getElementById('root')!);
+    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt!(v);
+  });
+
+  await expect(page.locator('#name')).toHaveText('Alice');
+  await expect(page.locator('#renders')).toHaveText('1');
+
+  // Change only `count` — selector tracks `name`, so no rerender.
+  await page.evaluate(() => {
+    type State = { name: string; count: number };
+    const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
+    set({ name: 'Alice', count: 5 });
+  });
+  await expect(page.locator('#renders')).toHaveText('1');
+
+  // Change `name` — dep changed → in-place rerender → useRef increments to 2.
+  await page.evaluate(() => {
+    type State = { name: string; count: number };
+    const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
+    set({ name: 'Bob', count: 5 });
+  });
+  await expect(page.locator('#name')).toHaveText('Bob');
+  await expect(page.locator('#renders')).toHaveText('2');
+
+  await page.screenshot({ path: '/tmp/visual-ctx-selector-changed.png' });
+});
+
+test('useContext transform: suppresses rerender when dep stable; updates transform when dep changes', async ({
+  page,
+}) => {
+  await setupPage(page);
+
+  await page.evaluate(() => {
+    const { createElement, createContext, useContext, useRef, useState, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
+
+    type State = { name: string; count: number };
+    const Ctx = createContext<State>({ name: 'Alice', count: 0 });
+
+    let setSt: ((v: State) => void) | null = null;
+
+    function* Consumer() {
+      const renders = yield* useRef(0);
+      renders.current++;
+      // Overload 3: selector + transform — returns uppercased name
+      const upper = yield* useContext(
+        Ctx,
+        (c) => [c.name] as [string],
+        (name) => name.toUpperCase(),
+      );
+      return createElement('div', { id: 'consumer' }, [
+        createElement('span', { id: 'upper' }, upper),
+        createElement('span', { id: 'renders' }, String(renders.current)),
+      ]);
+    }
+
+    function* App() {
+      const [st, set] = yield* useState<State>({ name: 'Alice', count: 0 });
+      setSt = set;
+      return createElement(
+        Ctx.Provider as never,
+        { value: st },
+        createElement(Consumer as never, {}),
+      );
+    }
+
+    render(createElement(App as never, {}), document.getElementById('root')!);
+    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt!(v);
+  });
+
+  // Initial: ALICE, rendered once
+  await expect(page.locator('#upper')).toHaveText('ALICE');
+  await expect(page.locator('#renders')).toHaveText('1');
+
+  // Change only count — selector tracks name, so rerender is suppressed.
+  await page.evaluate(() => {
+    type State = { name: string; count: number };
+    const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
+    set({ name: 'Alice', count: 7 });
+  });
+  // Consumer skipped — render count stays at 1, value unchanged.
+  await expect(page.locator('#renders')).toHaveText('1');
+  await expect(page.locator('#upper')).toHaveText('ALICE');
+
+  // Change name — dep changed → in-place rerender → useRef increments to 2, transform produces BOB.
+  await page.evaluate(() => {
+    type State = { name: string; count: number };
+    const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
+    set({ name: 'Bob', count: 7 });
+  });
+  await expect(page.locator('#upper')).toHaveText('BOB');
+  await expect(page.locator('#renders')).toHaveText('2');
+
+  await page.screenshot({ path: '/tmp/visual-ctx-transform.png' });
+});
+
+test('useContext no-selector vs selector: no-selector updates on any field change, selector does not', async ({
+  page,
+}) => {
+  await setupPage(page);
+
+  await page.evaluate(() => {
+    const { createElement, createContext, useContext, useRef, useState, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
+
+    type State = { name: string; count: number };
+    const Ctx = createContext<State>({ name: 'Alice', count: 0 });
+
+    let setSt: ((v: State) => void) | null = null;
+
+    // Overload 1: no selector — in-place rerender on every Provider value change.
+    // useRef persists across rerenders so the count increments correctly.
+    function* NoSelectorConsumer() {
+      const renders = yield* useRef(0);
+      renders.current++;
+      const ctx = yield* useContext(Ctx);
+      return createElement('div', null, [
+        createElement('span', { id: 'no-sel-count' }, String(ctx.count)),
+        createElement('span', { id: 'no-sel-renders' }, String(renders.current)),
+      ]);
+    }
+
+    // Overload 2: selector tracking `name` — stable when only count changes.
+    function* SelectorConsumer() {
+      const renders = yield* useRef(0);
+      renders.current++;
+      yield* useContext(Ctx, (c) => [c.name]);
+      return createElement('span', { id: 'sel-renders' }, String(renders.current));
+    }
+
+    function* App() {
+      const [st, set] = yield* useState<State>({ name: 'Alice', count: 0 });
+      setSt = set;
+      return createElement(Ctx.Provider as never, { value: st }, [
+        createElement(NoSelectorConsumer as never, {}),
+        createElement(SelectorConsumer as never, {}),
+      ]);
+    }
+
+    render(createElement(App as never, {}), document.getElementById('root')!);
+    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt!(v);
+  });
+
+  await expect(page.locator('#no-sel-count')).toHaveText('0');
+  await expect(page.locator('#no-sel-renders')).toHaveText('1');
+  await expect(page.locator('#sel-renders')).toHaveText('1');
+
+  // Change only `count` — no-selector consumer rerenders in-place (renders=2,
+  // sees new count); selector consumer is suppressed (still at renders=1).
+  await page.evaluate(() => {
+    type State = { name: string; count: number };
+    const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
+    set({ name: 'Alice', count: 5 });
+  });
+
+  await expect(page.locator('#no-sel-count')).toHaveText('5');
+  await expect(page.locator('#no-sel-renders')).toHaveText('2');
+  await expect(page.locator('#sel-renders')).toHaveText('1');
+
+  await page.screenshot({ path: '/tmp/visual-ctx-no-selector.png' });
+});
+
+test('useContext selector: hook state preserved when rerender suppressed', async ({ page }) => {
+  await setupPage(page);
+
+  await page.evaluate(() => {
+    const { createElement, createContext, useContext, useRef, useState, render } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
+
+    type State = { name: string; count: number };
+    const Ctx = createContext<State>({ name: 'Alice', count: 0 });
+
+    let setCtx: ((v: State) => void) | null = null;
+    let setLocal: ((v: number) => void) | null = null;
+
+    function* Consumer() {
+      yield* useContext(Ctx, (c) => [c.name]);
+      const [local, sl] = yield* useState(42);
+      setLocal = sl;
+      return createElement('span', { id: 'local' }, String(local));
+    }
+
+    function* App() {
+      const [st, set] = yield* useState<State>({ name: 'Alice', count: 0 });
+      setCtx = set;
+      return createElement(
+        Ctx.Provider as never,
+        { value: st },
+        createElement(Consumer as never, {}),
+      );
+    }
+
+    render(createElement(App as never, {}), document.getElementById('root')!);
+    (window as unknown as Record<string, unknown>).__setCtx = (v: State) => setCtx!(v);
+    (window as unknown as Record<string, unknown>).__setLocal = (v: number) => setLocal!(v);
+  });
+
+  // Set local state to 100
+  await page.evaluate(() => {
+    const set = (window as unknown as Record<string, (v: number) => void>).__setLocal;
+    set(100);
+  });
+  await expect(page.locator('#local')).toHaveText('100');
+
+  // Change only count — selector suppresses rerender, local state must survive
+  await page.evaluate(() => {
+    type State = { name: string; count: number };
+    const set = (window as unknown as Record<string, (v: State) => void>).__setCtx;
+    set({ name: 'Alice', count: 99 });
+  });
+  await expect(page.locator('#local')).toHaveText('100');
+
+  await page.screenshot({ path: '/tmp/visual-ctx-hook-state-preserved.png' });
+});
+
+// ---------------------------------------------------------------------------
 // Style application
 // ---------------------------------------------------------------------------
 
@@ -328,4 +646,357 @@ test('inline styles are applied correctly', async ({ page }) => {
   const bgColor = await el.evaluate((node: HTMLElement) => node.style.backgroundColor);
   expect(bgColor).toBe('blue');
   await page.screenshot({ path: '/tmp/visual-styles.png' });
+});
+
+// ---------------------------------------------------------------------------
+// UI Patch: child component prop updates survive to commit
+// ---------------------------------------------------------------------------
+//
+// Regression: prevSlot.props was written with allProps during the live-only
+// skip pass, so at commit time shallowEqual returned true and the component
+// was never re-rendered with the new props (e.g. isPending: false).
+
+test('global patch: child prop change before patch survives to commit (disabled button re-enabled)', async ({
+  page,
+}) => {
+  await setupPage(page);
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, startUIPatch, commitUIPatch } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
+
+    let setPending: ((v: boolean) => void) | null = null;
+    let doCommit: (() => void) | null = null;
+
+    // Child component: renders a button whose disabled state mirrors the prop
+    function* Nav(props: { isPending: boolean }) {
+      return createElement('button', { id: 'nav-btn', disabled: props.isPending }, 'click');
+    }
+
+    function* App() {
+      const [isPending, setP] = yield* useState(false);
+      setPending = setP as never;
+      return createElement('div', null, createElement(Nav as never, { isPending }));
+    }
+
+    render(createElement(App as never, {}), document.getElementById('root')!);
+
+    // Step 1: set isPending=true BEFORE the patch (immediate DOM update)
+    setPending!(true);
+
+    // Step 2: start the patch
+    startUIPatch();
+
+    // Step 3: clear isPending INSIDE the patch (deferred — DOM still shows disabled)
+    setPending!(false);
+
+    // Expose a commit handle for the test to call after asserting frozen state
+    doCommit = commitUIPatch;
+    (window as unknown as { doCommit: typeof doCommit }).doCommit = doCommit;
+  });
+
+  // During the patch the button must still be disabled (DOM is frozen)
+  await expect(page.locator('#nav-btn')).toBeDisabled();
+
+  // Commit the patch
+  await page.evaluate(() => {
+    (window as unknown as { doCommit: () => void }).doCommit();
+  });
+
+  // After commit the button must be re-enabled
+  await expect(page.locator('#nav-btn')).not.toBeDisabled();
+  await page.screenshot({ path: '/tmp/visual-patch-prop-update-global.png' });
+});
+
+test('local patch: child prop change before patch survives to commit (disabled button re-enabled)', async ({
+  page,
+}) => {
+  await setupPage(page);
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useUIPatch } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
+
+    let setPending: ((v: boolean) => void) | null = null;
+    let capturedStartPatch: (() => () => void) | null = null;
+
+    function* Nav(props: { isPending: boolean }) {
+      return createElement('button', { id: 'nav-btn', disabled: props.isPending }, 'click');
+    }
+
+    function* App() {
+      const startPatch = yield* useUIPatch();
+      capturedStartPatch = startPatch;
+      const [isPending, setP] = yield* useState(false);
+      setPending = setP as never;
+      return createElement('div', null, createElement(Nav as never, { isPending }));
+    }
+
+    render(createElement(App as never, {}), document.getElementById('root')!);
+
+    // Step 1: set isPending=true BEFORE the patch (immediate DOM update)
+    setPending!(true);
+
+    // Step 2: start the local patch and capture the commit fn
+    const commit = capturedStartPatch!();
+
+    // Step 3: clear isPending inside the patch (deferred)
+    setPending!(false);
+
+    // Expose the commit fn for the test to call after asserting the frozen state
+    (window as unknown as { doCommit: () => void }).doCommit = commit;
+  });
+
+  // DOM must be frozen — button still disabled
+  await expect(page.locator('#nav-btn')).toBeDisabled();
+
+  // Commit
+  await page.evaluate(() => {
+    (window as unknown as { doCommit: () => void }).doCommit();
+  });
+
+  // After commit the button must be re-enabled
+  await expect(page.locator('#nav-btn')).not.toBeDisabled();
+  await page.screenshot({ path: '/tmp/visual-patch-prop-update-local.png' });
+});
+
+// ---------------------------------------------------------------------------
+// useEffect AbortSignal tests
+// ---------------------------------------------------------------------------
+
+test('useEffect: AbortSignal abort count increments when deps change', async ({ page }) => {
+  await setupPage(page);
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useEffect } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
+
+    const win = window as unknown as Record<string, unknown>;
+
+    function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) {
+      const [status, setStatus] = yield* useState('idle');
+      const [abortCount, setAbortCount] = yield* useState(0);
+
+      yield* useEffect(
+        (signal: AbortSignal) => {
+          if (activeId !== userId) {
+            setStatus('inactive');
+            return;
+          }
+          setStatus('polling');
+          signal.addEventListener(
+            'abort',
+            () => {
+              setAbortCount((c: number) => c + 1);
+              setStatus('aborted');
+            },
+            { once: true },
+          );
+        },
+        [activeId],
+      );
+
+      return createElement(
+        'div',
+        { id: `row-${userId}` },
+        createElement('span', { id: `status-${userId}` }, status),
+        createElement('span', { id: `aborts-${userId}` }, String(abortCount)),
+      );
+    }
+
+    function* App() {
+      const [activeId, setActiveId] = yield* useState(1);
+      win.setActiveId = setActiveId;
+
+      return createElement(
+        'div',
+        null,
+        createElement(SignalRow, { userId: 1, activeId }),
+        createElement(SignalRow, { userId: 2, activeId }),
+        createElement(SignalRow, { userId: 3, activeId }),
+      );
+    }
+
+    render(createElement(App, {}), document.getElementById('root')!);
+  });
+
+  // Initial: user 1 is polling, others inactive, all abort counts 0
+  await expect(page.locator('#status-1')).toHaveText('polling');
+  await expect(page.locator('#aborts-1')).toHaveText('0');
+  await expect(page.locator('#status-2')).toHaveText('inactive');
+  await expect(page.locator('#status-3')).toHaveText('inactive');
+
+  // Switch to user 2 — user 1's abort count increases to 1
+  await page.evaluate(() => {
+    (window as unknown as { setActiveId: (v: number) => void }).setActiveId(2);
+  });
+
+  await expect(page.locator('#status-2')).toHaveText('polling');
+  await expect(page.locator('#aborts-1')).toHaveText('1');
+  // status-1 is "inactive" because the effect re-runs with the new activeId
+  await expect(page.locator('#status-1')).toHaveText('inactive');
+
+  // Switch to user 3 — user 2's abort count increases to 1
+  await page.evaluate(() => {
+    (window as unknown as { setActiveId: (v: number) => void }).setActiveId(3);
+  });
+
+  await expect(page.locator('#status-3')).toHaveText('polling');
+  await expect(page.locator('#aborts-2')).toHaveText('1');
+  await expect(page.locator('#status-2')).toHaveText('inactive');
+
+  // Switch back to user 1 — user 3's abort count increases, user 1 still has 1
+  await page.evaluate(() => {
+    (window as unknown as { setActiveId: (v: number) => void }).setActiveId(1);
+  });
+
+  await expect(page.locator('#status-1')).toHaveText('polling');
+  await expect(page.locator('#aborts-3')).toHaveText('1');
+  await expect(page.locator('#aborts-1')).toHaveText('1');
+
+  await page.screenshot({ path: '/tmp/visual-abort-signal-deps-change.png' });
+});
+
+test('useEffect: AbortSignal is aborted on component unmount', async ({ page }) => {
+  await setupPage(page);
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useEffect, useRef } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
+
+    function* Ticker() {
+      const [count, setCount] = yield* useState(0);
+      const abortedRef = yield* useRef(false);
+
+      yield* useEffect((signal: AbortSignal) => {
+        let n = 0;
+        const id = setInterval(() => {
+          if (signal.aborted) return;
+          n++;
+          setCount(n);
+        }, 100);
+
+        signal.addEventListener(
+          'abort',
+          () => {
+            clearInterval(id);
+            abortedRef.current = true;
+          },
+          { once: true },
+        );
+
+        // No cleanup fn — relying on AbortSignal only
+      }, []);
+
+      return createElement(
+        'div',
+        { id: 'ticker' },
+        createElement('span', { id: 'tick-count' }, String(count)),
+        createElement('span', { id: 'tick-aborted' }, String(abortedRef.current)),
+      );
+    }
+
+    function* App() {
+      const [show, setShow] = yield* useState(true);
+      (window as unknown as Record<string, unknown>).setShow = setShow;
+
+      return createElement(
+        'div',
+        null,
+        show ? createElement(Ticker, {}) : createElement('span', { id: 'gone' }, 'unmounted'),
+      );
+    }
+
+    render(createElement(App, {}), document.getElementById('root')!);
+  });
+
+  // Ticker should be running
+  await expect(page.locator('#ticker')).toBeAttached();
+
+  // Wait for a couple ticks
+  await page.waitForTimeout(350);
+  const countBefore = Number(await page.locator('#tick-count').textContent());
+  expect(countBefore).toBeGreaterThanOrEqual(2);
+
+  // Unmount the ticker
+  await page.evaluate(() => {
+    (window as unknown as { setShow: (v: boolean) => void }).setShow(false);
+  });
+
+  await expect(page.locator('#gone')).toHaveText('unmounted');
+
+  // The ticker should be gone and the interval stopped (signal aborted)
+  await expect(page.locator('#ticker')).not.toBeAttached();
+
+  await page.screenshot({ path: '/tmp/visual-abort-signal-unmount.png' });
+});
+
+test('useEffect: AbortSignal aborts async work (fetch-like) on deps change', async ({ page }) => {
+  await setupPage(page);
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useEffect } = (
+      window as unknown as { Yielderact: typeof import('../src/index') }
+    ).Yielderact;
+
+    function* AsyncWorker({ taskId }: { taskId: number }) {
+      const [result, setResult] = yield* useState('pending');
+
+      yield* useEffect(
+        (signal: AbortSignal) => {
+          setResult('pending');
+          // Simulate async work that respects the signal
+          const timer = setTimeout(() => {
+            if (!signal.aborted) {
+              setResult(`done-${taskId}`);
+            }
+          }, 300);
+
+          signal.addEventListener(
+            'abort',
+            () => {
+              clearTimeout(timer);
+              setResult(`cancelled-${taskId}`);
+            },
+            { once: true },
+          );
+        },
+        [taskId],
+      );
+
+      return createElement('span', { id: 'async-result' }, result);
+    }
+
+    function* App() {
+      const [taskId, setTaskId] = yield* useState(1);
+      (window as unknown as Record<string, unknown>).setTaskId = setTaskId;
+
+      return createElement(
+        'div',
+        null,
+        createElement('span', { id: 'task-id' }, String(taskId)),
+        createElement(AsyncWorker, { taskId }),
+      );
+    }
+
+    render(createElement(App, {}), document.getElementById('root')!);
+  });
+
+  // Initial: pending then resolves to done-1
+  await expect(page.locator('#async-result')).toHaveText('done-1', { timeout: 2000 });
+
+  // Change task before it can complete — previous is cancelled, new one starts
+  await page.evaluate(() => {
+    (window as unknown as { setTaskId: (v: number) => void }).setTaskId(2);
+  });
+
+  // Should quickly show cancelled for task 1, then resolve to done-2
+  await expect(page.locator('#async-result')).toHaveText('done-2', { timeout: 2000 });
+  await expect(page.locator('#task-id')).toHaveText('2');
+
+  await page.screenshot({ path: '/tmp/visual-abort-signal-async-cancel.png' });
 });

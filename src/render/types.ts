@@ -44,8 +44,6 @@ export interface GenInstance {
    * Cleared at the start of each re-render so it only reflects the current render.
    */
   consumedContexts: Set<Context<unknown>>;
-  /** Re-runs this component's generator body with current props and `capturedCtx`. */
-  rerender: () => void;
   /** Reconciled slots representing the generator's last rendered output. */
   slots: Slot[];
   /**
@@ -66,7 +64,11 @@ export interface GenInstance {
    * Flushed after the DOM is updated, but only when the generator has fully
    * returned (gen === null). Cleared at the start of each render pass.
    */
-  pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }>;
+  pendingEffects: Array<{
+    hookIndex: number;
+    fn: (signal: AbortSignal) => (() => void) | void;
+    controller: AbortController;
+  }>;
   /**
    * Effective `$patch` behaviour for this component.
    * Resolved from the component's own `$patch` prop (if any) falling back to
@@ -83,4 +85,31 @@ export interface GenInstance {
    * instance.  > 0 means this instance's DOM writes are deferred by a local patch.
    */
   localPatchRefCount: number;
+  /**
+   * True while the generator body (`runHooks`) is executing synchronously.
+   * A `setState` call that arrives while this flag is set is queued rather
+   * than executed immediately, preventing recursive re-renders.
+   */
+  isRendering: boolean;
+  /**
+   * True when at least one rerender was queued while `isRendering` was set.
+   * The active `runHooks` loop polls this flag and exits early when it is
+   * set, discarding the stale partial render.  The queued rerender then
+   * runs from the top with the accumulated latest state.
+   */
+  pendingRerender: boolean;
+  /**
+   * Resolver callbacks for `Promise<void>` values returned by `setState`
+   * calls that were queued during an active render.  Flushed (resolved)
+   * after the next committed render so that `await setState(value)` resumes
+   * only once the new state is visible in the DOM.
+   */
+  renderResolvers: Array<() => void>;
+  /**
+   * Triggers a full re-render of this component from the top of its generator
+   * body.  Used by the reconciler to selectively rerender context consumers
+   * whose subscribed slice changed while their Provider's subtree is
+   * reconciled in-place.
+   */
+  rerender: () => void;
 }
