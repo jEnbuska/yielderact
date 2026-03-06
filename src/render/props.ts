@@ -63,39 +63,67 @@ export function applyProps(el: HTMLElement, props: Record<string, unknown>): voi
 
 /**
  * Diff and update props on an existing DOM element.
- * Removes stale event listeners/attributes and applies new ones.
+ * Only touches the DOM when a prop was added, removed, or changed.
  */
 export function updateProps(
   el: HTMLElement,
   prevProps: Record<string, unknown>,
   nextProps: Record<string, unknown>,
 ): void {
-  // Always remove old event listeners (they may be replaced by new functions)
+  // 1. Remove props that no longer exist in nextProps
   for (const key in prevProps) {
     if (key === 'children' || key === '$shown' || key === '$patch') continue;
-    if (key === 'style') {
-      // Remove style properties that are no longer present in nextProps.style
-      const prevStyle = prevProps[key] as Record<string, string> | null | undefined;
-      const nextStyle = nextProps[key] as Record<string, string> | null | undefined;
-      if (prevStyle && typeof prevStyle === 'object') {
-        for (const styleProp in prevStyle) {
-          if (!nextStyle || !(styleProp in nextStyle)) {
+    if (key in nextProps) continue;
+    if (key.startsWith('on') && typeof prevProps[key] === 'function') {
+      removeSyntheticListener(el, key.slice(2).toLowerCase());
+    } else if (key === 'className') {
+      el.className = '';
+    } else if (key === 'htmlFor') {
+      el.removeAttribute('for');
+    } else if (key === 'style') {
+      el.removeAttribute('style');
+    } else {
+      el.removeAttribute(key);
+    }
+  }
+
+  // 2. Add or update props that changed
+  for (const key in nextProps) {
+    if (key === 'children' || key === '$shown' || key === '$patch') continue;
+    const next = nextProps[key];
+    const prev = prevProps[key];
+    if (Object.is(next, prev)) continue;
+
+    if (key.startsWith('on') && typeof next === 'function') {
+      if (typeof prev === 'function') removeSyntheticListener(el, key.slice(2).toLowerCase());
+      addSyntheticListener(el, key.slice(2).toLowerCase(), next as (e: SyntheticEvent) => void);
+    } else if (key === 'style' && typeof next === 'object' && next !== null) {
+      // Clear removed style properties, then apply current ones
+      if (typeof prev === 'object' && prev !== null) {
+        for (const styleProp in prev as Record<string, unknown>) {
+          if (!(styleProp in (next as Record<string, unknown>))) {
             el.style[styleProp as never] = '';
           }
         }
       }
-    } else if (key.startsWith('on') && typeof prevProps[key] === 'function') {
-      removeSyntheticListener(el, key.slice(2).toLowerCase());
-    } else if (!(key in nextProps)) {
-      if (key === 'className') {
-        el.className = '';
-      } else if (key === 'htmlFor') {
-        el.removeAttribute('for');
-      } else {
-        el.removeAttribute(key);
-      }
+      Object.assign(el.style, next);
+    } else if (key === 'className') {
+      el.className = String(next);
+    } else if (key === 'htmlFor') {
+      el.setAttribute('for', String(next));
+    } else if (
+      key === 'value' &&
+      (el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        el instanceof HTMLSelectElement)
+    ) {
+      (el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = String(next ?? '');
+    } else if (key === 'checked' && el instanceof HTMLInputElement) {
+      el.checked = Boolean(next);
+    } else if (next === false) {
+      el.removeAttribute(key);
+    } else if (next != null) {
+      el.setAttribute(key, String(next));
     }
   }
-  // Apply all current props (re-adds event listeners + sets attrs)
-  applyProps(el, nextProps);
 }
