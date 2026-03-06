@@ -997,3 +997,187 @@ describe('live-only reconcile: element add/remove during local patch', () => {
     expect(container.querySelector('#target')).toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Prop updates on child components after patch commit (regression for the
+// prevSlot.props = allProps bug in live-only skip path)
+// ---------------------------------------------------------------------------
+
+describe('child component prop updates apply correctly after global patch commit', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+    commitUIPatch();
+  });
+
+  it('child component reflects changed props (e.g. isPending=false) after commit', () => {
+    // Regression: mirrors the real demo flow where setIsPending(true) fires
+    // BEFORE the patch (so the DOM shows disabled/wait), then setIsPending(false)
+    // fires INSIDE the patch, and the button must be enabled after commit.
+    let setPending: ((v: boolean) => Promise<void>) | null = null;
+
+    function* Nav(props: { isPending: boolean }) {
+      return createElement('button', { id: 'btn', disabled: props.isPending }, 'click');
+    }
+
+    function* App() {
+      const [isPending, setP] = yield* useState(false);
+      setPending = setP;
+      return createElement('div', null, createElement(Nav as never, { isPending }));
+    }
+
+    render(createElement(App as never, {}), container);
+    expect(container.querySelector('#btn')!.hasAttribute('disabled')).toBe(false);
+
+    // Set isPending=true BEFORE the patch (immediate DOM update — buttons disabled)
+    setPending!(true);
+    expect(container.querySelector('#btn')!.hasAttribute('disabled')).toBe(true);
+
+    startUIPatch();
+    // Inside patch, clear isPending — DOM frozen (buttons still disabled)
+    setPending!(false);
+    expect(container.querySelector('#btn')!.hasAttribute('disabled')).toBe(true);
+
+    commitUIPatch();
+    // After commit: isPending=false must be applied — button must be enabled
+    expect(container.querySelector('#btn')!.hasAttribute('disabled')).toBe(false);
+  });
+
+  it('child receives isPending=true during patch, then isPending=false at commit', () => {
+    let setPending: ((v: boolean) => Promise<void>) | null = null;
+    const renderLog: boolean[] = [];
+
+    function* Status(props: { pending: boolean }) {
+      renderLog.push(props.pending);
+      return createElement('span', { id: 'status' }, props.pending ? 'loading' : 'done');
+    }
+
+    function* App() {
+      const [pending, setP] = yield* useState(false);
+      setPending = setP;
+      return createElement('div', null, createElement(Status as never, { pending }));
+    }
+
+    render(createElement(App as never, {}), container);
+    expect(container.querySelector('#status')!.textContent).toBe('done');
+    renderLog.length = 0;
+
+    startUIPatch();
+    setPending!(true); // App rerenders with pending=true; Status deferred
+    // DOM frozen
+    expect(container.querySelector('#status')!.textContent).toBe('done');
+
+    commitUIPatch();
+    // After commit, Status must reflect pending=true
+    expect(container.querySelector('#status')!.textContent).toBe('loading');
+    expect(renderLog[renderLog.length - 1]).toBe(true);
+  });
+
+  it('commit applies the FINAL props when child receives multiple prop changes during patch', () => {
+    let setLabel: ((v: string) => Promise<void>) | null = null;
+
+    function* Label(props: { text: string }) {
+      return createElement('span', { id: 'label' }, props.text);
+    }
+
+    function* App() {
+      const [text, setText] = yield* useState('a');
+      setLabel = setText;
+      return createElement('div', null, createElement(Label as never, { text }));
+    }
+
+    render(createElement(App as never, {}), container);
+    expect(container.querySelector('#label')!.textContent).toBe('a');
+
+    startUIPatch();
+    setLabel!('b');
+    setLabel!('c');
+    // Frozen during patch
+    expect(container.querySelector('#label')!.textContent).toBe('a');
+
+    commitUIPatch();
+    // Final value after commit
+    expect(container.querySelector('#label')!.textContent).toBe('c');
+  });
+});
+
+describe('child component prop updates apply correctly after local patch commit', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+  });
+
+  it('child reflects changed props after local commit', () => {
+    // Regression: mirrors the real demo where isPending=true fires BEFORE the patch,
+    // then isPending=false fires inside the patch — button must be enabled after commit.
+    let setPending: ((v: boolean) => Promise<void>) | null = null;
+    let capturedStartPatch: (() => () => void) | null = null;
+
+    function* Nav(props: { isPending: boolean }) {
+      return createElement('button', { id: 'btn', disabled: props.isPending }, 'click');
+    }
+
+    function* App() {
+      const startPatch = yield* useUIPatch();
+      capturedStartPatch = startPatch;
+      const [isPending, setP] = yield* useState(false);
+      setPending = setP;
+      return createElement('div', null, createElement(Nav as never, { isPending }));
+    }
+
+    render(createElement(App as never, {}), container);
+    expect(container.querySelector('#btn')!.hasAttribute('disabled')).toBe(false);
+
+    // Set isPending=true BEFORE patch (immediate DOM update)
+    setPending!(true);
+    expect(container.querySelector('#btn')!.hasAttribute('disabled')).toBe(true);
+
+    const commit = capturedStartPatch!();
+    // Inside patch, clear isPending — DOM frozen (still disabled)
+    setPending!(false);
+    expect(container.querySelector('#btn')!.hasAttribute('disabled')).toBe(true);
+
+    commit();
+    // After commit: isPending=false applied — button must be enabled
+    expect(container.querySelector('#btn')!.hasAttribute('disabled')).toBe(false);
+  });
+
+  it('local patch: child isPending=true at commit time shows loading state', () => {
+    let setPending: ((v: boolean) => Promise<void>) | null = null;
+    let capturedStartPatch: (() => () => void) | null = null;
+
+    function* Status(props: { pending: boolean }) {
+      return createElement('span', { id: 'status' }, props.pending ? 'loading' : 'done');
+    }
+
+    function* App() {
+      const startPatch = yield* useUIPatch();
+      capturedStartPatch = startPatch;
+      const [pending, setP] = yield* useState(false);
+      setPending = setP;
+      return createElement('div', null, createElement(Status as never, { pending }));
+    }
+
+    render(createElement(App as never, {}), container);
+    expect(container.querySelector('#status')!.textContent).toBe('done');
+
+    const commit = capturedStartPatch!();
+    setPending!(true); // App rerenders; Status deferred
+    expect(container.querySelector('#status')!.textContent).toBe('done');
+
+    commit();
+    expect(container.querySelector('#status')!.textContent).toBe('loading');
+  });
+});

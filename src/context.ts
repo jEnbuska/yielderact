@@ -28,6 +28,18 @@ const PROVIDER_CTX = Symbol('providerCtx');
 export const USE_CONTEXT = Symbol('useContext');
 
 // ---------------------------------------------------------------------------
+// Internal descriptor type for useContext (carries optional selector/transform)
+// ---------------------------------------------------------------------------
+
+/** @internal */
+export interface UseContextDescriptor {
+  type: typeof USE_CONTEXT;
+  ctx: Context<unknown>;
+  selector: ((ctx: unknown) => unknown[]) | undefined;
+  transform: ((...args: unknown[]) => unknown) | undefined;
+}
+
+// ---------------------------------------------------------------------------
 // Module-level context map (updated during rendering)
 // ---------------------------------------------------------------------------
 
@@ -82,17 +94,50 @@ export function createContext<T>(defaultValue: T): Context<T> {
  * The renderer intercepts the yielded descriptor, looks up the current context
  * value, and sends it back — the hook then returns it to the component.
  *
+ * **Overload 1 — no selector (current behavior):**
+ * The component rerenders whenever the Provider's `value` reference changes.
+ *
+ * **Overload 2 — selector only:**
+ * `selector` is called on each new Provider value. The component only rerenders
+ * when the selected deps array changes (shallow comparison via `depsChanged`).
+ * The full context value is still returned.
+ *
+ * **Overload 3 — selector + transform:**
+ * Same rerender guard as overload 2; additionally the *return value* is
+ * `transform(...selectorDeps)` instead of the raw context value.
+ *
  * @example
- * function* Child() {
- *   const theme = yield* useContext(ThemeCtx);
- *   return <div className={theme}>content</div>;
- * }
+ * // 1. Always rerenders on context change
+ * const ctx = yield* useContext(MyCtx);
+ *
+ * // 2. Rerenders only when currentGroup changes; returns full ctx
+ * const { currentGroup } = yield* useContext(MyCtx, (c) => [c.currentGroup]);
+ *
+ * // 3. Rerenders only when currentGroup changes; returns the group directly
+ * const group = yield* useContext(MyCtx, (c) => [c.currentGroup], (...args) => args[0]);
  */
-export function* useContext<T>(
+export function useContext<T>(ctx: Context<T>): Generator<UseContextDescriptor, T, unknown>;
+export function useContext<T>(
   ctx: Context<T>,
-): Generator<{ type: typeof USE_CONTEXT; ctx: Context<unknown> }, T, unknown> {
-  const value = yield { type: USE_CONTEXT, ctx: ctx as Context<unknown> };
-  return value as T;
+  selector: (ctx: T) => unknown[],
+): Generator<UseContextDescriptor, T, unknown>;
+export function useContext<T, D extends unknown[], R>(
+  ctx: Context<T>,
+  selector: (ctx: T) => D,
+  transform: (...args: D) => R,
+): Generator<UseContextDescriptor, R, unknown>;
+export function* useContext<T, D extends unknown[], R>(
+  ctx: Context<T>,
+  selector?: (ctx: T) => D,
+  transform?: (...args: D) => R,
+): Generator<UseContextDescriptor, T | R, unknown> {
+  const value = yield {
+    type: USE_CONTEXT,
+    ctx: ctx as Context<unknown>,
+    selector: selector as ((ctx: unknown) => unknown[]) | undefined,
+    transform: transform as ((...args: unknown[]) => unknown) | undefined,
+  };
+  return value as T | R;
 }
 
 // ---------------------------------------------------------------------------

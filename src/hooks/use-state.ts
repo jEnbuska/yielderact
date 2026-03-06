@@ -29,7 +29,7 @@ import { USE_STATE } from './symbols';
  */
 export function* useState<T>(
   initialValue: T | (() => T),
-): Generator<unknown, [T, (value: T | ((prev: T) => T)) => void], unknown> {
+): Generator<unknown, [T, (value: T | ((prev: T) => T)) => Promise<void>], unknown> {
   const stateTuple = yield { type: USE_STATE, initialValue };
-  return stateTuple as [T, (value: T | ((prev: T) => T)) => void];
+  return stateTuple as [T, (value: T | ((prev: T) => T)) => Promise<void>];
 }

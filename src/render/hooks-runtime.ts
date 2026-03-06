@@ -101,6 +101,41 @@ export function collectDescendants(instance: GenInstance): GenInstance[] {
 }
 
 /**
+ * Collect all descendant `GenInstance`s reachable from a `Slot[]` (rather
+ * than from a `GenInstance`).  Used by the reconciler to scan Provider
+ * children for context consumers when evaluating selective rerenders.
+ */
+export function collectDescendantsFromSlots(slots: Slot[]): GenInstance[] {
+  const result: GenInstance[] = [];
+  function walk(s: Slot[]): void {
+    for (const slot of s) {
+      if (slot.genInstance) {
+        result.push(slot.genInstance);
+        walk(slot.genInstance.slots);
+      }
+      walk(slot.childSlots);
+    }
+  }
+  walk(slots);
+  return result;
+}
+
+/**
+ * Persistent hook state stored for a `useContext` call that has a selector.
+ * Holds the last computed deps and result so that re-renders can be skipped
+ * when the subscribed slice of the context value has not changed.
+ *
+ * @internal
+ */
+export type UseContextState = {
+  ctx: Context<unknown>;
+  selector: ((ctx: unknown) => unknown[]) | undefined;
+  transform: ((...args: unknown[]) => unknown) | undefined;
+  lastDeps: unknown[] | undefined;
+  lastResult: unknown;
+};
+
+/**
  * Process a single hook descriptor and return the value to send back to the
  * generator via `gen.next(value)`.
  */
@@ -114,7 +149,7 @@ export function processOneDescriptor(
     fn: (signal: AbortSignal) => (() => void) | void;
     controller: AbortController;
   }>,
-  rerender: () => void,
+  rerender: () => Promise<void>,
   resume: () => void,
   instance: GenInstance,
 ): unknown {
@@ -124,12 +159,12 @@ export function processOneDescriptor(
         const init = descriptor['initialValue'];
         hookStates[hookIndex] = typeof init === 'function' ? (init as () => unknown)() : init;
       }
-      const setter = (newValue: unknown): void => {
+      const setter = (newValue: unknown): Promise<void> => {
         hookStates[hookIndex] =
           typeof newValue === 'function'
             ? (newValue as (prev: unknown) => unknown)(hookStates[hookIndex])
             : newValue;
-        rerender();
+        return rerender();
       };
       return [hookStates[hookIndex], setter];
     }
@@ -160,9 +195,36 @@ export function processOneDescriptor(
 
     case USE_CONTEXT: {
       const ctx = descriptor['ctx'] as Context<unknown>;
+      const selector = descriptor['selector'] as ((ctx: unknown) => unknown[]) | undefined;
+      const transform = descriptor['transform'] as ((...args: unknown[]) => unknown) | undefined;
       const ctxMap = _getCtxMap();
-      const value = ctxMap.get(ctx);
-      return value !== undefined ? value : ctx._defaultValue;
+      const rawValue = ctxMap.has(ctx) ? ctxMap.get(ctx) : ctx._defaultValue;
+
+      if (!selector) {
+        hookStates[hookIndex] = {
+          ctx,
+          selector: undefined,
+          transform: undefined,
+          lastDeps: undefined,
+          lastResult: rawValue,
+        } satisfies UseContextState;
+        return rawValue;
+      }
+
+      const newDeps = selector(rawValue);
+      const prev = hookStates[hookIndex] as UseContextState | undefined;
+      if (prev?.selector && !depsChanged(prev.lastDeps, newDeps)) {
+        return prev.lastResult;
+      }
+      const result = transform ? transform(...newDeps) : rawValue;
+      hookStates[hookIndex] = {
+        ctx,
+        selector,
+        transform,
+        lastDeps: newDeps,
+        lastResult: result,
+      } satisfies UseContextState;
+      return result;
     }
 
     case USE_RESOLVE_RAW: {
@@ -332,11 +394,12 @@ export function processOneDescriptor(
 export function runHooks(
   gen: Generator<unknown, Child, unknown>,
   instance: GenInstance,
-  rerender: () => void,
+  rerender: () => Promise<void>,
   resume: () => void,
 ): {
   vnode: Child;
   gen: Generator<unknown, Child, unknown> | null;
+  cancelled: boolean;
 } {
   let hookIndex = 0;
   let result = gen.next(undefined as unknown);
@@ -353,11 +416,17 @@ export function runHooks(
       resume,
       instance,
     );
+    // A mid-render state change was queued — abort this stale render so the
+    // next iteration of executeRerender picks up the accumulated latest state.
+    if (instance.pendingRerender) {
+      return { vnode: null, gen: null, cancelled: true };
+    }
     result = gen.next(value);
   }
 
   return {
-    vnode: (result.value as import('../jsx').Child) ?? null,
+    vnode: (result.value as Child) ?? null,
     gen: result.done ? null : gen,
+    cancelled: false,
   };
 }

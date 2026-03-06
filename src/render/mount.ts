@@ -193,15 +193,13 @@ export function mountGeneratorComponent(
     controller: AbortController;
   }> = [];
 
-  // `instance` is assigned in the initial-mount block below before any
-  // external code can observe it.  `resume` and `rerender` close over it.
+  // `instance` is assigned before any external code can observe it.
+  // `resume`, `rerender`, and `executeRerender` all close over it.
   let instance: GenInstance;
 
   /**
-   * Called when the settled promise wants to show its result.
-   * If the generator is still paused (waiting for the promise), resume it.
-   * If the generator has already completed (e.g. due to a concurrent
-   * state-change re-render), there is nothing to do.
+   * Called when a paused generator (e.g. inside useResolve) is ready to
+   * continue.  Resumes the stored generator one step and reconciles the DOM.
    */
   function resume(): void {
     if (instance.gen === null) return;
@@ -226,8 +224,6 @@ export function mountGeneratorComponent(
     if (shouldDefer) {
       instance.pendingVNode = vnode;
       renderState.dirtyInstances.add(instance);
-      // Immediately flush any $patch="live" descendants even though this
-      // component itself is frozen.
       const prevLiveOnly = renderState.liveOnlyMode;
       renderState.liveOnlyMode = true;
       try {
@@ -243,59 +239,117 @@ export function mountGeneratorComponent(
   }
 
   /**
-   * Called by useState setters and external rerender requests.
-   * Always performs a fresh generator run so that the component body
-   * re-executes and picks up the latest state / props / context values.
-   * Any currently-paused generator is discarded first.
+   * Runs the generator body in a loop, retrying whenever a mid-render state
+   * change is detected.  Both the initial mount and all subsequent rerenders
+   * use this function so the cancellation logic is shared.
+   *
+   * On the initial call `mounted` is false; the first successful render
+   * appends nodes to the host.  On subsequent calls it reconciles in place.
    */
-  function rerender(): void {
-    const prevCtx = _getCtxMap();
-    _setCtxMap(instance.capturedCtx);
+  function executeRerender(mounted: boolean): Promise<void> {
+    // eslint-disable-next-line no-constant-condition
+    while (true) {
+      instance.isRendering = true;
+      // Discard any paused generator; the fresh run starts from the top.
+      instance.gen = null;
+      instance.pendingEffects.length = 0;
 
-    // Discard a paused generator so the fresh run starts from the top.
-    instance.gen = null;
-    instance.pendingEffects.length = 0;
+      const prevCtx = _getCtxMap();
+      _setCtxMap(instance.capturedCtx);
+      const prevBatch = renderState.currentBatchBehavior;
+      renderState.currentBatchBehavior = instance.batchBehavior;
 
-    let vnode: Child;
-    const prevBatch = renderState.currentBatchBehavior;
-    renderState.currentBatchBehavior = instance.batchBehavior;
-    try {
-      const gen = instance.fn(instance.props, rerender);
-      const { vnode: v, gen: newGen } = runHooks(gen, instance, rerender, resume);
-      instance.gen = newGen;
-      vnode = v;
-    } finally {
-      renderState.currentBatchBehavior = prevBatch;
-      _setCtxMap(prevCtx);
-    }
-
-    const shouldDefer =
-      (renderState.patchDepth > 0 || instance.localPatchRefCount > 0) &&
-      instance.batchBehavior !== 'live';
-    if (shouldDefer) {
-      instance.pendingVNode = vnode;
-      renderState.dirtyInstances.add(instance);
-      // Immediately flush any $patch="live" descendants even though this
-      // component itself is frozen.
-      const prevLiveOnly = renderState.liveOnlyMode;
-      renderState.liveOnlyMode = true;
+      let vnode: Child;
+      let cancelled = false;
       try {
-        instance.slots = reconcileSlots(host, instance.slots, [vnode]);
+        const gen = instance.fn(instance.props, rerender);
+        const result = runHooks(gen, instance, rerender, resume);
+        instance.gen = result.gen;
+        vnode = result.vnode;
+        cancelled = result.cancelled;
       } finally {
-        renderState.liveOnlyMode = prevLiveOnly;
+        renderState.currentBatchBehavior = prevBatch;
+        _setCtxMap(prevCtx);
+        instance.isRendering = false;
       }
-    } else {
-      instance.pendingVNode = undefined;
-      instance.slots = reconcileSlots(host, instance.slots, [vnode]);
-      flushEffects(instance);
+
+      if (cancelled) {
+        // A mid-render setState was queued — retry with the accumulated state.
+        instance.pendingRerender = false;
+        continue;
+      }
+
+      // ── Commit ──
+      if (!mounted) {
+        // Initial mount: build nodes and append to the host element.
+        const { nodes, slots } = buildVNodeList([vnode]);
+        instance.slots = slots;
+        for (const n of nodes) host.appendChild(n);
+        mounted = true;
+        flushEffects(instance);
+      } else {
+        // Rerender: reconcile existing DOM in place.
+        const shouldDefer =
+          (renderState.patchDepth > 0 || instance.localPatchRefCount > 0) &&
+          instance.batchBehavior !== 'live';
+        if (shouldDefer) {
+          instance.pendingVNode = vnode;
+          renderState.dirtyInstances.add(instance);
+          // Immediately flush any $patch="live" descendants even though this
+          // component itself is frozen.
+          const prevLiveOnly = renderState.liveOnlyMode;
+          renderState.liveOnlyMode = true;
+          try {
+            instance.slots = reconcileSlots(host, instance.slots, [vnode]);
+          } finally {
+            renderState.liveOnlyMode = prevLiveOnly;
+          }
+        } else {
+          instance.pendingVNode = undefined;
+          instance.slots = reconcileSlots(host, instance.slots, [vnode]);
+          flushEffects(instance);
+        }
+      }
+
+      // Resolve all Promise<void>s returned by setState calls that were
+      // queued during this render batch.
+      const resolvers = instance.renderResolvers.splice(0);
+      for (const resolve of resolvers) resolve();
+
+      // A follow-up rerender may have been requested (e.g. from an effect or
+      // an async callback that fired synchronously after resolve()).
+      if (instance.pendingRerender) {
+        instance.pendingRerender = false;
+        continue;
+      }
+
+      return Promise.resolve();
     }
+  }
+
+  /**
+   * Called by useState setters and external rerender requests.
+   *
+   * If a render is already in progress (isRendering), the request is queued:
+   * `pendingRerender` is set so the active `runHooks` loop exits early, and
+   * a Promise is returned that resolves after the next committed render.
+   *
+   * Otherwise `executeRerender` is called immediately.
+   */
+  function rerender(): Promise<void> {
+    if (instance.isRendering) {
+      instance.pendingRerender = true;
+      return new Promise<void>((resolve) => {
+        instance.renderResolvers.push(resolve);
+      });
+    }
+    return executeRerender(true /* already mounted */);
   }
 
   // ── Initial mount ──
   // Create the instance before calling runHooks so that processOneDescriptor
   // (e.g. USE_UI_PATCH) can close over the fully-typed instance object.
-  // `gen` and `slots` are filled in after runHooks returns.
-  // Resolve $patch from own prop (if set) falling back to inherited value.
+  // Resolve $patch from own prop (if set) falling back to the inherited value.
   const ownBatch =
     (props['$patch'] as 'live' | 'default' | undefined) ?? renderState.currentBatchBehavior;
   instance = {
@@ -311,25 +365,14 @@ export function mountGeneratorComponent(
     batchBehavior: ownBatch,
     pendingVNode: undefined,
     localPatchRefCount: 0,
+    isRendering: false,
+    pendingRerender: false,
+    renderResolvers: [],
+    rerender,
   };
   renderState.genInstanceMap.set(host, instance);
 
-  const prevCtx = _getCtxMap();
-  _setCtxMap(capturedCtx);
-  const prevBatchMount = renderState.currentBatchBehavior;
-  renderState.currentBatchBehavior = instance.batchBehavior;
-  try {
-    const gen = fn(props, rerender);
-    const { vnode, gen: initialGen } = runHooks(gen, instance, rerender, resume);
-    instance.gen = initialGen;
-    const { nodes, slots } = buildVNodeList([vnode]);
-    instance.slots = slots;
-    for (const n of nodes) host.appendChild(n);
-  } finally {
-    renderState.currentBatchBehavior = prevBatchMount;
-    _setCtxMap(prevCtx);
-  }
-  flushEffects(instance);
+  executeRerender(false /* not yet mounted */);
 
   return host;
 }

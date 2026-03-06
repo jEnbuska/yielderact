@@ -1,10 +1,11 @@
 import { type VNode, type Child, type AnyComponentFn, type PlainComponentFn } from '../jsx';
-import { _getCtxMap, _setCtxMap, _getProviderCtx } from '../context';
-import { type Slot } from './types';
+import { _getCtxMap, _setCtxMap, _getProviderCtx, type Context } from '../context';
+import { depsChanged } from '../hooks';
+import { type Slot, type GenInstance } from './types';
 import { renderState } from './state';
 import { applyProps, updateProps } from './props';
 import { isGeneratorFn, shallowEqual, flattenChildren, mergedProps, isShown } from './helpers';
-import { unmountSlot } from './hooks-runtime';
+import { unmountSlot, collectDescendantsFromSlots, type UseContextState } from './hooks-runtime';
 import {
   mountGeneratorComponent,
   mountContextProvider,
@@ -177,10 +178,17 @@ function reconcileOne(
           renderState.currentBatchBehavior;
         if (effectiveBatch !== 'live') {
           if (prevSlot.genInstance) prevSlot.genInstance.batchBehavior = effectiveBatch;
-          // Keep prevSlot.props in sync with the pending props so that the commit-time
-          // reconcile sees shallowEqual → true and skips a spurious remount.
-          // Skip for context Providers — their value change must survive to commit.
-          if (!providerCtx) prevSlot.props = allProps;
+          // Forward only framework meta-prop changes ($patch, $shown) to prevent
+          // spurious remounts at commit time when e.g. $patch mode changed.
+          // Content prop changes (e.g. isPending: false) must NOT be written here —
+          // they must survive to commit so that shallowEqual detects the diff and
+          // the component is actually re-rendered with the new props.
+          if (!providerCtx) {
+            const hasContentChange = Object.keys({ ...prevSlot.props, ...allProps }).some(
+              (k) => k !== '$patch' && k !== '$shown' && !Object.is(prevSlot.props[k], allProps[k]),
+            );
+            if (!hasContentChange) prevSlot.props = allProps;
+          }
           return { slot: prevSlot, node: prevSlot.node, replaced: false };
         }
       }
@@ -214,7 +222,66 @@ function reconcileOne(
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
 
-      // Other component types (or Provider whose value changed) → remount from scratch.
+      // Context Provider whose value changed — selective in-place reconcile.
+      //
+      // Rather than fully remounting the Provider subtree (which resets all
+      // descendant hook state), we:
+      //   1. Update capturedCtx on every existing descendant so future
+      //      self-triggered rerenders see the new value.
+      //   2. Identify which consumers need an immediate rerender — those with
+      //      no selector, or whose selector deps changed under the new value.
+      //   3. Reconcile the Provider's children in-place (handles structural
+      //      changes; skips components whose props are unchanged).
+      //   4. After the structural reconcile, call rerender() on each consumer
+      //      that needs it.  Consumers with stable selectors are left alone —
+      //      their hook state (useState, useRef, …) is fully preserved.
+      if (providerCtx) {
+        const newValue = allProps.value;
+        const descendants = collectDescendantsFromSlots(prevSlot.childSlots);
+
+        // Step 1 — patch capturedCtx on existing descendants.
+        for (const inst of descendants) {
+          const updated = new Map(inst.capturedCtx);
+          updated.set(providerCtx as never, newValue);
+          inst.capturedCtx = updated;
+        }
+
+        // Step 2 — identify consumers that need an immediate rerender.
+        const toRerender = descendants.filter(
+          (inst) => !_hasStableContextSelectors(inst, providerCtx, newValue),
+        );
+
+        // Step 3 — reconcile children in-place with the updated ctxMap.
+        const prevCtxMap = _getCtxMap();
+        const newCtxMap = new Map(prevCtxMap);
+        newCtxMap.set(providerCtx as never, newValue as unknown);
+        _setCtxMap(newCtxMap);
+        try {
+          const childVNode = (fn as PlainComponentFn)(allProps);
+          if (childVNode != null) {
+            prevSlot.childSlots = reconcileSlots(
+              prevSlot.node as HTMLElement,
+              prevSlot.childSlots,
+              [childVNode],
+            );
+          }
+        } finally {
+          _setCtxMap(prevCtxMap);
+        }
+
+        // Step 4 — rerender only the consumers whose subscribed slice changed.
+        // Guard with isConnected in case the reconcile above unmounted some.
+        for (const inst of toRerender) {
+          if (inst.host.isConnected) {
+            inst.rerender();
+          }
+        }
+
+        prevSlot.props = allProps;
+        return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+
+      // Other component types → remount from scratch.
     }
 
     // In live-only mode, structural changes (type mismatch or no prevSlot) only proceed
@@ -319,4 +386,32 @@ function reconcileOne(
     node,
     replaced: true,
   };
+}
+
+/**
+ * Returns `true` when every `useContext` hook call in `inst` that subscribes
+ * to `ctx` has a selector whose selected deps are unchanged under `newValue`.
+ *
+ * An instance that does not consume `ctx` at all is considered stable
+ * (vacuously true — no rerender needed for it).
+ * An instance that consumes `ctx` without a selector always returns `false`
+ * because it must rerender whenever the Provider value changes.
+ */
+function _hasStableContextSelectors(
+  inst: GenInstance,
+  ctx: Context<unknown>,
+  newValue: unknown,
+): boolean {
+  let foundAny = false;
+  for (const s of inst.hookStates) {
+    if (s == null || typeof s !== 'object') continue;
+    const state = s as UseContextState;
+    if (state.ctx !== ctx) continue;
+    foundAny = true;
+    if (!state.selector) return false;
+    const newDeps = state.selector(newValue);
+    if (depsChanged(state.lastDeps, newDeps)) return false;
+  }
+  // If foundAny is false the instance doesn't consume this context → stable.
+  return true;
 }

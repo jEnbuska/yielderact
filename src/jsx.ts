@@ -46,7 +46,7 @@ export type Child = VNode | string | number | boolean | null | undefined;
  */
 export type GeneratorComponentFn<P extends Record<string, unknown> = Record<string, unknown>> = (
   props: P,
-  rerender: () => void,
+  rerender: () => Promise<void>,
 ) => Generator<Child, Child, unknown>;
 
 /**
