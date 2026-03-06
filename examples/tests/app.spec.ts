@@ -333,6 +333,54 @@ test.describe('UI Patch example', () => {
     await page.screenshot({ path: 'test-results/ui-patch-home.png' });
   });
 
+  // ── Navigation button state regression ──────────────────────────────────
+  // Regression for the bug where navigation buttons stayed disabled/cursor:wait
+  // after the UI patch committed, because prevSlot.props was pre-emptively
+  // updated during the live-only pass, causing shallowEqual to skip the
+  // Navigation component at commit time.
+
+  test('global patch: navigation buttons are re-enabled after patch commits', async ({ page }) => {
+    const aboutBtn = page.locator('nav button', { hasText: 'about' }).first();
+    await aboutBtn.click();
+
+    // Wait for navigation to complete and the about page to appear
+    await expect(page.locator('text=ℹ️ About').first()).toBeVisible({ timeout: 7000 });
+
+    // All navigation buttons must be re-enabled after the patch commits
+    const navButtons = page.locator('nav').first().locator('button');
+    await expect(navButtons.nth(0)).not.toBeDisabled();
+    await expect(navButtons.nth(1)).not.toBeDisabled();
+    await expect(navButtons.nth(2)).not.toBeDisabled();
+
+    // Button labels must be back to plain text (not '…' which shows during isPending)
+    await expect(navButtons.nth(0)).toHaveText('home');
+    await expect(navButtons.nth(1)).toHaveText('about');
+    await expect(navButtons.nth(2)).toHaveText('contact');
+
+    await page.screenshot({ path: 'test-results/ui-patch-global-nav-reenabled.png' });
+  });
+
+  test('local patch: navigation buttons are re-enabled after patch commits', async ({ page }) => {
+    const aboutBtn = page.locator('nav button', { hasText: 'about' }).nth(1);
+    await aboutBtn.click();
+
+    // Wait for navigation to complete and the about page to appear
+    await expect(page.locator('text=ℹ️ About').first()).toBeVisible({ timeout: 7000 });
+
+    // Navigation buttons in the local patch nav (second nav) must be re-enabled
+    const navButtons = page.locator('nav').nth(1).locator('button');
+    await expect(navButtons.nth(0)).not.toBeDisabled();
+    await expect(navButtons.nth(1)).not.toBeDisabled();
+    await expect(navButtons.nth(2)).not.toBeDisabled();
+
+    // Labels back to plain text
+    await expect(navButtons.nth(0)).toHaveText('home');
+    await expect(navButtons.nth(1)).toHaveText('about');
+    await expect(navButtons.nth(2)).toHaveText('contact');
+
+    await page.screenshot({ path: 'test-results/ui-patch-local-nav-reenabled.png' });
+  });
+
   test('clocks demo: renders all three clock variants', async ({ page }) => {
     await expect(page.locator('code', { hasText: '$patch="default"' }).first()).toBeVisible();
     await expect(page.locator('code', { hasText: '$patch="live"' }).first()).toBeVisible();

@@ -177,10 +177,17 @@ function reconcileOne(
           renderState.currentBatchBehavior;
         if (effectiveBatch !== 'live') {
           if (prevSlot.genInstance) prevSlot.genInstance.batchBehavior = effectiveBatch;
-          // Keep prevSlot.props in sync with the pending props so that the commit-time
-          // reconcile sees shallowEqual → true and skips a spurious remount.
-          // Skip for context Providers — their value change must survive to commit.
-          if (!providerCtx) prevSlot.props = allProps;
+          // Forward only framework meta-prop changes ($patch, $shown) to prevent
+          // spurious remounts at commit time when e.g. $patch mode changed.
+          // Content prop changes (e.g. isPending: false) must NOT be written here —
+          // they must survive to commit so that shallowEqual detects the diff and
+          // the component is actually re-rendered with the new props.
+          if (!providerCtx) {
+            const hasContentChange = Object.keys({ ...prevSlot.props, ...allProps }).some(
+              (k) => k !== '$patch' && k !== '$shown' && !Object.is(prevSlot.props[k], allProps[k]),
+            );
+            if (!hasContentChange) prevSlot.props = allProps;
+          }
           return { slot: prevSlot, node: prevSlot.node, replaced: false };
         }
       }
