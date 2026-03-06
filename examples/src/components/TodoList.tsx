@@ -105,11 +105,14 @@ export function* TodoList() {
           </li>
         ))}
       </ul>
-      {todos.length === 0 && (
-        <p id={emptyMsgId} data-testid="empty-message" style={{ color: '#888' }}>
-          No todos yet. Add one above!
-        </p>
-      )}
+      <p
+        $shown={todos.length === 0}
+        id={emptyMsgId}
+        data-testid="empty-message"
+        style={{ color: '#888' }}
+      >
+        No todos yet. Add one above!
+      </p>
     </section>
   );
 }

@@ -122,22 +122,24 @@ export function* AbortSignalEffectDemo() {
         Show panel
       </label>
 
-      {showPanel && (
-        <table style={{ borderCollapse: 'collapse', width: '100%' }} data-testid="signal-table">
-          <thead>
-            <tr>
-              <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>User</th>
-              <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>Status</th>
-              <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>Abort count</th>
-            </tr>
-          </thead>
-          <tbody>
-            <SignalRow userId={1} activeId={activeId} />
-            <SignalRow userId={2} activeId={activeId} />
-            <SignalRow userId={3} activeId={activeId} />
-          </tbody>
-        </table>
-      )}
+      <table
+        $shown={showPanel}
+        style={{ borderCollapse: 'collapse', width: '100%' }}
+        data-testid="signal-table"
+      >
+        <thead>
+          <tr>
+            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>User</th>
+            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>Status</th>
+            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>Abort count</th>
+          </tr>
+        </thead>
+        <tbody>
+          <SignalRow userId={1} activeId={activeId} />
+          <SignalRow userId={2} activeId={activeId} />
+          <SignalRow userId={3} activeId={activeId} />
+        </tbody>
+      </table>
     </section>
   );
 }

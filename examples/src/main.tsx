@@ -87,18 +87,18 @@ function* App() {
 
       {/* Active panel */}
       <div id="example-panel">
-        {activeTab === 'counter' && <Counter />}
-        {activeTab === 'todos' && <TodoList />}
-        {activeTab === 'theme' && <ThemeDemo />}
-        {activeTab === 'data' && <DataFetcher />}
-        {activeTab === 'raw' && <ResolveRawDemo />}
-        {activeTab === 'hooks' && <HooksShowcase />}
-        {activeTab === 'shown' && <ShownDemo />}
-        {activeTab === 'confirm' && <ConfirmDialog />}
-        {activeTab === 'effect' && <EffectDemo />}
-        {activeTab === 'transition' && <TransitionDemo />}
-        {activeTab === 'lazy-ctx' && <LazyContextDemo />}
-        {activeTab === 'abort-signal' && <AbortSignalEffectDemo />}
+        <Counter $shown={activeTab === 'counter'} />
+        <TodoList $shown={activeTab === 'todos'} />
+        <ThemeDemo $shown={activeTab === 'theme'} />
+        <DataFetcher $shown={activeTab === 'data'} />
+        <ResolveRawDemo $shown={activeTab === 'raw'} />
+        <HooksShowcase $shown={activeTab === 'hooks'} />
+        <ShownDemo $shown={activeTab === 'shown'} />
+        <ConfirmDialog $shown={activeTab === 'confirm'} />
+        <EffectDemo $shown={activeTab === 'effect'} />
+        <TransitionDemo $shown={activeTab === 'transition'} />
+        <LazyContextDemo $shown={activeTab === 'lazy-ctx'} />
+        <AbortSignalEffectDemo $shown={activeTab === 'abort-signal'} />
       </div>
     </div>
   );
