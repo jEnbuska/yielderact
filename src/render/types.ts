@@ -56,7 +56,11 @@ export interface GenInstance {
    * Flushed after the DOM is updated, but only when the generator has fully
    * returned (gen === null). Cleared at the start of each render pass.
    */
-  pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }>;
+  pendingEffects: Array<{
+    hookIndex: number;
+    fn: (signal: AbortSignal) => (() => void) | void;
+    controller: AbortController;
+  }>;
   /**
    * Effective `$patch` behaviour for this component.
    * Resolved from the component's own `$patch` prop (if any) falling back to

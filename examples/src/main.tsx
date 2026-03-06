@@ -14,6 +14,7 @@ import { ConfirmDialog } from './components/ConfirmDialog';
 import { EffectDemo } from './components/EffectDemo';
 import { TransitionDemo } from './components/TransitionDemo';
 import { LazyContextDemo } from './components/LazyContextDemo';
+import { AbortSignalEffectDemo } from './components/AbortSignalEffectDemo';
 
 type Tab =
   | 'counter'
@@ -26,7 +27,8 @@ type Tab =
   | 'confirm'
   | 'effect'
   | 'transition'
-  | 'lazy-ctx';
+  | 'lazy-ctx'
+  | 'abort-signal';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'counter', label: 'Counter' },
@@ -40,6 +42,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'effect', label: 'useEffect' },
   { id: 'transition', label: 'UI Patch' },
   { id: 'lazy-ctx', label: 'Lazy Context' },
+  { id: 'abort-signal', label: 'AbortSignal Effect' },
 ];
 
 function* App() {
@@ -47,13 +50,16 @@ function* App() {
 
   return (
     <div style={{ maxWidth: '640px', margin: '0 auto' }}>
-      <h1 style={{ marginBottom: '0.25rem' }}>yielderact examples</h1>
+      <h1 data-testid="app-heading" style={{ marginBottom: '0.25rem' }}>
+        yielderact examples
+      </h1>
       <p style={{ color: '#555', marginBottom: '1.25rem' }}>
         Generator-powered JSX components — no magic, just plain JavaScript.
       </p>
 
       {/* Tab bar — ids derived from data so useId() is not applicable here */}
       <nav
+        data-testid="app-tablist"
         role="tablist"
         style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}
       >
@@ -61,6 +67,7 @@ function* App() {
           <button
             key={tab.id}
             role="tab"
+            data-testid={`tab-${tab.id}`}
             id={`tab-${tab.id}`}
             aria-selected={activeTab === tab.id}
             onClick={() => setActiveTab(tab.id)}
@@ -91,6 +98,7 @@ function* App() {
         <EffectDemo $shown={activeTab === 'effect'} />
         <TransitionDemo $shown={activeTab === 'transition'} />
         <LazyContextDemo $shown={activeTab === 'lazy-ctx'} />
+        <AbortSignalEffectDemo $shown={activeTab === 'abort-signal'} />
       </div>
     </div>
   );

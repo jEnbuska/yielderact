@@ -123,25 +123,20 @@ export function* ResolveRawDemo() {
           </button>
         ))}
       </div>
-      {loading && (
-        <p data-testid="raw-loading" style={{ color: '#888', fontStyle: 'italic' }}>
-          Loading…
-        </p>
-      )}
-      {error && (
-        <p data-testid="raw-error" style={{ color: '#c00' }}>
-          Error: {error.message}
-        </p>
-      )}
-      {data && (
-        <div
-          data-testid="raw-data"
-          style={{ padding: '0.75rem', background: '#f5f5f5', borderRadius: '4px' }}
-        >
-          <strong>{data.title}</strong>
-          <p style={{ margin: '0.4rem 0 0' }}>{data.body}</p>
-        </div>
-      )}
+      <p $shown={loading} data-testid="raw-loading" style={{ color: '#888', fontStyle: 'italic' }}>
+        Loading…
+      </p>
+      <p $shown={!!error} data-testid="raw-error" style={{ color: '#c00' }}>
+        Error: {error?.message}
+      </p>
+      <div
+        $shown={!!data}
+        data-testid="raw-data"
+        style={{ padding: '0.75rem', background: '#f5f5f5', borderRadius: '4px' }}
+      >
+        <strong>{data?.title}</strong>
+        <p style={{ margin: '0.4rem 0 0' }}>{data?.body}</p>
+      </div>
     </section>
   );
 }
