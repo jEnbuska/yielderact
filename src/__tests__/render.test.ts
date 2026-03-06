@@ -694,3 +694,159 @@ describe('shown prop', () => {
     expect(container.querySelector('p')!.textContent).toBe('inner');
   });
 });
+
+describe('updateProps – prop diffing', () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    container = document.createElement('div');
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+  });
+
+  it('updates only changed attributes on re-render', () => {
+    let setTitle: ((v: string) => void) | null = null;
+
+    function* Comp() {
+      const [title, st] = yield* useState('first');
+      setTitle = st;
+      return createElement('div', { id: 'box', title });
+    }
+
+    render(createElement(Comp as never, {}), container);
+    const el = container.querySelector('#box')!;
+    expect(el.getAttribute('title')).toBe('first');
+    expect(el.getAttribute('id')).toBe('box');
+
+    setTitle!('second');
+    // id is unchanged – same element, same attribute value
+    expect(container.querySelector('#box')).toBe(el);
+    expect(el.getAttribute('title')).toBe('second');
+    expect(el.getAttribute('id')).toBe('box');
+  });
+
+  it('removes an attribute when it is no longer in props', () => {
+    let setHasTitle: ((v: boolean) => void) | null = null;
+
+    function* Comp() {
+      const [hasTitle, sht] = yield* useState(true);
+      setHasTitle = sht;
+      const props: Record<string, unknown> = { id: 'box' };
+      if (hasTitle) props['title'] = 'hello';
+      return createElement('div', props);
+    }
+
+    render(createElement(Comp as never, {}), container);
+    const el = container.querySelector('#box')!;
+    expect(el.getAttribute('title')).toBe('hello');
+
+    setHasTitle!(false);
+    expect(el.hasAttribute('title')).toBe(false);
+  });
+
+  it('adds a new attribute when it appears in props', () => {
+    let setHasTitle: ((v: boolean) => void) | null = null;
+
+    function* Comp() {
+      const [hasTitle, sht] = yield* useState(false);
+      setHasTitle = sht;
+      const props: Record<string, unknown> = { id: 'box' };
+      if (hasTitle) props['title'] = 'hello';
+      return createElement('div', props);
+    }
+
+    render(createElement(Comp as never, {}), container);
+    const el = container.querySelector('#box')!;
+    expect(el.hasAttribute('title')).toBe(false);
+
+    setHasTitle!(true);
+    expect(el.getAttribute('title')).toBe('hello');
+  });
+
+  it('removes className when it is no longer in props', () => {
+    let setHasClass: ((v: boolean) => void) | null = null;
+
+    function* Comp() {
+      const [hasClass, shc] = yield* useState(true);
+      setHasClass = shc;
+      const props: Record<string, unknown> = { id: 'box' };
+      if (hasClass) props['className'] = 'active';
+      return createElement('div', props);
+    }
+
+    render(createElement(Comp as never, {}), container);
+    const el = container.querySelector('#box') as HTMLElement;
+    expect(el.className).toBe('active');
+
+    setHasClass!(false);
+    expect(el.className).toBe('');
+  });
+
+  it('replaces an event listener when the handler reference changes', () => {
+    let rerender: (() => void) | null = null;
+    const calls: string[] = [];
+
+    function* Comp(_props: Record<string, unknown>, rerenderFn: () => void) {
+      rerender = rerenderFn;
+      // Each render creates a new function reference
+      const handler = () => calls.push('clicked');
+      return createElement('button', { id: 'btn', onClick: handler });
+    }
+
+    render(createElement(Comp as never, {}), container);
+    const btn = container.querySelector('#btn')!;
+    (btn as HTMLButtonElement).click();
+    expect(calls).toEqual(['clicked']);
+
+    // Force re-render – new handler reference, but same behaviour
+    rerender!();
+    (btn as HTMLButtonElement).click();
+    // Should fire exactly once per click (no double-registration)
+    expect(calls).toEqual(['clicked', 'clicked']);
+  });
+
+  it('does not fire a removed event listener after re-render', () => {
+    let setHasHandler: ((v: boolean) => void) | null = null;
+    const clicks: number[] = [];
+
+    function* Comp() {
+      const [hasHandler, shh] = yield* useState(true);
+      setHasHandler = shh;
+      const props: Record<string, unknown> = { id: 'btn' };
+      if (hasHandler) props['onClick'] = () => clicks.push(1);
+      return createElement('button', props);
+    }
+
+    render(createElement(Comp as never, {}), container);
+    (container.querySelector('#btn') as HTMLButtonElement).click();
+    expect(clicks).toHaveLength(1);
+
+    setHasHandler!(false);
+    (container.querySelector('#btn') as HTMLButtonElement).click();
+    // Listener was removed – no new click registered
+    expect(clicks).toHaveLength(1);
+  });
+
+  it('clears removed style properties on re-render', () => {
+    let setStyle: ((v: Record<string, string>) => void) | null = null;
+
+    function* Comp() {
+      const [style, ss] = yield* useState<Record<string, string>>({ color: 'red', fontSize: '14px' });
+      setStyle = ss;
+      return createElement('div', { id: 'box', style });
+    }
+
+    render(createElement(Comp as never, {}), container);
+    const el = container.querySelector('#box') as HTMLElement;
+    expect(el.style.color).toBe('red');
+    expect(el.style.fontSize).toBe('14px');
+
+    setStyle!({ fontSize: '16px' });
+    // color should be removed, fontSize updated
+    expect(el.style.color).toBe('');
+    expect(el.style.fontSize).toBe('16px');
+  });
+});

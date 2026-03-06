@@ -127,30 +127,76 @@ function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
 
 /**
  * Diff and update props on an existing DOM element.
- * Removes stale event listeners/attributes and applies new ones.
+ * Removes props that are no longer present, adds new props, and updates only
+ * those props whose values have changed.
  */
 function updateProps(
   el: HTMLElement,
   prevProps: Record<string, unknown>,
   nextProps: Record<string, unknown>,
 ): void {
-  // Always remove old event listeners (they may be replaced by new functions)
+  // Remove props that are no longer in nextProps
   for (const key of Object.keys(prevProps)) {
-    if (key === 'children' || key === 'style' || key === 'shown') continue;
+    if (key === 'children' || key === 'shown') continue;
+    if (key in nextProps) continue;
     if (key.startsWith('on') && typeof prevProps[key] === 'function') {
       removeSyntheticListener(el, key.slice(2).toLowerCase());
-    } else if (!(key in nextProps)) {
-      if (key === 'className') {
-        el.className = '';
-      } else if (key === 'htmlFor') {
-        el.removeAttribute('for');
-      } else {
-        el.removeAttribute(key);
-      }
+    } else if (key === 'className') {
+      el.className = '';
+    } else if (key === 'htmlFor') {
+      el.removeAttribute('for');
+    } else if (key === 'style') {
+      el.removeAttribute('style');
+    } else {
+      el.removeAttribute(key);
     }
   }
-  // Apply all current props (re-adds event listeners + sets attrs)
-  applyProps(el, nextProps);
+  // Add new props or update props whose values have changed
+  for (const [key, value] of Object.entries(nextProps)) {
+    if (key === 'children' || key === 'shown') continue;
+    const prevValue = prevProps[key];
+    if (key.startsWith('on') && typeof value === 'function') {
+      // Replace event listener only when the handler reference changes
+      if (!Object.is(value, prevValue)) {
+        removeSyntheticListener(el, key.slice(2).toLowerCase());
+        addSyntheticListener(
+          el,
+          key.slice(2).toLowerCase(),
+          value as (e: SyntheticEvent) => void,
+        );
+      }
+    } else if (Object.is(value, prevValue)) {
+      // Value unchanged – skip
+      continue;
+    } else if (key === 'className') {
+      el.className = String(value);
+    } else if (key === 'htmlFor') {
+      el.setAttribute('for', String(value));
+    } else if (key === 'style' && typeof value === 'object' && value !== null) {
+      // Clear style properties removed in the new style object
+      if (typeof prevValue === 'object' && prevValue !== null) {
+        for (const styleKey of Object.keys(prevValue as Record<string, unknown>)) {
+          if (!(styleKey in (value as Record<string, unknown>))) {
+            (el.style as unknown as Record<string, string>)[styleKey] = '';
+          }
+        }
+      }
+      Object.assign(el.style, value);
+    } else if (
+      key === 'value' &&
+      (el instanceof HTMLInputElement ||
+        el instanceof HTMLTextAreaElement ||
+        el instanceof HTMLSelectElement)
+    ) {
+      (el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = String(
+        value ?? '',
+      );
+    } else if (key === 'checked' && el instanceof HTMLInputElement) {
+      el.checked = Boolean(value);
+    } else if (value != null) {
+      el.setAttribute(key, String(value));
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------
