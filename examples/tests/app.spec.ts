@@ -16,12 +16,25 @@ import { test, expect } from '@playwright/test';
 /** Navigate to the app and wait for it to be ready. */
 async function goToApp(page: import('@playwright/test').Page) {
   await page.goto('/');
-  await page.waitForSelector('h1');
+  await page.waitForSelector('[data-testid="app-heading"]');
 }
+
+/** Map of tab labels used in tests → their data-testid values. */
+const tabIds: Record<string, string> = {
+  Counter: 'tab-counter',
+  'Todo List': 'tab-todos',
+  'Context / Theme': 'tab-theme',
+  'Data Fetcher': 'tab-data',
+  'Hooks Showcase': 'tab-hooks',
+  '$shown prop': 'tab-shown',
+  'UI Patch': 'tab-transition',
+  'Lazy Context': 'tab-lazy-ctx',
+  'AbortSignal Effect': 'tab-abort-signal',
+};
 
 /** Click the tab with the given label. */
 async function clickTab(page: import('@playwright/test').Page, label: string) {
-  await page.getByRole('tab', { name: label }).click();
+  await page.getByTestId(tabIds[label]).click();
 }
 
 // ---------------------------------------------------------------------------
@@ -31,17 +44,17 @@ async function clickTab(page: import('@playwright/test').Page, label: string) {
 test.describe('App shell', () => {
   test('loads and shows the heading', async ({ page }) => {
     await goToApp(page);
-    await expect(page.locator('h1')).toHaveText('yielderact examples');
+    await expect(page.getByTestId('app-heading')).toHaveText('yielderact examples');
     await page.screenshot({ path: 'test-results/app-loaded.png' });
   });
 
   test('shows all five tabs', async ({ page }) => {
     await goToApp(page);
-    await expect(page.getByRole('tab', { name: 'Counter' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Todo List' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Context / Theme' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Data Fetcher' })).toBeVisible();
-    await expect(page.getByRole('tab', { name: 'Hooks Showcase' })).toBeVisible();
+    await expect(page.getByTestId('tab-counter')).toBeVisible();
+    await expect(page.getByTestId('tab-todos')).toBeVisible();
+    await expect(page.getByTestId('tab-theme')).toBeVisible();
+    await expect(page.getByTestId('tab-data')).toBeVisible();
+    await expect(page.getByTestId('tab-hooks')).toBeVisible();
   });
 });
 
@@ -99,8 +112,8 @@ test.describe('Todo List example', () => {
   });
 
   test('renders the initial todos', async ({ page }) => {
-    const items = page.locator('[data-testid="todo-list"] li');
-    await expect(items).toHaveCount(2);
+    await expect(page.getByTestId('todo-item-1')).toBeVisible();
+    await expect(page.getByTestId('todo-item-2')).toBeVisible();
     await page.screenshot({ path: 'test-results/todos-initial.png' });
   });
 
@@ -108,9 +121,8 @@ test.describe('Todo List example', () => {
     await page.getByTestId('todo-input').fill('Write Playwright tests');
     await page.getByTestId('add-todo-btn').click();
 
-    const items = page.locator('[data-testid="todo-list"] li');
-    await expect(items).toHaveCount(3);
-    await expect(items.last()).toContainText('Write Playwright tests');
+    await expect(page.getByTestId('todo-item-3')).toBeVisible();
+    await expect(page.getByTestId('todo-item-3')).toContainText('Write Playwright tests');
     await page.screenshot({ path: 'test-results/todos-added.png' });
   });
 
@@ -118,29 +130,31 @@ test.describe('Todo List example', () => {
     await page.getByTestId('todo-input').fill('Press Enter to add');
     await page.getByTestId('todo-input').press('Enter');
 
-    await expect(page.locator('[data-testid="todo-list"] li')).toHaveCount(3);
-    await expect(page.locator('[data-testid="todo-list"] li').last()).toContainText(
-      'Press Enter to add',
-    );
+    await expect(page.getByTestId('todo-item-3')).toBeVisible();
+    await expect(page.getByTestId('todo-item-3')).toContainText('Press Enter to add');
   });
 
   test('removes a todo', async ({ page }) => {
     // Remove the first todo
-    await page.locator('[data-testid="todo-list"] li').first().getByRole('button').click();
-    await expect(page.locator('[data-testid="todo-list"] li')).toHaveCount(1);
+    await page.getByTestId('todo-remove-1').click();
+    await expect(page.getByTestId('todo-item-1')).not.toBeAttached();
+    await expect(page.getByTestId('todo-item-2')).toBeVisible();
     await page.screenshot({ path: 'test-results/todos-removed.png' });
   });
 
   test('shows the empty message when all todos are removed', async ({ page }) => {
-    await page.locator('[data-testid="todo-list"] li').first().getByRole('button').click();
-    await page.locator('[data-testid="todo-list"] li').first().getByRole('button').click();
+    await page.getByTestId('todo-remove-1').click();
+    await page.getByTestId('todo-remove-2').click();
     await expect(page.getByTestId('empty-message')).toBeVisible();
     await page.screenshot({ path: 'test-results/todos-empty.png' });
   });
 
   test('does not add an empty todo', async ({ page }) => {
     await page.getByTestId('add-todo-btn').click();
-    await expect(page.locator('[data-testid="todo-list"] li')).toHaveCount(2);
+    // Still only the original 2 items
+    await expect(page.getByTestId('todo-item-1')).toBeVisible();
+    await expect(page.getByTestId('todo-item-2')).toBeVisible();
+    await expect(page.getByTestId('todo-item-3')).not.toBeAttached();
   });
 });
 
@@ -214,14 +228,14 @@ test.describe('Hooks Showcase example', () => {
   });
 
   test('renders the full fruit list initially', async ({ page }) => {
-    const items = page.locator('[data-testid="hooks-fruit-list"] li');
+    const items = page.locator('[data-testid^="fruit-"]');
     await expect(items).toHaveCount(12);
     await page.screenshot({ path: 'test-results/hooks-initial.png' });
   });
 
   test('filters the list via useMemo when the search input changes', async ({ page }) => {
     await page.getByTestId('hooks-search-input').fill('an');
-    const items = page.locator('[data-testid="hooks-fruit-list"] li');
+    const items = page.locator('[data-testid^="fruit-"]');
     // 'Banana', 'Mango' contain 'an' (Nectarine does not)
     await expect(items).toHaveCount(2);
     await page.screenshot({ path: 'test-results/hooks-filtered.png' });
@@ -243,8 +257,10 @@ test.describe('Hooks Showcase example', () => {
     const inputId = await input.getAttribute('id');
     expect(inputId).toBeTruthy();
     // The label's htmlFor must match the input's id
-    const label = page.locator(`label[for="${inputId}"]`);
+    const label = page.getByTestId('hooks-search-label');
     await expect(label).toBeVisible();
+    const labelFor = await label.getAttribute('for');
+    expect(labelFor).toBe(inputId);
   });
 });
 
@@ -318,18 +334,18 @@ test.describe('UI Patch example', () => {
   test.beforeEach(async ({ page }) => {
     await goToApp(page);
     await clickTab(page, 'UI Patch');
-    // Wait for the Global patch section heading to appear
-    await page.waitForSelector('text=Global patch');
+    // Wait for the Global patch section to appear
+    await page.waitForSelector('[data-testid="global-patch-demo"]');
   });
 
   test('renders both global and local patch sections', async ({ page }) => {
-    await expect(page.locator('text=Global patch — entire tree frozen')).toBeVisible();
-    await expect(page.locator('text=Local patch — only this subtree frozen')).toBeVisible();
+    await expect(page.getByTestId('global-patch-heading')).toBeVisible();
+    await expect(page.getByTestId('local-patch-heading')).toBeVisible();
     await page.screenshot({ path: 'test-results/ui-patch-initial.png' });
   });
 
   test('global patch: home page is shown by default', async ({ page }) => {
-    await expect(page.locator('text=🏠 Home').first()).toBeVisible();
+    await expect(page.getByTestId('page-home').first()).toBeVisible();
     await page.screenshot({ path: 'test-results/ui-patch-home.png' });
   });
 
@@ -340,107 +356,102 @@ test.describe('UI Patch example', () => {
   // Navigation component at commit time.
 
   test('global patch: navigation buttons are re-enabled after patch commits', async ({ page }) => {
-    const aboutBtn = page.locator('nav button', { hasText: 'about' }).first();
-    await aboutBtn.click();
+    await page.getByTestId('global-nav-about').click();
 
     // Wait for navigation to complete and the about page to appear
-    await expect(page.locator('text=ℹ️ About').first()).toBeVisible({ timeout: 7000 });
+    await expect(page.getByTestId('page-about').first()).toBeVisible({ timeout: 7000 });
 
     // All navigation buttons must be re-enabled after the patch commits
-    const navButtons = page.locator('nav').first().locator('button');
-    await expect(navButtons.nth(0)).not.toBeDisabled();
-    await expect(navButtons.nth(1)).not.toBeDisabled();
-    await expect(navButtons.nth(2)).not.toBeDisabled();
+    await expect(page.getByTestId('global-nav-home')).not.toBeDisabled();
+    await expect(page.getByTestId('global-nav-about')).not.toBeDisabled();
+    await expect(page.getByTestId('global-nav-contact')).not.toBeDisabled();
 
     // Button labels must be back to plain text (not '…' which shows during isPending)
-    await expect(navButtons.nth(0)).toHaveText('home');
-    await expect(navButtons.nth(1)).toHaveText('about');
-    await expect(navButtons.nth(2)).toHaveText('contact');
+    await expect(page.getByTestId('global-nav-home')).toHaveText('home');
+    await expect(page.getByTestId('global-nav-about')).toHaveText('about');
+    await expect(page.getByTestId('global-nav-contact')).toHaveText('contact');
 
     await page.screenshot({ path: 'test-results/ui-patch-global-nav-reenabled.png' });
   });
 
   test('local patch: navigation buttons are re-enabled after patch commits', async ({ page }) => {
-    const aboutBtn = page.locator('nav button', { hasText: 'about' }).nth(1);
-    await aboutBtn.click();
+    await page.getByTestId('local-nav-about').click();
 
     // Wait for navigation to complete and the about page to appear
-    await expect(page.locator('text=ℹ️ About').first()).toBeVisible({ timeout: 7000 });
+    await expect(page.getByTestId('page-about').first()).toBeVisible({ timeout: 7000 });
 
-    // Navigation buttons in the local patch nav (second nav) must be re-enabled
-    const navButtons = page.locator('nav').nth(1).locator('button');
-    await expect(navButtons.nth(0)).not.toBeDisabled();
-    await expect(navButtons.nth(1)).not.toBeDisabled();
-    await expect(navButtons.nth(2)).not.toBeDisabled();
+    // Navigation buttons in the local patch nav must be re-enabled
+    await expect(page.getByTestId('local-nav-home')).not.toBeDisabled();
+    await expect(page.getByTestId('local-nav-about')).not.toBeDisabled();
+    await expect(page.getByTestId('local-nav-contact')).not.toBeDisabled();
 
     // Labels back to plain text
-    await expect(navButtons.nth(0)).toHaveText('home');
-    await expect(navButtons.nth(1)).toHaveText('about');
-    await expect(navButtons.nth(2)).toHaveText('contact');
+    await expect(page.getByTestId('local-nav-home')).toHaveText('home');
+    await expect(page.getByTestId('local-nav-about')).toHaveText('about');
+    await expect(page.getByTestId('local-nav-contact')).toHaveText('contact');
 
     await page.screenshot({ path: 'test-results/ui-patch-local-nav-reenabled.png' });
   });
 
   test('clocks demo: renders all three clock variants', async ({ page }) => {
-    await expect(page.locator('code', { hasText: '$patch="default"' }).first()).toBeVisible();
-    await expect(page.locator('code', { hasText: '$patch="live"' }).first()).toBeVisible();
+    await expect(page.getByTestId('clock-default').first()).toBeVisible();
+    await expect(page.getByTestId('clock-live').first()).toBeVisible();
+    await expect(page.getByTestId('clock-alternating').first()).toBeVisible();
     await page.screenshot({ path: 'test-results/ui-patch-clocks.png' });
   });
 
   test('clocks demo: clocks display a time string', async ({ page }) => {
-    // All three clock containers should show a non-empty time string in <b>
-    await expect(page.locator('[data-testid="clock-default"] b').first()).toBeVisible();
-    const text = await page.locator('[data-testid="clock-default"] b').first().textContent();
+    const clockEl = page.getByTestId('clock-default').first();
+    await expect(clockEl).toBeVisible();
+    const text = await clockEl.textContent();
     // toLocaleTimeString('en-US') produces e.g. "3:45:11 PM" or "12:34:56 PM"
     expect(text).toMatch(/\d{1,2}:\d{2}:\d{2}/);
     await page.screenshot({ path: 'test-results/ui-patch-clock-time.png' });
   });
 
   test('global patch: navigates to about page after async delay', async ({ page }) => {
-    const aboutBtn = page.locator('nav button', { hasText: 'about' }).first();
-    await aboutBtn.click();
+    await page.getByTestId('global-nav-about').click();
 
     // Navigation takes 5 s — use a generous timeout
-    await expect(page.locator('text=ℹ️ About').first()).toBeVisible({ timeout: 7000 });
+    await expect(page.getByTestId('page-about').first()).toBeVisible({ timeout: 7000 });
     await page.screenshot({ path: 'test-results/ui-patch-about.png' });
   });
 
   test('global patch: DOM is frozen until patch commits', async ({ page }) => {
-    const aboutBtn = page.locator('nav button', { hasText: 'about' }).first();
-    await aboutBtn.click();
+    await page.getByTestId('global-nav-about').click();
 
     // Immediately after click the home page must still be visible (DOM is frozen)
-    await expect(page.locator('text=🏠 Home').first()).toBeVisible();
+    await expect(page.getByTestId('page-home').first()).toBeVisible();
 
     // After the 5 s patch commits the about page replaces it
-    await expect(page.locator('text=ℹ️ About').first()).toBeVisible({ timeout: 7000 });
+    await expect(page.getByTestId('page-about').first()).toBeVisible({ timeout: 7000 });
     await page.screenshot({ path: 'test-results/ui-patch-frozen-then-committed.png' });
   });
 
   test('global patch: shows navigation log entries after commit', async ({ page }) => {
-    const contactBtn = page.locator('nav button', { hasText: 'contact' }).first();
-    await contactBtn.click();
+    await page.getByTestId('global-nav-contact').click();
 
     // Both log entries are deferred — they appear together after the 5 s commit
-    await expect(page.locator('pre').first()).toContainText('[global] navigating to contact', {
-      timeout: 7000,
-    });
-    await expect(page.locator('pre').first()).toContainText('[global] arrived at contact', {
-      timeout: 7000,
-    });
+    await expect(page.getByTestId('global-patch-log')).toContainText(
+      '[global] navigating to contact',
+      { timeout: 7000 },
+    );
+    await expect(page.getByTestId('global-patch-log')).toContainText(
+      '[global] arrived at contact',
+      { timeout: 7000 },
+    );
     await page.screenshot({ path: 'test-results/ui-patch-log.png' });
   });
 
   test('local patch: home page is shown by default', async ({ page }) => {
-    // There are two nav bars; the second belongs to the local patch demo
-    await expect(page.locator('text=🏠 Home').nth(1)).toBeVisible();
+    // The local patch demo also has HomePage/AboutPage/ContactPage
+    await expect(page.getByTestId('page-home').nth(1)).toBeVisible();
   });
 
   test('local patch: navigates to contact page after async delay', async ({ page }) => {
-    const contactBtn = page.locator('nav button', { hasText: 'contact' }).nth(1);
-    await contactBtn.click();
+    await page.getByTestId('local-nav-contact').click();
 
-    await expect(page.locator('text=📬 Contact').first()).toBeVisible({ timeout: 7000 });
+    await expect(page.getByTestId('page-contact').first()).toBeVisible({ timeout: 7000 });
     await page.screenshot({ path: 'test-results/ui-patch-local-contact.png' });
   });
 
@@ -448,7 +459,11 @@ test.describe('UI Patch example', () => {
     // After 1 s the clocks tick — verify all clock containers still show valid times
     await page.waitForTimeout(1100);
     for (const testId of ['clock-default', 'clock-live', 'clock-alternating']) {
-      const text = await page.locator(`[data-testid="${testId}"] b`).first().textContent();
+      const text = await page
+        .getByTestId(testId)
+        .first()
+        .locator('[data-testid="clock-time"]')
+        .textContent();
       expect(text).toMatch(/\d{1,2}:\d{2}:\d{2}/);
     }
     await page.screenshot({ path: 'test-results/ui-patch-clocks-ticked.png' });
@@ -460,26 +475,33 @@ test.describe('UI Patch example', () => {
     page,
   }) => {
     // Start the 5 s global-patch navigation
-    await page.locator('nav button', { hasText: 'about' }).first().click();
+    await page.getByTestId('global-nav-about').click();
 
     // Wait 1.5 s so a clock tick is guaranteed to have occurred while the patch
     // is still in progress (patch runs for 5 s total).
     await page.waitForTimeout(1500);
 
-    // Snapshot both clocks at this mid-patch moment
-    const liveBefore = await page.locator('[data-testid="clock-live"] b').first().textContent();
-    const defaultBefore = await page
-      .locator('[data-testid="clock-default"] b')
-      .first()
+    // Snapshot both clocks at this mid-patch moment (first instance = global demo)
+    const globalDemo = page.getByTestId('global-patch-demo');
+    const liveBefore = await globalDemo
+      .getByTestId('clock-live')
+      .locator('[data-testid="clock-time"]')
+      .textContent();
+    const defaultBefore = await globalDemo
+      .getByTestId('clock-default')
+      .locator('[data-testid="clock-time"]')
       .textContent();
 
     // Wait another 1.5 s so another tick fires while the patch is still active
     await page.waitForTimeout(1500);
 
-    const liveAfter = await page.locator('[data-testid="clock-live"] b').first().textContent();
-    const defaultAfter = await page
-      .locator('[data-testid="clock-default"] b')
-      .first()
+    const liveAfter = await globalDemo
+      .getByTestId('clock-live')
+      .locator('[data-testid="clock-time"]')
+      .textContent();
+    const defaultAfter = await globalDemo
+      .getByTestId('clock-default')
+      .locator('[data-testid="clock-time"]')
       .textContent();
 
     // The live clock MUST have changed — it is not frozen
@@ -494,23 +516,33 @@ test.describe('UI Patch example', () => {
   test('$patch="live" clock updates during a local patch while $patch="default" stays frozen', async ({
     page,
   }) => {
-    // Start the 5 s local-patch navigation (second nav bar)
-    await page.locator('nav button', { hasText: 'about' }).nth(1).click();
+    // Start the 5 s local-patch navigation
+    await page.getByTestId('local-nav-about').click();
 
     // Wait 1.5 s — patch is still active
     await page.waitForTimeout(1500);
 
-    // Use the second Clocks instance (inside LocalPatchDemo)
-    const liveBefore = await page.locator('[data-testid="clock-live"] b').nth(1).textContent();
-    const defaultBefore = await page
-      .locator('[data-testid="clock-default"] b')
-      .nth(1)
+    // Use the Clocks instance inside LocalPatchDemo
+    const localDemo = page.getByTestId('local-patch-demo');
+    const liveBefore = await localDemo
+      .getByTestId('clock-live')
+      .locator('[data-testid="clock-time"]')
+      .textContent();
+    const defaultBefore = await localDemo
+      .getByTestId('clock-default')
+      .locator('[data-testid="clock-time"]')
       .textContent();
 
     await page.waitForTimeout(1500);
 
-    const liveAfter = await page.locator('[data-testid="clock-live"] b').nth(1).textContent();
-    const defaultAfter = await page.locator('[data-testid="clock-default"] b').nth(1).textContent();
+    const liveAfter = await localDemo
+      .getByTestId('clock-live')
+      .locator('[data-testid="clock-time"]')
+      .textContent();
+    const defaultAfter = await localDemo
+      .getByTestId('clock-default')
+      .locator('[data-testid="clock-time"]')
+      .textContent();
 
     expect(liveAfter).not.toBe(liveBefore);
     expect(defaultAfter).toBe(defaultBefore);
@@ -828,6 +860,114 @@ test.describe('Lazy context example', () => {
   });
 });
 
+// ---------------------------------------------------------------------------
+// AbortSignal Effect example
+// ---------------------------------------------------------------------------
+
+test.describe('AbortSignal Effect example', () => {
+  test.beforeEach(async ({ page }) => {
+    await goToApp(page);
+    await clickTab(page, 'AbortSignal Effect');
+    await page.waitForSelector('[data-testid="abort-signal-demo"]');
+  });
+
+  test('renders all three signal rows on mount', async ({ page }) => {
+    await expect(page.getByTestId('signal-row-1')).toBeVisible();
+    await expect(page.getByTestId('signal-row-2')).toBeVisible();
+    await expect(page.getByTestId('signal-row-3')).toBeVisible();
+    await page.screenshot({ path: 'test-results/abort-signal-initial.png' });
+  });
+
+  test('user 1 is active and polling by default', async ({ page }) => {
+    await page.waitForTimeout(500);
+    await expect(page.getByTestId('row-status-1')).toContainText('fetched');
+    // Users 2 and 3 should be inactive
+    await expect(page.getByTestId('row-status-2')).toHaveText('inactive');
+    await expect(page.getByTestId('row-status-3')).toHaveText('inactive');
+    await page.screenshot({ path: 'test-results/abort-signal-polling.png' });
+  });
+
+  test('switching to user 2 increments user 1 abort count and starts polling user 2', async ({
+    page,
+  }) => {
+    // Let user 1 poll a bit
+    await page.waitForTimeout(500);
+
+    // Switch to user 2
+    await page.getByTestId('user-btn-2').click();
+
+    // Wait for the effect to fire and the abort to propagate
+    await page.waitForTimeout(600);
+
+    // User 1's abort count should have increased
+    await expect(page.getByTestId('row-abort-count-1')).toHaveText('1');
+    // status is "inactive" because the effect re-runs with new activeId
+    await expect(page.getByTestId('row-status-1')).toHaveText('inactive');
+
+    // User 2 should be polling with 0 aborts
+    await expect(page.getByTestId('row-status-2')).toContainText('fetched');
+    await expect(page.getByTestId('row-abort-count-2')).toHaveText('0');
+
+    await page.screenshot({ path: 'test-results/abort-signal-user-change.png' });
+  });
+
+  test('switching from user 2 to user 3 increments user 2 abort count', async ({ page }) => {
+    await page.getByTestId('user-btn-2').click();
+    await page.waitForTimeout(500);
+
+    await page.getByTestId('user-btn-3').click();
+    await page.waitForTimeout(600);
+
+    // User 2's abort count should have increased
+    await expect(page.getByTestId('row-abort-count-2')).toHaveText('1');
+    // status is "inactive" because the effect re-runs with new activeId
+    await expect(page.getByTestId('row-status-2')).toHaveText('inactive');
+
+    // User 3 should be polling
+    await expect(page.getByTestId('row-status-3')).toContainText('fetched');
+    await expect(page.getByTestId('row-abort-count-3')).toHaveText('0');
+
+    await page.screenshot({ path: 'test-results/abort-signal-switch-2-to-3.png' });
+  });
+
+  test('unmounting the panel aborts all active signals', async ({ page }) => {
+    await page.waitForTimeout(500);
+
+    // Unmount the panel
+    await page.getByTestId('toggle-panel').uncheck();
+    await expect(page.getByTestId('signal-table')).not.toBeAttached();
+    await page.screenshot({ path: 'test-results/abort-signal-unmounted.png' });
+  });
+
+  test('remounting the panel starts fresh with user 1 polling', async ({ page }) => {
+    // Unmount
+    await page.getByTestId('toggle-panel').uncheck();
+    await expect(page.getByTestId('signal-table')).not.toBeAttached();
+
+    // Remount
+    await page.getByTestId('toggle-panel').check();
+    await expect(page.getByTestId('signal-table')).toBeVisible();
+
+    await page.waitForTimeout(500);
+    await expect(page.getByTestId('row-status-1')).toContainText('fetched');
+    await page.screenshot({ path: 'test-results/abort-signal-remounted.png' });
+  });
+
+  test('rapid switches: only the final user polls, others show aborted', async ({ page }) => {
+    await page.getByTestId('user-btn-2').click();
+    await page.getByTestId('user-btn-3').click();
+    await page.getByTestId('user-btn-1').click();
+
+    await page.waitForTimeout(600);
+
+    // User 1 should be polling again (abort count accumulated from previous switches)
+    await expect(page.getByTestId('row-status-1')).toContainText('fetched');
+    await expect(page.getByTestId('row-abort-count-1')).toHaveText('1');
+
+    await page.screenshot({ path: 'test-results/abort-signal-rapid-change.png' });
+  });
+});
+
 test.describe('Visibility during local patch', () => {
   test.beforeEach(async ({ page }) => {
     await goToApp(page);
@@ -923,5 +1063,119 @@ test.describe('Visibility during local patch', () => {
 
     await commitBtn.click();
     await expect(targetDefault).toBeAttached();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Context Scoping demo
+// ---------------------------------------------------------------------------
+
+test.describe('Context Scoping demo', () => {
+  test.beforeEach(async ({ page }) => {
+    await goToApp(page);
+    await clickTab(page, 'Context Scoping');
+    await page.waitForSelector('[data-testid="independent-panel"]');
+  });
+
+  // ── 1. Two independent contexts ─────────────────────────────────────────
+
+  test('shows initial theme and locale in independent panel', async ({ page }) => {
+    await expect(page.getByTestId('theme-badge')).toHaveText('light');
+    await expect(page.getByTestId('locale-badge')).toHaveText('en');
+    await expect(page.getByTestId('both-badge')).toHaveText('light/en');
+    await page.screenshot({ path: 'test-results/context-initial.png' });
+  });
+
+  test('toggling theme does not change locale', async ({ page }) => {
+    await page.getByTestId('toggle-theme-btn').click();
+    await expect(page.getByTestId('theme-badge')).toHaveText('dark');
+    await expect(page.getByTestId('locale-badge')).toHaveText('en');
+    await expect(page.getByTestId('both-badge')).toHaveText('dark/en');
+    await page.screenshot({ path: 'test-results/context-theme-toggled.png' });
+  });
+
+  test('toggling locale does not change theme', async ({ page }) => {
+    await page.getByTestId('toggle-locale-btn').click();
+    await expect(page.getByTestId('locale-badge')).toHaveText('fi');
+    await expect(page.getByTestId('theme-badge')).toHaveText('light');
+    await expect(page.getByTestId('both-badge')).toHaveText('light/fi');
+    await page.screenshot({ path: 'test-results/context-locale-toggled.png' });
+  });
+
+  test('toggling both contexts updates the combined badge', async ({ page }) => {
+    await page.getByTestId('toggle-theme-btn').click();
+    await page.getByTestId('toggle-locale-btn').click();
+    await expect(page.getByTestId('both-badge')).toHaveText('dark/fi');
+    await page.screenshot({ path: 'test-results/context-both-toggled.png' });
+  });
+
+  // ── 2. Nested Provider override ─────────────────────────────────────────
+
+  test('inner card always shows dark even when outer theme is light', async ({ page }) => {
+    await expect(page.getByTestId('outer-theme-badge')).toHaveText('light');
+    await expect(page.getByTestId('inner-theme-badge')).toHaveText('dark');
+    await page.screenshot({ path: 'test-results/context-nested-initial.png' });
+  });
+
+  test('inner card stays dark after outer theme toggles to dark', async ({ page }) => {
+    await page.getByTestId('toggle-theme-btn').click();
+    await expect(page.getByTestId('outer-theme-badge')).toHaveText('dark');
+    await expect(page.getByTestId('inner-theme-badge')).toHaveText('dark');
+    await page.screenshot({ path: 'test-results/context-nested-outer-dark.png' });
+  });
+
+  test('inner card stays dark after outer theme toggles back to light', async ({ page }) => {
+    await page.getByTestId('toggle-theme-btn').click(); // → dark
+    await page.getByTestId('toggle-theme-btn').click(); // → light again
+    await expect(page.getByTestId('inner-theme-badge')).toHaveText('dark');
+  });
+
+  // ── 3. State preserved across context updates ───────────────────────────
+
+  test('consumer state is preserved when context value changes', async ({ page }) => {
+    // Increment the counter three times
+    await page.getByTestId('stateful-inc').click();
+    await page.getByTestId('stateful-inc').click();
+    await page.getByTestId('stateful-inc').click();
+    await expect(page.getByTestId('stateful-count')).toHaveText('3');
+
+    // Toggle the outer theme – this changes the context value flowing into the consumer
+    await page.getByTestId('toggle-theme-btn').click();
+
+    // Consumer must reflect the new theme…
+    await expect(page.getByTestId('stateful-theme')).toHaveText('dark');
+    // …but the counter state must be preserved (not reset to 0)
+    await expect(page.getByTestId('stateful-count')).toHaveText('3');
+    await page.screenshot({ path: 'test-results/context-state-preserved.png' });
+  });
+
+  // ── 4. Sibling providers are isolated ───────────────────────────────────
+
+  test('sibling providers start with independent values', async ({ page }) => {
+    await expect(page.getByTestId('sibling-a')).toHaveText('light');
+    await expect(page.getByTestId('sibling-b')).toHaveText('dark');
+    await page.screenshot({ path: 'test-results/context-siblings-initial.png' });
+  });
+
+  test('toggling sibling A does not affect sibling B', async ({ page }) => {
+    await page.getByTestId('toggle-sibling-a').click();
+    await expect(page.getByTestId('sibling-a')).toHaveText('dark');
+    await expect(page.getByTestId('sibling-b')).toHaveText('dark');
+    await page.screenshot({ path: 'test-results/context-sibling-a-toggled.png' });
+  });
+
+  test('toggling sibling B does not affect sibling A', async ({ page }) => {
+    await page.getByTestId('toggle-sibling-b').click();
+    await expect(page.getByTestId('sibling-a')).toHaveText('light');
+    await expect(page.getByTestId('sibling-b')).toHaveText('light');
+    await page.screenshot({ path: 'test-results/context-sibling-b-toggled.png' });
+  });
+
+  test('both sibling providers can be toggled independently', async ({ page }) => {
+    await page.getByTestId('toggle-sibling-a').click();
+    await page.getByTestId('toggle-sibling-b').click();
+    await expect(page.getByTestId('sibling-a')).toHaveText('dark');
+    await expect(page.getByTestId('sibling-b')).toHaveText('light');
+    await page.screenshot({ path: 'test-results/context-siblings-both-toggled.png' });
   });
 });

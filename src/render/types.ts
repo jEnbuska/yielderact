@@ -34,8 +34,16 @@ export interface GenInstance {
   gen: Generator<unknown, Child, unknown> | null;
   props: Record<string, unknown>;
   host: HTMLElement;
-  /** The context map that was active when this component was mounted. */
+  /**
+   * The context map that was active when this component last rendered.
+   * Updated by `propagateContextUpdate` when an ancestor Provider value changes.
+   */
   capturedCtx: ReadonlyMap<Context<unknown>, unknown>;
+  /**
+   * Set of contexts consumed during the last render pass (populated by `useContext`).
+   * Cleared at the start of each re-render so it only reflects the current render.
+   */
+  consumedContexts: Set<Context<unknown>>;
   /** Reconciled slots representing the generator's last rendered output. */
   slots: Slot[];
   /**
@@ -56,7 +64,11 @@ export interface GenInstance {
    * Flushed after the DOM is updated, but only when the generator has fully
    * returned (gen === null). Cleared at the start of each render pass.
    */
-  pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }>;
+  pendingEffects: Array<{
+    hookIndex: number;
+    fn: (signal: AbortSignal) => (() => void) | void;
+    controller: AbortController;
+  }>;
   /**
    * Effective `$patch` behaviour for this component.
    * Resolved from the component's own `$patch` prop (if any) falling back to

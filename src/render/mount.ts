@@ -187,7 +187,11 @@ export function mountGeneratorComponent(
   const capturedCtx = _getCtxMap();
   const hookStates: unknown[] = [];
   const cleanupFns: ((() => void) | undefined)[] = [];
-  const pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }> = [];
+  const pendingEffects: Array<{
+    hookIndex: number;
+    fn: (signal: AbortSignal) => (() => void) | void;
+    controller: AbortController;
+  }> = [];
 
   // `instance` is assigned before any external code can observe it.
   // `resume`, `rerender`, and `executeRerender` all close over it.
@@ -250,6 +254,9 @@ export function mountGeneratorComponent(
       instance.gen = null;
       instance.pendingEffects.length = 0;
 
+      // Reset consumed-context tracking so the new render records a fresh set.
+      instance.consumedContexts.clear();
+
       const prevCtx = _getCtxMap();
       _setCtxMap(instance.capturedCtx);
       const prevBatch = renderState.currentBatchBehavior;
@@ -270,6 +277,12 @@ export function mountGeneratorComponent(
       }
 
       if (cancelled) {
+        // Revert deps for effects queued during this cancelled render so the
+        // retry re-queues them (their deps in hookStates already match).
+        for (const pe of instance.pendingEffects) {
+          const state = instance.hookStates[pe.hookIndex] as { deps: unknown[] } | undefined;
+          if (state) state.deps = [];
+        }
         // A mid-render setState was queued — retry with the accumulated state.
         instance.pendingRerender = false;
         continue;
@@ -365,6 +378,7 @@ export function mountGeneratorComponent(
     pendingRerender: false,
     renderResolvers: [],
     rerender,
+    consumedContexts: new Set(),
   };
   renderState.genInstanceMap.set(host, instance);
 
