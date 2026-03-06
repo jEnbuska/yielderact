@@ -298,7 +298,7 @@ describe('createContext / useContext', () => {
       expect(container.querySelector('span')!.textContent).toBe('100');
     });
 
-    it('no-selector consumer falls through to remount when Provider value changes', () => {
+    it('no-selector consumer rerenders in-place when Provider value changes', () => {
       const Ctx = createContext({ a: 0, b: 0 });
       let setVal: ((v: { a: number; b: number }) => void) | null = null;
       let renderCount = 0;

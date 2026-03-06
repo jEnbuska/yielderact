@@ -361,11 +361,13 @@ test('useContext selector: consumer skips rerender when selected dep is unchange
   await page.screenshot({ path: '/tmp/visual-ctx-selector-stable.png' });
 });
 
-test('useContext selector: consumer updates when selected dep changes', async ({ page }) => {
+test('useContext selector: consumer rerenders in-place (useRef preserved) when selected dep changes', async ({
+  page,
+}) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, createContext, useContext, useState, render } = (
+    const { createElement, createContext, useContext, useRef, useState, render } = (
       window as unknown as { Yielderact: typeof import('../src/index') }
     ).Yielderact;
 
@@ -375,10 +377,14 @@ test('useContext selector: consumer updates when selected dep changes', async ({
     let setSt: ((v: State) => void) | null = null;
 
     function* Consumer() {
-      // Selector tracks `name`. When name changes the subtree is remounted so
-      // the new value is reflected in the DOM.
+      const renders = yield* useRef(0);
+      renders.current++;
+      // Selector tracks `name`. Rerender is in-place so useRef survives.
       const ctx = yield* useContext(Ctx, (c) => [c.name]);
-      return createElement('span', { id: 'name' }, ctx.name);
+      return createElement('div', { id: 'consumer' }, [
+        createElement('span', { id: 'name' }, ctx.name),
+        createElement('span', { id: 'renders' }, String(renders.current)),
+      ]);
     }
 
     function* App() {
@@ -396,15 +402,24 @@ test('useContext selector: consumer updates when selected dep changes', async ({
   });
 
   await expect(page.locator('#name')).toHaveText('Alice');
+  await expect(page.locator('#renders')).toHaveText('1');
 
-  // Change `name` — Consumer's selected dep changed so the subtree updates.
+  // Change only `count` — selector tracks `name`, so no rerender.
   await page.evaluate(() => {
     type State = { name: string; count: number };
     const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
-    set({ name: 'Bob', count: 0 });
+    set({ name: 'Alice', count: 5 });
   });
+  await expect(page.locator('#renders')).toHaveText('1');
 
+  // Change `name` — dep changed → in-place rerender → useRef increments to 2.
+  await page.evaluate(() => {
+    type State = { name: string; count: number };
+    const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
+    set({ name: 'Bob', count: 5 });
+  });
   await expect(page.locator('#name')).toHaveText('Bob');
+  await expect(page.locator('#renders')).toHaveText('2');
 
   await page.screenshot({ path: '/tmp/visual-ctx-selector-changed.png' });
 });
@@ -467,13 +482,14 @@ test('useContext transform: suppresses rerender when dep stable; updates transfo
   await expect(page.locator('#renders')).toHaveText('1');
   await expect(page.locator('#upper')).toHaveText('ALICE');
 
-  // Change name — dep changed, subtree updates, transform produces BOB.
+  // Change name — dep changed → in-place rerender → useRef increments to 2, transform produces BOB.
   await page.evaluate(() => {
     type State = { name: string; count: number };
     const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
     set({ name: 'Bob', count: 7 });
   });
   await expect(page.locator('#upper')).toHaveText('BOB');
+  await expect(page.locator('#renders')).toHaveText('2');
 
   await page.screenshot({ path: '/tmp/visual-ctx-transform.png' });
 });
@@ -493,12 +509,16 @@ test('useContext no-selector vs selector: no-selector updates on any field chang
 
     let setSt: ((v: State) => void) | null = null;
 
-    // Overload 1: no selector — local useState tracks renders across same instance.
-    // NOTE: when Provider value changes with no-selector, the subtree is remounted,
-    // so we track the update by observing the displayed count field instead.
+    // Overload 1: no selector — in-place rerender on every Provider value change.
+    // useRef persists across rerenders so the count increments correctly.
     function* NoSelectorConsumer() {
+      const renders = yield* useRef(0);
+      renders.current++;
       const ctx = yield* useContext(Ctx);
-      return createElement('span', { id: 'no-sel-count' }, String(ctx.count));
+      return createElement('div', null, [
+        createElement('span', { id: 'no-sel-count' }, String(ctx.count)),
+        createElement('span', { id: 'no-sel-renders' }, String(renders.current)),
+      ]);
     }
 
     // Overload 2: selector tracking `name` — stable when only count changes.
@@ -523,10 +543,11 @@ test('useContext no-selector vs selector: no-selector updates on any field chang
   });
 
   await expect(page.locator('#no-sel-count')).toHaveText('0');
+  await expect(page.locator('#no-sel-renders')).toHaveText('1');
   await expect(page.locator('#sel-renders')).toHaveText('1');
 
-  // Change only `count` — no-selector consumer sees the new value;
-  // selector consumer is suppressed (still at renders=1).
+  // Change only `count` — no-selector consumer rerenders in-place (renders=2,
+  // sees new count); selector consumer is suppressed (still at renders=1).
   await page.evaluate(() => {
     type State = { name: string; count: number };
     const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
@@ -534,6 +555,7 @@ test('useContext no-selector vs selector: no-selector updates on any field chang
   });
 
   await expect(page.locator('#no-sel-count')).toHaveText('5');
+  await expect(page.locator('#no-sel-renders')).toHaveText('2');
   await expect(page.locator('#sel-renders')).toHaveText('1');
 
   await page.screenshot({ path: '/tmp/visual-ctx-no-selector.png' });
