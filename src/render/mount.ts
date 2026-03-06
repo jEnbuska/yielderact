@@ -187,7 +187,11 @@ export function mountGeneratorComponent(
   const capturedCtx = _getCtxMap();
   const hookStates: unknown[] = [];
   const cleanupFns: ((() => void) | undefined)[] = [];
-  const pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }> = [];
+  const pendingEffects: Array<{
+    hookIndex: number;
+    fn: (signal: AbortSignal) => (() => void) | void;
+    controller: AbortController;
+  }> = [];
 
   // `instance` is assigned in the initial-mount block below before any
   // external code can observe it.  `resume` and `rerender` close over it.

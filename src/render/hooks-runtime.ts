@@ -50,8 +50,8 @@ export function isHookDescriptor(value: unknown): boolean {
  */
 export function flushEffects(instance: GenInstance): void {
   if (instance.gen !== null) return;
-  for (const { hookIndex, fn } of instance.pendingEffects) {
-    const cleanup = fn();
+  for (const { hookIndex, fn, controller } of instance.pendingEffects) {
+    const cleanup = fn(controller.signal);
     (instance.hookStates[hookIndex] as { deps: unknown[]; cleanup: (() => void) | void }).cleanup =
       cleanup;
   }
@@ -109,7 +109,11 @@ export function processOneDescriptor(
   hookIndex: number,
   hookStates: unknown[],
   cleanupFns: ((() => void) | undefined)[],
-  pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }>,
+  pendingEffects: Array<{
+    hookIndex: number;
+    fn: (signal: AbortSignal) => (() => void) | void;
+    controller: AbortController;
+  }>,
   rerender: () => void,
   resume: () => void,
   instance: GenInstance,
@@ -221,21 +225,32 @@ export function processOneDescriptor(
     }
 
     case USE_EFFECT: {
-      type EffectState = { deps: unknown[]; cleanup: (() => void) | void };
-      const fn = descriptor['fn'] as () => (() => void) | void;
+      type EffectState = {
+        deps: unknown[];
+        cleanup: (() => void) | void;
+        controller: AbortController;
+      };
+      const fn = descriptor['fn'] as (signal: AbortSignal) => (() => void) | void;
       const deps = descriptor['deps'] as unknown[];
       const existing = hookStates[hookIndex] as EffectState | undefined;
 
       if (!existing || depsChanged(existing.deps, deps)) {
-        // Run cleanup of the previous effect synchronously before the new one.
-        existing?.cleanup?.();
+        // Abort previous signal and run cleanup synchronously before the new effect.
+        if (existing) {
+          existing.controller.abort();
+          existing.cleanup?.();
+        }
+        // Create a fresh AbortController for the new effect run.
+        const controller = new AbortController();
         // Store updated deps; cleanup will be filled in by flushEffects after DOM update.
-        hookStates[hookIndex] = { deps, cleanup: undefined } satisfies EffectState;
+        hookStates[hookIndex] = { deps, cleanup: undefined, controller } satisfies EffectState;
         // Queue the effect to run after reconciliation.
-        pendingEffects.push({ hookIndex, fn });
-        // Register unmount cleanup that reads the stored cleanup from hookStates.
+        pendingEffects.push({ hookIndex, fn, controller });
+        // Register unmount cleanup: abort the signal then call the returned cleanup fn.
         cleanupFns[hookIndex] = () => {
-          (hookStates[hookIndex] as EffectState).cleanup?.();
+          const state = hookStates[hookIndex] as EffectState;
+          state.controller.abort();
+          state.cleanup?.();
         };
       }
       return undefined;
