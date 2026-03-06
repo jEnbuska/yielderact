@@ -3,7 +3,7 @@
  *
  * Provides a simple tab-based navigation between the five example demos.
  */
-import { render, useEffect, useMemo, useState } from 'yielderact';
+import { createRoot, useEffect, useMemo, useState } from 'yielderact';
 import { Counter } from './components/Counter';
 import { TodoList } from './components/TodoList';
 import { ThemeDemo } from './components/ThemeDemo';
@@ -96,4 +96,5 @@ function* App() {
   );
 }
 
-render(<App />, document.getElementById('root')!);
+const root = createRoot(document.getElementById('root')!);
+root.render(<App />);

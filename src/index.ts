@@ -23,7 +23,8 @@
  * ```
  */
 export { createElement, Fragment } from './jsx';
-export { render, startUIPatch, commitUIPatch } from './render';
+export { render, createRoot, startUIPatch, commitUIPatch } from './render';
+export type { Root } from './render';
 export { createContext, useContext } from './context';
 export {
   useState,

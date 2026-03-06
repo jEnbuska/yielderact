@@ -131,6 +131,25 @@ No manual imports needed for JSX.
 
 ## Rendering
 
+### `createRoot(container)`
+
+Creates a root for rendering a component tree into a DOM element. This is the recommended way to bootstrap your application. The root sets `$patch="default"` as the starting context for the entire tree, so every component can always rely on `$patch` being defined.
+
+```ts
+import { createRoot } from 'yielderact';
+
+const root = createRoot(document.getElementById('root')!);
+root.render(<App />);
+```
+
+| Parameter   | Type      | Description                    |
+| ----------- | --------- | ------------------------------ |
+| `container` | `Element` | The DOM element to render into |
+
+**Returns:** a `Root` object with a single `render(vnode)` method.
+
+---
+
 ### `render(vnode, container)`
 
 Mounts a component tree into a DOM element. Call once to bootstrap the application.
