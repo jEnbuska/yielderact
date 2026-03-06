@@ -81,6 +81,7 @@ export function* TodoList() {
         {todos.map((todo) => (
           <li
             key={todo.id}
+            data-testid={`todo-item-${todo.id}`}
             data-id={todo.id}
             style={{
               display: 'flex',
@@ -94,6 +95,7 @@ export function* TodoList() {
               {todo.text}
             </span>
             <button
+              data-testid={`todo-remove-${todo.id}`}
               data-remove={todo.id}
               onClick={() => removeTodo(todo.id)}
               aria-label={`Remove ${todo.text}`}
