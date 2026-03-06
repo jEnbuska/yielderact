@@ -254,6 +254,9 @@ export function mountGeneratorComponent(
       instance.gen = null;
       instance.pendingEffects.length = 0;
 
+      // Reset consumed-context tracking so the new render records a fresh set.
+      instance.consumedContexts.clear();
+
       const prevCtx = _getCtxMap();
       _setCtxMap(instance.capturedCtx);
       const prevBatch = renderState.currentBatchBehavior;
@@ -375,6 +378,7 @@ export function mountGeneratorComponent(
     pendingRerender: false,
     renderResolvers: [],
     rerender,
+    consumedContexts: new Set(),
   };
   renderState.genInstanceMap.set(host, instance);
 

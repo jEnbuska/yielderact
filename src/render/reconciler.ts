@@ -1,11 +1,17 @@
 import { type VNode, type Child, type AnyComponentFn, type PlainComponentFn } from '../jsx';
-import { _getCtxMap, _setCtxMap, _getProviderCtx, type Context } from '../context';
+import {
+  _getCtxMap,
+  _setCtxMap,
+  _getProviderCtx,
+  _resolveCtxValue,
+  type Context,
+} from '../context';
 import { depsChanged } from '../hooks';
 import { type Slot, type GenInstance } from './types';
 import { renderState } from './state';
 import { applyProps, updateProps } from './props';
 import { isGeneratorFn, shallowEqual, flattenChildren, mergedProps, isShown } from './helpers';
-import { unmountSlot, collectDescendantsFromSlots, type UseContextState } from './hooks-runtime';
+import { unmountSlot, propagateContextUpdate, type UseContextState } from './hooks-runtime';
 import {
   mountGeneratorComponent,
   mountContextProvider,
@@ -159,14 +165,37 @@ function reconcileOne(
 
     // Same component type at same position
     if (prevSlot?.type === vnode.type) {
-      // Props unchanged → skip entirely (key memoization)
+      // Props unchanged → skip entirely (key memoization).
+      // Exception: if this is a generator component whose consumed context has
+      // changed since its last render, we must re-render it even though props
+      // are the same.
       if (shallowEqual(prevSlot.props, allProps)) {
-        // Still refresh batchBehavior in case an ancestor's $patch changed.
-        if (prevSlot.genInstance) {
+        const inst = prevSlot.genInstance;
+        if (inst) {
           const ownBatch =
             (allProps['$patch'] as 'live' | 'default' | undefined) ??
             renderState.currentBatchBehavior;
-          prevSlot.genInstance.batchBehavior = ownBatch;
+          inst.batchBehavior = ownBatch;
+
+          // Check if any consumed context value differs from capturedCtx.
+          const currentCtxMap = _getCtxMap();
+          let contextChanged = false;
+          for (const ctx of inst.consumedContexts) {
+            const currentVal = _resolveCtxValue(currentCtxMap, ctx);
+            if (!Object.is(currentVal, _resolveCtxValue(inst.capturedCtx, ctx))) {
+              // Check if all selectors for this context have stable deps.
+              if (!_hasStableContextSelectors(inst, ctx, currentVal)) {
+                contextChanged = true;
+                break;
+              }
+            }
+          }
+
+          if (contextChanged) {
+            // Update capturedCtx so rerender() uses the current context.
+            inst.capturedCtx = currentCtxMap;
+            inst.rerender();
+          }
         }
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
@@ -193,20 +222,19 @@ function reconcileOne(
         }
       }
 
-      // Context Provider whose value is unchanged but children differ → reconcile
-      // children in-place.  This preserves child component state (hook states,
-      // generator cursors) across parent re-renders when only the rendered
-      // subtree changes, not the context value itself.
-      //
-      // If the value DID change we fall through to the full remount so that
-      // already-mounted descendants pick up the new context (their capturedCtx
-      // is refreshed via the remount).
-      if (providerCtx && Object.is(prevSlot.props['value'], allProps['value'])) {
+      // Context Provider: always reconcile children in-place regardless of whether
+      // the value changed.  When the value DID change, first propagate the update
+      // to all descendant generator instances so their capturedCtx stays current
+      // and consumers are immediately re-rendered.
+      if (providerCtx) {
         const prevCtxMap = _getCtxMap();
         const newCtxMap = new Map(prevCtxMap);
         newCtxMap.set(providerCtx as never, allProps.value as unknown);
         _setCtxMap(newCtxMap);
         try {
+          if (!Object.is(prevSlot.props['value'], allProps['value'])) {
+            propagateContextUpdate(providerCtx, allProps.value, prevSlot.childSlots);
+          }
           const childVNode = (fn as PlainComponentFn)(allProps);
           if (childVNode != null) {
             prevSlot.childSlots = reconcileSlots(
@@ -218,65 +246,6 @@ function reconcileOne(
         } finally {
           _setCtxMap(prevCtxMap);
         }
-        prevSlot.props = allProps;
-        return { slot: prevSlot, node: prevSlot.node, replaced: false };
-      }
-
-      // Context Provider whose value changed — selective in-place reconcile.
-      //
-      // Rather than fully remounting the Provider subtree (which resets all
-      // descendant hook state), we:
-      //   1. Update capturedCtx on every existing descendant so future
-      //      self-triggered rerenders see the new value.
-      //   2. Identify which consumers need an immediate rerender — those with
-      //      no selector, or whose selector deps changed under the new value.
-      //   3. Reconcile the Provider's children in-place (handles structural
-      //      changes; skips components whose props are unchanged).
-      //   4. After the structural reconcile, call rerender() on each consumer
-      //      that needs it.  Consumers with stable selectors are left alone —
-      //      their hook state (useState, useRef, …) is fully preserved.
-      if (providerCtx) {
-        const newValue = allProps.value;
-        const descendants = collectDescendantsFromSlots(prevSlot.childSlots);
-
-        // Step 1 — patch capturedCtx on existing descendants.
-        for (const inst of descendants) {
-          const updated = new Map(inst.capturedCtx);
-          updated.set(providerCtx as never, newValue);
-          inst.capturedCtx = updated;
-        }
-
-        // Step 2 — identify consumers that need an immediate rerender.
-        const toRerender = descendants.filter(
-          (inst) => !_hasStableContextSelectors(inst, providerCtx, newValue),
-        );
-
-        // Step 3 — reconcile children in-place with the updated ctxMap.
-        const prevCtxMap = _getCtxMap();
-        const newCtxMap = new Map(prevCtxMap);
-        newCtxMap.set(providerCtx as never, newValue as unknown);
-        _setCtxMap(newCtxMap);
-        try {
-          const childVNode = (fn as PlainComponentFn)(allProps);
-          if (childVNode != null) {
-            prevSlot.childSlots = reconcileSlots(
-              prevSlot.node as HTMLElement,
-              prevSlot.childSlots,
-              [childVNode],
-            );
-          }
-        } finally {
-          _setCtxMap(prevCtxMap);
-        }
-
-        // Step 4 — rerender only the consumers whose subscribed slice changed.
-        // Guard with isConnected in case the reconcile above unmounted some.
-        for (const inst of toRerender) {
-          if (inst.host.isConnected) {
-            inst.rerender();
-          }
-        }
-
         prevSlot.props = allProps;
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }

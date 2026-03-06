@@ -13,6 +13,7 @@ import { ShownDemo } from './components/ShownDemo';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { EffectDemo } from './components/EffectDemo';
 import { TransitionDemo } from './components/TransitionDemo';
+import { ContextDemo } from './components/ContextDemo';
 import { LazyContextDemo } from './components/LazyContextDemo';
 import { AbortSignalEffectDemo } from './components/AbortSignalEffectDemo';
 
@@ -27,6 +28,7 @@ type Tab =
   | 'confirm'
   | 'effect'
   | 'transition'
+  | 'context'
   | 'lazy-ctx'
   | 'abort-signal';
 
@@ -41,6 +43,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'confirm', label: 'useRender' },
   { id: 'effect', label: 'useEffect' },
   { id: 'transition', label: 'UI Patch' },
+  { id: 'context', label: 'Context Scoping' },
   { id: 'lazy-ctx', label: 'Lazy Context' },
   { id: 'abort-signal', label: 'AbortSignal Effect' },
 ];
@@ -97,6 +100,7 @@ function* App() {
         <ConfirmDialog $shown={activeTab === 'confirm'} />
         <EffectDemo $shown={activeTab === 'effect'} />
         <TransitionDemo $shown={activeTab === 'transition'} />
+        <ContextDemo $shown={activeTab === 'context'} />
         <LazyContextDemo $shown={activeTab === 'lazy-ctx'} />
         <AbortSignalEffectDemo $shown={activeTab === 'abort-signal'} />
       </div>
