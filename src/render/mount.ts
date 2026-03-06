@@ -307,6 +307,7 @@ export function mountGeneratorComponent(
     batchBehavior: ownBatch,
     pendingVNode: undefined,
     localPatchRefCount: 0,
+    rerender,
   };
   renderState.genInstanceMap.set(host, instance);
 

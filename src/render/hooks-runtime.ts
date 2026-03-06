@@ -101,6 +101,41 @@ export function collectDescendants(instance: GenInstance): GenInstance[] {
 }
 
 /**
+ * Collect all descendant `GenInstance`s reachable from a `Slot[]` (rather
+ * than from a `GenInstance`).  Used by the reconciler to scan Provider
+ * children for context consumers when evaluating selective rerenders.
+ */
+export function collectDescendantsFromSlots(slots: Slot[]): GenInstance[] {
+  const result: GenInstance[] = [];
+  function walk(s: Slot[]): void {
+    for (const slot of s) {
+      if (slot.genInstance) {
+        result.push(slot.genInstance);
+        walk(slot.genInstance.slots);
+      }
+      walk(slot.childSlots);
+    }
+  }
+  walk(slots);
+  return result;
+}
+
+/**
+ * Persistent hook state stored for a `useContext` call that has a selector.
+ * Holds the last computed deps and result so that re-renders can be skipped
+ * when the subscribed slice of the context value has not changed.
+ *
+ * @internal
+ */
+export type UseContextState = {
+  ctx: Context<unknown>;
+  selector: ((ctx: unknown) => unknown[]) | undefined;
+  transform: ((...args: unknown[]) => unknown) | undefined;
+  lastDeps: unknown[] | undefined;
+  lastResult: unknown;
+};
+
+/**
  * Process a single hook descriptor and return the value to send back to the
  * generator via `gen.next(value)`.
  */
@@ -156,9 +191,36 @@ export function processOneDescriptor(
 
     case USE_CONTEXT: {
       const ctx = descriptor['ctx'] as Context<unknown>;
+      const selector = descriptor['selector'] as ((ctx: unknown) => unknown[]) | undefined;
+      const transform = descriptor['transform'] as ((...args: unknown[]) => unknown) | undefined;
       const ctxMap = _getCtxMap();
-      const value = ctxMap.get(ctx);
-      return value !== undefined ? value : ctx._defaultValue;
+      const rawValue = ctxMap.has(ctx) ? ctxMap.get(ctx) : ctx._defaultValue;
+
+      if (!selector) {
+        hookStates[hookIndex] = {
+          ctx,
+          selector: undefined,
+          transform: undefined,
+          lastDeps: undefined,
+          lastResult: rawValue,
+        } satisfies UseContextState;
+        return rawValue;
+      }
+
+      const newDeps = selector(rawValue);
+      const prev = hookStates[hookIndex] as UseContextState | undefined;
+      if (prev?.selector && !depsChanged(prev.lastDeps, newDeps)) {
+        return prev.lastResult;
+      }
+      const result = transform ? transform(...newDeps) : rawValue;
+      hookStates[hookIndex] = {
+        ctx,
+        selector,
+        transform,
+        lastDeps: newDeps,
+        lastResult: result,
+      } satisfies UseContextState;
+      return result;
     }
 
     case USE_RESOLVE_RAW: {

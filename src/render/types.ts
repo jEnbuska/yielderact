@@ -73,4 +73,11 @@ export interface GenInstance {
    * instance.  > 0 means this instance's DOM writes are deferred by a local patch.
    */
   localPatchRefCount: number;
+  /**
+   * Triggers a full re-render of this component from the top of its generator
+   * body.  Used by the reconciler to selectively rerender context consumers
+   * whose subscribed slice changed while their Provider's subtree is
+   * reconciled in-place.
+   */
+  rerender: () => void;
 }

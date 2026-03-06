@@ -1,10 +1,11 @@
 import { type VNode, type Child, type AnyComponentFn, type PlainComponentFn } from '../jsx';
-import { _getCtxMap, _setCtxMap, _getProviderCtx } from '../context';
-import { type Slot } from './types';
+import { _getCtxMap, _setCtxMap, _getProviderCtx, type Context } from '../context';
+import { depsChanged } from '../hooks';
+import { type Slot, type GenInstance } from './types';
 import { renderState } from './state';
 import { applyProps, updateProps } from './props';
 import { isGeneratorFn, shallowEqual, flattenChildren, mergedProps, isShown } from './helpers';
-import { unmountSlot } from './hooks-runtime';
+import { unmountSlot, collectDescendantsFromSlots, type UseContextState } from './hooks-runtime';
 import {
   mountGeneratorComponent,
   mountContextProvider,
@@ -214,7 +215,59 @@ function reconcileOne(
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
 
-      // Other component types (or Provider whose value changed) → remount from scratch.
+      // Context Provider whose value changed — attempt a selective in-place
+      // reconcile before falling back to full remount.
+      //
+      // Strategy: scan all descendant GenInstances.  If every instance that
+      // consumes this context does so via a selector whose selected deps are
+      // unchanged under the new value, we can:
+      //   1. Update capturedCtx on all descendants (so future rerenders see
+      //      the new value).
+      //   2. Reconcile children in-place (preserving all hook state).
+      //
+      // If any consumer has no selector, or its deps changed, we fall through
+      // to the full remount so that those consumers are re-mounted with fresh
+      // capturedCtx and therefore see the updated value.
+      if (providerCtx) {
+        const newValue = allProps.value;
+        const descendants = collectDescendantsFromSlots(prevSlot.childSlots);
+
+        const allSelectorsStable = descendants.every((inst) =>
+          _hasStableContextSelectors(inst, providerCtx, newValue),
+        );
+
+        if (allSelectorsStable) {
+          // Update capturedCtx on all descendants so their next rerender sees
+          // the new Provider value.
+          for (const inst of descendants) {
+            const updated = new Map(inst.capturedCtx);
+            updated.set(providerCtx as never, newValue);
+            inst.capturedCtx = updated;
+          }
+          // Reconcile children in-place with the updated ctxMap.
+          const prevCtxMap = _getCtxMap();
+          const newCtxMap = new Map(prevCtxMap);
+          newCtxMap.set(providerCtx as never, newValue as unknown);
+          _setCtxMap(newCtxMap);
+          try {
+            const childVNode = (fn as PlainComponentFn)(allProps);
+            if (childVNode != null) {
+              prevSlot.childSlots = reconcileSlots(
+                prevSlot.node as HTMLElement,
+                prevSlot.childSlots,
+                [childVNode],
+              );
+            }
+          } finally {
+            _setCtxMap(prevCtxMap);
+          }
+          prevSlot.props = allProps;
+          return { slot: prevSlot, node: prevSlot.node, replaced: false };
+        }
+      }
+
+      // Other component types (or Provider whose value changed and could not
+      // be handled selectively) → remount from scratch.
     }
 
     // In live-only mode, structural changes (type mismatch or no prevSlot) only proceed
@@ -319,4 +372,32 @@ function reconcileOne(
     node,
     replaced: true,
   };
+}
+
+/**
+ * Returns `true` when every `useContext` hook call in `inst` that subscribes
+ * to `ctx` has a selector whose selected deps are unchanged under `newValue`.
+ *
+ * An instance that does not consume `ctx` at all is considered stable
+ * (vacuously true — no rerender needed for it).
+ * An instance that consumes `ctx` without a selector always returns `false`
+ * because it must rerender whenever the Provider value changes.
+ */
+function _hasStableContextSelectors(
+  inst: GenInstance,
+  ctx: Context<unknown>,
+  newValue: unknown,
+): boolean {
+  let foundAny = false;
+  for (const s of inst.hookStates) {
+    if (s == null || typeof s !== 'object') continue;
+    const state = s as UseContextState;
+    if (state.ctx !== ctx) continue;
+    foundAny = true;
+    if (!state.selector) return false;
+    const newDeps = state.selector(newValue);
+    if (depsChanged(state.lastDeps, newDeps)) return false;
+  }
+  // If foundAny is false the instance doesn't consume this context → stable.
+  return true;
 }
