@@ -281,7 +281,19 @@ function reconcileOne(
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
 
-      // Other component types → remount from scratch.
+      // Generator component with changed props → rerender in place to preserve
+      // hook state (useState, useRef, useEffect, etc.).
+      if (prevSlot.genInstance) {
+        prevSlot.genInstance.props = allProps;
+        prevSlot.genInstance.batchBehavior =
+          (allProps['$patch'] as 'live' | 'default' | undefined) ??
+          renderState.currentBatchBehavior;
+        prevSlot.genInstance.rerender();
+        prevSlot.props = allProps;
+        return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+
+      // Plain function component → remount from scratch.
     }
 
     // In live-only mode, structural changes (type mismatch or no prevSlot) only proceed

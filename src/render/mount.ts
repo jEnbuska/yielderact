@@ -274,6 +274,12 @@ export function mountGeneratorComponent(
       }
 
       if (cancelled) {
+        // Revert deps for effects queued during this cancelled render so the
+        // retry re-queues them (their deps in hookStates already match).
+        for (const pe of instance.pendingEffects) {
+          const state = instance.hookStates[pe.hookIndex] as { deps: unknown[] } | undefined;
+          if (state) state.deps = [];
+        }
         // A mid-render setState was queued — retry with the accumulated state.
         instance.pendingRerender = false;
         continue;
