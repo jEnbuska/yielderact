@@ -1,10 +1,10 @@
 import { type VNode, type Child, type AnyComponentFn, type PlainComponentFn } from '../jsx';
-import { _getCtxMap, _setCtxMap, _getProviderCtx } from '../context';
+import { _getCtxMap, _setCtxMap, _getProviderCtx, _resolveCtxValue } from '../context';
 import { type Slot } from './types';
 import { renderState } from './state';
 import { applyProps, updateProps } from './props';
 import { isGeneratorFn, shallowEqual, flattenChildren, mergedProps, isShown } from './helpers';
-import { unmountSlot } from './hooks-runtime';
+import { unmountSlot, propagateContextUpdate } from './hooks-runtime';
 import {
   mountGeneratorComponent,
   mountContextProvider,
@@ -158,14 +158,38 @@ function reconcileOne(
 
     // Same component type at same position
     if (prevSlot?.type === vnode.type) {
-      // Props unchanged → skip entirely (key memoization)
+      // Props unchanged → skip entirely (key memoization).
+      // Exception: if this is a generator component whose consumed context has
+      // changed since its last render, we must re-render it even though props
+      // are the same.
       if (shallowEqual(prevSlot.props, allProps)) {
-        // Still refresh batchBehavior in case an ancestor's $patch changed.
-        if (prevSlot.genInstance) {
+        const inst = prevSlot.genInstance;
+        if (inst) {
           const ownBatch =
             (allProps['$patch'] as 'live' | 'default' | undefined) ??
             renderState.currentBatchBehavior;
-          prevSlot.genInstance.batchBehavior = ownBatch;
+          inst.batchBehavior = ownBatch;
+
+          // Check if any consumed context value differs from capturedCtx.
+          const currentCtxMap = _getCtxMap();
+          let contextChanged = false;
+          for (const ctx of inst.consumedContexts) {
+            if (
+              !Object.is(
+                _resolveCtxValue(currentCtxMap, ctx),
+                _resolveCtxValue(inst.capturedCtx, ctx),
+              )
+            ) {
+              contextChanged = true;
+              break;
+            }
+          }
+
+          if (contextChanged) {
+            // Update capturedCtx so rerender() uses the current context.
+            inst.capturedCtx = currentCtxMap;
+            inst.rerender();
+          }
         }
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
@@ -185,20 +209,19 @@ function reconcileOne(
         }
       }
 
-      // Context Provider whose value is unchanged but children differ → reconcile
-      // children in-place.  This preserves child component state (hook states,
-      // generator cursors) across parent re-renders when only the rendered
-      // subtree changes, not the context value itself.
-      //
-      // If the value DID change we fall through to the full remount so that
-      // already-mounted descendants pick up the new context (their capturedCtx
-      // is refreshed via the remount).
-      if (providerCtx && Object.is(prevSlot.props['value'], allProps['value'])) {
+      // Context Provider: always reconcile children in-place regardless of whether
+      // the value changed.  When the value DID change, first propagate the update
+      // to all descendant generator instances so their capturedCtx stays current
+      // and consumers are immediately re-rendered.
+      if (providerCtx) {
         const prevCtxMap = _getCtxMap();
         const newCtxMap = new Map(prevCtxMap);
         newCtxMap.set(providerCtx as never, allProps.value as unknown);
         _setCtxMap(newCtxMap);
         try {
+          if (!Object.is(prevSlot.props['value'], allProps['value'])) {
+            propagateContextUpdate(providerCtx, allProps.value, prevSlot.childSlots);
+          }
           const childVNode = (fn as PlainComponentFn)(allProps);
           if (childVNode != null) {
             prevSlot.childSlots = reconcileSlots(
@@ -214,7 +237,7 @@ function reconcileOne(
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
 
-      // Other component types (or Provider whose value changed) → remount from scratch.
+      // Other component types → remount from scratch (fall through).
     }
 
     // In live-only mode, structural changes (type mismatch or no prevSlot) only proceed

@@ -13,6 +13,7 @@ import { ShownDemo } from './components/ShownDemo';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { EffectDemo } from './components/EffectDemo';
 import { TransitionDemo } from './components/TransitionDemo';
+import { ContextDemo } from './components/ContextDemo';
 
 type Tab =
   | 'counter'
@@ -24,7 +25,8 @@ type Tab =
   | 'shown'
   | 'confirm'
   | 'effect'
-  | 'transition';
+  | 'transition'
+  | 'context';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'counter', label: 'Counter' },
@@ -37,6 +39,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'confirm', label: 'useRender' },
   { id: 'effect', label: 'useEffect' },
   { id: 'transition', label: 'UI Patch' },
+  { id: 'context', label: 'Context Scoping' },
 ];
 
 function* App() {
@@ -87,6 +90,7 @@ function* App() {
         {activeTab === 'confirm' && <ConfirmDialog />}
         {activeTab === 'effect' && <EffectDemo />}
         {activeTab === 'transition' && <TransitionDemo />}
+        {activeTab === 'context' && <ContextDemo />}
       </div>
     </div>
   );

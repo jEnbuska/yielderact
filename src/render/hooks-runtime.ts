@@ -1,5 +1,11 @@
 import { type Child } from '../jsx';
-import { _getCtxMap, USE_CONTEXT, type Context } from '../context';
+import {
+  _getCtxMap,
+  USE_CONTEXT,
+  type Context,
+  _getProviderCtx,
+  _resolveCtxValue,
+} from '../context';
 import {
   USE_STATE,
   USE_REF,
@@ -156,9 +162,8 @@ export function processOneDescriptor(
 
     case USE_CONTEXT: {
       const ctx = descriptor['ctx'] as Context<unknown>;
-      const ctxMap = _getCtxMap();
-      const value = ctxMap.get(ctx);
-      return value !== undefined ? value : ctx._defaultValue;
+      instance.consumedContexts.add(ctx);
+      return _resolveCtxValue(_getCtxMap(), ctx);
     }
 
     case USE_RESOLVE_RAW: {
@@ -345,4 +350,56 @@ export function runHooks(
     vnode: (result.value as import('../jsx').Child) ?? null,
     gen: result.done ? null : gen,
   };
+}
+
+/**
+ * Walk all descendant slots and propagate a context value change:
+ *
+ *  - Updates `capturedCtx` on every generator instance found so that any
+ *    future self-triggered re-render uses the new value.
+ *  - Immediately re-renders instances that **consumed** the changed context in
+ *    their last render (tracked via `consumedContexts`).
+ *  - Stops recursing into subtrees guarded by an inner Provider for the *same*
+ *    context – those subtrees override the outer value and must not be touched.
+ *
+ * @param ctx      - The context whose value changed.
+ * @param newValue - The new value supplied by the Provider.
+ * @param slots    - The descendant slot tree to walk (typically a Provider's
+ *                   `childSlots` or a generator instance's `slots`).
+ */
+export function propagateContextUpdate(
+  ctx: Context<unknown>,
+  newValue: unknown,
+  slots: import('./types').Slot[],
+): void {
+  for (const slot of slots) {
+    // Stop at an inner Provider for the same context – it overrides the outer value.
+    if (typeof slot.type === 'function' && _getProviderCtx(slot.type) === ctx) {
+      continue;
+    }
+
+    const inst = slot.genInstance;
+    if (inst) {
+      // Keep capturedCtx current so future self-triggered re-renders use the
+      // new value even if this component doesn't consume the changed context.
+      const updated = new Map(inst.capturedCtx);
+      updated.set(ctx, newValue);
+      inst.capturedCtx = updated;
+
+      if (inst.consumedContexts.has(ctx)) {
+        // Re-render this consumer.  rerender() calls reconcileSlots on its
+        // children with the updated capturedCtx, so we don't recurse further.
+        inst.rerender();
+      } else {
+        // This component doesn't consume the context, but its rendered children
+        // might.  Recurse into its internal slots.
+        propagateContextUpdate(ctx, newValue, inst.slots);
+      }
+    }
+
+    // Recurse into HTML-element child slots (genInstance slots have none).
+    if (slot.childSlots.length > 0) {
+      propagateContextUpdate(ctx, newValue, slot.childSlots);
+    }
+  }
 }

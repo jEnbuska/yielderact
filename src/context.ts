@@ -116,3 +116,16 @@ export function _setCtxMap(map: ReadonlyMap<Context<unknown>, unknown>): void {
 export function _getProviderCtx(fn: unknown): Context<unknown> | null {
   return ((fn as Record<symbol, unknown>)?.[PROVIDER_CTX] as Context<unknown>) ?? null;
 }
+
+/**
+ * Resolve the effective value for `ctx` from `map`, falling back to the
+ * context's `_defaultValue` when no Provider has supplied a value.
+ *
+ * @internal
+ */
+export function _resolveCtxValue(
+  map: ReadonlyMap<Context<unknown>, unknown>,
+  ctx: Context<unknown>,
+): unknown {
+  return map.has(ctx) ? map.get(ctx) : ctx._defaultValue;
+}

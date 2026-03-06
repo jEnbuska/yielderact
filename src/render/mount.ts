@@ -251,6 +251,8 @@ export function mountGeneratorComponent(
     // Discard a paused generator so the fresh run starts from the top.
     instance.gen = null;
     instance.pendingEffects.length = 0;
+    // Reset consumed-context tracking so the new render records a fresh set.
+    instance.consumedContexts.clear();
 
     let vnode: Child;
     const prevBatch = renderState.currentBatchBehavior;
@@ -307,6 +309,8 @@ export function mountGeneratorComponent(
     batchBehavior: ownBatch,
     pendingVNode: undefined,
     localPatchRefCount: 0,
+    rerender,
+    consumedContexts: new Set(),
   };
   renderState.genInstanceMap.set(host, instance);
 
