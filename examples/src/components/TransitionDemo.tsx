@@ -12,16 +12,22 @@ function* Navigation({
   page,
   isPending,
   navigate,
+  scope,
 }: {
   page: Page;
   isPending: boolean;
   navigate: (page: Page) => void;
+  scope: string;
 }) {
   return (
-    <nav style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+    <nav
+      data-testid={`${scope}-nav`}
+      style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}
+    >
       {(['home', 'about', 'contact'] as Page[]).map((p) => (
         <button
           key={p}
+          data-testid={`${scope}-nav-${p}`}
           onClick={() => navigate(p)}
           disabled={isPending}
           style={{
@@ -45,7 +51,7 @@ function* Navigation({
 // ---------------------------------------------------------------------------
 
 function* LiveClock({ tick }: { tick: number }) {
-  return <b>{new Date(tick).toLocaleTimeString('en-US')}</b>;
+  return <b data-testid="clock-time">{new Date(tick).toLocaleTimeString('en-US')}</b>;
 }
 
 // ---------------------------------------------------------------------------
@@ -54,7 +60,7 @@ function* LiveClock({ tick }: { tick: number }) {
 
 function* HomePage() {
   return (
-    <div>
+    <div data-testid="page-home">
       <h3>🏠 Home</h3>
       <p>...</p>
     </div>
@@ -63,7 +69,7 @@ function* HomePage() {
 
 function* AboutPage() {
   return (
-    <div>
+    <div data-testid="page-about">
       <h3>ℹ️ About</h3>
       <p>...</p>
     </div>
@@ -72,7 +78,7 @@ function* AboutPage() {
 
 function* ContactPage() {
   return (
-    <div>
+    <div data-testid="page-contact">
       <h3>📬 Contact</h3>
       <p>...</p>
     </div>
@@ -134,8 +140,13 @@ function* GlobalPatchDemo() {
   };
 
   return (
-    <div style={{ border: '1px solid #ddd', borderRadius: '6px', padding: '1rem' }}>
-      <h4 style={{ marginTop: 0 }}>Global patch — entire tree frozen</h4>
+    <div
+      data-testid="global-patch-demo"
+      style={{ border: '1px solid #ddd', borderRadius: '6px', padding: '1rem' }}
+    >
+      <h4 data-testid="global-patch-heading" style={{ marginTop: 0 }}>
+        Global patch — entire tree frozen
+      </h4>
       <p style={{ color: '#555', fontSize: '0.9rem' }}>
         During navigation the <strong>entire page area</strong> is frozen (including the clock
         below). State changes are computed but DOM stays unchanged until commit.
@@ -144,7 +155,7 @@ function* GlobalPatchDemo() {
       {/* Live clock is inside the global patch scope and will also freeze */}
       <Clocks />
 
-      <Navigation page={page} isPending={isPending} navigate={navigate} />
+      <Navigation page={page} isPending={isPending} navigate={navigate} scope="global" />
 
       <div
         style={{
@@ -160,6 +171,7 @@ function* GlobalPatchDemo() {
       </div>
 
       <pre
+        data-testid="global-patch-log"
         $shown={!!log.length}
         style={{
           marginTop: '0.75rem',
@@ -202,14 +214,19 @@ function* LocalPatchDemo() {
   };
 
   return (
-    <div style={{ border: '1px solid #ddd', borderRadius: '6px', padding: '1rem' }}>
-      <h4 style={{ marginTop: 0 }}>Local patch — only this subtree frozen</h4>
+    <div
+      data-testid="local-patch-demo"
+      style={{ border: '1px solid #ddd', borderRadius: '6px', padding: '1rem' }}
+    >
+      <h4 data-testid="local-patch-heading" style={{ marginTop: 0 }}>
+        Local patch — only this subtree frozen
+      </h4>
       <p style={{ color: '#555', fontSize: '0.9rem' }}>
         During navigation only <strong>this component's subtree</strong> is frozen. The live clock
         marked <code>$patch="live"</code> continues to tick — click it while navigating.
       </p>
 
-      <Navigation page={page} isPending={isPending} navigate={navigate} />
+      <Navigation page={page} isPending={isPending} navigate={navigate} scope="local" />
       <Clocks />
       <div
         style={{
@@ -225,6 +242,7 @@ function* LocalPatchDemo() {
       </div>
 
       <pre
+        data-testid="local-patch-log"
         $shown={!!log.length}
         style={{
           marginTop: '0.75rem',

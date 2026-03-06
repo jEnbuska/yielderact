@@ -206,21 +206,49 @@ yield * useEffect(fn, deps);
 
 Runs a side-effect **after** the component's DOM has been updated. Re-runs when `deps` change. If `fn` returns a function, that function is called as cleanup before the next effect run and when the component unmounts.
 
-| Parameter | Type                         | Description                            |
-| --------- | ---------------------------- | -------------------------------------- |
-| `fn`      | `() => (() => void) \| void` | Effect callback; may return cleanup fn |
-| `deps`    | `unknown[]`                  | Dependency array                       |
+`fn` receives an `AbortSignal` that is aborted just as cleanup runs (when deps change or the component unmounts). Use this signal to cancel async work without needing a separate cleanup function.
+
+| Parameter | Type                                            | Description                                                           |
+| --------- | ----------------------------------------------- | --------------------------------------------------------------------- |
+| `fn`      | `(signal: AbortSignal) => (() => void) \| void` | Effect callback; receives an abort signal and may return a cleanup fn |
+| `deps`    | `unknown[]`                                     | Dependency array                                                      |
 
 ```tsx
 function* Timer() {
   const [tick, setTick] = yield* useState(0);
 
-  yield* useEffect(() => {
+  yield* useEffect((signal) => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id); // cleanup on unmount
   }, []);
 
   return <p>Seconds: {tick}</p>;
+}
+```
+
+```tsx
+// Using the AbortSignal to cancel a fetch without a cleanup function
+function* UserProfile({ id }: { id: string }) {
+  const [data, setData] = yield* useState<string | null>(null);
+
+  yield* useEffect(
+    (signal) => {
+      fetch(`/api/users/${id}`, { signal })
+        .then((res) => {
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          return res.text();
+        })
+        .then((text) => {
+          if (!signal.aborted) setData(text);
+        })
+        .catch(() => {
+          // AbortError and other errors silently ignored
+        });
+    },
+    [id],
+  );
+
+  return <p>{data ?? 'Loading…'}</p>;
 }
 ```
 
