@@ -364,6 +364,7 @@ export function mountGeneratorComponent(
     isRendering: false,
     pendingRerender: false,
     renderResolvers: [],
+    rerender,
   };
   renderState.genInstanceMap.set(host, instance);
 

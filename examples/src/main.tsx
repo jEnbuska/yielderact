@@ -3,7 +3,7 @@
  *
  * Provides a simple tab-based navigation between the five example demos.
  */
-import { render, useState } from 'yielderact';
+import { render, useEffect, useMemo, useState } from 'yielderact';
 import { Counter } from './components/Counter';
 import { TodoList } from './components/TodoList';
 import { ThemeDemo } from './components/ThemeDemo';
@@ -13,6 +13,7 @@ import { ShownDemo } from './components/ShownDemo';
 import { ConfirmDialog } from './components/ConfirmDialog';
 import { EffectDemo } from './components/EffectDemo';
 import { TransitionDemo } from './components/TransitionDemo';
+import { LazyContextDemo } from './components/LazyContextDemo';
 
 type Tab =
   | 'counter'
@@ -24,7 +25,8 @@ type Tab =
   | 'shown'
   | 'confirm'
   | 'effect'
-  | 'transition';
+  | 'transition'
+  | 'lazy-ctx';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'counter', label: 'Counter' },
@@ -37,6 +39,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: 'confirm', label: 'useRender' },
   { id: 'effect', label: 'useEffect' },
   { id: 'transition', label: 'UI Patch' },
+  { id: 'lazy-ctx', label: 'Lazy Context' },
 ];
 
 function* App() {
@@ -87,6 +90,7 @@ function* App() {
         {activeTab === 'confirm' && <ConfirmDialog />}
         {activeTab === 'effect' && <EffectDemo />}
         {activeTab === 'transition' && <TransitionDemo />}
+        {activeTab === 'lazy-ctx' && <LazyContextDemo />}
       </div>
     </div>
   );

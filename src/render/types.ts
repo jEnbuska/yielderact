@@ -93,4 +93,11 @@ export interface GenInstance {
    * only once the new state is visible in the DOM.
    */
   renderResolvers: Array<() => void>;
+  /**
+   * Triggers a full re-render of this component from the top of its generator
+   * body.  Used by the reconciler to selectively rerender context consumers
+   * whose subscribed slice changed while their Provider's subtree is
+   * reconciled in-place.
+   */
+  rerender: () => void;
 }
