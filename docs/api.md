@@ -510,16 +510,45 @@ function* App() {
 
 ### `useContext`
 
+Three call signatures:
+
 ```ts
+// 1. No selector — rerenders whenever the Provider value reference changes.
 const value = yield * useContext(MyCtx);
+
+// 2. Selector — rerenders only when the selected deps change; returns full value.
+const { currentGroup } = yield * useContext(MyCtx, (ctx) => [ctx.currentGroup]);
+
+// 3. Selector + transform — same rerender guard; returns transformed value.
+const name =
+  yield *
+  useContext(
+    MyCtx,
+    (ctx) => [ctx.name] as [string],
+    (n) => n.toUpperCase(),
+  );
 ```
 
-Reads the nearest Provider's value. Returns the default value when no Provider is found.
+**Overload 1 (no selector):** existing behavior, no breaking change.
+
+**Overload 2 (selector):** `selector` is called on both the old and new Provider value when the value changes. If the returned dep arrays are shallowly equal (using `Object.is` per element), the component does **not** rerender. The full context value is still returned.
+
+**Overload 3 (selector + transform):** same rerender guard as overload 2; additionally the return value of `useContext` is `transform(...selectorDeps)` rather than the raw context value.
 
 ```tsx
 function* ThemedButton() {
   const theme = yield* useContext(ThemeCtx);
   return <button className={theme}>Click</button>;
+}
+
+// Suppresses rerenders when only unrelated fields change:
+function* GroupHeader() {
+  const group = yield* useContext(
+    AppCtx,
+    (c) => [c.currentGroup],
+    (g) => g,
+  );
+  return <h2>{group.name}</h2>;
 }
 ```
 
