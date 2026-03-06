@@ -145,7 +145,7 @@ export function processOneDescriptor(
   hookStates: unknown[],
   cleanupFns: ((() => void) | undefined)[],
   pendingEffects: Array<{ hookIndex: number; fn: () => (() => void) | void }>,
-  rerender: () => void,
+  rerender: () => Promise<void>,
   resume: () => void,
   instance: GenInstance,
 ): unknown {
@@ -155,12 +155,12 @@ export function processOneDescriptor(
         const init = descriptor['initialValue'];
         hookStates[hookIndex] = typeof init === 'function' ? (init as () => unknown)() : init;
       }
-      const setter = (newValue: unknown): void => {
+      const setter = (newValue: unknown): Promise<void> => {
         hookStates[hookIndex] =
           typeof newValue === 'function'
             ? (newValue as (prev: unknown) => unknown)(hookStates[hookIndex])
             : newValue;
-        rerender();
+        return rerender();
       };
       return [hookStates[hookIndex], setter];
     }
@@ -379,11 +379,12 @@ export function processOneDescriptor(
 export function runHooks(
   gen: Generator<unknown, Child, unknown>,
   instance: GenInstance,
-  rerender: () => void,
+  rerender: () => Promise<void>,
   resume: () => void,
 ): {
   vnode: Child;
   gen: Generator<unknown, Child, unknown> | null;
+  cancelled: boolean;
 } {
   let hookIndex = 0;
   let result = gen.next(undefined as unknown);
@@ -400,11 +401,17 @@ export function runHooks(
       resume,
       instance,
     );
+    // A mid-render state change was queued — abort this stale render so the
+    // next iteration of executeRerender picks up the accumulated latest state.
+    if (instance.pendingRerender) {
+      return { vnode: null, gen: null, cancelled: true };
+    }
     result = gen.next(value);
   }
 
   return {
-    vnode: (result.value as import('../jsx').Child) ?? null,
+    vnode: (result.value as Child) ?? null,
     gen: result.done ? null : gen,
+    cancelled: false,
   };
 }

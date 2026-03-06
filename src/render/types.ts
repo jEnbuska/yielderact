@@ -74,6 +74,26 @@ export interface GenInstance {
    */
   localPatchRefCount: number;
   /**
+   * True while the generator body (`runHooks`) is executing synchronously.
+   * A `setState` call that arrives while this flag is set is queued rather
+   * than executed immediately, preventing recursive re-renders.
+   */
+  isRendering: boolean;
+  /**
+   * True when at least one rerender was queued while `isRendering` was set.
+   * The active `runHooks` loop polls this flag and exits early when it is
+   * set, discarding the stale partial render.  The queued rerender then
+   * runs from the top with the accumulated latest state.
+   */
+  pendingRerender: boolean;
+  /**
+   * Resolver callbacks for `Promise<void>` values returned by `setState`
+   * calls that were queued during an active render.  Flushed (resolved)
+   * after the next committed render so that `await setState(value)` resumes
+   * only once the new state is visible in the DOM.
+   */
+  renderResolvers: Array<() => void>;
+  /**
    * Triggers a full re-render of this component from the top of its generator
    * body.  Used by the reconciler to selectively rerender context consumers
    * whose subscribed slice changed while their Provider's subtree is
