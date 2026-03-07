@@ -37,6 +37,7 @@ export {
   useRender,
   useResume,
   useUIPatch,
+  usePatchContext,
 } from './hooks';
 export type { VNode, Child, GeneratorComponentFn, PlainComponentFn, AnyComponentFn } from './jsx';
 export type { Context } from './context';

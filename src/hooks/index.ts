@@ -43,3 +43,4 @@ export {
 export { useEffect } from './use-effect';
 export { type UseRenderFn, type UseRenderState, useRender, useResume } from './use-render';
 export { useUIPatch } from './use-ui-patch';
+export { usePatchContext } from './use-patch-context';

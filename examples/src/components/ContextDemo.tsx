@@ -93,12 +93,20 @@ function* StatefulConsumer() {
 
 function* SiblingConsumerA() {
   const theme = yield* useContext(ThemeCtx);
-  return <span data-testid="sibling-a">{theme}</span>;
+  return (
+    <span data-testid="sibling-a" style={{ ...themeStyles[theme] }}>
+      {theme}
+    </span>
+  );
 }
 
 function* SiblingConsumerB() {
   const theme = yield* useContext(ThemeCtx);
-  return <span data-testid="sibling-b">{theme}</span>;
+  return (
+    <span data-testid="sibling-b" style={{ ...themeStyles[theme] }}>
+      {theme}
+    </span>
+  );
 }
 
 function* SiblingProvidersDemo() {

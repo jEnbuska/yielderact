@@ -174,3 +174,54 @@ export function _resolveCtxValue(
 ): unknown {
   return map.has(ctx) ? map.get(ctx) : ctx._defaultValue;
 }
+
+// ---------------------------------------------------------------------------
+// Internal batch context – propagates `$patch` behaviour through _ctxMap
+// ---------------------------------------------------------------------------
+
+/**
+ * Internal context for the `$patch` batch behaviour.
+ * Not exported publicly — used only by the renderer to propagate `$patch`
+ * through the context map, just like application-level contexts.
+ *
+ * @internal
+ */
+export const _batchCtx: Context<'live' | 'default'> = {
+  _defaultValue: 'default',
+  Provider: undefined as never,
+};
+
+/**
+ * Read the current `$patch` batch behaviour from the active context map.
+ * Falls back to `'default'` when no `createRoot` or `$patch` ancestor has set it.
+ * @internal
+ */
+export function _getCurrentBatch(): 'live' | 'default' {
+  return _resolveCtxValue(_ctxMap, _batchCtx as Context<unknown>) as 'live' | 'default';
+}
+
+/**
+ * Read the effective `$patch` batch behaviour from a captured context map
+ * (typically `inst.capturedCtx`).
+ * @internal
+ */
+export function _instanceBatch(
+  capturedCtx: ReadonlyMap<Context<unknown>, unknown>,
+): 'live' | 'default' {
+  return _resolveCtxValue(capturedCtx, _batchCtx as Context<unknown>) as 'live' | 'default';
+}
+
+/**
+ * Return a context map with the batch behaviour set to `batch`.
+ * If the existing batch already matches, returns the same map (no allocation).
+ * @internal
+ */
+export function _withBatch(
+  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
+  batch: 'live' | 'default',
+): ReadonlyMap<Context<unknown>, unknown> {
+  if ((_resolveCtxValue(ctxMap, _batchCtx as Context<unknown>) as string) === batch) return ctxMap;
+  const newMap = new Map(ctxMap);
+  newMap.set(_batchCtx as Context<unknown>, batch);
+  return newMap;
+}

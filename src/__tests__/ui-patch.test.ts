@@ -666,7 +666,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
 
     // Switch Child to live (via parent rerender)
     setLive!(true);
-    // Now Child.batchBehavior is updated to 'live'
+    // Now Child's captured batch context is updated to 'live'
     // Subsequent updates should be immediate
     setValue!('c');
     expect(container.querySelector('#target')!.textContent).toBe('c');

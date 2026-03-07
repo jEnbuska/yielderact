@@ -2,13 +2,35 @@ import { type SyntheticEvent } from '../events';
 import { addSyntheticListener, removeSyntheticListener } from './events';
 
 /**
- * Apply a VNode's props to a real DOM element.
+ * Apply all of a VNode's props to a freshly-created DOM element.
  *
- * - `onXxx` props become synthetic-event listeners
- * - `className` maps to `element.className`
- * - `htmlFor` maps to the `for` HTML attribute
- * - `style` (object) is merged into `element.style`
- * - Everything else becomes an HTML attribute
+ * This is the **initial mount** path — every prop is set unconditionally.
+ * For subsequent updates where only changed props should be touched, see
+ * `updateProps` below.
+ *
+ * **Called by:**
+ * - `buildVNodeList` in `mount.ts` — when building an HTML element during
+ *   initial mount.
+ * - `reconcileOne` in `reconciler.ts` — when a different tag is encountered
+ *   and a fresh element is created.
+ *
+ * **Prop handling rules:**
+ * - `children`, `$shown`, `$patch` are skipped (framework-internal props).
+ * - `onXxx` props → `addSyntheticListener(el, eventName, handler)`.
+ * - `className` → `el.className`.
+ * - `htmlFor` → `el.setAttribute('for', …)`.
+ * - `style` (object) → `Object.assign(el.style, …)`.
+ * - `value` on input/textarea/select → DOM property (not attribute).
+ * - `checked` on input → DOM property.
+ * - `false` → `removeAttribute` (boolean attribute pattern).
+ * - Everything else → `el.setAttribute(key, String(value))`.
+ *
+ * Also sets `type="button"` on `<button>` elements that lack an explicit
+ * `type` (prevents accidental form submission), and warns about
+ * `<a target="_blank">` without `rel`.
+ *
+ * @param el    - The freshly-created DOM element.
+ * @param props - The VNode's props object.
  */
 export function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(props)) {
@@ -63,7 +85,20 @@ export function applyProps(el: HTMLElement, props: Record<string, unknown>): voi
 
 /**
  * Diff and update props on an existing DOM element.
- * Only touches the DOM when a prop was added, removed, or changed.
+ *
+ * Only touches the DOM for props that were added, removed, or changed
+ * (compared via `Object.is`). This avoids unnecessary DOM writes.
+ *
+ * **Called by:** `reconcileOne` in `reconciler.ts` — when an HTML element
+ * at the same position has the same tag but different props. Not called
+ * when `liveOnlyMode` is true and the current batch is not `'live'`.
+ *
+ * Uses the same prop-handling rules as `applyProps` (event listeners,
+ * className, style, value/checked DOM properties, etc.).
+ *
+ * @param el        - The existing DOM element to update.
+ * @param prevProps - The props from the previous render (stored in `Slot.props`).
+ * @param nextProps - The props from the new VNode.
  */
 export function updateProps(
   el: HTMLElement,

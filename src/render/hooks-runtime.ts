@@ -1,3 +1,17 @@
+/**
+ * hooks-runtime.ts — Hook descriptor processing and component lifecycle utilities.
+ *
+ * This module is the bridge between the generator-based hook API and the
+ * renderer. Components yield hook descriptors (tagged objects like
+ * `{ type: USE_STATE, initialValue }`) from their generator body. The
+ * renderer calls `runHooks` which drives the generator in a loop,
+ * dispatching each descriptor to `processOneDescriptor` and sending the
+ * result back via `gen.next(result)`.
+ *
+ * Also contains utilities for effect flushing, slot unmounting, descendant
+ * collection, and context propagation.
+ */
+
 import { type Child } from '../jsx';
 import {
   _getCtxMap,
@@ -24,7 +38,14 @@ import { type Slot, type GenInstance } from './types';
 import { renderState } from './state';
 import { _flushPendingVNodes } from './patch';
 
-/** Set of all known hook descriptor type symbols for fast membership test. */
+/**
+ * Set of all known hook descriptor type symbols for fast membership test.
+ *
+ * When a generator yields a value, `isHookDescriptor` checks whether its
+ * `type` field is one of these symbols. If yes, the yielded value is a
+ * hook descriptor to be processed. If no, it's a real VNode (or Child)
+ * representing the component's render output.
+ */
 const HOOK_SYMBOLS = new Set<symbol>([
   USE_STATE,
   USE_REF,
@@ -38,7 +59,14 @@ const HOOK_SYMBOLS = new Set<symbol>([
   USE_UI_PATCH,
 ]);
 
-/** Returns true when a yielded value is a hook descriptor (not a VNode/Child). */
+/**
+ * Returns true when a yielded value is a hook descriptor (not a VNode/Child).
+ *
+ * **Called by:** `runHooks` — in the dispatch loop, to distinguish hook
+ * descriptors from actual render output.
+ *
+ * @param value - The value yielded by the component generator.
+ */
 export function isHookDescriptor(value: unknown): boolean {
   return (
     value !== null &&
@@ -48,11 +76,28 @@ export function isHookDescriptor(value: unknown): boolean {
 }
 
 /**
- * Run any effects that were queued during the last render pass.
- * Only fires when the generator has fully returned (gen === null), meaning the
- * component is not mid-interaction (e.g. waiting inside useRender).
- * Cleanup from the previous effect at each slot is stored in hookStates so
- * that unmountSlot can call it via cleanupFns.
+ * Run any `useEffect` callbacks that were queued during the last render pass.
+ *
+ * Effects are deferred until after the DOM is updated so that the effect
+ * function can read the committed DOM state. Each effect receives an
+ * `AbortSignal` that the effect can check for cancellation.
+ *
+ * The cleanup value returned by each effect function is stored in
+ * `hookStates[hookIndex].cleanup` so that it can be called on the next
+ * deps change or on component unmount.
+ *
+ * **Guards:** only fires when `instance.gen === null`, meaning the generator
+ * has fully returned. If the generator is paused (e.g. inside `useRender`),
+ * effects are not flushed until the generator completes.
+ *
+ * **Called by:**
+ * - `executeRerender` in `mount.ts` — after `reconcileSlots` on both
+ *   initial mount and subsequent rerenders.
+ * - `resume` in `mount.ts` — after resuming a paused generator.
+ * - `_flushPendingVNodes` in `patch.ts` — after reconciling a deferred
+ *   component during `commitUIPatch`.
+ *
+ * @param instance - The generator instance whose effects to flush.
  */
 export function flushEffects(instance: GenInstance): void {
   if (instance.gen !== null) return;
@@ -65,8 +110,17 @@ export function flushEffects(instance: GenInstance): void {
 }
 
 /**
- * Recursively call cleanup functions for a slot and all its descendants.
- * Called when a slot is about to be replaced or removed from the DOM.
+ * Recursively tear down a slot and all its descendants.
+ *
+ * Calls every cleanup function registered by hooks (`useEffect`,
+ * `useResolve`) on every `GenInstance` in the subtree. Also removes the
+ * instance from `renderState.dirtyInstances` so that a pending
+ * `commitUIPatch` doesn't try to reconcile a dead component.
+ *
+ * **Called by:** `reconcileSlots` in `reconciler.ts` — when a slot is
+ * replaced (different type) or removed (the new children list is shorter).
+ *
+ * @param slot - The slot to unmount.
  */
 export function unmountSlot(slot: Slot): void {
   for (const child of slot.childSlots) {
@@ -87,9 +141,18 @@ export function unmountSlot(slot: Slot): void {
 }
 
 /**
- * Collect all descendant `GenInstance`s reachable from `instance.slots` via a
- * depth-first traversal.  Used by `useUIPatch` to snapshot the subtree at the
- * moment `startPatch()` is called.
+ * Collect all descendant `GenInstance`s reachable from `instance.slots`
+ * via a depth-first traversal.
+ *
+ * **Called by:** `processOneDescriptor(USE_UI_PATCH)` — `useUIPatch`'s
+ * `startPatch()` function snapshots all current descendants at the moment
+ * the patch begins. These are the instances that will have their
+ * `localPatchRefCount` incremented (deferred) and later decremented
+ * (committed).
+ *
+ * @param instance - The root instance whose descendants to collect.
+ * @returns A flat array of all descendant `GenInstance`s (not including
+ *   the root itself).
  */
 export function collectDescendants(instance: GenInstance): GenInstance[] {
   const result: GenInstance[] = [];
@@ -107,9 +170,14 @@ export function collectDescendants(instance: GenInstance): GenInstance[] {
 }
 
 /**
- * Collect all descendant `GenInstance`s reachable from a `Slot[]` (rather
- * than from a `GenInstance`).  Used by the reconciler to scan Provider
- * children for context consumers when evaluating selective rerenders.
+ * Collect all descendant `GenInstance`s reachable from a `Slot[]` array
+ * (rather than from a root `GenInstance`).
+ *
+ * **Called by:** not currently used in the main render pipeline (retained
+ * as a utility for potential use by context propagation or debugging).
+ *
+ * @param slots - The slot array to walk.
+ * @returns A flat array of all `GenInstance`s found in the subtree.
  */
 export function collectDescendantsFromSlots(slots: Slot[]): GenInstance[] {
   const result: GenInstance[] = [];
@@ -127,23 +195,49 @@ export function collectDescendantsFromSlots(slots: Slot[]): GenInstance[] {
 }
 
 /**
- * Persistent hook state stored for a `useContext` call that has a selector.
- * Holds the last computed deps and result so that re-renders can be skipped
- * when the subscribed slice of the context value has not changed.
+ * Persistent hook state stored for a `useContext` call.
+ *
+ * Stored in `GenInstance.hookStates[hookIndex]` for each `useContext` hook.
+ * The reconciler reads these entries to determine whether a context change
+ * requires a rerender (by checking `selector` and `lastDeps`).
  *
  * @internal
  */
 export type UseContextState = {
+  /** The context object this hook subscribes to. */
   ctx: Context<unknown>;
+  /** Optional selector function — extracts deps from the context value. */
   selector: ((ctx: unknown) => unknown[]) | undefined;
+  /** Optional transform function — computes the returned value from deps. */
   transform: ((...args: unknown[]) => unknown) | undefined;
+  /** The last computed deps array (from `selector`). Used by `depsChanged`. */
   lastDeps: unknown[] | undefined;
+  /** The last returned value (raw context value, or `transform(…deps)`). */
   lastResult: unknown;
 };
 
 /**
- * Process a single hook descriptor and return the value to send back to the
- * generator via `gen.next(value)`.
+ * Process a single hook descriptor and return the value to send back to
+ * the generator via `gen.next(value)`.
+ *
+ * This is the central dispatch function for all hooks. Each hook type
+ * yields a descriptor object with a `type` symbol and associated data.
+ * This function reads/writes `hookStates[hookIndex]` to persist state
+ * across re-renders, and may register cleanup functions in `cleanupFns`
+ * or queue effects in `pendingEffects`.
+ *
+ * **Called by:** `runHooks` below — once for each hook descriptor yielded
+ * during the component's generator body.
+ *
+ * @param descriptor    - The hook descriptor (e.g. `{ type: USE_STATE, initialValue: 0 }`).
+ * @param hookIndex     - The positional index of this hook call (0-based, by call order).
+ * @param hookStates    - The instance's persistent hook state array.
+ * @param cleanupFns    - The instance's per-hook cleanup function array.
+ * @param pendingEffects - The instance's queued-effects array (for `useEffect`).
+ * @param rerender      - Function to trigger a full re-render of this component.
+ * @param resume        - Function to resume a paused generator (for `useRender`).
+ * @param instance      - The full `GenInstance` (needed by `useContext` and `useUIPatch`).
+ * @returns The value to send back to the generator via `gen.next(value)`.
  */
 export function processOneDescriptor(
   descriptor: { type: symbol; [key: string]: unknown },
@@ -160,6 +254,10 @@ export function processOneDescriptor(
   instance: GenInstance,
 ): unknown {
   switch (descriptor.type) {
+    // ── useState ──
+    // Returns `[currentValue, setter]`. The setter calls `rerender()`,
+    // which either re-executes the generator immediately or queues a
+    // pending rerender if one is already in progress.
     case USE_STATE: {
       if (!(hookIndex in hookStates)) {
         const init = descriptor['initialValue'];
@@ -175,6 +273,8 @@ export function processOneDescriptor(
       return [hookStates[hookIndex], setter];
     }
 
+    // ── useRef ──
+    // Returns a stable `{ current: T }` object that persists across renders.
     case USE_REF: {
       if (!(hookIndex in hookStates)) {
         hookStates[hookIndex] = { current: descriptor['initialValue'] };
@@ -182,6 +282,9 @@ export function processOneDescriptor(
       return hookStates[hookIndex];
     }
 
+    // ── useId ──
+    // Returns a stable unique ID string (e.g. ":r0:", ":r1:").
+    // The ID is generated on first mount and reused on rerenders.
     case USE_ID: {
       if (!(hookIndex in hookStates)) {
         hookStates[hookIndex] = `:r${renderState.idCounter++}:`;
@@ -189,6 +292,8 @@ export function processOneDescriptor(
       return hookStates[hookIndex];
     }
 
+    // ── useMemo ──
+    // Returns `fn(...deps)`, recomputed only when `deps` change.
     case USE_MEMO: {
       const fn = descriptor['fn'] as (...args: unknown[]) => unknown;
       const deps = descriptor['deps'] as unknown[];
@@ -199,6 +304,14 @@ export function processOneDescriptor(
       return (hookStates[hookIndex] as { value: unknown }).value;
     }
 
+    // ── useContext ──
+    // Reads a context value from the active `_ctxMap`. Registers the
+    // context in `instance.consumedContexts` so the reconciler knows
+    // this component subscribes to it.
+    //
+    // Without a selector: returns the raw value, rerenders on any change.
+    // With a selector: returns the raw value (or transformed result),
+    // rerenders only when selected deps change.
     case USE_CONTEXT: {
       const ctx = descriptor['ctx'] as Context<unknown>;
       instance.consumedContexts.add(ctx);
@@ -234,6 +347,10 @@ export function processOneDescriptor(
       return result;
     }
 
+    // ── useResolveRaw ──
+    // Tracks a Promise. Returns `{ data, loading, error }`.
+    // When the promise resolves/rejects, triggers a rerender.
+    // The hook re-subscribes when the promise reference changes.
     case USE_RESOLVE_RAW: {
       type RawState =
         | { promise: Promise<unknown>; status: 'pending' }
@@ -270,6 +387,14 @@ export function processOneDescriptor(
       return { data: undefined, loading: true, error: undefined } as ResolveRawResult<unknown>;
     }
 
+    // ── useResolve ──
+    // Like useResolveRaw but creates the Promise via `fn(signal)` and
+    // re-invokes when `deps` change. Aborts the previous AbortController
+    // on deps change. Registers a cleanup function so the controller is
+    // also aborted on component unmount.
+    //
+    // Returns the Promise (the generator yields a VNode to display while
+    // the promise is pending, then `resume()` is called when it resolves).
     case USE_RESOLVE: {
       type ResolveState = {
         deps: unknown[];
@@ -293,6 +418,18 @@ export function processOneDescriptor(
       return existing.promise;
     }
 
+    // ── useEffect ──
+    // Queues a side-effect to run AFTER the DOM is updated.
+    // The effect function receives an AbortSignal and may return a cleanup.
+    //
+    // On deps change:
+    //   1. Abort the previous signal.
+    //   2. Call previous cleanup synchronously.
+    //   3. Create a new AbortController.
+    //   4. Queue the effect in `pendingEffects` (flushed by `flushEffects`).
+    //
+    // On unmount: the registered `cleanupFns[hookIndex]` aborts the signal
+    // and calls the cleanup.
     case USE_EFFECT: {
       type EffectState = {
         deps: unknown[];
@@ -325,6 +462,18 @@ export function processOneDescriptor(
       return undefined;
     }
 
+    // ── useRender ──
+    // Pauses the generator and renders intermediate UI (e.g. a dialog or
+    // loading screen). The generator is resumed when `resumeCallback(value)`
+    // is called from the rendered UI.
+    //
+    // Returns `{ slot, resumeCallback }` to the generator. The generator
+    // then yields a VNode (the intermediate UI) which pauses it. When the
+    // UI calls `resumeCallback(value)`, `resume()` is called, which calls
+    // `gen.next()` to continue the generator with the returned value.
+    //
+    // The `resumeCallback` is stable across rerenders (same deps).
+    // On deps change, a new slot/callback pair is created.
     case USE_RENDER: {
       const deps = descriptor['deps'] as unknown[];
       let slot = hookStates[hookIndex] as UseRenderState<unknown> | undefined;
@@ -355,10 +504,17 @@ export function processOneDescriptor(
       return { slot, resumeCallback: slot.resumeCallback };
     }
 
+    // ── useUIPatch ──
+    // Returns a stable `startPatch()` function. When called, it:
+    //   1. Snapshots all current descendant instances.
+    //   2. Increments `localPatchRefCount` on the root + all descendants,
+    //      causing their DOM writes to be deferred.
+    //   3. Returns a `commit()` function that decrements the counts and
+    //      calls `_flushPendingVNodes` to apply all deferred updates.
+    //
+    // The `startPatch` function is created once (on first mount) and
+    // reused on every rerender (stable reference).
     case USE_UI_PATCH: {
-      // Return a stable `startPatch` function that, when called, snapshots the
-      // calling component's current descendant instances and defers their DOM
-      // writes until the returned `commit` function is called.
       if (!(hookIndex in hookStates)) {
         hookStates[hookIndex] = (): (() => void) => {
           // Snapshot taken lazily at call time (not at hook registration time)
@@ -391,12 +547,31 @@ export function processOneDescriptor(
 /**
  * Execute the component generator body, intercepting hook descriptors.
  *
- * Runs `gen.next()` in a loop: whenever the generator yields a hook descriptor
- * the descriptor is processed and the result is sent back via `gen.next(result)`.
- * The loop exits when the generator either returns (done) or yields a real VNode
- * (render output that the reconciler should display).
+ * Drives the generator in a loop:
+ * 1. Call `gen.next(value)` to advance the generator.
+ * 2. If the yielded value is a hook descriptor → process it via
+ *    `processOneDescriptor`, send the result back, and repeat.
+ * 3. If the yielded value is NOT a hook descriptor → it's a real VNode
+ *    (the component's render output). Stop the loop.
+ * 4. If the generator returns (done=true) → the returned value is the
+ *    final VNode. Stop the loop.
  *
- * Returns the VNode to reconcile and the generator to store (null if done).
+ * After each hook is processed, checks `instance.pendingRerender`. If
+ * true (a `setState` was called during render), returns early with
+ * `cancelled: true` so that `executeRerender` can retry with the
+ * accumulated latest state.
+ *
+ * **Called by:** `executeRerender` in `mount.ts` — on every render cycle
+ * (both initial mount and subsequent rerenders).
+ *
+ * @param gen      - The generator created by calling the component function.
+ * @param instance - The component's `GenInstance`.
+ * @param rerender - Function to trigger a rerender (passed to hook descriptors).
+ * @param resume   - Function to resume a paused generator (passed to `useRender`).
+ * @returns An object with:
+ *   - `vnode`: the component's render output (a Child).
+ *   - `gen`: the generator to store if it yielded (paused), or `null` if it returned.
+ *   - `cancelled`: true if a mid-render state change aborted this render.
  */
 export function runHooks(
   gen: Generator<unknown, Child, unknown>,
@@ -444,6 +619,15 @@ export function runHooks(
  *
  * An instance that consumes `ctx` without a selector always returns `false`
  * because it must rerender whenever the Provider value changes.
+ *
+ * **Called by:** `propagateContextUpdate` below — to decide whether a
+ * descendant consumer needs a rerender when an ancestor Provider's value
+ * changes. If all selectors are stable, the rerender is skipped.
+ *
+ * @param inst     - The generator instance to check.
+ * @param ctx      - The context whose value changed.
+ * @param newValue - The new value supplied by the Provider.
+ * @returns `true` if no rerender is needed (all selectors stable or context not consumed).
  */
 function _hasStableSelectors(inst: GenInstance, ctx: Context<unknown>, newValue: unknown): boolean {
   for (const s of inst.hookStates) {
@@ -458,14 +642,20 @@ function _hasStableSelectors(inst: GenInstance, ctx: Context<unknown>, newValue:
 }
 
 /**
- * Walk all descendant slots and propagate a context value change:
+ * Walk all descendant slots and propagate a context value change.
  *
- *  - Updates `capturedCtx` on every generator instance found so that any
+ * When a context Provider's `value` prop changes, this function:
+ * 1. Updates `capturedCtx` on every descendant `GenInstance` so that any
  *    future self-triggered re-render uses the new value.
- *  - Immediately re-renders instances that **consumed** the changed context in
- *    their last render (tracked via `consumedContexts`).
- *  - Stops recursing into subtrees guarded by an inner Provider for the *same*
- *    context – those subtrees override the outer value and must not be touched.
+ * 2. Immediately re-renders instances that **consumed** the changed context
+ *    in their last render (tracked via `consumedContexts`), unless all their
+ *    selectors have stable deps under the new value.
+ * 3. Stops recursing into subtrees guarded by an inner Provider for the
+ *    *same* context — those subtrees override the outer value.
+ *
+ * **Called by:** `reconcileOne` in `reconciler.ts` — when a Provider's
+ * `value` prop changed and the Provider is being reconciled in-place
+ * (same type at same position).
  *
  * @param ctx      - The context whose value changed.
  * @param newValue - The new value supplied by the Provider.
