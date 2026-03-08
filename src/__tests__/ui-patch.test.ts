@@ -1,6 +1,6 @@
 import { createElement } from '../jsx';
 import { render, startUIPatch, commitUIPatch } from '../render';
-import { useState, useUIPatch } from '../hooks';
+import { $state, $uiPatch } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
@@ -26,7 +26,7 @@ describe('startUIPatch / commitUIPatch (global patch)', () => {
     let setValue: ((v: string) => void) | null = null;
 
     function* Comp() {
-      const [v, sv] = yield* useState('initial');
+      const [v, sv] = yield* $state('initial');
       setValue = sv;
       return createElement('span', null, v);
     }
@@ -48,7 +48,7 @@ describe('startUIPatch / commitUIPatch (global patch)', () => {
     let setValue: ((v: string) => void) | null = null;
 
     function* Comp() {
-      const [v, sv] = yield* useState('a');
+      const [v, sv] = yield* $state('a');
       setValue = sv;
       renderCalls.push(v);
       return createElement('span', null, v);
@@ -72,7 +72,7 @@ describe('startUIPatch / commitUIPatch (global patch)', () => {
     let setValue: ((v: string) => void) | null = null;
 
     function* Comp() {
-      const [v, sv] = yield* useState('a');
+      const [v, sv] = yield* $state('a');
       setValue = sv;
       return createElement('span', null, v);
     }
@@ -93,13 +93,13 @@ describe('startUIPatch / commitUIPatch (global patch)', () => {
     let setFrozen: ((v: string) => void) | null = null;
 
     function* Live() {
-      const [v, sv] = yield* useState('live-a');
+      const [v, sv] = yield* $state('live-a');
       setLive = sv;
       return createElement('span', { id: 'live' }, v);
     }
 
     function* Frozen() {
-      const [v, sv] = yield* useState('frozen-a');
+      const [v, sv] = yield* $state('frozen-a');
       setFrozen = sv;
       return createElement('span', { id: 'frozen' }, v);
     }
@@ -132,13 +132,13 @@ describe('startUIPatch / commitUIPatch (global patch)', () => {
     let setShown: ((v: boolean) => void) | null = null;
 
     function* Inner() {
-      const [v, sv] = yield* useState('x');
+      const [v, sv] = yield* $state('x');
       setValue = sv;
       return createElement('span', null, v);
     }
 
     function* Outer() {
-      const [shown, setS] = yield* useState(true);
+      const [shown, setS] = yield* $state(true);
       setShown = setS;
       return createElement('div', null, shown ? createElement(Inner as never, {}) : null);
     }
@@ -154,10 +154,10 @@ describe('startUIPatch / commitUIPatch (global patch)', () => {
 });
 
 // ---------------------------------------------------------------------------
-// Local UI Patch: useUIPatch
+// Local UI Patch: $uiPatch
 // ---------------------------------------------------------------------------
 
-describe('useUIPatch (local patch)', () => {
+describe('$uiPatch (local patch)', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -175,13 +175,13 @@ describe('useUIPatch (local patch)', () => {
     let capturedStartPatch: (() => () => void) | null = null;
 
     function* Child() {
-      const [v, sv] = yield* useState('child-a');
+      const [v, sv] = yield* $state('child-a');
       setInner = sv;
       return createElement('span', { id: 'child' }, v);
     }
 
     function* Parent() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
       return createElement('div', null, createElement(Child as never, {}));
     }
@@ -203,13 +203,13 @@ describe('useUIPatch (local patch)', () => {
     let capturedStartPatch: (() => () => void) | null = null;
 
     function* PatchedArea() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
       return createElement('span', { id: 'patched' }, 'content');
     }
 
     function* Sibling() {
-      const [v, sv] = yield* useState('sib-a');
+      const [v, sv] = yield* $state('sib-a');
       setSibling = sv;
       return createElement('span', { id: 'sib' }, v);
     }
@@ -243,15 +243,15 @@ describe('useUIPatch (local patch)', () => {
     let capturedStartPatch: (() => () => void) | null = null;
 
     function* Dynamic() {
-      const [v, sv] = yield* useState('dyn-a');
+      const [v, sv] = yield* $state('dyn-a');
       setDynamic = sv;
       return createElement('span', { id: 'dyn' }, v);
     }
 
     function* Parent() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
-      const [show, setS] = yield* useState(false);
+      const [show, setS] = yield* $state(false);
       setShow = setS;
       return createElement('div', null, show ? createElement(Dynamic as never, {}) : null);
     }
@@ -300,7 +300,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     }
 
     function* Parent() {
-      const [show, setS] = yield* useState(true);
+      const [show, setS] = yield* $state(true);
       setShow = setS;
       return createElement('div', null, show ? createElement(Child as never, {}) : null);
     }
@@ -325,7 +325,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     }
 
     function* Parent() {
-      const [show, setS] = yield* useState(true);
+      const [show, setS] = yield* $state(true);
       setShow = setS;
       return createElement(
         'div',
@@ -355,7 +355,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     }
 
     function* Parent() {
-      const [show, setS] = yield* useState(true);
+      const [show, setS] = yield* $state(true);
       setShow = setS;
       return createElement(
         'div',
@@ -382,7 +382,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     }
 
     function* Parent() {
-      const [show, setS] = yield* useState(true);
+      const [show, setS] = yield* $state(true);
       setShow = setS;
       return createElement(
         'div',
@@ -411,7 +411,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     }
 
     function* Parent() {
-      const [show, setS] = yield* useState(true);
+      const [show, setS] = yield* $state(true);
       setShow = setS;
       return createElement('div', null, createElement(Child as never, { $shown: show }));
     }
@@ -436,7 +436,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     }
 
     function* Parent() {
-      const [show, setS] = yield* useState(false);
+      const [show, setS] = yield* $state(false);
       setShow = setS;
       return createElement('div', null, show ? createElement(Child as never, {}) : null);
     }
@@ -461,7 +461,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     }
 
     function* Parent() {
-      const [show, setS] = yield* useState(false);
+      const [show, setS] = yield* $state(false);
       setShow = setS;
       return createElement(
         'div',
@@ -490,7 +490,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     }
 
     function* Parent() {
-      const [show, setS] = yield* useState(false);
+      const [show, setS] = yield* $state(false);
       setShow = setS;
       return createElement(
         'div',
@@ -517,7 +517,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     }
 
     function* Parent() {
-      const [show, setS] = yield* useState(false);
+      const [show, setS] = yield* $state(false);
       setShow = setS;
       return createElement(
         'div',
@@ -547,7 +547,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     }
 
     function* Parent() {
-      const [show, setS] = yield* useState(true);
+      const [show, setS] = yield* $state(true);
       setShow = setS;
       return createElement('div', null, show ? createElement(Child as never, {}) : null);
     }
@@ -573,7 +573,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     }
 
     function* Parent() {
-      const [show, setS] = yield* useState(true);
+      const [show, setS] = yield* $state(true);
       setShow = setS;
       return createElement(
         'div',
@@ -600,7 +600,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     let setValue: ((v: string) => void) | null = null;
 
     function* Parent() {
-      const [v, setV] = yield* useState('a');
+      const [v, setV] = yield* $state('a');
       setValue = setV;
       return createElement('div', { $patch: 'live' }, v);
     }
@@ -619,7 +619,7 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     let setValue: ((v: string) => void) | null = null;
 
     function* Parent() {
-      const [v, setV] = yield* useState('a');
+      const [v, setV] = yield* $state('a');
       setValue = setV;
       return createElement('span', null, v);
     }
@@ -641,13 +641,13 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     let setValue: ((v: string) => void) | null = null;
 
     function* Child() {
-      const [v, setV] = yield* useState('a');
+      const [v, setV] = yield* $state('a');
       setValue = setV;
       return createElement('span', { id: 'target' }, v);
     }
 
     function* Parent() {
-      const [live, setLive_] = yield* useState(false);
+      const [live, setLive_] = yield* $state(false);
       setLive = setLive_;
       return createElement(
         'div',
@@ -680,13 +680,13 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     let setValue: ((v: string) => void) | null = null;
 
     function* Child() {
-      const [v, setV] = yield* useState('a');
+      const [v, setV] = yield* $state('a');
       setValue = setV;
       return createElement('span', { id: 'target' }, v);
     }
 
     function* Parent() {
-      const [live, setLive_] = yield* useState(true);
+      const [live, setLive_] = yield* $state(true);
       setLive = setLive_;
       return createElement(
         'div',
@@ -717,13 +717,13 @@ describe('live-only reconcile: element add/remove during global patch', () => {
     let setValue: ((v: string) => void) | null = null;
 
     function* Child() {
-      const [v, setV] = yield* useState('a');
+      const [v, setV] = yield* $state('a');
       setValue = setV;
       return createElement('span', { id: 'target' }, v);
     }
 
     function* Parent() {
-      const [live, setLive_] = yield* useState(true);
+      const [live, setLive_] = yield* $state(true);
       setLive = setLive_;
       return createElement(
         'div',
@@ -774,9 +774,9 @@ describe('live-only reconcile: element add/remove during local patch', () => {
     }
 
     function* Parent() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
-      const [show, setS] = yield* useState(true);
+      const [show, setS] = yield* $state(true);
       setShow = setS;
       return createElement('div', null, show ? createElement(Child as never, {}) : null);
     }
@@ -800,9 +800,9 @@ describe('live-only reconcile: element add/remove during local patch', () => {
     }
 
     function* Parent() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
-      const [show, setS] = yield* useState(true);
+      const [show, setS] = yield* $state(true);
       setShow = setS;
       return createElement(
         'div',
@@ -830,9 +830,9 @@ describe('live-only reconcile: element add/remove during local patch', () => {
     }
 
     function* Parent() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
-      const [show, setS] = yield* useState(false);
+      const [show, setS] = yield* $state(false);
       setShow = setS;
       return createElement('div', null, show ? createElement(Child as never, {}) : null);
     }
@@ -856,9 +856,9 @@ describe('live-only reconcile: element add/remove during local patch', () => {
     }
 
     function* Parent() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
-      const [show, setS] = yield* useState(false);
+      const [show, setS] = yield* $state(false);
       setShow = setS;
       return createElement(
         'div',
@@ -886,9 +886,9 @@ describe('live-only reconcile: element add/remove during local patch', () => {
     }
 
     function* Parent() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
-      const [show, setS] = yield* useState(false);
+      const [show, setS] = yield* $state(false);
       setShow = setS;
       return createElement(
         'div',
@@ -918,9 +918,9 @@ describe('live-only reconcile: element add/remove during local patch', () => {
     }
 
     function* Parent() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
-      const [show, setS] = yield* useState(false);
+      const [show, setS] = yield* $state(false);
       setShow = setS;
       return createElement('div', null, show ? createElement(Child as never, {}) : null);
     }
@@ -947,9 +947,9 @@ describe('live-only reconcile: element add/remove during local patch', () => {
     }
 
     function* Parent() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
-      const [show, setS] = yield* useState(true);
+      const [show, setS] = yield* $state(true);
       setShow = setS;
       return createElement('div', null, show ? createElement(Child as never, {}) : null);
     }
@@ -975,9 +975,9 @@ describe('live-only reconcile: element add/remove during local patch', () => {
     }
 
     function* Parent() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
-      const [shown, setS] = yield* useState(true);
+      const [shown, setS] = yield* $state(true);
       setShown = setS;
       return createElement(
         'div',
@@ -1027,7 +1027,7 @@ describe('child component prop updates apply correctly after global patch commit
     }
 
     function* App() {
-      const [isPending, setP] = yield* useState(false);
+      const [isPending, setP] = yield* $state(false);
       setPending = setP;
       return createElement('div', null, createElement(Nav as never, { isPending }));
     }
@@ -1059,7 +1059,7 @@ describe('child component prop updates apply correctly after global patch commit
     }
 
     function* App() {
-      const [pending, setP] = yield* useState(false);
+      const [pending, setP] = yield* $state(false);
       setPending = setP;
       return createElement('div', null, createElement(Status as never, { pending }));
     }
@@ -1087,7 +1087,7 @@ describe('child component prop updates apply correctly after global patch commit
     }
 
     function* App() {
-      const [text, setText] = yield* useState('a');
+      const [text, setText] = yield* $state('a');
       setLabel = setText;
       return createElement('div', null, createElement(Label as never, { text }));
     }
@@ -1130,9 +1130,9 @@ describe('child component prop updates apply correctly after local patch commit'
     }
 
     function* App() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
-      const [isPending, setP] = yield* useState(false);
+      const [isPending, setP] = yield* $state(false);
       setPending = setP;
       return createElement('div', null, createElement(Nav as never, { isPending }));
     }
@@ -1163,9 +1163,9 @@ describe('child component prop updates apply correctly after local patch commit'
     }
 
     function* App() {
-      const startPatch = yield* useUIPatch();
+      const startPatch = yield* $uiPatch();
       capturedStartPatch = startPatch;
-      const [pending, setP] = yield* useState(false);
+      const [pending, setP] = yield* $state(false);
       setPending = setP;
       return createElement('div', null, createElement(Status as never, { pending }));
     }

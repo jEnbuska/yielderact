@@ -23,18 +23,6 @@ export function isGeneratorFn(fn: AnyComponentFn): fn is GeneratorComponentFn {
 }
 
 /**
- * Remove all child nodes from a DOM element.
- *
- * **Called by:** not currently used in the render pipeline (retained as a
- * utility for potential external use).
- */
-export function clearChildren(node: Node): void {
-  while (node.firstChild) {
-    node.removeChild(node.firstChild);
-  }
-}
-
-/**
  * Shallow equality check for two props objects.
  *
  * Returns `true` when both objects have the same keys and every value
@@ -112,11 +100,11 @@ export function flattenChildren(children: Child[]): Child[] {
 }
 
 /**
- * Compute the merged props for a VNode, including `children` if present.
+ * Compute the merged props for a VNode, including `$children` if present.
  *
  * When a VNode has children (e.g. `<Comp>child</Comp>`), they are passed
- * to the component as `props.children`. This function merges them into a
- * single props object so the component receives `{ ...ownProps, children }`.
+ * to the component as `props.$children`. This function merges them into a
+ * single props object so the component receives `{ ...ownProps, $children }`.
  *
  * **Called by:**
  * - `reconcileOne` in `reconciler.ts` — to compute the full props before
@@ -125,10 +113,10 @@ export function flattenChildren(children: Child[]): Child[] {
  *   initial mount.
  *
  * @param vnode - The VNode whose props to merge.
- * @returns The props object, with `children` included if non-empty.
+ * @returns The props object, with `$children` included if non-empty.
  */
 export function mergedProps(vnode: VNode): Record<string, unknown> {
-  return vnode.children.length > 0 ? { ...vnode.props, children: vnode.children } : vnode.props;
+  return vnode.children.length > 0 ? { ...vnode.props, $children: vnode.children } : vnode.props;
 }
 
 /**

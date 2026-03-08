@@ -8,7 +8,7 @@
  *  4. Cross-subtree isolation: two sibling Providers for the same context
  *     must not interfere with each other.
  */
-import { createContext, useContext, useState } from 'yielderact';
+import { createContext, $context, $state } from 'yielderact';
 
 // ── Context definitions ────────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ const themeStyles: Record<Theme, { background: string; color: string; border: st
 
 /** Reads ThemeCtx and displays the current value. */
 function* ThemeBadge(props: { 'data-testid'?: string }) {
-  const theme = yield* useContext(ThemeCtx);
+  const theme = yield* $context(ThemeCtx);
   const s = themeStyles[theme];
   return (
     <span
@@ -50,7 +50,7 @@ function* ThemeBadge(props: { 'data-testid'?: string }) {
 
 /** Reads LocaleCtx and displays the current value. */
 function* LocaleBadge() {
-  const locale = yield* useContext(LocaleCtx);
+  const locale = yield* $context(LocaleCtx);
   return (
     <span data-testid="locale-badge" style={{ padding: '0.2rem 0.5rem', fontSize: '0.85rem' }}>
       {locale}
@@ -60,8 +60,8 @@ function* LocaleBadge() {
 
 /** Reads both contexts — useful for verifying they change independently. */
 function* BothBadge() {
-  const theme = yield* useContext(ThemeCtx);
-  const locale = yield* useContext(LocaleCtx);
+  const theme = yield* $context(ThemeCtx);
+  const locale = yield* $context(LocaleCtx);
   return (
     <span data-testid="both-badge">
       {theme}/{locale}
@@ -76,8 +76,8 @@ function* BothBadge() {
  * value change without being reset to 0.
  */
 function* StatefulConsumer() {
-  const theme = yield* useContext(ThemeCtx);
-  const [count, setCount] = yield* useState(0);
+  const theme = yield* $context(ThemeCtx);
+  const [count, setCount] = yield* $state(0);
   return (
     <div data-testid="stateful-consumer" style={{ display: 'flex', gap: '0.5rem' }}>
       <span data-testid="stateful-theme">{theme}</span>
@@ -92,7 +92,7 @@ function* StatefulConsumer() {
 // ── Part 4 helper: sibling consumers ─────────────────────────────────────
 
 function* SiblingConsumerA() {
-  const theme = yield* useContext(ThemeCtx);
+  const theme = yield* $context(ThemeCtx);
   return (
     <span data-testid="sibling-a" style={{ ...themeStyles[theme] }}>
       {theme}
@@ -101,7 +101,7 @@ function* SiblingConsumerA() {
 }
 
 function* SiblingConsumerB() {
-  const theme = yield* useContext(ThemeCtx);
+  const theme = yield* $context(ThemeCtx);
   return (
     <span data-testid="sibling-b" style={{ ...themeStyles[theme] }}>
       {theme}
@@ -110,8 +110,8 @@ function* SiblingConsumerB() {
 }
 
 function* SiblingProvidersDemo() {
-  const [valA, setValA] = yield* useState<Theme>('light');
-  const [valB, setValB] = yield* useState<Theme>('dark');
+  const [valA, setValA] = yield* $state<Theme>('light');
+  const [valB, setValB] = yield* $state<Theme>('dark');
 
   return (
     <div>
@@ -158,8 +158,8 @@ function* SiblingProvidersDemo() {
 // ── Root demo component ────────────────────────────────────────────────────
 
 export function* ContextDemo() {
-  const [theme, setTheme] = yield* useState<Theme>('light');
-  const [locale, setLocale] = yield* useState<Locale>('en');
+  const [theme, setTheme] = yield* $state<Theme>('light');
+  const [locale, setLocale] = yield* $state<Locale>('en');
 
   return (
     <section aria-label="Context demo">

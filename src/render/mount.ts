@@ -2,12 +2,19 @@
  * mount.ts — Initial DOM construction and generator component lifecycle.
  *
  * This module handles:
- * 1. **Building** DOM nodes from VNode trees (`buildVNodeList`, `buildNode`).
+ * 1. **Building** DOM nodes from VNode trees (`buildNode`).
  * 2. **Mounting** generator components (`mountGeneratorComponent`) — creates
- *    the host span, the `GenInstance`, and defines `resume`, `executeRerender`,
- *    and `rerender` closures that drive the component's lifecycle.
+ *    an end-marker Comment node, the `GenInstance`, and defines `resume`,
+ *    `executeRerender`, and `rerender` closures that drive the component's
+ *    lifecycle.
  * 3. **Mounting** plain function components (`mountPlainComponent`).
  * 4. **Mounting** context Providers (`mountContextProvider`).
+ *
+ * **No wrapper spans.** Components do not create wrapper `<span>` elements.
+ * Instead, output nodes are placed directly in the parent DOM. Each generator
+ * component and Provider uses an end-marker Comment node (`<!---->`) as an
+ * insertion anchor and slot reference. The end-marker is always the last DOM
+ * node belonging to the component within its parent.
  */
 
 import {
@@ -18,137 +25,13 @@ import {
   type GeneratorComponentFn,
   type PlainComponentFn,
 } from '../jsx';
-import {
-  _getCtxMap,
-  _setCtxMap,
-  _getProviderCtx,
-  _getCurrentBatch,
-  _instanceBatch,
-  _withBatch,
-} from '../context';
+import { _getCtxMap, _setCtxMap, _getProviderCtx, _instanceBatch, _withBatch } from '../context';
 import { type Slot, type GenInstance } from './types';
 import { renderState } from './state';
 import { applyProps } from './props';
 import { isGeneratorFn, mergedProps, isShown } from './helpers';
 import { runHooks, flushEffects } from './hooks-runtime';
 import { reconcileSlots } from './reconciler';
-
-/**
- * Build DOM nodes from a list of VNodes and return them alongside Slot
- * tracking data. Fragments are flattened into the parent list.
- *
- * This is the primary **initial mount** function for child lists. Unlike
- * `reconcileSlots` (which diffs against existing slots), this builds
- * everything from scratch.
- *
- * **Called by:**
- * - `executeRerender` in `mountGeneratorComponent` — on initial mount,
- *   builds the component's first render output.
- * - `reconcileOne` in `reconciler.ts` — when building a fresh HTML element
- *   (different tag from previous).
- * - `mountContextProvider` — builds the Provider's children.
- *
- * @param vnodes - The child VNodes to build.
- * @returns `{ nodes, slots }` — parallel arrays of real DOM nodes and
- *   their corresponding Slot tracking objects.
- */
-export function buildVNodeList(vnodes: Child[]): { nodes: Node[]; slots: Slot[] } {
-  const nodes: Node[] = [];
-  const slots: Slot[] = [];
-
-  for (const child of vnodes) {
-    // null / undefined / false → empty text node placeholder
-    if (child == null || child === false) {
-      const node = document.createTextNode('');
-      nodes.push(node);
-      slots.push({ type: 'empty', node, props: {}, childSlots: [], genInstance: null });
-      continue;
-    }
-    // string / number → text node
-    if (typeof child === 'string' || typeof child === 'number') {
-      const node = document.createTextNode(String(child));
-      nodes.push(node);
-      slots.push({
-        type: 'text',
-        node,
-        props: { text: String(child) },
-        childSlots: [],
-        genInstance: null,
-      });
-      continue;
-    }
-
-    const vnode = child as VNode;
-
-    // Fragment → flatten children into this level (no DOM wrapper)
-    if (vnode.type === Fragment) {
-      const inner = buildVNodeList(vnode.children);
-      nodes.push(...inner.nodes);
-      slots.push(...inner.slots);
-      continue;
-    }
-
-    // Check $shown prop — render empty placeholder when $shown === false
-    const allPropsForShown = mergedProps(vnode);
-    if (!isShown(allPropsForShown)) {
-      const node = document.createTextNode('');
-      nodes.push(node);
-      slots.push({ type: 'empty', node, props: {}, childSlots: [], genInstance: null });
-      continue;
-    }
-
-    // Function component (generator, plain, or Provider)
-    if (typeof vnode.type === 'function') {
-      const fn = vnode.type as AnyComponentFn;
-      const allProps = allPropsForShown;
-      const providerCtx = _getProviderCtx(fn);
-      if (providerCtx) {
-        const { node, childSlots } = mountContextProvider(
-          fn as PlainComponentFn,
-          allProps,
-          providerCtx,
-        );
-        nodes.push(node);
-        slots.push({ type: vnode.type, node, props: allProps, childSlots, genInstance: null });
-        continue;
-      }
-      let node: Node;
-      if (isGeneratorFn(fn)) {
-        node = mountGeneratorComponent(fn, allProps);
-      } else {
-        node = mountPlainComponent(fn as PlainComponentFn, allProps);
-      }
-      // Look up the GenInstance from the host span (registered by mountGeneratorComponent)
-      const genInstance =
-        node instanceof HTMLElement ? (renderState.genInstanceMap.get(node) ?? null) : null;
-      nodes.push(node);
-      slots.push({ type: vnode.type, node, props: allProps, childSlots: [], genInstance });
-      continue;
-    }
-
-    // HTML element — create the element, apply props, build children.
-    // If the element has a $patch prop, propagate it to children via
-    // the context map (save/restore pattern).
-    const el = document.createElement(vnode.type as string);
-    applyProps(el, vnode.props);
-    const elBatch = vnode.props['$patch'] as 'live' | 'default' | undefined;
-    const prevCtxBuild = _getCtxMap();
-    if (elBatch !== undefined) _setCtxMap(_withBatch(prevCtxBuild, elBatch));
-    const inner = buildVNodeList(vnode.children);
-    if (elBatch !== undefined) _setCtxMap(prevCtxBuild);
-    for (const c of inner.nodes) el.appendChild(c);
-    nodes.push(el);
-    slots.push({
-      type: vnode.type as string,
-      node: el,
-      props: vnode.props,
-      childSlots: inner.slots,
-      genInstance: null,
-    });
-  }
-
-  return { nodes, slots };
-}
 
 /**
  * Build a single real DOM node from a virtual DOM node (or primitive value).
@@ -171,7 +54,8 @@ export function buildVNodeList(vnodes: Child[]): { nodes: Node[]; slots: Slot[] 
  * 5. HTML tag string → `HTMLElement` with props and children.
  *
  * @param child - The VNode or primitive to build.
- * @returns The real DOM node.
+ * @returns The real DOM node. For generator components and Providers, returns
+ *   a `DocumentFragment` containing the output nodes + endMarker.
  */
 export function buildNode(child: Child): Node {
   if (child == null || typeof child === 'boolean') {
@@ -197,11 +81,12 @@ export function buildNode(child: Child): Node {
     }
     const providerCtx = _getProviderCtx(fn);
     if (providerCtx) {
-      return mountContextProvider(fn as PlainComponentFn, allProps, providerCtx).node;
+      return mountContextProvider(fn as PlainComponentFn, allProps, providerCtx).fragment;
     }
-    return isGeneratorFn(fn)
-      ? mountGeneratorComponent(fn, allProps)
-      : mountPlainComponent(fn as PlainComponentFn, allProps);
+    if (isGeneratorFn(fn)) {
+      return mountGeneratorComponent(fn, allProps).fragment;
+    }
+    return mountPlainComponent(fn as PlainComponentFn, allProps);
   }
 
   if (!isShown(child.props)) {
@@ -222,16 +107,52 @@ export function buildNode(child: Child): Node {
 }
 
 /**
- * Mount a generator-function component into a `display:contents` host span.
+ * Decide whether to commit a VNode immediately or defer it during a UI patch.
+ *
+ * When a global or local patch is active and the component is not `$patch="live"`,
+ * the VNode is stored as `pendingVNode` and a live-only reconcile pass updates
+ * only `$patch="live"` descendants. Otherwise, the VNode is committed immediately
+ * via `reconcileSlots` and effects are flushed.
+ *
+ * **Called by:** `resume` and `executeRerender` in `mountGeneratorComponent`.
+ */
+function commitOrDefer(instance: GenInstance, vnode: Child): void {
+  const parent = instance.endMarker.parentNode as HTMLElement;
+  const effectiveBatch =
+    (instance.props['$patch'] as 'live' | 'default' | undefined) ??
+    _instanceBatch(instance.capturedCtx);
+  const shouldDefer =
+    (renderState.patchDepth > 0 || instance.localPatchRefCount > 0) && effectiveBatch !== 'live';
+  if (shouldDefer) {
+    instance.pendingVNode = vnode;
+    renderState.dirtyInstances.add(instance);
+    const prevLiveOnly = renderState.liveOnlyMode;
+    renderState.liveOnlyMode = true;
+    try {
+      instance.slots = reconcileSlots(parent, instance.slots, [vnode], instance.endMarker);
+    } finally {
+      renderState.liveOnlyMode = prevLiveOnly;
+    }
+  } else {
+    instance.pendingVNode = undefined;
+    instance.slots = reconcileSlots(parent, instance.slots, [vnode], instance.endMarker);
+    flushEffects(instance);
+  }
+}
+
+/**
+ * Mount a generator-function component using an end-marker Comment node.
  *
  * This is the heart of the component lifecycle. It:
- * 1. Creates a `<span style="display:contents">` host element.
+ * 1. Creates an end-marker Comment node (`<!---->`) that serves as the
+ *    component's positional anchor in the parent DOM.
  * 2. Captures the current context map (`capturedCtx`).
  * 3. Creates the `GenInstance` with all mutable state arrays.
  * 4. Defines three closures (`resume`, `executeRerender`, `rerender`) that
  *    close over the instance and drive the component's lifecycle.
  * 5. Calls `executeRerender(false)` to run the initial mount.
- * 6. Registers the instance in `renderState.genInstanceMap`.
+ * 6. Returns a `DocumentFragment` containing the initial output nodes and
+ *    the endMarker (the caller appends it to the parent DOM).
  *
  * **Called by:**
  * - `buildVNodeList` and `buildNode` — during initial mount.
@@ -240,24 +161,19 @@ export function buildNode(child: Child): Node {
  *
  * @param fn    - The generator function component.
  * @param props - The component's initial props.
- * @returns The host `<span>` element (with children appended inside).
+ * @returns `{ fragment, genInstance }` — the fragment to insert into the DOM
+ *   and the instance for slot tracking.
  */
 export function mountGeneratorComponent(
   fn: GeneratorComponentFn,
   props: Record<string, unknown>,
-): Node {
-  // This should probably be the actual parent element
-  const host = document.createElement('span');
-  host.style.display = 'contents';
+): { fragment: DocumentFragment; genInstance: GenInstance } {
+  const endMarker = document.createComment('');
 
   /**
    * The context map captured at mount time, representing the **inherited**
    * context from ancestors. Does NOT include the component's own `$patch`
    * — that is applied dynamically in `executeRerender` via `_withBatch`.
-   *
-   * This separation ensures:
-   * - Context change detection compares inherited contexts only.
-   * - `usePatchContext` consumers see the effective (inherited + own) batch.
    */
   const capturedCtx = _getCtxMap();
 
@@ -277,6 +193,10 @@ export function mountGeneratorComponent(
   // `instance` is assigned before any external code can observe it.
   // `resume`, `rerender`, and `executeRerender` all close over it.
   let instance: GenInstance;
+
+  // Nodes produced by the initial render — collected by the mount function
+  // after `executeRerender(false)` returns to build the DocumentFragment.
+  let initialFragment: DocumentFragment | null = null;
 
   /**
    * Resume a paused generator (e.g. inside `useResolve` or `useRender`).
@@ -317,30 +237,7 @@ export function mountGeneratorComponent(
       _setCtxMap(prevCtx);
     }
 
-    // Determine whether to defer this update or commit immediately.
-    // effectiveBatch = own $patch OR inherited batch from capturedCtx.
-    const effectiveBatch =
-      (instance.props['$patch'] as 'live' | 'default' | undefined) ??
-      _instanceBatch(instance.capturedCtx);
-    const shouldDefer =
-      (renderState.patchDepth > 0 || instance.localPatchRefCount > 0) && effectiveBatch !== 'live';
-    if (shouldDefer) {
-      // Store the VNode for later commit; run a live-only pass for $patch="live" descendants.
-      instance.pendingVNode = vnode;
-      renderState.dirtyInstances.add(instance);
-      const prevLiveOnly = renderState.liveOnlyMode;
-      renderState.liveOnlyMode = true;
-      try {
-        instance.slots = reconcileSlots(host, instance.slots, [vnode]);
-      } finally {
-        renderState.liveOnlyMode = prevLiveOnly;
-      }
-    } else {
-      // No patch active — commit immediately.
-      instance.pendingVNode = undefined;
-      instance.slots = reconcileSlots(host, instance.slots, [vnode]);
-      flushEffects(instance);
-    }
+    commitOrDefer(instance, vnode);
   }
 
   /**
@@ -359,9 +256,10 @@ export function mountGeneratorComponent(
    * 7. Set `isRendering = false`.
    * 8. If cancelled (mid-render setState detected) → revert effect deps, retry.
    * 9. If not cancelled → commit the VNode:
-   *    - Initial mount: `buildVNodeList` → append to host.
+   *    - Initial mount: `buildVNodeList` → store nodes for fragment assembly.
    *    - Rerender: check `shouldDefer` → either store `pendingVNode` or
-   *      `reconcileSlots` immediately.
+   *      `reconcileSlots` immediately, using `endMarker.parentNode` as the
+   *      actual parent and `endMarker` as the insertion anchor.
    * 10. Resolve any `renderResolvers` (awaited setState promises).
    * 11. If `pendingRerender` is set → loop again for follow-up rerender.
    *
@@ -370,7 +268,7 @@ export function mountGeneratorComponent(
    * - `rerender()` below — for all subsequent re-renders.
    *
    * @param mounted - `false` on initial mount, `true` on rerenders. Controls
-   *   whether nodes are appended to the host or reconciled in place.
+   *   whether nodes are stored for fragment assembly or reconciled in place.
    */
   function executeRerender(mounted: boolean): Promise<void> {
     // eslint-disable-next-line no-constant-condition
@@ -417,38 +315,21 @@ export function mountGeneratorComponent(
 
       // ── Commit ──
       if (!mounted) {
-        // Initial mount: build DOM nodes and append to the host element.
-        const { nodes, slots } = buildVNodeList([vnode]);
-        instance.slots = slots;
-        for (const n of nodes) host.appendChild(n);
+        // Initial mount: build DOM into a DocumentFragment via reconcileSlots.
+        // The endMarker is pre-appended so it serves as the insertion anchor.
+        // Temporarily disable liveOnlyMode — fresh mounts always create real
+        // nodes (matching the old buildVNodeList behavior which had no
+        // liveOnlyMode guards).
+        initialFragment = document.createDocumentFragment();
+        initialFragment.appendChild(endMarker);
+        const prevLiveOnly = renderState.liveOnlyMode;
+        renderState.liveOnlyMode = false;
+        instance.slots = reconcileSlots(initialFragment, [], [vnode], endMarker);
+        renderState.liveOnlyMode = prevLiveOnly;
         mounted = true;
         flushEffects(instance);
       } else {
-        // Rerender: reconcile existing DOM in place.
-        // Compute the effective batch to determine whether to defer.
-        const effBatch =
-          (instance.props['$patch'] as 'live' | 'default' | undefined) ??
-          _instanceBatch(instance.capturedCtx);
-        const shouldDefer =
-          (renderState.patchDepth > 0 || instance.localPatchRefCount > 0) && effBatch !== 'live';
-        if (shouldDefer) {
-          // Store VNode for later commit by commitUIPatch / local commit.
-          instance.pendingVNode = vnode;
-          renderState.dirtyInstances.add(instance);
-          // Run a live-only pass to immediately flush $patch="live" descendants.
-          const prevLiveOnly = renderState.liveOnlyMode;
-          renderState.liveOnlyMode = true;
-          try {
-            instance.slots = reconcileSlots(host, instance.slots, [vnode]);
-          } finally {
-            renderState.liveOnlyMode = prevLiveOnly;
-          }
-        } else {
-          // No patch active — commit immediately.
-          instance.pendingVNode = undefined;
-          instance.slots = reconcileSlots(host, instance.slots, [vnode]);
-          flushEffects(instance);
-        }
+        commitOrDefer(instance, vnode);
       }
 
       // Resolve all Promise<void>s returned by setState calls that were
@@ -500,18 +381,11 @@ export function mountGeneratorComponent(
   }
 
   // ── Initial mount ──
-  // Create the instance before calling runHooks so that processOneDescriptor
-  // (e.g. USE_UI_PATCH) can close over the fully-typed instance object.
-  //
-  // capturedCtx stores the inherited batch from the parent context.
-  // The component's own $patch (if any) is applied dynamically during
-  // executeRerender, so that usePatchContext consumers see the effective batch
-  // while context change detection compares inherited batches only.
   instance = {
     fn,
     gen: null,
     props,
-    host,
+    endMarker,
     capturedCtx,
     slots: [],
     hookStates,
@@ -525,11 +399,12 @@ export function mountGeneratorComponent(
     rerender,
     consumedContexts: new Set(),
   };
-  renderState.genInstanceMap.set(host, instance);
 
   executeRerender(false /* not yet mounted */);
 
-  return host;
+  // initialFragment is populated by executeRerender(false) above (endMarker
+  // included). TypeScript can't track the mutation across the closure boundary.
+  return { fragment: initialFragment as unknown as DocumentFragment, genInstance: instance };
 }
 
 /**
@@ -539,9 +414,9 @@ export function mountGeneratorComponent(
  * Provider's children (which see the new value), then restores the
  * previous context map.
  *
- * Returns the host span and child Slot array so that the reconciler
- * can update children in-place on subsequent renders without remounting
- * the Provider or its descendants.
+ * Returns a DocumentFragment (containing the Provider's children and
+ * an endMarker Comment) and the child Slot array so that the reconciler
+ * can update children in-place on subsequent renders.
  *
  * **Called by:**
  * - `buildVNodeList` and `buildNode` — during initial mount.
@@ -551,35 +426,36 @@ export function mountGeneratorComponent(
  * @param fn          - The Provider function (created by `createContext`).
  * @param props       - The Provider's props (includes `value` and `children`).
  * @param providerCtx - The Context object this Provider supplies.
- * @returns `{ node, childSlots }` — the host span and Slot tracking for children.
+ * @returns `{ fragment, endMarker, childSlots }` — the fragment to insert
+ *   into the DOM, the endMarker for slot tracking, and Slot data for children.
  */
 export function mountContextProvider(
   fn: PlainComponentFn,
   props: Record<string, unknown>,
   providerCtx: object,
-): { node: HTMLElement; childSlots: Slot[] } {
+): { fragment: DocumentFragment; endMarker: Comment; childSlots: Slot[] } {
   const prevCtxMap = _getCtxMap();
   const newCtxMap = new Map(prevCtxMap);
   newCtxMap.set(providerCtx as never, props.value);
   _setCtxMap(newCtxMap);
 
-  const host = document.createElement('span');
-  host.style.display = 'contents';
+  const endMarker = document.createComment('');
+  const fragment = document.createDocumentFragment();
+  fragment.appendChild(endMarker);
   let childSlots: Slot[] = [];
 
   try {
     const vnode = fn(props);
     if (vnode != null) {
-      // The Provider returns a Fragment wrapping its children — build them.
-      const { nodes, slots } = buildVNodeList([vnode]);
-      for (const n of nodes) host.appendChild(n);
-      childSlots = slots;
+      const prevLiveOnly = renderState.liveOnlyMode;
+      renderState.liveOnlyMode = false;
+      childSlots = reconcileSlots(fragment, [], [vnode], endMarker);
+      renderState.liveOnlyMode = prevLiveOnly;
     }
   } finally {
     _setCtxMap(prevCtxMap);
   }
-
-  return { node: host, childSlots };
+  return { fragment, endMarker, childSlots };
 }
 
 /**
@@ -589,6 +465,12 @@ export function mountContextProvider(
  * re-renders with different props, the reconciler remounts from scratch
  * (plain components don't have a `GenInstance` to rerender in place).
  *
+ * Returns the rendered DOM node directly — no wrapper span is needed
+ * because plain components are never reconciled in place. The only
+ * exception is Fragment returns: a `DocumentFragment` gets consumed on
+ * DOM insertion, so it must be wrapped in a `<span style="display:contents">`
+ * to maintain a stable `slot.node` reference for the reconciler.
+ *
  * **Called by:**
  * - `buildVNodeList` and `buildNode` — during initial mount.
  * - `reconcileOne` in `reconciler.ts` — when a plain component appears at
@@ -597,12 +479,20 @@ export function mountContextProvider(
  *
  * @param fn    - The plain function component.
  * @param props - The component's props.
- * @returns The host `<span style="display:contents">` element.
+ * @returns The rendered DOM node (or a wrapper span for Fragment returns).
  */
 export function mountPlainComponent(fn: PlainComponentFn, props: Record<string, unknown>): Node {
-  const host = document.createElement('span');
-  host.style.display = 'contents';
   const vnode = fn(props);
-  if (vnode != null) host.appendChild(buildNode(vnode));
-  return host;
+  if (vnode == null) return document.createTextNode('');
+  const node = buildNode(vnode);
+  // DocumentFragment gets consumed on append — its children move to the parent
+  // and the fragment itself becomes empty. Wrap in a span to preserve a stable
+  // slot.node reference for the reconciler's replaceChild/removeChild calls.
+  if (node instanceof DocumentFragment) {
+    const host = document.createElement('span');
+    host.style.display = 'contents';
+    host.appendChild(node);
+    return host;
+  }
+  return node;
 }

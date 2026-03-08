@@ -3,7 +3,7 @@
  *
  * Provides a simple tab-based navigation between the five example demos.
  */
-import { createRoot, useEffect, useMemo, useState } from 'yielderact';
+import { createRoot, $effect, $memo, $state } from 'yielderact';
 import { Counter } from './components/Counter';
 import { TodoList } from './components/TodoList';
 import { ThemeDemo } from './components/ThemeDemo';
@@ -16,6 +16,7 @@ import { TransitionDemo } from './components/TransitionDemo';
 import { ContextDemo } from './components/ContextDemo';
 import { LazyContextDemo } from './components/LazyContextDemo';
 import { AbortSignalEffectDemo } from './components/AbortSignalEffectDemo';
+import { KeyShuffleDemo } from './components/KeyShuffleDemo';
 
 type Tab =
   | 'counter'
@@ -30,26 +31,28 @@ type Tab =
   | 'transition'
   | 'context'
   | 'lazy-ctx'
-  | 'abort-signal';
+  | 'abort-signal'
+  | 'key-shuffle';
 
 const tabs: { id: Tab; label: string }[] = [
   { id: 'counter', label: 'Counter' },
   { id: 'todos', label: 'Todo List' },
   { id: 'theme', label: 'Context / Theme' },
   { id: 'data', label: 'Data Fetcher' },
-  { id: 'raw', label: 'useResolveRaw' },
+  { id: 'raw', label: '$resolveRaw' },
   { id: 'hooks', label: 'Hooks Showcase' },
   { id: 'shown', label: '$shown prop' },
-  { id: 'confirm', label: 'useRender' },
-  { id: 'effect', label: 'useEffect' },
+  { id: 'confirm', label: '$render' },
+  { id: 'effect', label: '$effect' },
   { id: 'transition', label: 'UI Patch' },
   { id: 'context', label: 'Context Scoping' },
   { id: 'lazy-ctx', label: 'Lazy Context' },
   { id: 'abort-signal', label: 'AbortSignal Effect' },
+  { id: 'key-shuffle', label: 'Key Shuffle' },
 ];
 
 function* App() {
-  const [activeTab, setActiveTab] = yield* useState<Tab>('counter');
+  const [activeTab, setActiveTab] = yield* $state<Tab>('counter');
 
   return (
     <div style={{ maxWidth: '640px', margin: '0 auto' }}>
@@ -60,7 +63,7 @@ function* App() {
         Generator-powered JSX components — no magic, just plain JavaScript.
       </p>
 
-      {/* Tab bar — ids derived from data so useId() is not applicable here */}
+      {/* Tab bar — ids derived from data so $id() is not applicable here */}
       <nav
         data-testid="app-tablist"
         role="tablist"
@@ -68,7 +71,7 @@ function* App() {
       >
         {tabs.map((tab) => (
           <button
-            key={tab.id}
+            $key={tab.id}
             role="tab"
             data-testid={`tab-${tab.id}`}
             id={`tab-${tab.id}`}
@@ -103,6 +106,7 @@ function* App() {
         <ContextDemo $shown={activeTab === 'context'} />
         <LazyContextDemo $shown={activeTab === 'lazy-ctx'} />
         <AbortSignalEffectDemo $shown={activeTab === 'abort-signal'} />
+        <KeyShuffleDemo $shown={activeTab === 'key-shuffle'} />
       </div>
     </div>
   );

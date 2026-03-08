@@ -11,7 +11,7 @@
  *
  * @example
  * function* Counter(_props: object) {
- *   const [count, setCount] = yield* useState(0);
+ *   const [count, setCount] = yield* $state(0);
  *   return (
  *     <button onClick={() => setCount(count + 1)}>{count}</button>
  *   );
@@ -29,18 +29,18 @@ export {
   USE_UI_PATCH,
   depsChanged,
 } from './symbols';
-export { useState } from './use-state';
-export { type RefObject, useRef } from './use-ref';
-export { useId } from './use-id';
-export { useMemo } from './use-memo';
+export { $state } from './use-state';
+export { type RefObject, $ref } from './use-ref';
+export { $id } from './use-id';
+export { $memo } from './use-memo';
 export {
   type Renderable,
   type UseResolveOptions,
   type ResolveRawResult,
-  useResolveRaw,
-  useResolve,
+  $resolveRaw,
+  $resolve,
 } from './use-resolve';
-export { useEffect } from './use-effect';
-export { type UseRenderFn, type UseRenderState, useRender, useResume } from './use-render';
-export { useUIPatch } from './use-ui-patch';
-export { usePatchContext } from './use-patch-context';
+export { $effect } from './use-effect';
+export { type UseRenderFn, type UseRenderState, $render, $resume } from './use-render';
+export { $uiPatch } from './use-ui-patch';
+export { $patchContext } from './use-patch-context';

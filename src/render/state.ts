@@ -10,20 +10,6 @@ import { type GenInstance } from './types';
  */
 export const renderState = {
   /**
-   * Maps a generator component's host `<span>` to its `GenInstance`.
-   *
-   * **Written by:** `mountGeneratorComponent` — registers the instance
-   *   after creating it.
-   * **Read by:** `reconcileOne` and `buildVNodeList` — after mounting a
-   *   component, looks up the instance from the returned host node so it
-   *   can be stored in `Slot.genInstance`.
-   *
-   * Uses a `WeakMap` so that unmounted components are garbage-collected
-   * when their host span is no longer referenced.
-   */
-  genInstanceMap: new WeakMap<HTMLElement, GenInstance>(),
-
-  /**
    * Reference-counted global patch depth.
    *
    * While > 0, all `$patch="default"` components defer their DOM writes

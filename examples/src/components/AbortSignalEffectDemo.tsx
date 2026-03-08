@@ -1,20 +1,20 @@
 /**
- * AbortSignalEffectDemo – demonstrates `useEffect` with `AbortSignal` instead
+ * AbortSignalEffectDemo – demonstrates `$effect` with `AbortSignal` instead
  * of a cleanup function.
  *
  * All three user signals are shown simultaneously. When you select a user,
  * only that user's effect polls; the previous signal is aborted automatically.
- * Each row tracks its own abort count via useState — the signal's abort handler
+ * Each row tracks its own abort count via $state — the signal's abort handler
  * increments it directly.
  * Unmounting the panel aborts all signals.
  */
-import { useState, useEffect } from 'yielderact';
+import { $state, $effect } from 'yielderact';
 
 function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) {
-  const [status, setStatus] = yield* useState<string>('idle');
-  const [abortCount, setAbortCount] = yield* useState(0);
+  const [status, setStatus] = yield* $state<string>('idle');
+  const [abortCount, setAbortCount] = yield* $state(0);
 
-  yield* useEffect(
+  yield* $effect(
     (signal) => {
       if (activeId !== userId) {
         setStatus('inactive');
@@ -82,17 +82,17 @@ function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) 
 }
 
 export function* AbortSignalEffectDemo() {
-  const [showPanel, setShowPanel] = yield* useState(true);
-  const [activeId, setActiveId] = yield* useState(1);
+  const [showPanel, setShowPanel] = yield* $state(true);
+  const [activeId, setActiveId] = yield* $state(1);
 
   return (
     <section aria-label="AbortSignal effect demo" data-testid="abort-signal-demo">
       <h2>
-        <code>useEffect</code> with <code>AbortSignal</code>
+        <code>$effect</code> with <code>AbortSignal</code>
       </h2>
 
       <p>
-        Each row has a <code>useEffect</code> that receives an <code>AbortSignal</code>. Only the
+        Each row has a <code>$effect</code> that receives an <code>AbortSignal</code>. Only the
         active user polls. When you switch users, the previous signal is aborted — no cleanup
         function needed. The abort count tracks how many times each signal has been aborted.
       </p>
@@ -100,7 +100,7 @@ export function* AbortSignalEffectDemo() {
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
         {[1, 2, 3].map((n) => (
           <button
-            key={n}
+            $key={n}
             data-testid={`user-btn-${n}`}
             onClick={() => setActiveId(n)}
             style={{ fontWeight: activeId === n ? 'bold' : 'normal' }}

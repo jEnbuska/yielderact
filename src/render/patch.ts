@@ -37,8 +37,9 @@ export function _flushPendingVNodes(instances: GenInstance[]): void {
     // Restore inherited context, then apply own $patch for children.
     const ownPatch = inst.props['$patch'] as 'live' | 'default' | undefined;
     _setCtxMap(ownPatch !== undefined ? _withBatch(inst.capturedCtx, ownPatch) : inst.capturedCtx);
+    const parent = inst.endMarker.parentNode as HTMLElement;
     try {
-      inst.slots = reconcileSlots(inst.host, inst.slots, [vnode]);
+      inst.slots = reconcileSlots(parent, inst.slots, [vnode], inst.endMarker);
     } finally {
       _setCtxMap(prevCtx);
     }

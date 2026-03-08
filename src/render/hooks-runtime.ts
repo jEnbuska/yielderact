@@ -20,6 +20,7 @@ import {
   _getProviderCtx,
   _resolveCtxValue,
 } from '../context';
+import { clearRef } from './props';
 import {
   USE_STATE,
   USE_REF,
@@ -126,6 +127,10 @@ export function unmountSlot(slot: Slot): void {
   for (const child of slot.childSlots) {
     unmountSlot(child);
   }
+  // Clear $ref on HTML element slots
+  if (typeof slot.type === 'string' && slot.props['$ref']) {
+    clearRef(slot.props['$ref']);
+  }
   if (slot.genInstance) {
     for (const child of slot.genInstance.slots) {
       unmountSlot(child);
@@ -166,31 +171,6 @@ export function collectDescendants(instance: GenInstance): GenInstance[] {
     }
   }
   walk(instance.slots);
-  return result;
-}
-
-/**
- * Collect all descendant `GenInstance`s reachable from a `Slot[]` array
- * (rather than from a root `GenInstance`).
- *
- * **Called by:** not currently used in the main render pipeline (retained
- * as a utility for potential use by context propagation or debugging).
- *
- * @param slots - The slot array to walk.
- * @returns A flat array of all `GenInstance`s found in the subtree.
- */
-export function collectDescendantsFromSlots(slots: Slot[]): GenInstance[] {
-  const result: GenInstance[] = [];
-  function walk(s: Slot[]): void {
-    for (const slot of s) {
-      if (slot.genInstance) {
-        result.push(slot.genInstance);
-        walk(slot.genInstance.slots);
-      }
-      walk(slot.childSlots);
-    }
-  }
-  walk(slots);
   return result;
 }
 

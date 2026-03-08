@@ -11,23 +11,23 @@ import { USE_STATE } from './symbols';
  *
  * @example
  * function* Counter(_props: object) {
- *   const [count, setCount] = yield* useState(0);
+ *   const [count, setCount] = yield* $state(0);
  *   return (
  *     <button onClick={() => setCount(count + 1)}>{count}</button>
  *   );
  * }
  *
  * // Lazy initializer – function is called only on the first render:
- * const [value, setValue] = yield* useState(() => expensiveComputation());
+ * const [value, setValue] = yield* $state(() => expensiveComputation());
  *
  * // Functional updater – receives the previous state:
  * setValue(prev => prev + 1);
  *
  * NOTE: As in React, any function passed as `initialValue` or to the setter is
  * treated as a lazy initializer / updater respectively.  To store a function as
- * state, wrap it: `useState(() => myFn)` / `setState(() => newFn)`.
+ * state, wrap it: `$state(() => myFn)` / `setState(() => newFn)`.
  */
-export function* useState<T>(
+export function* $state<T>(
   initialValue: T | (() => T),
 ): Generator<unknown, [T, (value: T | ((prev: T) => T)) => Promise<void>], unknown> {
   const stateTuple = yield { type: USE_STATE, initialValue };

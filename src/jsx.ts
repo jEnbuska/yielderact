@@ -15,6 +15,38 @@ export interface VNode {
 export type Child = VNode | string | number | boolean | null | undefined;
 
 /**
+ * Props prefixed with `$` that are valid on every JSX element — both
+ * intrinsic HTML/SVG elements and custom generator / plain-function
+ * components — without needing to be declared in the component's own props type.
+ *
+ * These props are **never** rendered as DOM attributes. They are consumed
+ * by the framework: `$key` for reconciliation, `$children` for nested
+ * content, `$shown` for conditional mount/unmount, `$patch` for deferred
+ * updates, and `$ref` for DOM element / component instance references.
+ *
+ * @typeParam TRef - The concrete element or instance type for `$ref`.
+ *   Defaults to `unknown` in `IntrinsicAttributes`; narrowed to the
+ *   specific `HTMLElement` / `SVGElement` subtype in per-element attribute
+ *   interfaces.
+ */
+export interface SpecialProps<TRef = unknown> {
+  /** Reconciliation key — not rendered to the DOM. Must be a string. */
+  $key?: string;
+  /** Nested children passed to the component or element. */
+  $children?: Child | Child[];
+  /** When false, the element/component is removed from the DOM. */
+  $shown?: boolean;
+  /**
+   * Controls DOM-update behaviour during a UI patch.
+   * - `'live'`: updates flush immediately, even during an active patch.
+   * - `'default'` (default): updates are deferred until the patch commits.
+   */
+  $patch?: 'live' | 'default';
+  /** Ref callback or object — set to the DOM element on mount, null on unmount. */
+  $ref?: { current: TRef } | ((instance: TRef | null) => void) | null;
+}
+
+/**
  * A generator-function component.
  *
  * The component body runs from top to bottom on each render and **returns**
@@ -28,7 +60,7 @@ export type Child = VNode | string | number | boolean | null | undefined;
  *
  * @example
  * function* Counter(_props: object) {
- *   const [count, setCount] = yield* useState(0);
+ *   const [count, setCount] = yield* $state(0);
  *   return (
  *     <button onClick={() => setCount(count + 1)}>{count}</button>
  *   );
@@ -36,7 +68,7 @@ export type Child = VNode | string | number | boolean | null | undefined;
  *
  * @example
  * function* UserCard(_props: object) {
- *   const user = yield* useResolve({
+ *   const user = yield* $resolve({
  *     fn: () => fetchUser(1),
  *     loading: <Spinner />,
  *     error:   <ErrorMsg />,
@@ -156,19 +188,8 @@ declare global {
      * elements and custom generator / plain-function components — without
      * needing to be declared in the component's own props type.
      *
-     * Mirrors how React handles `key` and `ref`: TypeScript merges
-     * `IntrinsicAttributes` into every JSX call site automatically.
+     * All special `$`-prefixed props are inherited from {@link SpecialProps}.
      */
-    interface IntrinsicAttributes {
-      key?: string | number | null;
-      /** When false, the element/component is removed from the DOM. */
-      $shown?: boolean;
-      /**
-       * Controls DOM-update behaviour during a UI patch.
-       * - `'live'`: updates flush immediately, even during an active patch.
-       * - `'default'` (default): updates are deferred until the patch commits.
-       */
-      $patch?: 'live' | 'default';
-    }
+    interface IntrinsicAttributes extends SpecialProps {}
   }
 }

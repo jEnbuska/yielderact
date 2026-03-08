@@ -1,10 +1,10 @@
 import { createElement } from '../jsx';
 import { render } from '../render';
-import { useState, useEffect } from '../hooks';
+import { $state, $effect } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe('render – useEffect', () => {
+describe('render – $effect', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -20,7 +20,7 @@ describe('render – useEffect', () => {
     const calls: string[] = [];
 
     function* Comp() {
-      yield* useEffect(() => {
+      yield* $effect(() => {
         calls.push('effect');
       }, []);
       return createElement('span', {}, 'hi');
@@ -35,9 +35,9 @@ describe('render – useEffect', () => {
     let setCount: ((v: number) => void) | null = null;
 
     function* Comp() {
-      const [count, sc] = yield* useState(0);
+      const [count, sc] = yield* $state(0);
       setCount = sc;
-      yield* useEffect(() => {
+      yield* $effect(() => {
         calls.push('effect');
       }, []); // empty deps — should only run once
       return createElement('span', {}, String(count));
@@ -56,9 +56,9 @@ describe('render – useEffect', () => {
     let setId: ((v: number) => void) | null = null;
 
     function* Comp() {
-      const [id, si] = yield* useState(1);
+      const [id, si] = yield* $state(1);
       setId = si;
-      yield* useEffect(() => {
+      yield* $effect(() => {
         log.push(`effect:${id}`);
         return () => log.push(`cleanup:${id}`);
       }, [id]);
@@ -80,7 +80,7 @@ describe('render – useEffect', () => {
     let setShow: ((v: boolean) => void) | null = null;
 
     function* Inner() {
-      yield* useEffect(() => {
+      yield* $effect(() => {
         log.push('mount');
         return () => log.push('unmount');
       }, []);
@@ -88,7 +88,7 @@ describe('render – useEffect', () => {
     }
 
     function* Outer() {
-      const [show, ss] = yield* useState(true);
+      const [show, ss] = yield* $state(true);
       setShow = ss;
       return show ? createElement(Inner as never, {}) : null;
     }
@@ -100,15 +100,15 @@ describe('render – useEffect', () => {
     expect(log).toEqual(['mount', 'unmount']);
   });
 
-  it('does not run effect while generator is paused in useRender', () => {
+  it('does not run effect while generator is paused in $render', () => {
     const log: string[] = [];
 
     function* Comp() {
-      yield* useEffect(() => {
+      yield* $effect(() => {
         log.push('effect');
       }, []);
       const answer = yield* (function* (): Generator<unknown, string, unknown> {
-        // Inline useRender-like pause: yield a VNode to pause the generator
+        // Inline $render-like pause: yield a VNode to pause the generator
         const caps = (yield {
           type: Symbol.for('yielderact.useRender.test'),
         }) as null;
@@ -117,12 +117,12 @@ describe('render – useEffect', () => {
       return createElement('span', {}, answer);
     }
 
-    // We cannot easily test useRender interaction without full plumbing,
+    // We cannot easily test $render interaction without full plumbing,
     // so instead test via the abort-signal / pending effect flow with a
     // simpler approach: effect runs only when generator finishes.
     // Just verify effect ran after a full render cycle.
     function* Simple() {
-      yield* useEffect(() => {
+      yield* $effect(() => {
         log.push('ran');
       }, []);
       return createElement('span', {}, 'ok');
@@ -137,7 +137,7 @@ describe('render – useEffect', () => {
     let receivedSignal: AbortSignal | null = null;
 
     function* Comp() {
-      yield* useEffect((signal) => {
+      yield* $effect((signal) => {
         receivedSignal = signal;
       }, []);
       return createElement('span', {}, 'hi');
@@ -153,9 +153,9 @@ describe('render – useEffect', () => {
     let setId: ((v: number) => void) | null = null;
 
     function* Comp() {
-      const [id, si] = yield* useState(1);
+      const [id, si] = yield* $state(1);
       setId = si;
-      yield* useEffect(
+      yield* $effect(
         (signal) => {
           signals.push(signal);
         },
@@ -180,14 +180,14 @@ describe('render – useEffect', () => {
     let setShow: ((v: boolean) => void) | null = null;
 
     function* Inner() {
-      yield* useEffect((signal) => {
+      yield* $effect((signal) => {
         capturedSignal = signal;
       }, []);
       return createElement('span', {}, 'inner');
     }
 
     function* Outer() {
-      const [show, ss] = yield* useState(true);
+      const [show, ss] = yield* $state(true);
       setShow = ss;
       return show ? createElement(Inner as never, {}) : null;
     }
@@ -205,9 +205,9 @@ describe('render – useEffect', () => {
     let setId: ((v: number) => void) | null = null;
 
     function* Comp() {
-      const [id, si] = yield* useState(1);
+      const [id, si] = yield* $state(1);
       setId = si;
-      yield* useEffect(
+      yield* $effect(
         (signal) => {
           return () => {
             log.push(`cleanup:${id}:aborted=${signal.aborted}`);

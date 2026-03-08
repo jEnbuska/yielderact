@@ -20,8 +20,8 @@ import { USE_UI_PATCH } from './symbols';
  *
  * @example
  * function* PageComponent(_props: object) {
- *   const [page, setPage] = yield* useState('home');
- *   const startPatch = yield* useUIPatch();
+ *   const [page, setPage] = yield* $state('home');
+ *   const startPatch = yield* $uiPatch();
  *
  *   const navigate = async (next: string) => {
  *     const commit = startPatch();
@@ -37,7 +37,7 @@ import { USE_UI_PATCH } from './symbols';
  *   return <main>...</main>;
  * }
  */
-export function* useUIPatch(): Generator<unknown, () => () => void, unknown> {
+export function* $uiPatch(): Generator<unknown, () => () => void, unknown> {
   const startPatch = yield { type: USE_UI_PATCH };
   return startPatch as () => () => void;
 }

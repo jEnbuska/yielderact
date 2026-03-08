@@ -1,6 +1,6 @@
 import { createElement } from '../jsx';
 import { render } from '../render';
-import { useState } from '../hooks';
+import { $state } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
@@ -86,7 +86,7 @@ describe('shown prop', () => {
     let setShown: ((v: boolean) => void) | null = null;
 
     function* Wrapper() {
-      const [$shown, setS] = yield* useState(true);
+      const [$shown, setS] = yield* $state(true);
       setShown = setS;
       return createElement('div', { $shown }, 'content');
     }
@@ -102,7 +102,7 @@ describe('shown prop', () => {
     let setShown: ((v: boolean) => void) | null = null;
 
     function* Wrapper() {
-      const [$shown, setS] = yield* useState(false);
+      const [$shown, setS] = yield* $state(false);
       setShown = setS;
       return createElement('div', { $shown }, 'content');
     }
@@ -123,7 +123,7 @@ describe('shown prop', () => {
     }
 
     function* Wrapper() {
-      const [$shown, setS] = yield* useState(true);
+      const [$shown, setS] = yield* $state(true);
       setShown = setS;
       return createElement(Inner as never, { $shown });
     }
@@ -143,7 +143,7 @@ describe('shown prop', () => {
     }
 
     function* Wrapper() {
-      const [$shown, setS] = yield* useState(false);
+      const [$shown, setS] = yield* $state(false);
       setShown = setS;
       return createElement(Inner as never, { $shown });
     }

@@ -1,12 +1,12 @@
 /**
- * DataFetcher – demonstrates `useResolve` for async data loading.
+ * DataFetcher – demonstrates `$resolve` for async data loading.
  *
- * `yield* useResolve(...)` suspends the component rendering and shows a
+ * `yield* $resolve(...)` suspends the component rendering and shows a
  * loading placeholder until the promise resolves (or an error placeholder
  * if it rejects).  Once resolved, execution continues and the component
  * returns its final JSX.
  */
-import { render, useResolve, useResolveRaw, useMemo, useId, useState } from 'yielderact';
+import { render, $resolve, $resolveRaw, $memo, $id, $state } from 'yielderact';
 
 interface User {
   id: number;
@@ -27,7 +27,7 @@ async function fetchUser(signal: AbortSignal): Promise<User> {
 }
 
 function* Spinner() {
-  const id = yield* useId();
+  const id = yield* $id();
   return (
     <p id={id} data-testid="loading-message" style={{ color: '#888', fontStyle: 'italic' }}>
       Loading user data…
@@ -36,7 +36,7 @@ function* Spinner() {
 }
 
 function* ErrorMessage() {
-  const id = yield* useId();
+  const id = yield* $id();
   return (
     <p id={id} data-testid="error-message" style={{ color: '#c00' }}>
       Failed to load data. Please try again.
@@ -45,9 +45,9 @@ function* ErrorMessage() {
 }
 
 export function* DataFetcher() {
-  const userDataId = yield* useId();
+  const userDataId = yield* $id();
 
-  const user = yield* useResolve<User>(
+  const user = yield* $resolve<User>(
     {
       fn: fetchUser,
       loading: <Spinner />,
@@ -60,8 +60,8 @@ export function* DataFetcher() {
     <section aria-label="Data fetcher example">
       <h2>Data Fetcher</h2>
       <p>
-        <code>yield* useResolve</code> suspends rendering while a promise is pending and
-        automatically resumes when it resolves.
+        <code>yield* $resolve</code> suspends rendering while a promise is pending and automatically
+        resumes when it resolves.
       </p>
       <div
         id={userDataId}
@@ -85,7 +85,7 @@ export function* DataFetcher() {
 }
 
 // ---------------------------------------------------------------------------
-// useResolveRaw demo
+// $resolveRaw demo
 // ---------------------------------------------------------------------------
 
 async function fetchPost(id: number): Promise<{ id: number; title: string; body: string }> {
@@ -95,17 +95,17 @@ async function fetchPost(id: number): Promise<{ id: number; title: string; body:
 }
 
 export function* ResolveRawDemo() {
-  const [postId, setPostId] = yield* useState(1);
-  const promise = yield* useMemo(() => fetchPost(postId), [postId]);
-  const { data, loading, error } = yield* useResolveRaw<
+  const [postId, setPostId] = yield* $state(1);
+  const promise = yield* $memo(() => fetchPost(postId), [postId]);
+  const { data, loading, error } = yield* $resolveRaw<
     { id: number; title: string; body: string },
     Error
   >(promise);
 
   return (
-    <section aria-label="useResolveRaw demo" style={{ marginTop: '2rem' }}>
+    <section aria-label="$resolveRaw demo" style={{ marginTop: '2rem' }}>
       <h2>
-        <code>useResolveRaw</code>
+        <code>$resolveRaw</code>
       </h2>
       <p>
         Low-level async hook — returns <code>{`{ data, loading, error }`}</code> directly so the
@@ -114,7 +114,7 @@ export function* ResolveRawDemo() {
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
         {[1, 2, 3, 0].map((id) => (
           <button
-            key={id}
+            $key={id}
             data-testid={`post-btn-${id}`}
             onClick={() => setPostId(id)}
             style={{ fontWeight: postId === id ? 'bold' : 'normal' }}

@@ -14,22 +14,22 @@ import { USE_EFFECT } from './symbols';
  * cancel async work (e.g. `fetch`) without needing to return a cleanup fn.
  *
  * The effect is **not** fired while the generator is paused (e.g. inside a
- * `useRender` interaction) – only once the generator has returned its final
+ * `$render` interaction) – only once the generator has returned its final
  * JSX and the resulting DOM is in place.
  *
  * Must be called with `yield*` inside a generator component.
  *
  * @example
  * function* Timer(_props: object) {
- *   const [tick, setTick] = yield* useState(0);
- *   yield* useEffect((signal) => {
+ *   const [tick, setTick] = yield* $state(0);
+ *   yield* $effect((signal) => {
  *     const id = setInterval(() => setTick((t) => t + 1), 1000);
  *     return () => clearInterval(id);
  *   }, []);
  *   return <p>Seconds: {tick}</p>;
  * }
  */
-export function* useEffect(
+export function* $effect(
   fn: (signal: AbortSignal) => (() => void) | void,
   deps: unknown[],
 ): Generator<unknown, void, unknown> {

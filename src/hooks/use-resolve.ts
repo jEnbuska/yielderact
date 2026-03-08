@@ -7,7 +7,7 @@ import { USE_RESOLVE_RAW, USE_RESOLVE } from './symbols';
  */
 export type Renderable = Child | AnyComponentFn;
 
-/** Options accepted by `useResolve`. */
+/** Options accepted by `$resolve`. */
 export interface UseResolveOptions<T> {
   /**
    * A factory that creates the promise. Called once per component instance (or when `deps` change).
@@ -22,7 +22,7 @@ export interface UseResolveOptions<T> {
 }
 
 /**
- * The return type of `useResolveRaw`.
+ * The return type of `$resolveRaw`.
  * A discriminated union — narrow on `loading` or `error` to access `data`.
  */
 export type ResolveRawResult<T, E = unknown> =
@@ -46,20 +46,20 @@ function toChild(renderable: Renderable): Child {
  * When the promise settles the component is re-rendered and the hook
  * returns updated values.
  *
- * Unlike `useResolve`, this hook does **not** pause rendering — the
+ * Unlike `$resolve`, this hook does **not** pause rendering — the
  * component receives the state immediately and decides how to render it.
- * Combine with `useMemo` to memoize the promise factory:
+ * Combine with `$memo` to memoize the promise factory:
  *
  * @example
  * function* UserProfile({ userId }: { userId: number }) {
- *   const promise = yield* useMemo(() => fetchUser(userId), [userId]);
- *   const { data, loading, error } = yield* useResolveRaw<User, Error>(promise);
+ *   const promise = yield* $memo(() => fetchUser(userId), [userId]);
+ *   const { data, loading, error } = yield* $resolveRaw<User, Error>(promise);
  *   if (loading) return <Spinner />;
  *   if (error) return <ErrorMessage message={error.message} />;
  *   return <div>{data.name}</div>;
  * }
  */
-export function* useResolveRaw<T, E = unknown>(
+export function* $resolveRaw<T, E = unknown>(
   promise: Promise<T>,
 ): Generator<unknown, ResolveRawResult<T, E>, unknown> {
   const result = yield { type: USE_RESOLVE_RAW, promise };
@@ -81,7 +81,7 @@ export function* useResolveRaw<T, E = unknown>(
  *
  * @example
  * function* UserProfile({ userId }: { userId: number }) {
- *   const user = yield* useResolve({
+ *   const user = yield* $resolve({
  *     fn: () => fetchUser(userId),
  *     loading: <Spinner />,
  *     error: <ErrorMessage />,
@@ -89,7 +89,7 @@ export function* useResolveRaw<T, E = unknown>(
  *   return <div>{user.name}</div>;
  * }
  */
-export function* useResolve<T>(
+export function* $resolve<T>(
   options: UseResolveOptions<T>,
   deps: unknown[],
 ): Generator<unknown, T, unknown> {
@@ -97,7 +97,7 @@ export function* useResolve<T>(
   // The renderer creates a new AbortController on first call or when deps change,
   // passes its signal to fn, and aborts the previous controller automatically.
   const promise = (yield { type: USE_RESOLVE, fn: options.fn, deps }) as Promise<T>;
-  const { data, loading, error } = yield* useResolveRaw<T, unknown>(promise);
+  const { data, loading, error } = yield* $resolveRaw<T, unknown>(promise);
 
   if (loading) {
     yield toChild(options.loading);

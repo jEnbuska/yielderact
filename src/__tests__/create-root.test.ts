@@ -1,6 +1,6 @@
 import { createElement } from '../jsx';
 import { createRoot, render } from '../render';
-import { useState, usePatchContext } from '../hooks';
+import { $state, $patchContext } from '../hooks';
 import { _getCurrentBatch, _getCtxMap } from '../context';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
@@ -28,7 +28,7 @@ describe('createRoot', () => {
 
   it('renders a generator component into the container', () => {
     function* Counter() {
-      const [count] = yield* useState(0);
+      const [count] = yield* $state(0);
       return createElement('span', null, String(count));
     }
     const root = createRoot(container);
@@ -57,7 +57,7 @@ describe('createRoot', () => {
   });
 });
 
-describe('usePatchContext', () => {
+describe('$patchContext', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -73,7 +73,7 @@ describe('usePatchContext', () => {
     let patchValue: 'live' | 'default' | undefined;
 
     function* Comp() {
-      patchValue = yield* usePatchContext();
+      patchValue = yield* $patchContext();
       return createElement('div', null);
     }
 
@@ -86,7 +86,7 @@ describe('usePatchContext', () => {
     let patchValue: 'live' | 'default' | undefined;
 
     function* Child() {
-      patchValue = yield* usePatchContext();
+      patchValue = yield* $patchContext();
       return createElement('span', null, patchValue);
     }
 
@@ -99,7 +99,7 @@ describe('usePatchContext', () => {
     let patchValue: 'live' | 'default' | undefined;
 
     function* Comp() {
-      patchValue = yield* usePatchContext();
+      patchValue = yield* $patchContext();
       return createElement('div', null);
     }
 
@@ -113,12 +113,12 @@ describe('usePatchContext', () => {
     let patchValue: 'live' | 'default' | undefined;
 
     function* Child() {
-      patchValue = yield* usePatchContext();
+      patchValue = yield* $patchContext();
       return createElement('span', { id: 'patch' }, patchValue);
     }
 
     function* Parent() {
-      const [live, setLive_] = yield* useState(false);
+      const [live, setLive_] = yield* $state(false);
       setLive = setLive_;
       return createElement(
         'div',
@@ -136,13 +136,13 @@ describe('usePatchContext', () => {
     expect(container.querySelector('#patch')!.textContent).toBe('live');
   });
 
-  it('works the same as useContext(ThemeContext) pattern', () => {
-    // Verify usePatchContext follows the exact same usage pattern as
-    // useContext — read via yield* inside a generator component.
+  it('works the same as $context(ThemeContext) pattern', () => {
+    // Verify $patchContext follows the exact same usage pattern as
+    // $context — read via yield* inside a generator component.
     let patchValue: 'live' | 'default' | undefined;
 
     function* Reader() {
-      const patch = yield* usePatchContext();
+      const patch = yield* $patchContext();
       patchValue = patch;
       return createElement('div', null, patch);
     }
@@ -153,18 +153,18 @@ describe('usePatchContext', () => {
     expect(container.textContent).toBe('default');
   });
 
-  it('does not rerender when only $patch prop changes (no usePatchContext)', () => {
+  it('does not rerender when only $patch prop changes (no $patchContext)', () => {
     let renderCount = 0;
     let setPatch: ((v: 'live' | 'default') => void) | null = null;
 
     function* Child({ label }: { label: string; $patch?: string }) {
-      yield* useState(0); // just to make it a stateful generator component
+      yield* $state(0); // just to make it a stateful generator component
       renderCount++;
       return createElement('span', { id: 'child' }, label);
     }
 
     function* Parent() {
-      const [patch, sp] = yield* useState<'live' | 'default'>('default');
+      const [patch, sp] = yield* $state<'live' | 'default'>('default');
       setPatch = sp;
       return createElement(Child as never, { label: 'hello', $patch: patch });
     }
@@ -179,19 +179,19 @@ describe('usePatchContext', () => {
     expect(container.querySelector('#child')!.textContent).toBe('hello');
   });
 
-  it('rerenders when $patch changes and component consumes usePatchContext', () => {
+  it('rerenders when $patch changes and component consumes $patchContext', () => {
     let renderCount = 0;
     let setPatch: ((v: 'live' | 'default') => void) | null = null;
     let patchValue: 'live' | 'default' | undefined;
 
     function* Child(_props: { $patch?: string }) {
-      patchValue = yield* usePatchContext();
+      patchValue = yield* $patchContext();
       renderCount++;
       return createElement('span', { id: 'child' }, patchValue);
     }
 
     function* Parent() {
-      const [patch, sp] = yield* useState<'live' | 'default'>('default');
+      const [patch, sp] = yield* $state<'live' | 'default'>('default');
       setPatch = sp;
       return createElement(Child as never, { $patch: patch });
     }
@@ -200,7 +200,7 @@ describe('usePatchContext', () => {
     expect(renderCount).toBe(1);
     expect(patchValue).toBe('default');
 
-    // Change $patch — Child SHOULD rerender because it consumes usePatchContext
+    // Change $patch — Child SHOULD rerender because it consumes $patchContext
     setPatch!('live');
     expect(renderCount).toBe(2);
     expect(patchValue).toBe('live');

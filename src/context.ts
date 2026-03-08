@@ -10,7 +10,7 @@ import { createElement, Fragment, type Child, type VNode } from './jsx';
  */
 export interface Context<T> {
   readonly _defaultValue: T;
-  readonly Provider: (props: { value: T; children?: Child[] }) => VNode;
+  readonly Provider: (props: { value: T; $children?: Child[] }) => VNode;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,7 +56,7 @@ let _ctxMap: ReadonlyMap<Context<unknown>, unknown> = new Map();
  * const ThemeCtx = createContext<'light' | 'dark'>('light');
  *
  * function* App() {
- *   const [theme] = yield* useState<'light' | 'dark'>('light');
+ *   const [theme] = yield* $state<'light' | 'dark'>('light');
  *   return (
  *     <ThemeCtx.Provider value={theme}>
  *       <Child />
@@ -65,15 +65,15 @@ let _ctxMap: ReadonlyMap<Context<unknown>, unknown> = new Map();
  * }
  *
  * function* Child() {
- *   const theme = yield* useContext(ThemeCtx);
+ *   const theme = yield* $context(ThemeCtx);
  *   return <div className={theme}>hello</div>;
  * }
  */
 export function createContext<T>(defaultValue: T): Context<T> {
   // Build the Provider function first, then assemble the context object.
   // This avoids a `null!` placeholder.
-  function ContextProvider(props: { value: T; children?: Child[] }): VNode {
-    return createElement(Fragment, null, ...(props.children ?? []));
+  function ContextProvider(props: { value: T; $children?: Child[] }): VNode {
+    return createElement(Fragment, null, ...(props.$children ?? []));
   }
 
   const ctx: Context<T> = {
@@ -108,25 +108,25 @@ export function createContext<T>(defaultValue: T): Context<T> {
  *
  * @example
  * // 1. Always rerenders on context change
- * const ctx = yield* useContext(MyCtx);
+ * const ctx = yield* $context(MyCtx);
  *
  * // 2. Rerenders only when currentGroup changes; returns full ctx
- * const { currentGroup } = yield* useContext(MyCtx, (c) => [c.currentGroup]);
+ * const { currentGroup } = yield* $context(MyCtx, (c) => [c.currentGroup]);
  *
  * // 3. Rerenders only when currentGroup changes; returns the group directly
- * const group = yield* useContext(MyCtx, (c) => [c.currentGroup], (...args) => args[0]);
+ * const group = yield* $context(MyCtx, (c) => [c.currentGroup], (...args) => args[0]);
  */
-export function useContext<T>(ctx: Context<T>): Generator<UseContextDescriptor, T, unknown>;
-export function useContext<T>(
+export function $context<T>(ctx: Context<T>): Generator<UseContextDescriptor, T, unknown>;
+export function $context<T>(
   ctx: Context<T>,
   selector: (ctx: T) => unknown[],
 ): Generator<UseContextDescriptor, T, unknown>;
-export function useContext<T, D extends unknown[], R>(
+export function $context<T, D extends unknown[], R>(
   ctx: Context<T>,
   selector: (ctx: T) => D,
   transform: (...args: D) => R,
 ): Generator<UseContextDescriptor, R, unknown>;
-export function* useContext<T, D extends unknown[], R>(
+export function* $context<T, D extends unknown[], R>(
   ctx: Context<T>,
   selector?: (ctx: T) => D,
   transform?: (...args: D) => R,

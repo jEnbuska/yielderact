@@ -1,6 +1,30 @@
 import { type SyntheticEvent } from '../events';
 import { addSyntheticListener, removeSyntheticListener } from './events';
 
+// ── Ref helpers ─────────────────────────────────────────────────────────────
+
+/** Attach a $ref (callback or object) to a DOM element. */
+export function setRef(ref: unknown, el: Element): void {
+  if (!ref) return;
+  if (typeof ref === 'function') {
+    (ref as (instance: Element | null) => void)(el);
+  } else if (typeof ref === 'object' && 'current' in (ref as object)) {
+    (ref as { current: unknown }).current = el;
+  }
+}
+
+/** Clear a $ref (callback with null, or set .current to null). */
+export function clearRef(ref: unknown): void {
+  if (!ref) return;
+  if (typeof ref === 'function') {
+    (ref as (instance: Element | null) => void)(null);
+  } else if (typeof ref === 'object' && 'current' in (ref as object)) {
+    (ref as { current: unknown }).current = null;
+  }
+}
+
+// ── Prop application ────────────────────────────────────────────────────────
+
 /**
  * Apply all of a VNode's props to a freshly-created DOM element.
  *
@@ -15,7 +39,7 @@ import { addSyntheticListener, removeSyntheticListener } from './events';
  *   and a fresh element is created.
  *
  * **Prop handling rules:**
- * - `children`, `$shown`, `$patch` are skipped (framework-internal props).
+ * - All `$`-prefixed props are skipped (framework-internal special props).
  * - `onXxx` props → `addSyntheticListener(el, eventName, handler)`.
  * - `className` → `el.className`.
  * - `htmlFor` → `el.setAttribute('for', …)`.
@@ -34,7 +58,7 @@ import { addSyntheticListener, removeSyntheticListener } from './events';
  */
 export function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(props)) {
-    if (key === 'children' || key === '$shown' || key === '$patch') continue;
+    if (key.startsWith('$')) continue;
     if (key.startsWith('on') && typeof value === 'function') {
       addSyntheticListener(el, key.slice(2).toLowerCase(), value as (e: SyntheticEvent) => void);
     } else if (key === 'className') {
@@ -62,6 +86,9 @@ export function applyProps(el: HTMLElement, props: Record<string, unknown>): voi
       el.setAttribute(key, String(value));
     }
   }
+
+  // Handle $ref on initial mount
+  setRef(props['$ref'], el);
 
   // Default <button> type to "button" to prevent accidental form submission.
   // The HTML default is "submit", which is almost never the intended behaviour.
@@ -107,7 +134,7 @@ export function updateProps(
 ): void {
   // 1. Remove props that no longer exist in nextProps
   for (const key in prevProps) {
-    if (key === 'children' || key === '$shown' || key === '$patch') continue;
+    if (key.startsWith('$')) continue;
     if (key in nextProps) continue;
     if (key.startsWith('on') && typeof prevProps[key] === 'function') {
       removeSyntheticListener(el, key.slice(2).toLowerCase());
@@ -124,7 +151,7 @@ export function updateProps(
 
   // 2. Add or update props that changed
   for (const key in nextProps) {
-    if (key === 'children' || key === '$shown' || key === '$patch') continue;
+    if (key.startsWith('$')) continue;
     const next = nextProps[key];
     const prev = prevProps[key];
     if (Object.is(next, prev)) continue;
@@ -160,5 +187,13 @@ export function updateProps(
     } else if (next != null) {
       el.setAttribute(key, String(next));
     }
+  }
+
+  // 3. Handle $ref changes
+  const prevRef = prevProps['$ref'];
+  const nextRef = nextProps['$ref'];
+  if (!Object.is(prevRef, nextRef)) {
+    clearRef(prevRef);
+    setRef(nextRef, el);
   }
 }

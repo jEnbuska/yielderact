@@ -14,16 +14,16 @@ import { USE_MEMO } from './symbols';
  *
  * @example
  * function* Expensive({ a, b }: { a: number; b: number }) {
- *   const result = yield* useMemo((a, b) => heavyCalc(a, b), [a, b]);
+ *   const result = yield* $memo((a, b) => heavyCalc(a, b), [a, b]);
  *   return <div>{result}</div>;
  * }
  */
-export function useMemo<T>(fn: () => T, deps: []): Generator<unknown, T, unknown>;
-export function useMemo<T, Deps extends [unknown, ...unknown[]]>(
+export function $memo<T>(fn: () => T, deps: []): Generator<unknown, T, unknown>;
+export function $memo<T, Deps extends [unknown, ...unknown[]]>(
   fn: (...args: Deps) => T,
   deps: [...Deps],
 ): Generator<unknown, T, unknown>;
-export function* useMemo<T>(
+export function* $memo<T>(
   fn: (...args: unknown[]) => T,
   deps: unknown[],
 ): Generator<unknown, T, unknown> {

@@ -10,7 +10,7 @@ import { USE_ID } from './symbols';
  *
  * @example
  * function* LabelledInput(_props: object) {
- *   const id = yield* useId();
+ *   const id = yield* $id();
  *   return (
  *     <>
  *       <label htmlFor={id}>Name</label>
@@ -19,7 +19,7 @@ import { USE_ID } from './symbols';
  *   );
  * }
  */
-export function* useId(): Generator<unknown, string, unknown> {
+export function* $id(): Generator<unknown, string, unknown> {
   const id = yield { type: USE_ID };
   return id as string;
 }

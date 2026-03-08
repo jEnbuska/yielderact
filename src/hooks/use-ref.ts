@@ -17,11 +17,11 @@ export interface RefObject<T> {
  *
  * @example
  * function* InputFocus(_props: object) {
- *   const ref = yield* useRef<HTMLInputElement | null>(null);
- *   return <input ref={ref} />;
+ *   const ref = yield* $ref<HTMLInputElement | null>(null);
+ *   return <input $ref={ref} />;
  * }
  */
-export function* useRef<T>(initialValue: T): Generator<unknown, RefObject<T>, unknown> {
+export function* $ref<T>(initialValue: T): Generator<unknown, RefObject<T>, unknown> {
   const ref = yield { type: USE_REF, initialValue };
   return ref as RefObject<T>;
 }

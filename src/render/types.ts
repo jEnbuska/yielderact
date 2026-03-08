@@ -29,7 +29,8 @@ export interface Slot {
    * The real DOM node for this position.
    * - `Text` node for `'text'` and `'empty'` slots.
    * - `HTMLElement` for HTML element slots.
-   * - `<span style="display:contents">` host for component slots (generator, plain, or Provider).
+   * - `<span style="display:contents">` host for generator component and Provider slots.
+   * - The rendered DOM node directly for plain (non-generator) component slots.
    *
    * Inserted into / removed from the parent element by `reconcileSlots`.
    */
@@ -122,14 +123,20 @@ export interface GenInstance {
   props: Record<string, unknown>;
 
   /**
-   * The `<span style="display:contents">` element that wraps this component's
-   * rendered output in the real DOM.
+   * Comment node marker placed after this component's output in the parent DOM.
    *
-   * Created by `mountGeneratorComponent`. Used as the `parent` argument to
-   * `reconcileSlots` so that child DOM nodes are inserted/removed inside it.
-   * Registered in `renderState.genInstanceMap` as the key for this instance.
+   * Serves two purposes:
+   * 1. **Stable slot reference** — stored as `slot.node` in the parent's Slot
+   *    array so the reconciler can locate and replace/remove this component.
+   * 2. **Insertion anchor** — passed as `beforeAnchor` to `reconcileSlots` so
+   *    that the component's output nodes are inserted before this marker
+   *    (and thus stay within the component's region of the parent DOM).
+   *
+   * Created by `mountGeneratorComponent`. Used by `executeRerender`, `resume`,
+   * and `_flushPendingVNodes` via `endMarker.parentNode` to find the actual
+   * parent element for reconciliation.
    */
-  host: HTMLElement;
+  endMarker: Comment;
 
   /**
    * Snapshot of the context map (`_ctxMap`) from the component's **parent**,
