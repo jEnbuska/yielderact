@@ -1,5 +1,7 @@
 import { _getCtxMap, _setCtxMap, _withBatch } from "../context";
 import type { VNode } from "../jsx";
+import { DelegationRoot } from "./delegation";
+import { dispatchDelegatedEvent } from "./dispatch";
 import { buildNode } from "./mount";
 import { _setActiveCtx, createRenderContext } from "./state";
 
@@ -25,6 +27,9 @@ export { flushSync, scheduleUpdate } from "./scheduler";
  */
 export function render(vnode: VNode, container: Element): void {
   const rctx = createRenderContext();
+  rctx.delegationRoot = new DelegationRoot(container, (nativeEvent, domEvent) =>
+    dispatchDelegatedEvent(nativeEvent, container, domEvent, rctx),
+  );
   _setActiveCtx(rctx);
   rctx.isInitialMount = true;
   try {
@@ -64,6 +69,9 @@ export interface Root {
  */
 export function createRoot(container: Element): Root {
   const rctx = createRenderContext();
+  rctx.delegationRoot = new DelegationRoot(container, (nativeEvent, domEvent) =>
+    dispatchDelegatedEvent(nativeEvent, container, domEvent, rctx),
+  );
   return {
     render(vnode: VNode): void {
       _setActiveCtx(rctx);

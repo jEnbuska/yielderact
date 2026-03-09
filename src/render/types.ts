@@ -1,6 +1,7 @@
 import type { Context, UseContextState } from "../context";
 import type { UseRenderState } from "../hooks/$render";
 import type { Child, GeneratorComponentFn, VNode } from "../jsx";
+import type { DelegationRoot } from "./delegation";
 
 // ── Render context ─────────────────────────────────────────────────────────
 //
@@ -39,6 +40,15 @@ export interface RenderContext {
   isProcessing: boolean;
   activePriority: number | null;
   syncMode: boolean;
+
+  // ── From delegation.ts ──
+  /**
+   * The delegation root for this render context, or `null` before the
+   * root has been mounted. Created by `render()` / `createRoot()` and
+   * used by `applyProps` / `updateProps` to register handlers and
+   * lazily attach root listeners.
+   */
+  delegationRoot: DelegationRoot | null;
 }
 
 // ── Hook state discriminated union ──────────────────────────────────────────
