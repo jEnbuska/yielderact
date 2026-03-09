@@ -736,6 +736,32 @@ function* App() {
 
 `$patch` is never set as a DOM attribute — it is a renderer-only instruction.
 
+### `$deferred`
+
+```tsx
+<Component $deferred={true} />
+<div $deferred={true}>...</div>
+```
+
+Marks a subtree as lower priority for the [cooperative scheduler](./scheduler.md). Components inside a `$deferred` boundary are rendered after higher-priority components complete.
+
+Each `$deferred={true}` increments the priority level by 1. Priority 0 (default) is the highest urgency. The scheduler processes levels in ascending order, committing DOM atomically per level.
+
+```tsx
+function* App() {
+  return (
+    <div>
+      <Header /> {/* priority 0 — renders first */}
+      <HeavyList $deferred={true} /> {/* priority 1 — renders after */}
+    </div>
+  );
+}
+```
+
+`$deferred` is stripped from component props — the component never sees it. During the initial mount, priority levels are ignored and the entire tree renders in a single pass.
+
+> See [Priority Scheduler & Batched Commits](./scheduler.md) for the full specification.
+
 ---
 
 ### `key`
@@ -859,3 +885,9 @@ When `reconcileSlots` replaces or removes a slot, it calls `unmountSlot(slot)` w
 3. Calls all `cleanupFns` entries on the `GenInstance`
 
 This covers `useEffect` cleanup, `useResolve` abort controllers, and any future hooks that register cleanup.
+
+### Priority scheduling
+
+yielderact includes a priority-aware cooperative scheduler. Components marked with `$deferred={true}` render at lower priority, allowing critical UI to update first. The scheduler batches DOM operations per priority level and commits them atomically, preventing partial visual updates. Higher-priority work preempts lower-priority work at yield boundaries.
+
+See [Priority Scheduler & Batched Commits](./scheduler.md) for the full specification.
