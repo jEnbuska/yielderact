@@ -33,14 +33,14 @@ import {
   type GeneratorComponentFn,
   type PlainComponentFn,
 } from "../jsx";
-import { isGeneratorFn, isShown, mergedProps, stripDeferred } from "./helpers";
+import { getPatchMode, isGeneratorFn, isShown, mergedProps, stripDeferred } from "./helpers";
 import { flushEffects, runHooks } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
 import { reconcileSlots } from "./reconciler";
 import { scheduleUpdate } from "./scheduler";
 import { renderState } from "./state";
-import type { GenInstance, Slot } from "./types";
+import type { GenInstance, HookState, Slot } from "./types";
 
 /**
  * Build a single real DOM node from a virtual DOM node (or primitive value).
@@ -114,7 +114,7 @@ export function buildNode(child: Child): Node {
   // HTML element — propagate $patch and $deferred to children via context.
   const el = document.createElement(child.type as string);
   applyProps(el, child.props);
-  const elBatch = child.props["$patch"] as "live" | "default" | undefined;
+  const elBatch = getPatchMode(child.props);
   const elDeferred = child.props["$deferred"] as boolean | undefined;
   const prevCtxBuildNode = _getCtxMap();
   if (elBatch !== undefined) _setCtxMap(_withBatch(prevCtxBuildNode, elBatch));
@@ -138,9 +138,7 @@ export function buildNode(child: Child): Node {
  */
 function commitOrDefer(instance: GenInstance, vnode: Child): void {
   const parent = instance.endMarker.parentNode as HTMLElement;
-  const effectiveBatch =
-    (instance.props["$patch"] as "live" | "default" | undefined) ??
-    _instanceBatch(instance.capturedCtx);
+  const effectiveBatch = getPatchMode(instance.props) ?? _instanceBatch(instance.capturedCtx);
   const shouldDefer =
     (renderState.patchDepth > 0 || instance.localPatchRefCount > 0) && effectiveBatch !== "live";
   if (shouldDefer) {
@@ -201,7 +199,7 @@ export function mountGeneratorComponent(
   const priority = _getCurrentPriority();
 
   /** Per-hook persistent state array. See `GenInstance.hookStates`. */
-  const hookStates: unknown[] = [];
+  const hookStates: HookState[] = [];
 
   /** Per-hook cleanup functions. See `GenInstance.cleanupFns`. */
   const cleanupFns: ((() => void) | undefined)[] = [];
@@ -242,7 +240,7 @@ export function mountGeneratorComponent(
 
     // Restore context: inherited context + own $patch applied for children.
     const prevCtx = _getCtxMap();
-    const ownPatchResume = instance.props["$patch"] as "live" | "default" | undefined;
+    const ownPatchResume = getPatchMode(instance.props);
     _setCtxMap(
       ownPatchResume !== undefined
         ? _withBatch(instance.capturedCtx, ownPatchResume)
@@ -307,7 +305,7 @@ export function mountGeneratorComponent(
 
       // Restore context: inherited context + own $patch for children.
       const prevCtx = _getCtxMap();
-      const ownPatch = instance.props["$patch"] as "live" | "default" | undefined;
+      const ownPatch = getPatchMode(instance.props);
       _setCtxMap(
         ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx,
       );
@@ -332,8 +330,10 @@ export function mountGeneratorComponent(
         // Revert deps for effects queued during this cancelled render so the
         // retry re-queues them (their deps in hookStates already match).
         for (const pe of instance.pendingEffects) {
-          const state = instance.hookStates[pe.hookIndex] as { deps: unknown[] } | undefined;
-          if (state) state.deps = [];
+          const state = instance.hookStates[pe.hookIndex];
+          if (state !== undefined && state.kind === "effect") {
+            state.deps = [];
+          }
         }
         // A mid-render setState was queued — retry with the accumulated state.
         instance.pendingRerender = false;

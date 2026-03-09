@@ -7,6 +7,19 @@ import {
 } from "../jsx";
 
 /**
+ * Type guard: returns `true` when `child` is a VNode (an object with a `type` field).
+ *
+ * Narrows the `Child` union (`VNode | string | number | boolean | null | undefined`)
+ * to `VNode`, eliminating the need for `as VNode` casts after the check.
+ *
+ * **Called by:** `flattenChildren` (to detect Fragment wrappers), and the
+ * reconciler (to narrow children before type-specific handling).
+ */
+export function isVNode(child: Child): child is VNode {
+  return child !== null && child !== undefined && typeof child === "object";
+}
+
+/**
  * Returns true when `fn` is a generator function (i.e. uses `function*`).
  *
  * **Called by:**
@@ -90,8 +103,8 @@ export function onlyPatchChanged(a: Record<string, unknown>, b: Record<string, u
 export function flattenChildren(children: Child[]): Child[] {
   const result: Child[] = [];
   for (const child of children) {
-    if (child != null && typeof child === "object" && (child as VNode).type === Fragment) {
-      result.push(...flattenChildren((child as VNode).children));
+    if (isVNode(child) && child.type === Fragment) {
+      result.push(...flattenChildren(child.children));
     } else {
       result.push(child);
     }
@@ -117,6 +130,20 @@ export function flattenChildren(children: Child[]): Child[] {
  */
 export function mergedProps(vnode: VNode): Record<string, unknown> {
   return vnode.children.length > 0 ? { ...vnode.props, $children: vnode.children } : vnode.props;
+}
+
+/**
+ * Read the `$patch` mode from a props object.
+ *
+ * Returns `'live'`, `'default'`, or `undefined` (when not set).
+ * Avoids the `as "live" | "default" | undefined` cast that would otherwise
+ * be needed at every call site.
+ *
+ * **Called by:** reconciler and mount — whenever the effective batch behaviour
+ * needs to be determined from a VNode's props.
+ */
+export function getPatchMode(props: Record<string, unknown>): "live" | "default" | undefined {
+  return props["$patch"] as "live" | "default" | undefined;
 }
 
 /**

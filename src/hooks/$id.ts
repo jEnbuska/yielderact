@@ -28,8 +28,11 @@ export function* $id(): Generator<unknown, string, unknown> {
 /** @internal */
 export function _processId(ctx: HookContext): unknown {
   const { hookIndex, hookStates } = ctx;
-  if (!(hookIndex in hookStates)) {
-    hookStates[hookIndex] = `:r${renderState.idCounter++}:`;
+  const existing = hookStates[hookIndex];
+  if (existing === undefined || existing.kind !== "id") {
+    const newState = { kind: "id" as const, id: `:r${renderState.idCounter++}:` };
+    hookStates[hookIndex] = newState;
+    return newState.id;
   }
-  return hookStates[hookIndex];
+  return existing.id;
 }

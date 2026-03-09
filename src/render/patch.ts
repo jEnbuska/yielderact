@@ -1,4 +1,5 @@
 import { _getCtxMap, _setCtxMap, _withBatch } from "../context";
+import { getPatchMode } from "./helpers";
 import { flushEffects } from "./hooks-runtime";
 import { reconcileSlots } from "./reconciler";
 import { renderState } from "./state";
@@ -35,7 +36,7 @@ export function _flushPendingVNodes(instances: GenInstance[]): void {
 
     const prevCtx = _getCtxMap();
     // Restore inherited context, then apply own $patch for children.
-    const ownPatch = inst.props["$patch"] as "live" | "default" | undefined;
+    const ownPatch = getPatchMode(inst.props);
     _setCtxMap(ownPatch !== undefined ? _withBatch(inst.capturedCtx, ownPatch) : inst.capturedCtx);
     const parent = inst.endMarker.parentNode as HTMLElement;
     try {

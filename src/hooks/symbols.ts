@@ -1,4 +1,4 @@
-import type { GenInstance } from "../render/types";
+import type { GenInstance, HookState } from "../render/types";
 
 /**
  * Parameters provided to hook handler functions by the renderer.
@@ -6,7 +6,7 @@ import type { GenInstance } from "../render/types";
  */
 export interface HookContext {
   hookIndex: number;
-  hookStates: unknown[];
+  hookStates: HookState[];
   cleanupFns: ((() => void) | undefined)[];
   pendingEffects: Array<{
     hookIndex: number;
