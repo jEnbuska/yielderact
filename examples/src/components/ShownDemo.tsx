@@ -8,7 +8,7 @@
  *  3. Generator component – a stateful counter toggled via `$shown`; the
  *     counter resets to zero each time it is re-mounted.
  */
-import { useState } from 'yielderact';
+import { $state } from 'yielderact';
 
 // ---------------------------------------------------------------------------
 // Sub-components used in the demo
@@ -32,7 +32,7 @@ function InfoPanel() {
 }
 
 function* StatefulCounter() {
-  const [count, setCount] = yield* useState(0);
+  const [count, setCount] = yield* $state(0);
 
   return (
     <div
@@ -64,9 +64,9 @@ function* StatefulCounter() {
 // ---------------------------------------------------------------------------
 
 export function* ShownDemo() {
-  const [showElement, setShowElement] = yield* useState(true);
-  const [showFunction, setShowFunction] = yield* useState(true);
-  const [showGenerator, setShowGenerator] = yield* useState(true);
+  const [showElement, setShowElement] = yield* $state(true);
+  const [showFunction, setShowFunction] = yield* $state(true);
+  const [showGenerator, setShowGenerator] = yield* $state(true);
 
   return (
     <section aria-label="shown prop demo">

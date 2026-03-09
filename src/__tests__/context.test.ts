@@ -1,13 +1,13 @@
 import { createElement } from '../jsx';
-import { createContext, useContext } from '../context';
+import { createContext, $context } from '../context';
 import { render } from '../render';
-import { useState } from '../hooks';
+import { $state } from '../hooks';
 
-// useContext is now a generator – components must call it with yield*
+// $context is now a generator – components must call it with yield*
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe('createContext / useContext', () => {
+describe('createContext / $context', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -23,7 +23,7 @@ describe('createContext / useContext', () => {
     const Ctx = createContext('default');
 
     function* Consumer() {
-      const value = yield* useContext(Ctx);
+      const value = yield* $context(Ctx);
       return createElement('span', null, value);
     }
 
@@ -35,7 +35,7 @@ describe('createContext / useContext', () => {
     const Ctx = createContext('default');
 
     function* Consumer() {
-      const value = yield* useContext(Ctx);
+      const value = yield* $context(Ctx);
       return createElement('span', null, value);
     }
 
@@ -54,7 +54,7 @@ describe('createContext / useContext', () => {
     const Ctx = createContext('outer');
 
     function* Consumer() {
-      const value = yield* useContext(Ctx);
+      const value = yield* $context(Ctx);
       return createElement('span', null, value);
     }
 
@@ -81,7 +81,7 @@ describe('createContext / useContext', () => {
     const Ctx = createContext(42);
 
     function* Consumer() {
-      const val = yield* useContext(Ctx);
+      const val = yield* $context(Ctx);
       return createElement('span', null, String(val));
     }
 
@@ -108,12 +108,12 @@ describe('createContext / useContext', () => {
     let setTheme: ((v: number) => void) | null = null;
 
     function* Consumer() {
-      const val = yield* useContext(Ctx);
+      const val = yield* $context(Ctx);
       return createElement('span', null, String(val));
     }
 
     function* Parent() {
-      const [theme, st] = yield* useState(7);
+      const [theme, st] = yield* $state(7);
       setTheme = st;
       return createElement(
         Ctx.Provider as never,
@@ -139,14 +139,14 @@ describe('createContext / useContext', () => {
     let setChildCount: ((v: number) => void) | null = null;
 
     function* Child() {
-      const [count, setCount] = yield* useState(0);
+      const [count, setCount] = yield* $state(0);
       setChildCount = setCount;
-      const ctxVal = yield* useContext(Ctx);
+      const ctxVal = yield* $context(Ctx);
       return createElement('div', { 'data-testid': 'child' }, `${ctxVal}:${count}`);
     }
 
     function* Parent() {
-      const [val, setVal] = yield* useState('A');
+      const [val, setVal] = yield* $state('A');
       setCtxValue = setVal;
       return createElement(
         Ctx.Provider as never,
@@ -174,7 +174,7 @@ describe('createContext / useContext', () => {
     let setCtxValue: ((v: string) => void) | null = null;
 
     function* Consumer() {
-      const val = yield* useContext(Ctx);
+      const val = yield* $context(Ctx);
       return createElement('span', { 'data-testid': 'consumer' }, val);
     }
 
@@ -184,7 +184,7 @@ describe('createContext / useContext', () => {
     }
 
     function* Root() {
-      const [val, setVal] = yield* useState('first');
+      const [val, setVal] = yield* $state('first');
       setCtxValue = setVal;
       return createElement(
         Ctx.Provider as never,
@@ -208,18 +208,18 @@ describe('createContext / useContext', () => {
     let setB: ((v: string) => void) | null = null;
 
     function* ConsumerA() {
-      const val = yield* useContext(Ctx);
+      const val = yield* $context(Ctx);
       return createElement('span', { 'data-testid': 'a' }, val);
     }
 
     function* ConsumerB() {
-      const val = yield* useContext(Ctx);
+      const val = yield* $context(Ctx);
       return createElement('span', { 'data-testid': 'b' }, val);
     }
 
     function* Root() {
-      const [valA, sA] = yield* useState('A1');
-      const [valB, sB] = yield* useState('B1');
+      const [valA, sA] = yield* $state('A1');
+      const [valB, sB] = yield* $state('B1');
       setA = sA;
       setB = sB;
       return createElement(
@@ -258,7 +258,7 @@ describe('createContext / useContext', () => {
     let setOuter: ((v: string) => void) | null = null;
 
     function* Consumer() {
-      const val = yield* useContext(Ctx);
+      const val = yield* $context(Ctx);
       return createElement('span', { 'data-testid': 'consumer' }, val);
     }
 
@@ -272,7 +272,7 @@ describe('createContext / useContext', () => {
     }
 
     function* Root() {
-      const [outer, setOuter_] = yield* useState('outer-1');
+      const [outer, setOuter_] = yield* $state('outer-1');
       setOuter = setOuter_;
       return createElement(
         Ctx.Provider as never,
@@ -297,12 +297,12 @@ describe('createContext / useContext', () => {
     let setOuter: ((v: string) => void) | null = null;
 
     function* Child() {
-      const val = yield* useContext(Ctx);
+      const val = yield* $context(Ctx);
       return createElement('span', { 'data-testid': 'child' }, val);
     }
 
     function* Middle() {
-      const outerVal = yield* useContext(Ctx);
+      const outerVal = yield* $context(Ctx);
       return createElement(
         'div',
         null,
@@ -312,7 +312,7 @@ describe('createContext / useContext', () => {
     }
 
     function* Root() {
-      const [val, setVal] = yield* useState('outer');
+      const [val, setVal] = yield* $state('outer');
       setOuter = setVal;
       return createElement(
         Ctx.Provider as never,
@@ -340,12 +340,12 @@ describe('createContext / useContext', () => {
     let setMiddleCount: ((v: number) => void) | null = null;
 
     function* Consumer() {
-      const val = yield* useContext(Ctx);
+      const val = yield* $context(Ctx);
       return createElement('span', { 'data-testid': 'consumer' }, val);
     }
 
     function* Middle() {
-      const [count, setCount] = yield* useState(0);
+      const [count, setCount] = yield* $state(0);
       setMiddleCount = setCount;
       return createElement(
         'div',
@@ -356,7 +356,7 @@ describe('createContext / useContext', () => {
     }
 
     function* Root() {
-      const [val, setVal] = yield* useState('v1');
+      const [val, setVal] = yield* $state('v1');
       setCtxValue = setVal;
       return createElement(
         Ctx.Provider as never,
@@ -388,14 +388,14 @@ describe('createContext / useContext', () => {
     let setB: ((v: string) => void) | null = null;
 
     function* Consumer() {
-      const a = yield* useContext(CtxA);
-      const b = yield* useContext(CtxB);
+      const a = yield* $context(CtxA);
+      const b = yield* $context(CtxB);
       return createElement('span', { 'data-testid': 'consumer' }, `${a}|${b}`);
     }
 
     function* Root() {
-      const [valA, sA] = yield* useState('A1');
-      const [valB, sB] = yield* useState('B1');
+      const [valA, sA] = yield* $state('A1');
+      const [valB, sB] = yield* $state('B1');
       setA = sA;
       setB = sB;
       return createElement(
@@ -419,12 +419,12 @@ describe('createContext / useContext', () => {
     expect(container.querySelector('[data-testid="consumer"]')!.textContent).toBe('A2|B2');
   });
 
-  describe('useContext with selector', () => {
+  describe('$context with selector', () => {
     it('selector-only: returns full context value when selector present', () => {
       const Ctx = createContext({ a: 1, b: 2 });
 
       function* Consumer() {
-        const val = yield* useContext(Ctx, (c) => [c.a]);
+        const val = yield* $context(Ctx, (c) => [c.a]);
         return createElement('span', null, `${val.a}:${val.b}`);
       }
 
@@ -445,13 +445,13 @@ describe('createContext / useContext', () => {
       let renderCount = 0;
 
       function* Consumer() {
-        yield* useContext(Ctx, (c) => [c.a]);
+        yield* $context(Ctx, (c) => [c.a]);
         renderCount++;
         return createElement('span', null, String(renderCount));
       }
 
       function* Parent() {
-        const [val, sv] = yield* useState({ a: 1, b: 1 });
+        const [val, sv] = yield* $state({ a: 1, b: 1 });
         setVal = sv;
         return createElement(
           Ctx.Provider as never,
@@ -475,13 +475,13 @@ describe('createContext / useContext', () => {
       let renderCount = 0;
 
       function* Consumer() {
-        const val = yield* useContext(Ctx, (c) => [c.a]);
+        const val = yield* $context(Ctx, (c) => [c.a]);
         renderCount++;
         return createElement('span', null, String(val.a));
       }
 
       function* Parent() {
-        const [val, sv] = yield* useState({ a: 1, b: 1 });
+        const [val, sv] = yield* $state({ a: 1, b: 1 });
         setVal = sv;
         return createElement(
           Ctx.Provider as never,
@@ -503,7 +503,7 @@ describe('createContext / useContext', () => {
       const Ctx = createContext({ name: 'Alice', age: 30 });
 
       function* Consumer() {
-        const name = yield* useContext(
+        const name = yield* $context(
           Ctx,
           (c) => [c.name] as [string],
           (n) => n.toUpperCase(),
@@ -528,7 +528,7 @@ describe('createContext / useContext', () => {
       let renderCount = 0;
 
       function* Consumer() {
-        yield* useContext(
+        yield* $context(
           Ctx,
           (c) => [c.name] as [string],
           (n) => n.toUpperCase(),
@@ -538,7 +538,7 @@ describe('createContext / useContext', () => {
       }
 
       function* Parent() {
-        const [val, sv] = yield* useState({ name: 'Alice', count: 0 });
+        const [val, sv] = yield* $state({ name: 'Alice', count: 0 });
         setVal = sv;
         return createElement(
           Ctx.Provider as never,
@@ -555,20 +555,20 @@ describe('createContext / useContext', () => {
       expect(renderCount).toBe(1);
     });
 
-    it('selector: hook state (useState) is preserved across suppressed rerenders', () => {
+    it('selector: hook state ($state) is preserved across suppressed rerenders', () => {
       const Ctx = createContext({ a: 0, b: 0 });
       let setVal: ((v: { a: number; b: number }) => void) | null = null;
       let setLocal: ((v: number) => void) | null = null;
 
       function* Consumer() {
-        yield* useContext(Ctx, (c) => [c.a]);
-        const [local, sl] = yield* useState(42);
+        yield* $context(Ctx, (c) => [c.a]);
+        const [local, sl] = yield* $state(42);
         setLocal = sl;
         return createElement('span', null, String(local));
       }
 
       function* Parent() {
-        const [val, sv] = yield* useState({ a: 1, b: 1 });
+        const [val, sv] = yield* $state({ a: 1, b: 1 });
         setVal = sv;
         return createElement(
           Ctx.Provider as never,
@@ -594,13 +594,13 @@ describe('createContext / useContext', () => {
       let renderCount = 0;
 
       function* Consumer() {
-        const val = yield* useContext(Ctx);
+        const val = yield* $context(Ctx);
         renderCount++;
         return createElement('span', null, `${val.a}:${val.b}`);
       }
 
       function* Parent() {
-        const [val, sv] = yield* useState({ a: 1, b: 1 });
+        const [val, sv] = yield* $state({ a: 1, b: 1 });
         setVal = sv;
         return createElement(
           Ctx.Provider as never,

@@ -1,10 +1,10 @@
 import { createElement } from '../jsx';
 import { render } from '../render';
-import { useState, useId } from '../hooks';
+import { $state, $id } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe('useId', () => {
+describe('$id', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -20,7 +20,7 @@ describe('useId', () => {
     let capturedId: string | null = null;
 
     function* Comp() {
-      capturedId = yield* useId();
+      capturedId = yield* $id();
       return createElement('div', null);
     }
 
@@ -34,9 +34,9 @@ describe('useId', () => {
     let setValue: ((v: number) => void) | null = null;
 
     function* Comp() {
-      const [, sv] = yield* useState(0);
+      const [, sv] = yield* $state(0);
       setValue = sv;
-      const id = yield* useId();
+      const id = yield* $id();
       ids.push(id);
       return createElement('div', null);
     }
@@ -53,8 +53,8 @@ describe('useId', () => {
     let id2: string | null = null;
 
     function* Comp() {
-      id1 = yield* useId();
-      id2 = yield* useId();
+      id1 = yield* $id();
+      id2 = yield* $id();
       return createElement('div', null);
     }
 

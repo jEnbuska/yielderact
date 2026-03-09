@@ -1,8 +1,8 @@
 /**
  * TodoList – a generator component demonstrating array state management
- * with `yield* useState`.
+ * with `yield* $state`.
  */
-import { render, useState, useId } from 'yielderact';
+import { render, $state, $id } from 'yielderact';
 
 interface Todo {
   id: number;
@@ -17,12 +17,12 @@ interface TodoState {
 }
 
 export function* TodoList() {
-  const inputId = yield* useId();
-  const addBtnId = yield* useId();
-  const listId = yield* useId();
-  const emptyMsgId = yield* useId();
+  const inputId = yield* $id();
+  const addBtnId = yield* $id();
+  const listId = yield* $id();
+  const emptyMsgId = yield* $id();
 
-  const [state, setState] = yield* useState<TodoState>({
+  const [state, setState] = yield* $state<TodoState>({
     todos: [
       { id: 1, text: 'Learn yielderact', done: false },
       { id: 2, text: 'Build something with generators', done: false },
@@ -55,7 +55,7 @@ export function* TodoList() {
     <section aria-label="Todo list example">
       <h2>Todo List</h2>
       <p>
-        Array state lives in <code>yield* useState</code> — no special reactive primitives needed,
+        Array state lives in <code>yield* $state</code> — no special reactive primitives needed,
         just plain objects and setters.
       </p>
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
@@ -80,7 +80,7 @@ export function* TodoList() {
       <ul id={listId} data-testid="todo-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
         {todos.map((todo) => (
           <li
-            key={todo.id}
+            $key={todo.id}
             data-testid={`todo-item-${todo.id}`}
             data-id={todo.id}
             style={{

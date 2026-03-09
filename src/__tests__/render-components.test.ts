@@ -1,6 +1,6 @@
 import { createElement } from '../jsx';
 import { render } from '../render';
-import { useState } from '../hooks';
+import { $state } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
@@ -24,22 +24,24 @@ describe('render – plain function components', () => {
     expect(container.querySelector('h1')!.textContent).toBe('Hello, World!');
   });
 
-  it('renders an empty host when the component returns null', () => {
+  it('renders an empty text node when the component returns null', () => {
     function Empty() {
       return null;
     }
     render(createElement(Empty as never, {}), container);
-    const host = container.firstChild as HTMLElement;
-    expect(host.childElementCount).toBe(0);
+    const node = container.firstChild!;
+    expect(node.nodeType).toBe(Node.TEXT_NODE);
+    expect(node.textContent).toBe('');
   });
 
-  it('renders an empty host when the component returns undefined', () => {
+  it('renders an empty text node when the component returns undefined', () => {
     function Empty() {
       return undefined;
     }
     render(createElement(Empty as never, {}), container);
-    const host = container.firstChild as HTMLElement;
-    expect(host.childElementCount).toBe(0);
+    const node = container.firstChild!;
+    expect(node.nodeType).toBe(Node.TEXT_NODE);
+    expect(node.textContent).toBe('');
   });
 });
 
@@ -63,11 +65,11 @@ describe('render – generator components', () => {
     expect(container.querySelector('h2')!.textContent).toBe('Hi, Alice!');
   });
 
-  it('rerenders via useState setter', () => {
+  it('rerenders via $state setter', () => {
     let setCount: ((v: number) => void) | null = null;
 
     function* Counter() {
-      const [count, sc] = yield* useState(0);
+      const [count, sc] = yield* $state(0);
       setCount = sc;
       return createElement('button', {}, String(count));
     }
@@ -84,7 +86,7 @@ describe('render – generator components', () => {
 
   it('rerenders when rerender() is called directly from an event handler', () => {
     function* Counter(_props: Record<string, unknown>, rerender: () => void) {
-      const [count, setCount] = yield* useState(0);
+      const [count, setCount] = yield* $state(0);
       return createElement(
         'button',
         {
@@ -123,8 +125,8 @@ describe('render – generator components', () => {
   });
 
   it('passes children in props', () => {
-    function* Wrapper({ children }: { children: unknown }) {
-      return createElement('section', null, ...(children as never[]));
+    function* Wrapper({ $children }: { $children: unknown }) {
+      return createElement('section', null, ...($children as never[]));
     }
 
     render(
@@ -136,7 +138,7 @@ describe('render – generator components', () => {
   });
 });
 
-describe('render – generator components with useState', () => {
+describe('render – generator components with $state', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -148,11 +150,11 @@ describe('render – generator components with useState', () => {
     document.body.removeChild(container);
   });
 
-  it('useState persists value across re-renders', () => {
+  it('$state persists value across re-renders', () => {
     let setLabel: ((v: string) => void) | null = null;
 
     function* Label() {
-      const [text, st] = yield* useState('initial');
+      const [text, st] = yield* $state('initial');
       setLabel = st;
       return createElement('p', null, text);
     }
@@ -167,13 +169,13 @@ describe('render – generator components with useState', () => {
     expect(container.querySelector('p')!.textContent).toBe('again');
   });
 
-  it('multiple useState calls maintain independent state', () => {
+  it('multiple $state calls maintain independent state', () => {
     let setA: ((v: string) => void) | null = null;
     let setB: ((v: number) => void) | null = null;
 
     function* Multi() {
-      const [a, sa] = yield* useState('hello');
-      const [b, sb] = yield* useState(0);
+      const [a, sa] = yield* $state('hello');
+      const [b, sb] = yield* $state(0);
       setA = sa;
       setB = sb;
       return createElement('p', null, `${a}-${b}`);

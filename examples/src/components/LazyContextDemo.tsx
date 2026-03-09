@@ -1,5 +1,5 @@
 /**
- * LazyContextDemo – demonstrates all three useContext overloads:
+ * LazyContextDemo – demonstrates all three $context overloads:
  *
  *   1. No selector   — rerenders whenever the Provider value changes.
  *   2. Selector only — rerenders only when the selected deps change; returns full value.
@@ -9,7 +9,7 @@
  * Playwright tests) that consumers 2 and 3 do NOT rerender when only an
  * unsubscribed field changes.
  */
-import { createContext, useContext, useState, useRef } from 'yielderact';
+import { createContext, $context, $state, $ref } from 'yielderact';
 
 // ---------------------------------------------------------------------------
 // Context shape & context object
@@ -52,11 +52,11 @@ function RenderBadge({ count }: { count: number }) {
 // ---------------------------------------------------------------------------
 
 function* NoSelectorConsumer() {
-  const renderCount = yield* useRef(0);
+  const renderCount = yield* $ref(0);
   renderCount.current++;
 
-  // Overload 1: plain useContext — reads the full value every time
-  const ctx = yield* useContext(AppCtx);
+  // Overload 1: plain $context — reads the full value every time
+  const ctx = yield* $context(AppCtx);
 
   return (
     <div
@@ -83,11 +83,11 @@ function* NoSelectorConsumer() {
 // ---------------------------------------------------------------------------
 
 function* SelectorConsumer() {
-  const renderCount = yield* useRef(0);
+  const renderCount = yield* $ref(0);
   renderCount.current++;
 
   // Overload 2: selector — only rerender when user.name changes; still returns full ctx
-  const ctx = yield* useContext(AppCtx, (c) => [c.user.name]);
+  const ctx = yield* $context(AppCtx, (c) => [c.user.name]);
 
   return (
     <div
@@ -115,12 +115,12 @@ function* SelectorConsumer() {
 // ---------------------------------------------------------------------------
 
 function* TransformConsumer() {
-  const renderCount = yield* useRef(0);
+  const renderCount = yield* $ref(0);
   renderCount.current++;
 
   // Overload 3: selector + transform — returns transformed slice, skips rerender
   // when user.name is unchanged.
-  const upperName = yield* useContext(
+  const upperName = yield* $context(
     AppCtx,
     (c) => [c.user.name] as [string],
     (name) => name.toUpperCase(),
@@ -150,14 +150,14 @@ function* TransformConsumer() {
 // ---------------------------------------------------------------------------
 
 export function* LazyContextDemo() {
-  const [state, setState] = yield* useState<AppState>({
+  const [state, setState] = yield* $state<AppState>({
     user: { name: 'Alice', role: 'admin' },
     count: 0,
   });
 
   return (
     <section aria-label="Lazy context demo" data-testid="lazy-ctx-demo">
-      <h2>Lazy useContext (selector &amp; transform)</h2>
+      <h2>Lazy $context (selector &amp; transform)</h2>
       <p style={{ fontSize: '0.875rem', color: '#555', marginBottom: '0.75rem' }}>
         The <strong>render count badge</strong> on each consumer shows how many times it has
         rendered. Use the buttons to change only <code>count</code> or only <code>user.name</code>{' '}

@@ -1,17 +1,17 @@
 /**
- * EffectDemo – demonstrates `useEffect` for side-effects and cleanup.
+ * EffectDemo – demonstrates `$effect` for side-effects and cleanup.
  *
  * Shows three patterns:
  *   1. A self-ticking timer (interval started in effect, cleared on unmount).
  *   2. A log of effect / cleanup calls to make the lifecycle visible.
  *   3. Toggling the component on/off to observe cleanup on unmount.
  */
-import { useState, useEffect } from 'yielderact';
+import { $state, $effect } from 'yielderact';
 
 function* Timer() {
-  const [tick, setTick] = yield* useState(0);
+  const [tick, setTick] = yield* $state(0);
 
-  yield* useEffect(() => {
+  yield* $effect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
@@ -24,9 +24,9 @@ function* Timer() {
 }
 
 function* LifecycleLog({ id }: { id: number }) {
-  const [log, setLog] = yield* useState<string[]>([]);
+  const [log, setLog] = yield* $state<string[]>([]);
 
-  yield* useEffect(() => {
+  yield* $effect(() => {
     setLog((prev) => [...prev, `▶ effect for id=${id}`]);
     return () => setLog((prev) => [...prev, `■ cleanup for id=${id}`]);
   }, [id]);
@@ -34,26 +34,26 @@ function* LifecycleLog({ id }: { id: number }) {
   return (
     <ul data-testid="lifecycle-log" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
       {log.map((entry, i) => (
-        <li key={i}>{entry}</li>
+        <li $key={i}>{entry}</li>
       ))}
     </ul>
   );
 }
 
 export function* EffectDemo() {
-  const [showTimer, setShowTimer] = yield* useState(true);
-  const [logId, setLogId] = yield* useState(1);
+  const [showTimer, setShowTimer] = yield* $state(true);
+  const [logId, setLogId] = yield* $state(1);
 
   return (
-    <section aria-label="useEffect demo">
+    <section aria-label="$effect demo">
       <h2>
-        <code>useEffect</code>
+        <code>$effect</code>
       </h2>
 
       <h3>1. Interval timer (effect with cleanup)</h3>
       <p>
-        The timer starts an <code>setInterval</code> in a <code>useEffect</code> with{' '}
-        <code>[]</code> deps. The interval is cleared when the component unmounts.
+        The timer starts an <code>setInterval</code> in a <code>$effect</code> with <code>[]</code>{' '}
+        deps. The interval is cleared when the component unmounts.
       </p>
       <label
         style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}
@@ -73,7 +73,7 @@ export function* EffectDemo() {
       <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
         {[1, 2, 3].map((n) => (
           <button
-            key={n}
+            $key={n}
             data-testid={`id-btn-${n}`}
             onClick={() => setLogId(n)}
             style={{ fontWeight: logId === n ? 'bold' : 'normal' }}

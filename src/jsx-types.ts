@@ -8,7 +8,7 @@
  * @module jsx-types
  */
 import type { SyntheticEvent } from './events';
-import type { Child } from './jsx';
+import type { Child, SpecialProps } from './jsx';
 
 // ---------------------------------------------------------------------------
 // CSS Properties
@@ -406,21 +406,7 @@ export interface AriaAttributes {
  * element, used to narrow `event.currentTarget` in event handlers.
  */
 export interface HTMLAttributes<T extends HTMLElement = HTMLElement>
-  extends AriaAttributes, EventHandlers<T> {
-  /** JSX reconciliation key – not rendered to the DOM. */
-  key?: string | number;
-  /** Nested children. */
-  children?: Child | Child[];
-  /** When false, the element/component is not rendered (and unmounted if previously mounted). Defaults to true. */
-  $shown?: boolean;
-  /**
-   * Controls DOM-update behaviour during a UI patch (`startUIPatch` /
-   * `useUIPatch`).  Inherited recursively by children unless overridden.
-   * - `'default'` (default): DOM writes are deferred until the patch commits.
-   * - `'live'`: DOM writes are applied immediately, even during a patch.
-   */
-  $patch?: 'live' | 'default';
-
+  extends SpecialProps<T>, AriaAttributes, EventHandlers<T> {
   // ── Global HTML attributes ───────────────────────────────────────────────
   autoCapitalize?: string;
   autoFocus?: boolean;
@@ -918,18 +904,7 @@ export interface VideoHTMLAttributes extends HTMLAttributes<HTMLVideoElement> {
 
 /** Presentation attributes shared by all SVG elements. */
 export interface SVGAttributes<T extends SVGElement = SVGElement>
-  extends AriaAttributes, EventHandlers<T> {
-  key?: string | number;
-  children?: Child | Child[];
-  /** When false, the element/component is not rendered (and unmounted if previously mounted). Defaults to true. */
-  $shown?: boolean;
-  /**
-   * Controls DOM-update behaviour during a UI patch (`startUIPatch` /
-   * `useUIPatch`).  Inherited recursively by children unless overridden.
-   * - `'default'` (default): DOM writes are deferred until the patch commits.
-   * - `'live'`: DOM writes are applied immediately, even during a patch.
-   */
-  $patch?: 'live' | 'default';
+  extends SpecialProps<T>, AriaAttributes, EventHandlers<T> {
   className?: string;
   id?: string;
   style?: CSSProperties;

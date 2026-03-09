@@ -22,6 +22,7 @@
    - [useRender](#userender)
    - [useResume](#useresume)
    - [useUIPatch](#useuipatch)
+   - [usePatchContext](#usepatchcontext)
 6. [Context](#context)
    - [createContext](#createcontext)
    - [useContext](#usecontext)
@@ -130,6 +131,25 @@ No manual imports needed for JSX.
 ---
 
 ## Rendering
+
+### `createRoot(container)`
+
+Creates a root for rendering a component tree into a DOM element. This is the recommended way to bootstrap your application. The root sets `$patch="default"` as the starting context for the entire tree, so every component can always rely on `$patch` being defined.
+
+```ts
+import { createRoot } from 'yielderact';
+
+const root = createRoot(document.getElementById('root')!);
+root.render(<App />);
+```
+
+| Parameter   | Type      | Description                    |
+| ----------- | --------- | ------------------------------ |
+| `container` | `Element` | The DOM element to render into |
+
+**Returns:** a `Root` object with a single `render(vnode)` method.
+
+---
 
 ### `render(vnode, container)`
 
@@ -515,6 +535,36 @@ function* PageContent() {
 - Nesting is supported: `startPatch()` can be called while a global patch is active; `commit()` flushes the local snapshot independently.
 
 > See also: [`startUIPatch` / `commitUIPatch`](#startuipatch--commituipatch) for a global patch that freezes the entire tree.
+
+---
+
+### `usePatchContext`
+
+```ts
+const batch = yield * usePatchContext();
+```
+
+Read the current `$patch` batch behaviour from the context. Returns `'live'` or `'default'`.
+
+Works exactly like `useContext` — the component rerenders when the effective batch changes (e.g. when a parent toggles `$patch`). If the component's own `$patch` prop changes but no other props change, the component only rerenders if it consumes `usePatchContext`.
+
+**Returns** `'live' | 'default'`
+
+```tsx
+function* StatusBar() {
+  const patch = yield* usePatchContext();
+  return <span>{patch === 'live' ? 'Updating live' : 'Updates deferred'}</span>;
+}
+
+// Reads 'live' when inside a $patch="live" ancestor:
+function* App() {
+  return (
+    <div $patch="live">
+      <StatusBar /> {/* patch === 'live' */}
+    </div>
+  );
+}
+```
 
 ---
 

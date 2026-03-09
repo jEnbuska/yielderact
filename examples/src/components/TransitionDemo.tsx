@@ -1,4 +1,4 @@
-import { useState, useRef, useUIPatch, startUIPatch, commitUIPatch, useEffect } from 'yielderact';
+import { $state, $ref, $uiPatch, startUIPatch, commitUIPatch, $effect } from 'yielderact';
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -26,7 +26,7 @@ function* Navigation({
     >
       {(['home', 'about', 'contact'] as Page[]).map((p) => (
         <button
-          key={p}
+          $key={p}
           data-testid={`${scope}-nav-${p}`}
           onClick={() => navigate(p)}
           disabled={isPending}
@@ -86,8 +86,8 @@ function* ContactPage() {
 }
 
 function* Clocks() {
-  const [tick, setTick] = yield* useState(Date.now());
-  yield* useEffect(() => {
+  const [tick, setTick] = yield* $state(Date.now());
+  yield* $effect(() => {
     const interval = setInterval(() => {
       setTick(() => Date.now());
     }, 1000);
@@ -121,9 +121,9 @@ type Page = 'home' | 'about' | 'contact';
 // ---------------------------------------------------------------------------
 
 function* GlobalPatchDemo() {
-  const [page, setPage] = yield* useState<Page>('home');
-  const [isPending, setIsPending] = yield* useState(false);
-  const [log, setLog] = yield* useState<string[]>([]);
+  const [page, setPage] = yield* $state<Page>('home');
+  const [isPending, setIsPending] = yield* $state(false);
+  const [log, setLog] = yield* $state<string[]>([]);
 
   const navigate = async (next: Page) => {
     setIsPending(true);
@@ -194,10 +194,10 @@ function* GlobalPatchDemo() {
 // ---------------------------------------------------------------------------
 
 function* LocalPatchDemo() {
-  const startPatch = yield* useUIPatch();
-  const [page, setPage] = yield* useState<Page>('home');
-  const [isPending, setIsPending] = yield* useState(false);
-  const [log, setLog] = yield* useState<string[]>([]);
+  const startPatch = yield* $uiPatch();
+  const [page, setPage] = yield* $state<Page>('home');
+  const [isPending, setIsPending] = yield* $state(false);
+  const [log, setLog] = yield* $state<string[]>([]);
 
   const navigate = async (next: Page) => {
     setIsPending(true);
@@ -273,9 +273,9 @@ function* VisibilityTarget({ id }: { id: string }) {
 }
 
 function* GlobalVisibilityDemo() {
-  const [showDefault, setShowDefault] = yield* useState(true);
-  const [showLive, setShowLive] = yield* useState(true);
-  const [patchActive, setPatchActive] = yield* useState(false);
+  const [showDefault, setShowDefault] = yield* $state(true);
+  const [showLive, setShowLive] = yield* $state(true);
+  const [patchActive, setPatchActive] = yield* $state(false);
 
   const beginPatch = () => {
     setPatchActive(true);
@@ -338,12 +338,12 @@ function* GlobalVisibilityDemo() {
 }
 
 function* LocalVisibilityDemo() {
-  const startLocalPatch = yield* useUIPatch();
-  const [showDefault, setShowDefault] = yield* useState(true);
-  const [showLive, setShowLive] = yield* useState(true);
-  // useRef persists the commit fn across rerenders without triggering a rerender
+  const startLocalPatch = yield* $uiPatch();
+  const [showDefault, setShowDefault] = yield* $state(true);
+  const [showLive, setShowLive] = yield* $state(true);
+  // $ref persists the commit fn across rerenders without triggering a rerender
   // (avoids the component freezing its own "start patch" button update).
-  const commitRef = yield* useRef<(() => void) | null>(null);
+  const commitRef = yield* $ref<(() => void) | null>(null);
 
   const beginPatch = () => {
     if (commitRef.current) return; // already active
