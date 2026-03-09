@@ -108,3 +108,12 @@ function* Counter(_props: object) {
 - **Dependencies:** Zero-dependency goal.
 - **JSX Config:** `react-jsx` with `jsxImportSource: "yielderact"`.
 - **Multi-root:** Each `render()`/`createRoot()` creates an independent `RenderContext` with its own state (patch depth, dirty instances, scheduler queue, context map, DOM ops queue). The global `idCounter` is the only shared state (IDs must be globally unique).
+
+### Examples Structure
+
+Example components live in `examples/src/components/`. Large demos are split one-component-per-file:
+
+- **TransitionDemo:** Split into `Navigation`, `LiveClock`, `Clocks`, `PageStubs`, `GlobalPatchDemo`, `LocalPatchDemo`, `VisibilityTarget`, `GlobalVisibilityDemo`, `LocalVisibilityDemo`, with `TransitionDemo.tsx` as root.
+- **ContextDemo:** Shared context definitions in `ContextDemo.shared.ts`. Leaf components: `ThemeBadge`, `LocaleBadge`, `BothBadge`, `StatefulConsumer`, `SiblingProvidersDemo`.
+- **LazyContextDemo:** Shared context in `LazyContextDemo.shared.ts`. Consumers: `NoSelectorConsumer`, `SelectorConsumer`, `TransformConsumer`, `RenderBadge`.
+- **Utilities:** `examples/src/utils.ts` (`sleep`), `examples/src/types.ts` (`Page`).
