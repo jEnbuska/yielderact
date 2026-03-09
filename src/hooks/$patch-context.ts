@@ -1,4 +1,4 @@
-import { _batchCtx, $context, type UseContextDescriptor } from '../context';
+import { _batchCtx, $context, type UseContextDescriptor } from "../context";
 
 /**
  * Read the current `$patch` batch behaviour from the context.
@@ -12,6 +12,6 @@ import { _batchCtx, $context, type UseContextDescriptor } from '../context';
  *   return <span>{patch === 'live' ? 'Live' : 'Deferred'}</span>;
  * }
  */
-export function* $patchContext(): Generator<UseContextDescriptor, 'live' | 'default', unknown> {
+export function* $patchContext(): Generator<UseContextDescriptor, "live" | "default", unknown> {
   return yield* $context(_batchCtx);
 }

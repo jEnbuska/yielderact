@@ -1,4 +1,4 @@
-import type { GenInstance } from '../render/types';
+import type { GenInstance } from "../render/types";
 
 /**
  * Parameters provided to hook handler functions by the renderer.
@@ -10,7 +10,7 @@ export interface HookContext {
   cleanupFns: ((() => void) | undefined)[];
   pendingEffects: Array<{
     hookIndex: number;
-    fn: (signal: AbortSignal) => (() => void) | void;
+    fn: (signal: AbortSignal) => (() => void) | undefined;
     controller: AbortController;
   }>;
   rerender: () => Promise<void>;
@@ -21,23 +21,23 @@ export interface HookContext {
 }
 
 /** @internal */
-export const $STATE = Symbol('$state');
+export const $STATE = Symbol("$state");
 /** @internal */
-export const $REF = Symbol('$ref');
+export const $REF = Symbol("$ref");
 /** @internal */
-export const $ID = Symbol('$id');
+export const $ID = Symbol("$id");
 /** @internal */
-export const $MEMO = Symbol('$memo');
+export const $MEMO = Symbol("$memo");
 /** @internal */
-export const $RESOLVE_RAW = Symbol('$resolveRaw');
+export const $RESOLVE_RAW = Symbol("$resolveRaw");
 /** @internal */
-export const $RESOLVE = Symbol('$resolve');
+export const $RESOLVE = Symbol("$resolve");
 /** @internal */
-export const $EFFECT = Symbol('$effect');
+export const $EFFECT = Symbol("$effect");
 /** @internal */
-export const $RENDER = Symbol('$render');
+export const $RENDER = Symbol("$render");
 /** @internal */
-export const $UI_PATCH = Symbol('$uiPatch');
+export const $UI_PATCH = Symbol("$uiPatch");
 
 /** Returns true when the dependency arrays differ (shallow Object.is comparison). */
 export function depsChanged(prev: unknown[] | undefined, next: unknown[]): boolean {

@@ -1,4 +1,4 @@
-import { $UI_PATCH, type HookContext } from './symbols';
+import { $UI_PATCH, type HookContext } from "./symbols";
 
 /**
  * Returns a stable `startPatch` function that begins a **local** UI patch

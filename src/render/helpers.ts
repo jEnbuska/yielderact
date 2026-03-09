@@ -1,10 +1,10 @@
 import {
   type AnyComponentFn,
-  type GeneratorComponentFn,
-  type VNode,
   type Child,
   Fragment,
-} from '../jsx';
+  type GeneratorComponentFn,
+  type VNode,
+} from "../jsx";
 
 /**
  * Returns true when `fn` is a generator function (i.e. uses `function*`).
@@ -19,7 +19,7 @@ import {
  * is guaranteed by the JS spec for `function*` declarations/expressions.
  */
 export function isGeneratorFn(fn: AnyComponentFn): fn is GeneratorComponentFn {
-  return fn.constructor.name === 'GeneratorFunction';
+  return fn.constructor.name === "GeneratorFunction";
 }
 
 /**
@@ -65,7 +65,7 @@ export function onlyPatchChanged(a: Record<string, unknown>, b: Record<string, u
   let patchDiffers = false;
   for (const k of aKeys) {
     if (Object.is(a[k], b[k])) continue;
-    if (k === '$patch') {
+    if (k === "$patch") {
       patchDiffers = true;
       continue;
     }
@@ -90,7 +90,7 @@ export function onlyPatchChanged(a: Record<string, unknown>, b: Record<string, u
 export function flattenChildren(children: Child[]): Child[] {
   const result: Child[] = [];
   for (const child of children) {
-    if (child != null && typeof child === 'object' && (child as VNode).type === Fragment) {
+    if (child != null && typeof child === "object" && (child as VNode).type === Fragment) {
       result.push(...flattenChildren((child as VNode).children));
     } else {
       result.push(child);
@@ -132,7 +132,7 @@ export function mergedProps(vnode: VNode): Record<string, unknown> {
  * @param props - The (merged) props to check.
  */
 export function isShown(props: Record<string, unknown>): boolean {
-  return props['$shown'] !== false;
+  return props["$shown"] !== false;
 }
 
 /**
@@ -152,7 +152,7 @@ export function isShown(props: Record<string, unknown>): boolean {
  * @returns Props without `$deferred`.
  */
 export function stripDeferred(props: Record<string, unknown>): Record<string, unknown> {
-  if (!('$deferred' in props)) return props;
+  if (!("$deferred" in props)) return props;
   const { $deferred: _, ...rest } = props;
   return rest;
 }

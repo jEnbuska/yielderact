@@ -1,14 +1,14 @@
-import { type SyntheticEvent } from '../events';
-import { addSyntheticListener, removeSyntheticListener } from './events';
+import type { SyntheticEvent } from "../events";
+import { addSyntheticListener, removeSyntheticListener } from "./events";
 
 // ── Ref helpers ─────────────────────────────────────────────────────────────
 
 /** Attach a $ref (callback or object) to a DOM element. */
 export function setRef(ref: unknown, el: Element): void {
   if (!ref) return;
-  if (typeof ref === 'function') {
+  if (typeof ref === "function") {
     (ref as (instance: Element | null) => void)(el);
-  } else if (typeof ref === 'object' && 'current' in (ref as object)) {
+  } else if (typeof ref === "object" && "current" in (ref as object)) {
     (ref as { current: unknown }).current = el;
   }
 }
@@ -16,9 +16,9 @@ export function setRef(ref: unknown, el: Element): void {
 /** Clear a $ref (callback with null, or set .current to null). */
 export function clearRef(ref: unknown): void {
   if (!ref) return;
-  if (typeof ref === 'function') {
+  if (typeof ref === "function") {
     (ref as (instance: Element | null) => void)(null);
-  } else if (typeof ref === 'object' && 'current' in (ref as object)) {
+  } else if (typeof ref === "object" && "current" in (ref as object)) {
     (ref as { current: unknown }).current = null;
   }
 }
@@ -58,26 +58,26 @@ export function clearRef(ref: unknown): void {
  */
 export function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(props)) {
-    if (key.startsWith('$')) continue;
-    if (key.startsWith('on') && typeof value === 'function') {
+    if (key.startsWith("$")) continue;
+    if (key.startsWith("on") && typeof value === "function") {
       addSyntheticListener(el, key.slice(2).toLowerCase(), value as (e: SyntheticEvent) => void);
-    } else if (key === 'className') {
+    } else if (key === "className") {
       el.className = String(value);
-    } else if (key === 'htmlFor') {
-      el.setAttribute('for', String(value));
-    } else if (key === 'style' && typeof value === 'object' && value !== null) {
+    } else if (key === "htmlFor") {
+      el.setAttribute("for", String(value));
+    } else if (key === "style" && typeof value === "object" && value !== null) {
       Object.assign(el.style, value);
     } else if (
-      key === 'value' &&
+      key === "value" &&
       (el instanceof HTMLInputElement ||
         el instanceof HTMLTextAreaElement ||
         el instanceof HTMLSelectElement)
     ) {
       // Use the DOM property so the live value is updated, not just the default
       (el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = String(
-        value ?? '',
+        value ?? "",
       );
-    } else if (key === 'checked' && el instanceof HTMLInputElement) {
+    } else if (key === "checked" && el instanceof HTMLInputElement) {
       // Use the DOM property for checkboxes
       el.checked = Boolean(value);
     } else if (value === false) {
@@ -88,20 +88,20 @@ export function applyProps(el: HTMLElement, props: Record<string, unknown>): voi
   }
 
   // Handle $ref on initial mount
-  setRef(props['$ref'], el);
+  setRef(props["$ref"], el);
 
   // Default <button> type to "button" to prevent accidental form submission.
   // The HTML default is "submit", which is almost never the intended behaviour.
-  if (el instanceof HTMLButtonElement && !el.hasAttribute('type')) {
-    el.setAttribute('type', 'button');
+  if (el instanceof HTMLButtonElement && !el.hasAttribute("type")) {
+    el.setAttribute("type", "button");
   }
 
   // Warn when <a target="_blank"> is used without any rel attribute.
   // Without rel the opened page can navigate the opener via window.opener (tab-napping).
   if (
     el instanceof HTMLAnchorElement &&
-    el.getAttribute('target') === '_blank' &&
-    !el.getAttribute('rel')
+    el.getAttribute("target") === "_blank" &&
+    !el.getAttribute("rel")
   ) {
     console.warn(
       'yielderact: <a target="_blank"> is missing rel="noopener". ' +
@@ -134,16 +134,16 @@ export function updateProps(
 ): void {
   // 1. Remove props that no longer exist in nextProps
   for (const key in prevProps) {
-    if (key.startsWith('$')) continue;
+    if (key.startsWith("$")) continue;
     if (key in nextProps) continue;
-    if (key.startsWith('on') && typeof prevProps[key] === 'function') {
+    if (key.startsWith("on") && typeof prevProps[key] === "function") {
       removeSyntheticListener(el, key.slice(2).toLowerCase());
-    } else if (key === 'className') {
-      el.className = '';
-    } else if (key === 'htmlFor') {
-      el.removeAttribute('for');
-    } else if (key === 'style') {
-      el.removeAttribute('style');
+    } else if (key === "className") {
+      el.className = "";
+    } else if (key === "htmlFor") {
+      el.removeAttribute("for");
+    } else if (key === "style") {
+      el.removeAttribute("style");
     } else {
       el.removeAttribute(key);
     }
@@ -151,36 +151,36 @@ export function updateProps(
 
   // 2. Add or update props that changed
   for (const key in nextProps) {
-    if (key.startsWith('$')) continue;
+    if (key.startsWith("$")) continue;
     const next = nextProps[key];
     const prev = prevProps[key];
     if (Object.is(next, prev)) continue;
 
-    if (key.startsWith('on') && typeof next === 'function') {
-      if (typeof prev === 'function') removeSyntheticListener(el, key.slice(2).toLowerCase());
+    if (key.startsWith("on") && typeof next === "function") {
+      if (typeof prev === "function") removeSyntheticListener(el, key.slice(2).toLowerCase());
       addSyntheticListener(el, key.slice(2).toLowerCase(), next as (e: SyntheticEvent) => void);
-    } else if (key === 'style' && typeof next === 'object' && next !== null) {
+    } else if (key === "style" && typeof next === "object" && next !== null) {
       // Clear removed style properties, then apply current ones
-      if (typeof prev === 'object' && prev !== null) {
+      if (typeof prev === "object" && prev !== null) {
         for (const styleProp in prev as Record<string, unknown>) {
           if (!(styleProp in (next as Record<string, unknown>))) {
-            el.style[styleProp as never] = '';
+            el.style[styleProp as never] = "";
           }
         }
       }
       Object.assign(el.style, next);
-    } else if (key === 'className') {
+    } else if (key === "className") {
       el.className = String(next);
-    } else if (key === 'htmlFor') {
-      el.setAttribute('for', String(next));
+    } else if (key === "htmlFor") {
+      el.setAttribute("for", String(next));
     } else if (
-      key === 'value' &&
+      key === "value" &&
       (el instanceof HTMLInputElement ||
         el instanceof HTMLTextAreaElement ||
         el instanceof HTMLSelectElement)
     ) {
-      (el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = String(next ?? '');
-    } else if (key === 'checked' && el instanceof HTMLInputElement) {
+      (el as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement).value = String(next ?? "");
+    } else if (key === "checked" && el instanceof HTMLInputElement) {
       el.checked = Boolean(next);
     } else if (next === false) {
       el.removeAttribute(key);
@@ -190,8 +190,8 @@ export function updateProps(
   }
 
   // 3. Handle $ref changes
-  const prevRef = prevProps['$ref'];
-  const nextRef = nextProps['$ref'];
+  const prevRef = prevProps["$ref"];
+  const nextRef = nextProps["$ref"];
   if (!Object.is(prevRef, nextRef)) {
     clearRef(prevRef);
     setRef(nextRef, el);

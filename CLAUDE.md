@@ -13,7 +13,7 @@
 **Before pushing code or opening a PR, you MUST execute this sequence in order:**
 
 1.  **Branch Sync:** `git checkout dev && git pull origin dev && git checkout -`
-2.  **Lint & Format:** `npm run format`
+2.  **Lint & Format:** `npm run lint:fix`
 3.  **Type Check & Build:** `npm run build`
 4.  **Unit Tests:** `npm test`
 5.  **Visual Tests:** `npm run test:visual`
@@ -48,7 +48,9 @@ yielderact is a minimal JSX UI library using JavaScript generator functions.
 - `npm run build` — Compile TS to `dist/`
 - `npm test` — Run Jest unit tests (jsdom)
 - `npm run test:visual` — Run Playwright visual tests
-- `npm run format` — Fix formatting with Prettier
+- `npm run lint` — Check lint & formatting (Biome)
+- `npm run lint:fix` — Auto-fix lint & formatting issues
+- `npm run format` — Auto-fix formatting only (Biome)
 - `npm test -- <path>` — Run specific test file
 
 ### 3. Creating a Pull Request
@@ -91,7 +93,8 @@ function* Counter(_props: object) {
 
 - **Self-Updating Documentation:** If you discover a "gotcha" or a more efficient way to run this project, update the "Non-Obvious Rules" or "Execution Policy" in this file immediately.
 - **NPM Script Policy:** Never use `npx`. Always use the existing `npm run` scripts to ensure version consistency.
-- **TypeScript:** Strictly typed; `any` is forbidden.
+- **Linting:** Biome (`biome.json`) handles linting and formatting. Prettier was removed.
+- **TypeScript:** Strictly typed; `any` is forbidden. `noUncheckedIndexedAccess` and `noPropertyAccessFromIndexSignature` are enabled.
 - **Special Props:** Always support the `$shown={boolean}` prop.
 - **Dependencies:** Zero-dependency goal.
 - **JSX Config:** `react-jsx` with `jsxImportSource: "yielderact"`.

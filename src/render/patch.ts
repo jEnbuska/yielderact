@@ -1,8 +1,8 @@
-import { type GenInstance } from './types';
-import { renderState } from './state';
-import { _getCtxMap, _setCtxMap, _withBatch } from '../context';
-import { flushEffects } from './hooks-runtime';
-import { reconcileSlots } from './reconciler';
+import { _getCtxMap, _setCtxMap, _withBatch } from "../context";
+import { flushEffects } from "./hooks-runtime";
+import { reconcileSlots } from "./reconciler";
+import { renderState } from "./state";
+import type { GenInstance } from "./types";
 
 /**
  * Apply deferred DOM updates for a list of generator instances.
@@ -35,7 +35,7 @@ export function _flushPendingVNodes(instances: GenInstance[]): void {
 
     const prevCtx = _getCtxMap();
     // Restore inherited context, then apply own $patch for children.
-    const ownPatch = inst.props['$patch'] as 'live' | 'default' | undefined;
+    const ownPatch = inst.props["$patch"] as "live" | "default" | undefined;
     _setCtxMap(ownPatch !== undefined ? _withBatch(inst.capturedCtx, ownPatch) : inst.capturedCtx);
     const parent = inst.endMarker.parentNode as HTMLElement;
     try {

@@ -2,7 +2,7 @@
  * Counter – a generator component demonstrating stateful rendering with
  * `yield* $state` and returning JSX.
  */
-import { render, $state, $id } from 'yielderact';
+import { $id, $state, render } from "yielderact";
 
 export function* Counter() {
   const decrementId = yield* $id();
@@ -19,7 +19,7 @@ export function* Counter() {
         A generator component keeps state via <code>yield* $state</code>. Each call to the setter
         re-runs the component body and reconciles the DOM.
       </p>
-      <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+      <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
         <button id={decrementId} data-testid="decrement-btn" onClick={() => setCount(count - 1)}>
           −
         </button>
@@ -33,7 +33,7 @@ export function* Counter() {
           id={resetId}
           data-testid="reset-btn"
           onClick={() => setCount(0)}
-          style={{ marginLeft: '0.5rem' }}
+          style={{ marginLeft: "0.5rem" }}
         >
           Reset
         </button>

@@ -12,39 +12,39 @@
  * collection, and context propagation.
  */
 
-import { type Child } from '../jsx';
 import {
+  _getProviderCtx,
+  _processContext,
   $CONTEXT,
   type Context,
-  _getProviderCtx,
   type UseContextState,
-  _processContext,
-} from '../context';
-import { clearRef } from './props';
+} from "../context";
 import {
-  $STATE,
-  $REF,
+  $EFFECT,
   $ID,
   $MEMO,
-  $RESOLVE_RAW,
-  $RESOLVE,
-  $EFFECT,
+  $REF,
   $RENDER,
+  $RESOLVE,
+  $RESOLVE_RAW,
+  $STATE,
   $UI_PATCH,
   depsChanged,
   type HookContext,
-} from '../hooks';
-import { _processState } from '../hooks/$state';
-import { _processRef } from '../hooks/$ref';
-import { _processId } from '../hooks/$id';
-import { _processMemo } from '../hooks/$memo';
-import { _processResolveRaw, _processResolve } from '../hooks/$resolve';
-import { _processEffect } from '../hooks/$effect';
-import { _processRender } from '../hooks/$render';
-import { _processUIPatch } from '../hooks/$ui-patch';
-import { type Slot, type GenInstance } from './types';
-import { renderState } from './state';
-import { _flushPendingVNodes } from './patch';
+} from "../hooks";
+import { _processEffect } from "../hooks/$effect";
+import { _processId } from "../hooks/$id";
+import { _processMemo } from "../hooks/$memo";
+import { _processRef } from "../hooks/$ref";
+import { _processRender } from "../hooks/$render";
+import { _processResolve, _processResolveRaw } from "../hooks/$resolve";
+import { _processState } from "../hooks/$state";
+import { _processUIPatch } from "../hooks/$ui-patch";
+import type { Child } from "../jsx";
+import { _flushPendingVNodes } from "./patch";
+import { clearRef } from "./props";
+import { renderState } from "./state";
+import type { GenInstance, Slot } from "./types";
 
 /**
  * Set of all known hook descriptor type symbols for fast membership test.
@@ -78,7 +78,7 @@ const HOOK_SYMBOLS = new Set<symbol>([
 export function isHookDescriptor(value: unknown): boolean {
   return (
     value !== null &&
-    typeof value === 'object' &&
+    typeof value === "object" &&
     HOOK_SYMBOLS.has((value as { type: symbol }).type)
   );
 }
@@ -111,8 +111,9 @@ export function flushEffects(instance: GenInstance): void {
   if (instance.gen !== null) return;
   for (const { hookIndex, fn, controller } of instance.pendingEffects) {
     const cleanup = fn(controller.signal);
-    (instance.hookStates[hookIndex] as { deps: unknown[]; cleanup: (() => void) | void }).cleanup =
-      cleanup;
+    (
+      instance.hookStates[hookIndex] as { deps: unknown[]; cleanup: (() => void) | undefined }
+    ).cleanup = cleanup;
   }
   instance.pendingEffects.length = 0;
 }
@@ -135,8 +136,8 @@ export function unmountSlot(slot: Slot): void {
     unmountSlot(child);
   }
   // Clear $ref on HTML element slots
-  if (typeof slot.type === 'string' && slot.props['$ref']) {
-    clearRef(slot.props['$ref']);
+  if (typeof slot.type === "string" && slot.props["$ref"]) {
+    clearRef(slot.props["$ref"]);
   }
   if (slot.genInstance) {
     for (const child of slot.genInstance.slots) {
@@ -210,7 +211,7 @@ export function processOneDescriptor(
   cleanupFns: ((() => void) | undefined)[],
   pendingEffects: Array<{
     hookIndex: number;
-    fn: (signal: AbortSignal) => (() => void) | void;
+    fn: (signal: AbortSignal) => (() => void) | undefined;
     controller: AbortController;
   }>,
   rerender: () => Promise<void>,
@@ -342,7 +343,7 @@ export function runHooks(
  */
 function _hasStableSelectors(inst: GenInstance, ctx: Context<unknown>, newValue: unknown): boolean {
   for (const s of inst.hookStates) {
-    if (s == null || typeof s !== 'object') continue;
+    if (s == null || typeof s !== "object") continue;
     const state = s as UseContextState;
     if (state.ctx !== ctx) continue;
     if (!state.selector) return false;
@@ -376,11 +377,11 @@ function _hasStableSelectors(inst: GenInstance, ctx: Context<unknown>, newValue:
 export function propagateContextUpdate(
   ctx: Context<unknown>,
   newValue: unknown,
-  slots: import('./types').Slot[],
+  slots: import("./types").Slot[],
 ): void {
   for (const slot of slots) {
     // Stop at an inner Provider for the same context – it overrides the outer value.
-    if (typeof slot.type === 'function' && _getProviderCtx(slot.type) === ctx) {
+    if (typeof slot.type === "function" && _getProviderCtx(slot.type) === ctx) {
       continue;
     }
 

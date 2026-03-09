@@ -1,4 +1,4 @@
-import { $STATE, type HookContext } from './symbols';
+import { $STATE, type HookContext } from "./symbols";
 
 /**
  * Persistent state hook for generator components.
@@ -38,12 +38,12 @@ export function* $state<T>(
 export function _processState(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
   const { hookIndex, hookStates, rerender } = ctx;
   if (!(hookIndex in hookStates)) {
-    const init = descriptor['initialValue'];
-    hookStates[hookIndex] = typeof init === 'function' ? (init as () => unknown)() : init;
+    const init = descriptor["initialValue"];
+    hookStates[hookIndex] = typeof init === "function" ? (init as () => unknown)() : init;
   }
   const setter = (newValue: unknown): Promise<void> => {
     hookStates[hookIndex] =
-      typeof newValue === 'function'
+      typeof newValue === "function"
         ? (newValue as (prev: unknown) => unknown)(hookStates[hookIndex])
         : newValue;
     return rerender();
