@@ -18,29 +18,30 @@
  * }
  */
 export {
-  USE_STATE,
-  USE_REF,
-  USE_ID,
-  USE_MEMO,
-  USE_RESOLVE_RAW,
-  USE_RESOLVE,
-  USE_EFFECT,
-  USE_RENDER,
-  USE_UI_PATCH,
+  $STATE,
+  $REF,
+  $ID,
+  $MEMO,
+  $RESOLVE_RAW,
+  $RESOLVE,
+  $EFFECT,
+  $RENDER,
+  $UI_PATCH,
   depsChanged,
+  type HookContext,
 } from './symbols';
-export { $state } from './use-state';
-export { type RefObject, $ref } from './use-ref';
-export { $id } from './use-id';
-export { $memo } from './use-memo';
+export { $state } from './$state';
+export { type RefObject, $ref } from './$ref';
+export { $id } from './$id';
+export { $memo } from './$memo';
 export {
   type Renderable,
   type UseResolveOptions,
   type ResolveRawResult,
   $resolveRaw,
   $resolve,
-} from './use-resolve';
-export { $effect } from './use-effect';
-export { type UseRenderFn, type UseRenderState, $render, $resume } from './use-render';
-export { $uiPatch } from './use-ui-patch';
-export { $patchContext } from './use-patch-context';
+} from './$resolve';
+export { $effect } from './$effect';
+export { type UseRenderFn, type UseRenderState, $render, $resume } from './$render';
+export { $uiPatch } from './$ui-patch';
+export { $patchContext } from './$patch-context';

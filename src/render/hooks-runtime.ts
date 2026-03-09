@@ -3,7 +3,7 @@
  *
  * This module is the bridge between the generator-based hook API and the
  * renderer. Components yield hook descriptors (tagged objects like
- * `{ type: USE_STATE, initialValue }`) from their generator body. The
+ * `{ type: $STATE, initialValue }`) from their generator body. The
  * renderer calls `runHooks` which drives the generator in a loop,
  * dispatching each descriptor to `processOneDescriptor` and sending the
  * result back via `gen.next(result)`.
@@ -14,27 +14,34 @@
 
 import { type Child } from '../jsx';
 import {
-  _getCtxMap,
-  USE_CONTEXT,
+  $CONTEXT,
   type Context,
   _getProviderCtx,
-  _resolveCtxValue,
+  type UseContextState,
+  _processContext,
 } from '../context';
 import { clearRef } from './props';
 import {
-  USE_STATE,
-  USE_REF,
-  USE_ID,
-  USE_MEMO,
-  USE_RESOLVE_RAW,
-  USE_RESOLVE,
-  USE_EFFECT,
-  USE_RENDER,
-  USE_UI_PATCH,
+  $STATE,
+  $REF,
+  $ID,
+  $MEMO,
+  $RESOLVE_RAW,
+  $RESOLVE,
+  $EFFECT,
+  $RENDER,
+  $UI_PATCH,
   depsChanged,
-  type ResolveRawResult,
-  type UseRenderState,
+  type HookContext,
 } from '../hooks';
+import { _processState } from '../hooks/$state';
+import { _processRef } from '../hooks/$ref';
+import { _processId } from '../hooks/$id';
+import { _processMemo } from '../hooks/$memo';
+import { _processResolveRaw, _processResolve } from '../hooks/$resolve';
+import { _processEffect } from '../hooks/$effect';
+import { _processRender } from '../hooks/$render';
+import { _processUIPatch } from '../hooks/$ui-patch';
 import { type Slot, type GenInstance } from './types';
 import { renderState } from './state';
 import { _flushPendingVNodes } from './patch';
@@ -48,16 +55,16 @@ import { _flushPendingVNodes } from './patch';
  * representing the component's render output.
  */
 const HOOK_SYMBOLS = new Set<symbol>([
-  USE_STATE,
-  USE_REF,
-  USE_ID,
-  USE_MEMO,
-  USE_CONTEXT,
-  USE_RESOLVE_RAW,
-  USE_RESOLVE,
-  USE_EFFECT,
-  USE_RENDER,
-  USE_UI_PATCH,
+  $STATE,
+  $REF,
+  $ID,
+  $MEMO,
+  $CONTEXT,
+  $RESOLVE_RAW,
+  $RESOLVE,
+  $EFFECT,
+  $RENDER,
+  $UI_PATCH,
 ]);
 
 /**
@@ -149,7 +156,7 @@ export function unmountSlot(slot: Slot): void {
  * Collect all descendant `GenInstance`s reachable from `instance.slots`
  * via a depth-first traversal.
  *
- * **Called by:** `processOneDescriptor(USE_UI_PATCH)` — `useUIPatch`'s
+ * **Called by:** `processOneDescriptor($UI_PATCH)` — `useUIPatch`'s
  * `startPatch()` function snapshots all current descendants at the moment
  * the patch begins. These are the instances that will have their
  * `localPatchRefCount` incremented (deferred) and later decremented
@@ -175,41 +182,18 @@ export function collectDescendants(instance: GenInstance): GenInstance[] {
 }
 
 /**
- * Persistent hook state stored for a `useContext` call.
- *
- * Stored in `GenInstance.hookStates[hookIndex]` for each `useContext` hook.
- * The reconciler reads these entries to determine whether a context change
- * requires a rerender (by checking `selector` and `lastDeps`).
- *
- * @internal
- */
-export type UseContextState = {
-  /** The context object this hook subscribes to. */
-  ctx: Context<unknown>;
-  /** Optional selector function — extracts deps from the context value. */
-  selector: ((ctx: unknown) => unknown[]) | undefined;
-  /** Optional transform function — computes the returned value from deps. */
-  transform: ((...args: unknown[]) => unknown) | undefined;
-  /** The last computed deps array (from `selector`). Used by `depsChanged`. */
-  lastDeps: unknown[] | undefined;
-  /** The last returned value (raw context value, or `transform(…deps)`). */
-  lastResult: unknown;
-};
-
-/**
  * Process a single hook descriptor and return the value to send back to
  * the generator via `gen.next(value)`.
  *
  * This is the central dispatch function for all hooks. Each hook type
  * yields a descriptor object with a `type` symbol and associated data.
- * This function reads/writes `hookStates[hookIndex]` to persist state
- * across re-renders, and may register cleanup functions in `cleanupFns`
- * or queue effects in `pendingEffects`.
+ * The actual processing logic lives in each hook's own file; this function
+ * builds the shared `HookContext` and dispatches to the right handler.
  *
  * **Called by:** `runHooks` below — once for each hook descriptor yielded
  * during the component's generator body.
  *
- * @param descriptor    - The hook descriptor (e.g. `{ type: USE_STATE, initialValue: 0 }`).
+ * @param descriptor    - The hook descriptor (e.g. `{ type: $STATE, initialValue: 0 }`).
  * @param hookIndex     - The positional index of this hook call (0-based, by call order).
  * @param hookStates    - The instance's persistent hook state array.
  * @param cleanupFns    - The instance's per-hook cleanup function array.
@@ -233,292 +217,39 @@ export function processOneDescriptor(
   resume: () => void,
   instance: GenInstance,
 ): unknown {
+  const ctx: HookContext = {
+    hookIndex,
+    hookStates,
+    cleanupFns,
+    pendingEffects,
+    rerender,
+    resume,
+    instance,
+    collectDescendants,
+    flushPendingVNodes: _flushPendingVNodes,
+  };
+
   switch (descriptor.type) {
-    // ── useState ──
-    // Returns `[currentValue, setter]`. The setter calls `rerender()`,
-    // which either re-executes the generator immediately or queues a
-    // pending rerender if one is already in progress.
-    case USE_STATE: {
-      if (!(hookIndex in hookStates)) {
-        const init = descriptor['initialValue'];
-        hookStates[hookIndex] = typeof init === 'function' ? (init as () => unknown)() : init;
-      }
-      const setter = (newValue: unknown): Promise<void> => {
-        hookStates[hookIndex] =
-          typeof newValue === 'function'
-            ? (newValue as (prev: unknown) => unknown)(hookStates[hookIndex])
-            : newValue;
-        return rerender();
-      };
-      return [hookStates[hookIndex], setter];
-    }
-
-    // ── useRef ──
-    // Returns a stable `{ current: T }` object that persists across renders.
-    case USE_REF: {
-      if (!(hookIndex in hookStates)) {
-        hookStates[hookIndex] = { current: descriptor['initialValue'] };
-      }
-      return hookStates[hookIndex];
-    }
-
-    // ── useId ──
-    // Returns a stable unique ID string (e.g. ":r0:", ":r1:").
-    // The ID is generated on first mount and reused on rerenders.
-    case USE_ID: {
-      if (!(hookIndex in hookStates)) {
-        hookStates[hookIndex] = `:r${renderState.idCounter++}:`;
-      }
-      return hookStates[hookIndex];
-    }
-
-    // ── useMemo ──
-    // Returns `fn(...deps)`, recomputed only when `deps` change.
-    case USE_MEMO: {
-      const fn = descriptor['fn'] as (...args: unknown[]) => unknown;
-      const deps = descriptor['deps'] as unknown[];
-      const existing = hookStates[hookIndex] as { value: unknown; deps: unknown[] } | undefined;
-      if (!existing || depsChanged(existing.deps, deps)) {
-        hookStates[hookIndex] = { value: fn(...deps), deps };
-      }
-      return (hookStates[hookIndex] as { value: unknown }).value;
-    }
-
-    // ── useContext ──
-    // Reads a context value from the active `_ctxMap`. Registers the
-    // context in `instance.consumedContexts` so the reconciler knows
-    // this component subscribes to it.
-    //
-    // Without a selector: returns the raw value, rerenders on any change.
-    // With a selector: returns the raw value (or transformed result),
-    // rerenders only when selected deps change.
-    case USE_CONTEXT: {
-      const ctx = descriptor['ctx'] as Context<unknown>;
-      instance.consumedContexts.add(ctx);
-      const selector = descriptor['selector'] as ((ctx: unknown) => unknown[]) | undefined;
-      const transform = descriptor['transform'] as ((...args: unknown[]) => unknown) | undefined;
-      const ctxMap = _getCtxMap();
-      const rawValue = ctxMap.has(ctx) ? ctxMap.get(ctx) : ctx._defaultValue;
-
-      if (!selector) {
-        hookStates[hookIndex] = {
-          ctx,
-          selector: undefined,
-          transform: undefined,
-          lastDeps: undefined,
-          lastResult: rawValue,
-        } satisfies UseContextState;
-        return rawValue;
-      }
-
-      const newDeps = selector(rawValue);
-      const prev = hookStates[hookIndex] as UseContextState | undefined;
-      if (prev?.selector && !depsChanged(prev.lastDeps, newDeps)) {
-        return prev.lastResult;
-      }
-      const result = transform ? transform(...newDeps) : rawValue;
-      hookStates[hookIndex] = {
-        ctx,
-        selector,
-        transform,
-        lastDeps: newDeps,
-        lastResult: result,
-      } satisfies UseContextState;
-      return result;
-    }
-
-    // ── useResolveRaw ──
-    // Tracks a Promise. Returns `{ data, loading, error }`.
-    // When the promise resolves/rejects, triggers a rerender.
-    // The hook re-subscribes when the promise reference changes.
-    case USE_RESOLVE_RAW: {
-      type RawState =
-        | { promise: Promise<unknown>; status: 'pending' }
-        | { promise: Promise<unknown>; status: 'resolved'; data: unknown }
-        | { promise: Promise<unknown>; status: 'rejected'; error: unknown };
-
-      const promise = descriptor['promise'] as Promise<unknown>;
-      const existing = hookStates[hookIndex] as RawState | undefined;
-
-      if (!existing || existing.promise !== promise) {
-        const state: RawState = { promise, status: 'pending' };
-        hookStates[hookIndex] = state;
-        promise.then(
-          (data) => {
-            if (hookStates[hookIndex] === state) {
-              hookStates[hookIndex] = { promise, status: 'resolved', data };
-              rerender();
-            }
-          },
-          (error) => {
-            if (hookStates[hookIndex] === state) {
-              hookStates[hookIndex] = { promise, status: 'rejected', error };
-              rerender();
-            }
-          },
-        );
-      }
-
-      const s = hookStates[hookIndex] as RawState;
-      if (s.status === 'resolved')
-        return { data: s.data, loading: false, error: undefined } as ResolveRawResult<unknown>;
-      if (s.status === 'rejected')
-        return { data: undefined, loading: false, error: s.error } as ResolveRawResult<unknown>;
-      return { data: undefined, loading: true, error: undefined } as ResolveRawResult<unknown>;
-    }
-
-    // ── useResolve ──
-    // Like useResolveRaw but creates the Promise via `fn(signal)` and
-    // re-invokes when `deps` change. Aborts the previous AbortController
-    // on deps change. Registers a cleanup function so the controller is
-    // also aborted on component unmount.
-    //
-    // Returns the Promise (the generator yields a VNode to display while
-    // the promise is pending, then `resume()` is called when it resolves).
-    case USE_RESOLVE: {
-      type ResolveState = {
-        deps: unknown[];
-        promise: Promise<unknown>;
-        controller: AbortController;
-      };
-      const fn = descriptor['fn'] as (signal: AbortSignal) => Promise<unknown>;
-      const deps = descriptor['deps'] as unknown[];
-      const existing = hookStates[hookIndex] as ResolveState | undefined;
-
-      if (!existing || depsChanged(existing.deps, deps)) {
-        // Abort the previous controller before starting a new fetch.
-        existing?.controller.abort();
-        const controller = new AbortController();
-        const promise = fn(controller.signal);
-        hookStates[hookIndex] = { deps, promise, controller } satisfies ResolveState;
-        // Register cleanup so the controller is aborted on component unmount.
-        cleanupFns[hookIndex] = () => controller.abort();
-        return promise;
-      }
-      return existing.promise;
-    }
-
-    // ── useEffect ──
-    // Queues a side-effect to run AFTER the DOM is updated.
-    // The effect function receives an AbortSignal and may return a cleanup.
-    //
-    // On deps change:
-    //   1. Abort the previous signal.
-    //   2. Call previous cleanup synchronously.
-    //   3. Create a new AbortController.
-    //   4. Queue the effect in `pendingEffects` (flushed by `flushEffects`).
-    //
-    // On unmount: the registered `cleanupFns[hookIndex]` aborts the signal
-    // and calls the cleanup.
-    case USE_EFFECT: {
-      type EffectState = {
-        deps: unknown[];
-        cleanup: (() => void) | void;
-        controller: AbortController;
-      };
-      const fn = descriptor['fn'] as (signal: AbortSignal) => (() => void) | void;
-      const deps = descriptor['deps'] as unknown[];
-      const existing = hookStates[hookIndex] as EffectState | undefined;
-
-      if (!existing || depsChanged(existing.deps, deps)) {
-        // Abort previous signal and run cleanup synchronously before the new effect.
-        if (existing) {
-          existing.controller.abort();
-          existing.cleanup?.();
-        }
-        // Create a fresh AbortController for the new effect run.
-        const controller = new AbortController();
-        // Store updated deps; cleanup will be filled in by flushEffects after DOM update.
-        hookStates[hookIndex] = { deps, cleanup: undefined, controller } satisfies EffectState;
-        // Queue the effect to run after reconciliation.
-        pendingEffects.push({ hookIndex, fn, controller });
-        // Register unmount cleanup: abort the signal then call the returned cleanup fn.
-        cleanupFns[hookIndex] = () => {
-          const state = hookStates[hookIndex] as EffectState;
-          state.controller.abort();
-          state.cleanup?.();
-        };
-      }
-      return undefined;
-    }
-
-    // ── useRender ──
-    // Pauses the generator and renders intermediate UI (e.g. a dialog or
-    // loading screen). The generator is resumed when `resumeCallback(value)`
-    // is called from the rendered UI.
-    //
-    // Returns `{ slot, resumeCallback }` to the generator. The generator
-    // then yields a VNode (the intermediate UI) which pauses it. When the
-    // UI calls `resumeCallback(value)`, `resume()` is called, which calls
-    // `gen.next()` to continue the generator with the returned value.
-    //
-    // The `resumeCallback` is stable across rerenders (same deps).
-    // On deps change, a new slot/callback pair is created.
-    case USE_RENDER: {
-      const deps = descriptor['deps'] as unknown[];
-      let slot = hookStates[hookIndex] as UseRenderState<unknown> | undefined;
-
-      if (!slot || depsChanged(slot.deps, deps)) {
-        // New slot – create a fresh resumeCallback that closes over the slot ref.
-        const newSlot: UseRenderState<unknown> = {
-          status: 'waiting',
-          deps,
-          value: undefined,
-          resumeCallback: null!,
-        };
-        hookStates[hookIndex] = newSlot;
-        newSlot.resumeCallback = (value: unknown): void => {
-          const s = hookStates[hookIndex] as UseRenderState<unknown>;
-          if (s.status === 'waiting') {
-            s.status = 'resolved';
-            s.value = value;
-            resume();
-          }
-        };
-        slot = newSlot;
-      } else {
-        // Same deps – reuse stable callback, just reset status for this fresh run.
-        slot.status = 'waiting';
-      }
-
-      return { slot, resumeCallback: slot.resumeCallback };
-    }
-
-    // ── useUIPatch ──
-    // Returns a stable `startPatch()` function. When called, it:
-    //   1. Snapshots all current descendant instances.
-    //   2. Increments `localPatchRefCount` on the root + all descendants,
-    //      causing their DOM writes to be deferred.
-    //   3. Returns a `commit()` function that decrements the counts and
-    //      calls `_flushPendingVNodes` to apply all deferred updates.
-    //
-    // The `startPatch` function is created once (on first mount) and
-    // reused on every rerender (stable reference).
-    case USE_UI_PATCH: {
-      if (!(hookIndex in hookStates)) {
-        hookStates[hookIndex] = (): (() => void) => {
-          // Snapshot taken lazily at call time (not at hook registration time)
-          // so that `instance.slots` is fully populated.
-          const snapshot = collectDescendants(instance);
-
-          // Freeze root + all current descendants.
-          instance.localPatchRefCount++;
-          for (const inst of snapshot) inst.localPatchRefCount++;
-
-          return (): void => {
-            // Unfreeze all.
-            instance.localPatchRefCount = Math.max(0, instance.localPatchRefCount - 1);
-            for (const inst of snapshot) {
-              inst.localPatchRefCount = Math.max(0, inst.localPatchRefCount - 1);
-            }
-            // Apply any pending VNodes for the root and snapshot members.
-            _flushPendingVNodes([instance, ...snapshot]);
-          };
-        };
-      }
-      return hookStates[hookIndex];
-    }
-
+    case $STATE:
+      return _processState(descriptor, ctx);
+    case $REF:
+      return _processRef(descriptor, ctx);
+    case $ID:
+      return _processId(ctx);
+    case $MEMO:
+      return _processMemo(descriptor, ctx);
+    case $CONTEXT:
+      return _processContext(descriptor, ctx);
+    case $RESOLVE_RAW:
+      return _processResolveRaw(descriptor, ctx);
+    case $RESOLVE:
+      return _processResolve(descriptor, ctx);
+    case $EFFECT:
+      return _processEffect(descriptor, ctx);
+    case $RENDER:
+      return _processRender(descriptor, ctx);
+    case $UI_PATCH:
+      return _processUIPatch(ctx);
     default:
       throw new Error(`Unknown hook descriptor type: ${String(descriptor.type)}`);
   }

@@ -24,7 +24,7 @@
  */
 export { createElement, Fragment } from './jsx';
 export type { SpecialProps } from './jsx';
-export { render, createRoot, startUIPatch, commitUIPatch } from './render';
+export { render, createRoot, startUIPatch, commitUIPatch, flushSync } from './render';
 export type { Root } from './render';
 export { createContext, $context } from './context';
 export {

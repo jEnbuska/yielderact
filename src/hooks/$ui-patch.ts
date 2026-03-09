@@ -1,4 +1,4 @@
-import { USE_UI_PATCH } from './symbols';
+import { $UI_PATCH, type HookContext } from './symbols';
 
 /**
  * Returns a stable `startPatch` function that begins a **local** UI patch
@@ -38,6 +38,28 @@ import { USE_UI_PATCH } from './symbols';
  * }
  */
 export function* $uiPatch(): Generator<unknown, () => () => void, unknown> {
-  const startPatch = yield { type: USE_UI_PATCH };
+  const startPatch = yield { type: $UI_PATCH };
   return startPatch as () => () => void;
+}
+
+/** @internal */
+export function _processUIPatch(ctx: HookContext): unknown {
+  const { hookIndex, hookStates, instance, collectDescendants, flushPendingVNodes } = ctx;
+  if (!(hookIndex in hookStates)) {
+    hookStates[hookIndex] = (): (() => void) => {
+      const snapshot = collectDescendants(instance);
+
+      instance.localPatchRefCount++;
+      for (const inst of snapshot) inst.localPatchRefCount++;
+
+      return (): void => {
+        instance.localPatchRefCount = Math.max(0, instance.localPatchRefCount - 1);
+        for (const inst of snapshot) {
+          inst.localPatchRefCount = Math.max(0, inst.localPatchRefCount - 1);
+        }
+        flushPendingVNodes([instance, ...snapshot]);
+      };
+    };
+  }
+  return hookStates[hookIndex];
 }

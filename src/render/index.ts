@@ -1,9 +1,11 @@
 import { type VNode } from '../jsx';
 import { buildNode } from './mount';
 import { _getCtxMap, _setCtxMap, _withBatch } from '../context';
+import { renderState } from './state';
 
 export { startUIPatch, commitUIPatch } from './patch';
 export { buildNode } from './mount';
+export { flushSync, scheduleUpdate } from './scheduler';
 
 /**
  * Render a VNode tree into a DOM container (simple one-shot mount).
@@ -22,7 +24,12 @@ export { buildNode } from './mount';
  * @param container - The DOM element to mount into.
  */
 export function render(vnode: VNode, container: Element): void {
-  container.appendChild(buildNode(vnode));
+  renderState.isInitialMount = true;
+  try {
+    container.appendChild(buildNode(vnode));
+  } finally {
+    renderState.isInitialMount = false;
+  }
 }
 
 /**
@@ -58,9 +65,11 @@ export function createRoot(container: Element): Root {
     render(vnode: VNode): void {
       const prevCtx = _getCtxMap();
       _setCtxMap(_withBatch(prevCtx, 'default'));
+      renderState.isInitialMount = true;
       try {
         container.appendChild(buildNode(vnode));
       } finally {
+        renderState.isInitialMount = false;
         _setCtxMap(prevCtx);
       }
     },

@@ -62,9 +62,37 @@ export const renderState = {
   /**
    * Auto-incrementing counter for stable unique IDs produced by `useId`.
    *
-   * **Incremented by:** `processOneDescriptor(USE_ID)` in `hooks-runtime.ts`.
+   * **Incremented by:** `processOneDescriptor($ID)` in `hooks-runtime.ts`.
    * Each `useId()` call gets `":r<N>:"` where N is the counter value at
    * first mount. The ID is stored in `hookStates` and reused on rerenders.
    */
   idCounter: 0,
+
+  /**
+   * The priority level of the component currently being rendered, or `null`
+   * when no render is in progress.
+   *
+   * Used to determine the priority of `setState` calls during render:
+   * if component B (priority 2) calls setState on component A (priority 0)
+   * during B's render, the update is assigned priority 2 (the caller's).
+   *
+   * **Set by:** `executeRerender` in `mount.ts` — before calling `runHooks`.
+   * **Cleared by:** `executeRerender` — in the `finally` block.
+   * **Read by:** `processOneDescriptor($STATE)` — to tag the setState
+   *   call with the correct priority.
+   */
+  renderingPriority: null as number | null,
+
+  /**
+   * True while performing the initial mount (before the root tree is
+   * attached to the live DOM).
+   *
+   * During initial mount, priority levels do not apply — the full tree
+   * mounts as a single patch. This flag prevents `$deferred` from splitting
+   * work into multiple priority passes during the first render.
+   *
+   * **Set by:** `render()` / `createRoot().render()` in `index.ts`.
+   * **Read by:** the scheduler — to skip priority splitting during mount.
+   */
+  isInitialMount: false,
 };

@@ -1,6 +1,6 @@
 import { type Child, createElement } from '../jsx';
 import { createContext, $context } from '../context';
-import { USE_RENDER } from './symbols';
+import { $RENDER, depsChanged, type HookContext } from './symbols';
 
 /**
  * Inline render factory passed to `$render` (Variant 2).
@@ -92,7 +92,7 @@ export function* $render<T>(
 ): Generator<unknown, T, unknown> {
   // Request a persistent slot + stable resumeCallback from the renderer.
   const effectiveDeps = deps ?? [];
-  const caps = yield { type: USE_RENDER, deps: effectiveDeps };
+  const caps = yield { type: $RENDER, deps: effectiveDeps };
   const { slot, resumeCallback } = caps as {
     slot: UseRenderState<T>;
     resumeCallback: (value: T) => void;
@@ -154,4 +154,34 @@ export function* $resume<T>(): Generator<unknown, (value: T) => void, unknown> {
     throw new Error('$resume must be called inside a component rendered by $render');
   }
   return fn as (value: T) => void;
+}
+
+/** @internal */
+export function _processRender(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
+  const { hookIndex, hookStates, resume } = ctx;
+  const deps = descriptor['deps'] as unknown[];
+  let slot = hookStates[hookIndex] as UseRenderState<unknown> | undefined;
+
+  if (!slot || depsChanged(slot.deps, deps)) {
+    const newSlot: UseRenderState<unknown> = {
+      status: 'waiting',
+      deps,
+      value: undefined,
+      resumeCallback: null!,
+    };
+    hookStates[hookIndex] = newSlot;
+    newSlot.resumeCallback = (value: unknown): void => {
+      const s = hookStates[hookIndex] as UseRenderState<unknown>;
+      if (s.status === 'waiting') {
+        s.status = 'resolved';
+        s.value = value;
+        resume();
+      }
+    };
+    slot = newSlot;
+  } else {
+    slot.status = 'waiting';
+  }
+
+  return { slot, resumeCallback: slot.resumeCallback };
 }

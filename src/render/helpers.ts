@@ -134,3 +134,25 @@ export function mergedProps(vnode: VNode): Record<string, unknown> {
 export function isShown(props: Record<string, unknown>): boolean {
   return props['$shown'] !== false;
 }
+
+/**
+ * Strip `$deferred` from a props object, returning props without it.
+ *
+ * `$deferred` is a framework-level directive that controls priority
+ * scheduling. It is **not** passed to the component — the component
+ * should never see it in its props.
+ *
+ * If `$deferred` is not present, returns the original object (no allocation).
+ *
+ * **Called by:**
+ * - `reconcileOneGen` in `reconciler.ts` — before passing props to components.
+ * - `buildNode` / `buildVNodeList` in `mount.ts` — same.
+ *
+ * @param props - The (merged) props that may contain `$deferred`.
+ * @returns Props without `$deferred`.
+ */
+export function stripDeferred(props: Record<string, unknown>): Record<string, unknown> {
+  if (!('$deferred' in props)) return props;
+  const { $deferred: _, ...rest } = props;
+  return rest;
+}

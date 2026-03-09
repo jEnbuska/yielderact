@@ -1,4 +1,5 @@
-import { USE_ID } from './symbols';
+import { $ID, type HookContext } from './symbols';
+import { renderState } from '../render/state';
 
 /**
  * Stable unique ID hook for generator components.
@@ -20,6 +21,15 @@ import { USE_ID } from './symbols';
  * }
  */
 export function* $id(): Generator<unknown, string, unknown> {
-  const id = yield { type: USE_ID };
+  const id = yield { type: $ID };
   return id as string;
+}
+
+/** @internal */
+export function _processId(ctx: HookContext): unknown {
+  const { hookIndex, hookStates } = ctx;
+  if (!(hookIndex in hookStates)) {
+    hookStates[hookIndex] = `:r${renderState.idCounter++}:`;
+  }
+  return hookStates[hookIndex];
 }

@@ -1,4 +1,4 @@
-import { USE_EFFECT } from './symbols';
+import { $EFFECT, depsChanged, type HookContext } from './symbols';
 
 /**
  * Side-effect hook for generator components.
@@ -33,5 +33,34 @@ export function* $effect(
   fn: (signal: AbortSignal) => (() => void) | void,
   deps: unknown[],
 ): Generator<unknown, void, unknown> {
-  yield { type: USE_EFFECT, fn, deps };
+  yield { type: $EFFECT, fn, deps };
+}
+
+/** @internal */
+export function _processEffect(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
+  type EffectState = {
+    deps: unknown[];
+    cleanup: (() => void) | void;
+    controller: AbortController;
+  };
+  const { hookIndex, hookStates, cleanupFns, pendingEffects } = ctx;
+  const fn = descriptor['fn'] as (signal: AbortSignal) => (() => void) | void;
+  const deps = descriptor['deps'] as unknown[];
+  const existing = hookStates[hookIndex] as EffectState | undefined;
+
+  if (!existing || depsChanged(existing.deps, deps)) {
+    if (existing) {
+      existing.controller.abort();
+      existing.cleanup?.();
+    }
+    const controller = new AbortController();
+    hookStates[hookIndex] = { deps, cleanup: undefined, controller } satisfies EffectState;
+    pendingEffects.push({ hookIndex, fn, controller });
+    cleanupFns[hookIndex] = () => {
+      const state = hookStates[hookIndex] as EffectState;
+      state.controller.abort();
+      state.cleanup?.();
+    };
+  }
+  return undefined;
 }

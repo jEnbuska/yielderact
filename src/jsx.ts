@@ -42,6 +42,19 @@ export interface SpecialProps<TRef = unknown> {
    * - `'default'` (default): updates are deferred until the patch commits.
    */
   $patch?: 'live' | 'default';
+  /**
+   * Marks this subtree as deferred (lower priority).
+   *
+   * Each `$deferred={true}` encountered increments the inherited priority
+   * level by 1. Priority 0 (default) is processed first, priority 1 next,
+   * etc. During initial mount, priority levels do not apply — the full tree
+   * mounts as one patch. Priority levels apply only to subsequent updates.
+   *
+   * `$deferred` propagates to all descendants via the framework's context
+   * mechanism. It is stripped from the component's props — components never
+   * see `$deferred` in their props object.
+   */
+  $deferred?: boolean;
   /** Ref callback or object — set to the DOM element on mount, null on unmount. */
   $ref?: { current: TRef } | ((instance: TRef | null) => void) | null;
 }

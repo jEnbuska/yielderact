@@ -25,13 +25,24 @@ import {
   type GeneratorComponentFn,
   type PlainComponentFn,
 } from '../jsx';
-import { _getCtxMap, _setCtxMap, _getProviderCtx, _instanceBatch, _withBatch } from '../context';
+import {
+  _getCtxMap,
+  _setCtxMap,
+  _getProviderCtx,
+  _instanceBatch,
+  _instancePriority,
+  _getCurrentPriority,
+  _withBatch,
+  _withPriority,
+} from '../context';
 import { type Slot, type GenInstance } from './types';
 import { renderState } from './state';
 import { applyProps } from './props';
-import { isGeneratorFn, mergedProps, isShown } from './helpers';
+import { isGeneratorFn, mergedProps, isShown, stripDeferred } from './helpers';
 import { runHooks, flushEffects } from './hooks-runtime';
 import { reconcileSlots } from './reconciler';
+import { isPatchActive } from './patch-queue';
+import { scheduleUpdate } from './scheduler';
 
 /**
  * Build a single real DOM node from a virtual DOM node (or primitive value).
@@ -75,34 +86,45 @@ export function buildNode(child: Child): Node {
 
   if (typeof child.type === 'function') {
     const fn = child.type as AnyComponentFn;
-    const allProps = mergedProps(child);
-    if (!isShown(allProps)) {
+    const allPropsRaw = mergedProps(child);
+    if (!isShown(allPropsRaw)) {
       return document.createTextNode('');
     }
-    const providerCtx = _getProviderCtx(fn);
-    if (providerCtx) {
-      return mountContextProvider(fn as PlainComponentFn, allProps, providerCtx).fragment;
+    // Strip $deferred from component props; propagate via context.
+    const allProps = stripDeferred(allPropsRaw);
+    const compDeferred = allPropsRaw['$deferred'] as boolean | undefined;
+    const prevCtxFn = _getCtxMap();
+    if (compDeferred) _setCtxMap(_withPriority(prevCtxFn, _getCurrentPriority() + 1));
+    try {
+      const providerCtx = _getProviderCtx(fn);
+      if (providerCtx) {
+        return mountContextProvider(fn as PlainComponentFn, allProps, providerCtx).fragment;
+      }
+      if (isGeneratorFn(fn)) {
+        return mountGeneratorComponent(fn, allProps).fragment;
+      }
+      return mountPlainComponent(fn as PlainComponentFn, allProps);
+    } finally {
+      if (compDeferred) _setCtxMap(prevCtxFn);
     }
-    if (isGeneratorFn(fn)) {
-      return mountGeneratorComponent(fn, allProps).fragment;
-    }
-    return mountPlainComponent(fn as PlainComponentFn, allProps);
   }
 
   if (!isShown(child.props)) {
     return document.createTextNode('');
   }
 
-  // HTML element — propagate $patch to children via context (same as buildVNodeList).
+  // HTML element — propagate $patch and $deferred to children via context.
   const el = document.createElement(child.type as string);
   applyProps(el, child.props);
   const elBatch = child.props['$patch'] as 'live' | 'default' | undefined;
+  const elDeferred = child.props['$deferred'] as boolean | undefined;
   const prevCtxBuildNode = _getCtxMap();
   if (elBatch !== undefined) _setCtxMap(_withBatch(prevCtxBuildNode, elBatch));
+  if (elDeferred) _setCtxMap(_withPriority(_getCtxMap(), _getCurrentPriority() + 1));
   for (const c of child.children) {
     el.appendChild(buildNode(c));
   }
-  if (elBatch !== undefined) _setCtxMap(prevCtxBuildNode);
+  if (elBatch !== undefined || elDeferred) _setCtxMap(prevCtxBuildNode);
   return el;
 }
 
@@ -176,6 +198,9 @@ export function mountGeneratorComponent(
    * — that is applied dynamically in `executeRerender` via `_withBatch`.
    */
   const capturedCtx = _getCtxMap();
+
+  /** Priority level captured from the context at mount time. */
+  const priority = _getCurrentPriority();
 
   /** Per-hook persistent state array. See `GenInstance.hookStates`. */
   const hookStates: unknown[] = [];
@@ -290,6 +315,8 @@ export function mountGeneratorComponent(
 
       let vnode: Child;
       let cancelled = false;
+      const prevRenderingPriority = renderState.renderingPriority;
+      renderState.renderingPriority = instance.priority;
       try {
         const gen = instance.fn(instance.props, rerender);
         const result = runHooks(gen, instance, rerender, resume);
@@ -299,6 +326,7 @@ export function mountGeneratorComponent(
       } finally {
         _setCtxMap(prevCtx);
         instance.isRendering = false;
+        renderState.renderingPriority = prevRenderingPriority;
       }
 
       if (cancelled) {
@@ -361,7 +389,7 @@ export function mountGeneratorComponent(
    *
    * **Called by:**
    * - `useState` setters — via the setter function returned by
-   *   `processOneDescriptor(USE_STATE)`.
+   *   `processOneDescriptor($STATE)`.
    * - `reconcileOne` in `reconciler.ts` — when the parent passes new
    *   props, or a consumed context value changed.
    * - `propagateContextUpdate` in `hooks-runtime.ts` — when an ancestor
@@ -377,7 +405,16 @@ export function mountGeneratorComponent(
         instance.renderResolvers.push(resolve);
       });
     }
-    return executeRerender(true /* already mounted */);
+    if (isPatchActive()) {
+      // During an active patch (another component is rendering or a
+      // $patch batch is in progress), execute synchronously so the DOM
+      // ops are collected into the same patch queue.
+      return executeRerender(true /* already mounted */);
+    }
+    // Outside a render phase (event handler, timer, async callback, etc.)
+    // — schedule through the priority-aware scheduler.
+    scheduleUpdate(instance);
+    return Promise.resolve();
   }
 
   // ── Initial mount ──
@@ -396,6 +433,8 @@ export function mountGeneratorComponent(
     isRendering: false,
     pendingRerender: false,
     renderResolvers: [],
+    priority,
+    _executeRerender: () => executeRerender(true),
     rerender,
     consumedContexts: new Set(),
   };

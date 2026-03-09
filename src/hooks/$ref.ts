@@ -1,4 +1,4 @@
-import { USE_REF } from './symbols';
+import { $REF, type HookContext } from './symbols';
 
 /**
  * A mutable ref object whose `.current` property persists across re-renders.
@@ -22,6 +22,15 @@ export interface RefObject<T> {
  * }
  */
 export function* $ref<T>(initialValue: T): Generator<unknown, RefObject<T>, unknown> {
-  const ref = yield { type: USE_REF, initialValue };
+  const ref = yield { type: $REF, initialValue };
   return ref as RefObject<T>;
+}
+
+/** @internal */
+export function _processRef(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
+  const { hookIndex, hookStates } = ctx;
+  if (!(hookIndex in hookStates)) {
+    hookStates[hookIndex] = { current: descriptor['initialValue'] };
+  }
+  return hookStates[hookIndex];
 }

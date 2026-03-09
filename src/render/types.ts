@@ -164,7 +164,7 @@ export interface GenInstance {
   /**
    * Set of contexts consumed via `useContext` during the last render pass.
    *
-   * **Written by:** `processOneDescriptor(USE_CONTEXT)` — calls
+   * **Written by:** `processOneDescriptor($CONTEXT)` — calls
    *   `instance.consumedContexts.add(ctx)` for each `useContext` call.
    * **Cleared by:** `executeRerender` at the start of each render cycle
    *   so it reflects only the current render's context subscriptions.
@@ -229,7 +229,7 @@ export interface GenInstance {
    * Each entry holds the hook index, the effect function, and an `AbortController`
    * so the effect receives a signal it can check for cancellation.
    *
-   * **Written by:** `processOneDescriptor(USE_EFFECT)` — pushes an entry
+   * **Written by:** `processOneDescriptor($EFFECT)` — pushes an entry
    *   when deps change.
    * **Cleared by:** `executeRerender` at the start of each render
    *   (`pendingEffects.length = 0`) and by `flushEffects` after execution.
@@ -313,6 +313,35 @@ export interface GenInstance {
    *   after a successful commit, so `await setState(…)` resumes.
    */
   renderResolvers: Array<() => void>;
+
+  /**
+   * The component's priority level, captured from `_priorityCtx` at mount time.
+   *
+   * Priority 0 is the default (highest priority). Each ancestor with
+   * `$deferred={true}` increments the priority by 1. Lower numbers are
+   * processed first.
+   *
+   * **Written by:** `mountGeneratorComponent` — set from `_getCurrentPriority()`.
+   * **Read by:**
+   * - The scheduler — to determine which priority pass the component belongs to.
+   * - `rerender()` — to tag setState calls with the owner's priority when
+   *   called outside of a render phase.
+   * - The reconciler — updated when `$deferred` context changes.
+   */
+  priority: number;
+
+  /**
+   * Execute a rerender directly, bypassing the scheduling logic.
+   *
+   * Called by the priority scheduler to process an instance during a
+   * scheduled priority pass. Unlike `rerender()`, this does NOT check
+   * `isPatchActive()` or go through `scheduleUpdate()` — it always
+   * runs `executeRerender(true)` synchronously.
+   *
+   * **Called by:** `_processPendingUpdates` in `scheduler.ts`.
+   * @internal
+   */
+  _executeRerender: () => Promise<void>;
 
   /**
    * Triggers a full re-render of this component from the top of its

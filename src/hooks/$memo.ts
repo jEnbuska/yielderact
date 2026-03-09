@@ -1,4 +1,4 @@
-import { USE_MEMO } from './symbols';
+import { $MEMO, depsChanged, type HookContext } from './symbols';
 
 /**
  * Memoized value hook for generator components.
@@ -27,6 +27,18 @@ export function* $memo<T>(
   fn: (...args: unknown[]) => T,
   deps: unknown[],
 ): Generator<unknown, T, unknown> {
-  const value = yield { type: USE_MEMO, fn, deps };
+  const value = yield { type: $MEMO, fn, deps };
   return value as T;
+}
+
+/** @internal */
+export function _processMemo(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
+  const { hookIndex, hookStates } = ctx;
+  const fn = descriptor['fn'] as (...args: unknown[]) => unknown;
+  const deps = descriptor['deps'] as unknown[];
+  const existing = hookStates[hookIndex] as { value: unknown; deps: unknown[] } | undefined;
+  if (!existing || depsChanged(existing.deps, deps)) {
+    hookStates[hookIndex] = { value: fn(...deps), deps };
+  }
+  return (hookStates[hookIndex] as { value: unknown }).value;
 }
