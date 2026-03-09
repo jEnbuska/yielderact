@@ -6,7 +6,7 @@
  *   3. Selector + transform -- same rerender guard; returns the transformed value.
  */
 import { $state } from "yielderact";
-import { type AppState, AppCtx } from "./LazyContextDemo.shared";
+import { AppCtx, type AppState } from "./LazyContextDemo.shared";
 import { NoSelectorConsumer } from "./NoSelectorConsumer";
 import { SelectorConsumer } from "./SelectorConsumer";
 import { TransformConsumer } from "./TransformConsumer";

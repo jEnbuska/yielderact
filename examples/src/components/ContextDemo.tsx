@@ -10,7 +10,7 @@
  */
 import { $state } from "yielderact";
 import { BothBadge } from "./BothBadge";
-import { type Locale, type Theme, LocaleCtx, ThemeCtx, themeStyles } from "./ContextDemo.shared";
+import { type Locale, LocaleCtx, type Theme, ThemeCtx, themeStyles } from "./ContextDemo.shared";
 import { LocaleBadge } from "./LocaleBadge";
 import { SiblingProvidersDemo } from "./SiblingProvidersDemo";
 import { StatefulConsumer } from "./StatefulConsumer";
