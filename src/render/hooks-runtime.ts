@@ -37,7 +37,6 @@ import { _processUIPatch } from "../hooks/$ui-patch";
 import type { Child } from "../jsx";
 import { _flushPendingVNodes } from "./patch";
 import { clearRef } from "./props";
-import { renderState } from "./state";
 import type { GenInstance, HookState, Slot } from "./types";
 
 /**
@@ -118,7 +117,7 @@ export function flushEffects(instance: GenInstance): void {
  *
  * Calls every cleanup function registered by hooks (`useEffect`,
  * `useResolve`) on every `GenInstance` in the subtree. Also removes the
- * instance from `renderState.dirtyInstances` so that a pending
+ * instance from `renderCtx.dirtyInstances` so that a pending
  * `commitUIPatch` doesn't try to reconcile a dead component.
  *
  * **Called by:** `reconcileSlots` in `reconciler.ts` — when a slot is
@@ -141,10 +140,10 @@ export function unmountSlot(slot: Slot): void {
     for (const fn of slot.genInstance.cleanupFns) {
       fn?.();
     }
-    // Remove from global dirty set so commitUIPatch skips unmounted instances.
+    // Remove from dirty set so commitUIPatch skips unmounted instances.
     // localPatchRefCount is intentionally left as-is; the local patch commit()
     // checks pendingVNode === undefined and skips accordingly.
-    renderState.dirtyInstances.delete(slot.genInstance);
+    slot.genInstance.renderCtx.dirtyInstances.delete(slot.genInstance);
   }
 }
 

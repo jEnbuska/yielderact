@@ -80,12 +80,21 @@ function* Counter(_props: object) {
 
 ### Core Module Map
 
-| File             | Responsibility                      |
-| :--------------- | :---------------------------------- |
-| `jsx.ts`         | VNode types & `createElement`       |
-| `render.ts`      | Reconciliation & DOM mounting       |
-| `hooks.ts`       | State management (`useState`, etc.) |
-| `jsx-runtime.ts` | Automatic JSX transform             |
+| File                     | Responsibility                                        |
+| :----------------------- | :---------------------------------------------------- |
+| `jsx.ts`                 | VNode types & `createElement`                         |
+| `render/types.ts`        | `RenderContext`, `GenInstance`, `Slot`, `HookState`    |
+| `render/state.ts`        | `createRenderContext()`, active context pointer        |
+| `render/index.ts`        | `render()`, `createRoot()` entry points               |
+| `render/mount.ts`        | DOM construction & generator component lifecycle      |
+| `render/reconciler.ts`   | Positional reconciliation (diff + patch)              |
+| `render/hooks-runtime.ts`| Hook descriptor dispatch, effect flushing, unmount    |
+| `render/scheduler.ts`    | Priority-aware cooperative scheduler                  |
+| `render/patch-queue.ts`  | Atomic DOM commit queue                               |
+| `render/patch.ts`        | Global/local UI patch (`startUIPatch`/`commitUIPatch`)|
+| `context.ts`             | `createContext`, `$context`, context map helpers       |
+| `hooks/*.ts`             | Individual hook implementations                       |
+| `jsx-runtime.ts`         | Automatic JSX transform                               |
 
 ---
 
@@ -98,3 +107,4 @@ function* Counter(_props: object) {
 - **Special Props:** Always support the `$shown={boolean}` prop.
 - **Dependencies:** Zero-dependency goal.
 - **JSX Config:** `react-jsx` with `jsxImportSource: "yielderact"`.
+- **Multi-root:** Each `render()`/`createRoot()` creates an independent `RenderContext` with its own state (patch depth, dirty instances, scheduler queue, context map, DOM ops queue). The global `idCounter` is the only shared state (IDs must be globally unique).

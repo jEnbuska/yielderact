@@ -1,7 +1,7 @@
 import { _getCtxMap, _setCtxMap, _withBatch } from "../context";
 import type { VNode } from "../jsx";
 import { buildNode } from "./mount";
-import { renderState } from "./state";
+import { _setActiveCtx, createRenderContext } from "./state";
 
 export { buildNode } from "./mount";
 export { commitUIPatch, startUIPatch } from "./patch";
@@ -24,11 +24,13 @@ export { flushSync, scheduleUpdate } from "./scheduler";
  * @param container - The DOM element to mount into.
  */
 export function render(vnode: VNode, container: Element): void {
-  renderState.isInitialMount = true;
+  const rctx = createRenderContext();
+  _setActiveCtx(rctx);
+  rctx.isInitialMount = true;
   try {
     container.appendChild(buildNode(vnode));
   } finally {
-    renderState.isInitialMount = false;
+    rctx.isInitialMount = false;
   }
 }
 
@@ -61,15 +63,17 @@ export interface Root {
  * @returns A `Root` object with a `render` method.
  */
 export function createRoot(container: Element): Root {
+  const rctx = createRenderContext();
   return {
     render(vnode: VNode): void {
+      _setActiveCtx(rctx);
       const prevCtx = _getCtxMap();
       _setCtxMap(_withBatch(prevCtx, "default"));
-      renderState.isInitialMount = true;
+      rctx.isInitialMount = true;
       try {
         container.appendChild(buildNode(vnode));
       } finally {
-        renderState.isInitialMount = false;
+        rctx.isInitialMount = false;
         _setCtxMap(prevCtx);
       }
     },

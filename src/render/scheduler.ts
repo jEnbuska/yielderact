@@ -2,7 +2,7 @@
  * scheduler.ts — Priority-aware cooperative scheduler for rendering.
  *
  * Work is queued via `scheduleUpdate(instance)` which assigns a priority
- * based on whether we're inside a render (`renderState.renderingPriority`)
+ * based on whether we're inside a render (`renderCtx.renderingPriority`)
  * or idle (`instance.priority`).
  *
  * The scheduler processes work in strict priority order (lower number =
@@ -24,33 +24,9 @@
  * effects or context propagation is processed immediately).
  */
 
-import { _getCtxMap, _setCtxMap } from "../context";
 import { beginPatch, commitPatch, restorePatchOps, savePatchOps } from "./patch-queue";
-import { renderState } from "./state";
-import type { GenInstance } from "./types";
-
-// ── Scheduler state ──────────────────────────────────────────────────────────
-
-/**
- * Priority queue: maps priority level → set of instances needing update.
- * Lower numbers are higher priority (processed first).
- */
-const _pendingUpdates = new Map<number, Set<GenInstance>>();
-
-/** True while the scheduler is actively processing work. */
-let _isProcessing = false;
-
-/**
- * The priority level currently being processed (beginPatch called, not yet
- * committed). `null` when idle or between priority levels.
- *
- * Used to detect resume-after-yield: if non-null when `_runLoop` starts,
- * we're continuing a partially-processed level (don't call `beginPatch` again).
- */
-let _activePriority: number | null = null;
-
-/** When true, the work loop never yields to the browser. */
-let _syncMode = true;
+import { _requireActiveCtx, _setActiveCtx } from "./state";
+import type { GenInstance, RenderContext } from "./types";
 
 /** Time budget per work chunk in milliseconds. */
 const _timeSlice = 5;
@@ -61,7 +37,7 @@ const _timeSlice = 5;
  * Schedule a rerender for `instance` at the appropriate priority.
  *
  * Priority is determined by:
- * - During render (`renderState.renderingPriority !== null`): caller's priority.
+ * - During render (`renderCtx.renderingPriority !== null`): caller's priority.
  * - During idle: the instance's own priority (`instance.priority`).
  *
  * If the scheduler is already processing, the instance is queued and will
@@ -71,18 +47,20 @@ const _timeSlice = 5;
  * @param instance - The GenInstance to rerender.
  */
 export function scheduleUpdate(instance: GenInstance): void {
-  const priority = renderState.renderingPriority ?? instance.priority;
+  const rctx = instance.renderCtx;
+  const priority = rctx.renderingPriority ?? instance.priority;
 
-  let set = _pendingUpdates.get(priority);
+  let set = rctx.pendingUpdates.get(priority);
   if (!set) {
     set = new Set();
-    _pendingUpdates.set(priority, set);
+    rctx.pendingUpdates.set(priority, set);
   }
   set.add(instance);
 
-  if (!_isProcessing) {
-    _isProcessing = true;
-    _runLoop();
+  if (!rctx.isProcessing) {
+    rctx.isProcessing = true;
+    _setActiveCtx(rctx);
+    _runLoop(rctx);
   }
 }
 
@@ -97,33 +75,34 @@ export function scheduleUpdate(instance: GenInstance): void {
  * are batched into a single processing pass.
  */
 export function flushSync(fn?: () => void): void {
-  const prevSync = _syncMode;
-  _syncMode = true;
+  const rctx = _requireActiveCtx();
+  const prevSync = rctx.syncMode;
+  rctx.syncMode = true;
 
   if (fn) {
     // Suppress immediate processing during fn so all setState calls batch.
-    const wasProcessing = _isProcessing;
-    _isProcessing = true;
+    const wasProcessing = rctx.isProcessing;
+    rctx.isProcessing = true;
     try {
       fn();
     } finally {
-      _isProcessing = wasProcessing;
+      rctx.isProcessing = wasProcessing;
     }
   }
 
-  if (!_isProcessing && _hasPendingWork()) {
-    _isProcessing = true;
-    _runLoop();
+  if (!rctx.isProcessing && _hasPendingWork(rctx)) {
+    rctx.isProcessing = true;
+    _runLoop(rctx);
   }
 
-  _syncMode = prevSync;
+  rctx.syncMode = prevSync;
 }
 
 // ── Internal helpers ─────────────────────────────────────────────────────────
 
 /** Returns true if any priority level has pending instances. */
-function _hasPendingWork(): boolean {
-  for (const [, set] of _pendingUpdates) {
+function _hasPendingWork(rctx: RenderContext): boolean {
+  for (const [, set] of rctx.pendingUpdates) {
     if (set.size > 0) return true;
   }
   return false;
@@ -133,9 +112,9 @@ function _hasPendingWork(): boolean {
  * Returns the lowest priority number (= highest urgency) that has pending
  * work, or `null` if all queues are empty.
  */
-function _getLowestPriority(): number | null {
+function _getLowestPriority(rctx: RenderContext): number | null {
   let min: number | null = null;
-  for (const [p, set] of _pendingUpdates) {
+  for (const [p, set] of rctx.pendingUpdates) {
     if (set.size > 0 && (min === null || p < min)) min = p;
   }
   return min;
@@ -145,9 +124,9 @@ function _getLowestPriority(): number | null {
  * Returns the lowest priority number that is strictly less than `ceiling`
  * and has pending work. Used for preemption detection.
  */
-function _getHigherPriorityThan(ceiling: number): number | null {
+function _getHigherPriorityThan(rctx: RenderContext, ceiling: number): number | null {
   let min: number | null = null;
-  for (const [p, set] of _pendingUpdates) {
+  for (const [p, set] of rctx.pendingUpdates) {
     if (p < ceiling && set.size > 0 && (min === null || p < min)) min = p;
   }
   return min;
@@ -165,27 +144,27 @@ function _getHigherPriorityThan(ceiling: number): number | null {
  * - Preemption (higher-priority work processed inline).
  * - Time-slicing (yields to browser in async mode).
  */
-function _runLoop(): void {
+function _runLoop(rctx: RenderContext): void {
   let deadline = performance.now() + _timeSlice;
 
   while (true) {
     let priority: number;
 
-    if (_activePriority !== null) {
+    if (rctx.activePriority !== null) {
       // Resuming a partially-processed priority level (after yield-to-browser).
-      priority = _activePriority;
+      priority = rctx.activePriority;
     } else {
-      const p = _getLowestPriority();
+      const p = _getLowestPriority(rctx);
       if (p === null) {
-        _isProcessing = false;
+        rctx.isProcessing = false;
         return;
       }
       priority = p;
-      _activePriority = priority;
+      rctx.activePriority = priority;
       beginPatch();
     }
 
-    const set = _pendingUpdates.get(priority)!;
+    const set = rctx.pendingUpdates.get(priority)!;
 
     while (set.size > 0) {
       const instance = set.values().next().value!;
@@ -194,19 +173,19 @@ function _runLoop(): void {
       instance._executeRerender();
 
       // Preemption: process any higher-priority work that arrived during rerender.
-      _handlePreemption(priority);
+      _handlePreemption(rctx, priority);
 
       // Time-slicing (async mode only): yield to browser if deadline exceeded.
-      if (!_syncMode && set.size > 0 && performance.now() >= deadline) {
-        _yieldToBrowser();
+      if (!rctx.syncMode && set.size > 0 && performance.now() >= deadline) {
+        _yieldToBrowser(rctx);
         return; // exit — the MessageChannel callback resumes via _runLoop
       }
     }
 
     // All instances at this priority level processed — commit the batch.
     commitPatch();
-    _pendingUpdates.delete(priority);
-    _activePriority = null;
+    rctx.pendingUpdates.delete(priority);
+    rctx.activePriority = null;
     deadline = performance.now() + _timeSlice;
   }
 }
@@ -220,16 +199,16 @@ function _runLoop(): void {
  * Recurses to handle nested preemption (e.g., priority 0 work arrives
  * while processing priority 1 which preempted priority 2).
  */
-function _handlePreemption(currentPriority: number): void {
+function _handlePreemption(rctx: RenderContext, currentPriority: number): void {
   while (true) {
-    const hp = _getHigherPriorityThan(currentPriority);
+    const hp = _getHigherPriorityThan(rctx, currentPriority);
     if (hp === null) return;
 
     // Save current priority's partial patch ops.
     const savedOps = savePatchOps();
 
     // Process the higher-priority level fully.
-    const set = _pendingUpdates.get(hp)!;
+    const set = rctx.pendingUpdates.get(hp)!;
     beginPatch();
 
     while (set.size > 0) {
@@ -238,11 +217,11 @@ function _handlePreemption(currentPriority: number): void {
       inst._executeRerender();
 
       // Recursive preemption: even higher priority may have arrived.
-      _handlePreemption(hp);
+      _handlePreemption(rctx, hp);
     }
 
     commitPatch();
-    _pendingUpdates.delete(hp);
+    rctx.pendingUpdates.delete(hp);
 
     // Restore current priority's partial patch ops.
     restorePatchOps(savedOps);
@@ -253,31 +232,33 @@ function _handlePreemption(currentPriority: number): void {
  * Yield to the browser, then resume the work loop.
  *
  * Uses `MessageChannel` for minimal-latency scheduling (same technique
- * as React's scheduler). Saves and restores global render state around
+ * as React's scheduler). Saves and restores render state around
  * the yield so event handlers during the pause don't corrupt it.
  *
- * `_activePriority` remains set so `_runLoop` knows to resume the
+ * `rctx.activePriority` remains set so `_runLoop` knows to resume the
  * partially-processed priority level on callback.
  */
-function _yieldToBrowser(): void {
-  // Save global state that event handlers might disturb.
-  const savedCtxMap = _getCtxMap();
-  const savedLiveOnlyMode = renderState.liveOnlyMode;
+function _yieldToBrowser(rctx: RenderContext): void {
+  // Save state that event handlers might disturb during the yield.
+  const savedCtxMap = rctx.ctxMap;
+  const savedLiveOnlyMode = rctx.liveOnlyMode;
 
   if (typeof MessageChannel !== "undefined") {
     const mc = new MessageChannel();
     mc.port1.onmessage = () => {
-      _setCtxMap(savedCtxMap);
-      renderState.liveOnlyMode = savedLiveOnlyMode;
-      _runLoop();
+      _setActiveCtx(rctx);
+      rctx.ctxMap = savedCtxMap;
+      rctx.liveOnlyMode = savedLiveOnlyMode;
+      _runLoop(rctx);
     };
     mc.port2.postMessage(null);
   } else {
     // Fallback for environments without MessageChannel.
     setTimeout(() => {
-      _setCtxMap(savedCtxMap);
-      renderState.liveOnlyMode = savedLiveOnlyMode;
-      _runLoop();
+      _setActiveCtx(rctx);
+      rctx.ctxMap = savedCtxMap;
+      rctx.liveOnlyMode = savedLiveOnlyMode;
+      _runLoop(rctx);
     }, 0);
   }
 }

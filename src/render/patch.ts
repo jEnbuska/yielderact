@@ -2,7 +2,7 @@ import { _getCtxMap, _setCtxMap, _withBatch } from "../context";
 import { getPatchMode } from "./helpers";
 import { flushEffects } from "./hooks-runtime";
 import { reconcileSlots } from "./reconciler";
-import { renderState } from "./state";
+import { _requireActiveCtx } from "./state";
 import type { GenInstance } from "./types";
 
 /**
@@ -18,7 +18,7 @@ import type { GenInstance } from "./types";
  * components see the correct context values during the reconciliation walk.
  *
  * **Called by:**
- * - `commitUIPatch()` below — drains `renderState.dirtyInstances` and
+ * - `commitUIPatch()` below — drains `renderCtx.dirtyInstances` and
  *   flushes all globally-deferred instances.
  * - `useUIPatch`'s `commit()` function (via `processOneDescriptor` in
  *   `hooks-runtime.ts`) — flushes locally-deferred instances when the
@@ -32,7 +32,7 @@ export function _flushPendingVNodes(instances: GenInstance[]): void {
     if (inst.pendingVNode === undefined) continue;
     const vnode = inst.pendingVNode;
     inst.pendingVNode = undefined;
-    renderState.dirtyInstances.delete(inst);
+    inst.renderCtx.dirtyInstances.delete(inst);
 
     const prevCtx = _getCtxMap();
     // Restore inherited context, then apply own $patch for children.
@@ -51,7 +51,7 @@ export function _flushPendingVNodes(instances: GenInstance[]): void {
 /**
  * Begin a global UI patch.
  *
- * While a global patch is active (`renderState.patchDepth > 0`), all
+ * While a global patch is active (`renderCtx.patchDepth > 0`), all
  * `$patch="default"` components (the default) defer their DOM writes:
  * they compute their new VNode but store it as `pendingVNode` instead of
  * reconciling the DOM. Only `$patch="live"` components update immediately.
@@ -70,14 +70,14 @@ export function _flushPendingVNodes(instances: GenInstance[]): void {
  * commitUIPatch();      // both updates applied at once
  */
 export function startUIPatch(): void {
-  renderState.patchDepth++;
+  _requireActiveCtx().patchDepth++;
 }
 
 /**
  * Commit the global UI patch, applying all deferred DOM updates at once.
  *
  * Decrements the reference count. When it reaches 0 (outermost patch),
- * drains `renderState.dirtyInstances` and calls `_flushPendingVNodes`
+ * drains `renderCtx.dirtyInstances` and calls `_flushPendingVNodes`
  * to reconcile every pending VNode.
  *
  * Must be called exactly once for each matching `startUIPatch` call.
@@ -86,11 +86,12 @@ export function startUIPatch(): void {
  * have been triggered.
  */
 export function commitUIPatch(): void {
-  if (renderState.patchDepth === 0) return;
-  renderState.patchDepth--;
-  if (renderState.patchDepth > 0) return; // nested patch still active
+  const rctx = _requireActiveCtx();
+  if (rctx.patchDepth === 0) return;
+  rctx.patchDepth--;
+  if (rctx.patchDepth > 0) return; // nested patch still active
 
-  const pending = [...renderState.dirtyInstances];
-  renderState.dirtyInstances.clear();
+  const pending = [...rctx.dirtyInstances];
+  rctx.dirtyInstances.clear();
   _flushPendingVNodes(pending);
 }

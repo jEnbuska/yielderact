@@ -39,8 +39,8 @@ import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
 import { reconcileSlots } from "./reconciler";
 import { scheduleUpdate } from "./scheduler";
-import { renderState } from "./state";
-import type { GenInstance, HookState, Slot } from "./types";
+import { _requireActiveCtx, _setActiveCtx } from "./state";
+import type { GenInstance, HookState, RenderContext, Slot } from "./types";
 
 /**
  * Build a single real DOM node from a virtual DOM node (or primitive value).
@@ -137,19 +137,20 @@ export function buildNode(child: Child): Node {
  * **Called by:** `resume` and `executeRerender` in `mountGeneratorComponent`.
  */
 function commitOrDefer(instance: GenInstance, vnode: Child): void {
+  const rctx = instance.renderCtx;
   const parent = instance.endMarker.parentNode as HTMLElement;
   const effectiveBatch = getPatchMode(instance.props) ?? _instanceBatch(instance.capturedCtx);
   const shouldDefer =
-    (renderState.patchDepth > 0 || instance.localPatchRefCount > 0) && effectiveBatch !== "live";
+    (rctx.patchDepth > 0 || instance.localPatchRefCount > 0) && effectiveBatch !== "live";
   if (shouldDefer) {
     instance.pendingVNode = vnode;
-    renderState.dirtyInstances.add(instance);
-    const prevLiveOnly = renderState.liveOnlyMode;
-    renderState.liveOnlyMode = true;
+    rctx.dirtyInstances.add(instance);
+    const prevLiveOnly = rctx.liveOnlyMode;
+    rctx.liveOnlyMode = true;
     try {
       instance.slots = reconcileSlots(parent, instance.slots, [vnode], instance.endMarker);
     } finally {
-      renderState.liveOnlyMode = prevLiveOnly;
+      rctx.liveOnlyMode = prevLiveOnly;
     }
   } else {
     instance.pendingVNode = undefined;
@@ -187,6 +188,9 @@ export function mountGeneratorComponent(
   props: Record<string, unknown>,
 ): { fragment: DocumentFragment; genInstance: GenInstance } {
   const endMarker = document.createComment("");
+
+  /** The per-root render context, captured from the active context at mount time. */
+  const rctx: RenderContext = _requireActiveCtx();
 
   /**
    * The context map captured at mount time, representing the **inherited**
@@ -237,6 +241,7 @@ export function mountGeneratorComponent(
    */
   function resume(): void {
     if (instance.gen === null) return;
+    _setActiveCtx(rctx);
 
     // Restore context: inherited context + own $patch applied for children.
     const prevCtx = _getCtxMap();
@@ -312,8 +317,8 @@ export function mountGeneratorComponent(
 
       let vnode: Child;
       let cancelled = false;
-      const prevRenderingPriority = renderState.renderingPriority;
-      renderState.renderingPriority = instance.priority;
+      const prevRenderingPriority = rctx.renderingPriority;
+      rctx.renderingPriority = instance.priority;
       try {
         const gen = instance.fn(instance.props, rerender);
         const result = runHooks(gen, instance, rerender, resume);
@@ -323,7 +328,7 @@ export function mountGeneratorComponent(
       } finally {
         _setCtxMap(prevCtx);
         instance.isRendering = false;
-        renderState.renderingPriority = prevRenderingPriority;
+        rctx.renderingPriority = prevRenderingPriority;
       }
 
       if (cancelled) {
@@ -349,10 +354,10 @@ export function mountGeneratorComponent(
         // liveOnlyMode guards).
         initialFragment = document.createDocumentFragment();
         initialFragment.appendChild(endMarker);
-        const prevLiveOnly = renderState.liveOnlyMode;
-        renderState.liveOnlyMode = false;
+        const prevLiveOnly = rctx.liveOnlyMode;
+        rctx.liveOnlyMode = false;
         instance.slots = reconcileSlots(initialFragment, [], [vnode], endMarker);
-        renderState.liveOnlyMode = prevLiveOnly;
+        rctx.liveOnlyMode = prevLiveOnly;
         mounted = true;
         flushEffects(instance);
       } else {
@@ -404,6 +409,7 @@ export function mountGeneratorComponent(
         instance.renderResolvers.push(resolve);
       });
     }
+    _setActiveCtx(rctx);
     if (isPatchActive()) {
       // During an active patch (another component is rendering or a
       // $patch batch is in progress), execute synchronously so the DOM
@@ -418,6 +424,7 @@ export function mountGeneratorComponent(
 
   // ── Initial mount ──
   instance = {
+    renderCtx: rctx,
     fn,
     gen: null,
     props,
@@ -485,10 +492,11 @@ export function mountContextProvider(
   try {
     const vnode = fn(props);
     if (vnode != null) {
-      const prevLiveOnly = renderState.liveOnlyMode;
-      renderState.liveOnlyMode = false;
+      const activeCtx = _requireActiveCtx();
+      const prevLiveOnly = activeCtx.liveOnlyMode;
+      activeCtx.liveOnlyMode = false;
       childSlots = reconcileSlots(fragment, [], [vnode], endMarker);
-      renderState.liveOnlyMode = prevLiveOnly;
+      activeCtx.liveOnlyMode = prevLiveOnly;
     }
   } finally {
     _setCtxMap(prevCtxMap);

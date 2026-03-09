@@ -69,7 +69,7 @@ import {
   domSetText,
 } from "./patch-queue";
 import { applyProps, updateProps } from "./props";
-import { renderState } from "./state";
+import { _requireActiveCtx } from "./state";
 import type { GenInstance, Slot } from "./types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -410,7 +410,7 @@ function* reconcileOneGen(
   if (nextChild == null || nextChild === false) {
     // In live-only mode, skip removal unless we're in a live context OR the
     // existing slot is a $patch="live" component (it knows it's live).
-    if (renderState.liveOnlyMode && prevSlot) {
+    if (_requireActiveCtx().liveOnlyMode && prevSlot) {
       const prevIsLive = prevSlot.genInstance
         ? (getPatchMode(prevSlot.genInstance.props) ??
             _instanceBatch(prevSlot.genInstance.capturedCtx)) === "live"
@@ -442,7 +442,7 @@ function* reconcileOneGen(
       // Same type (text) → update content in place.
       // In live-only mode, only update when the current batch is live.
       if (
-        (!renderState.liveOnlyMode || _getCurrentBatch() === "live") &&
+        (!_requireActiveCtx().liveOnlyMode || _getCurrentBatch() === "live") &&
         prevSlot.node.textContent !== text
       ) {
         domSetText(prevSlot.node, text);
@@ -451,7 +451,7 @@ function* reconcileOneGen(
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
     // In live-only default mode, don't insert new text nodes.
-    if (renderState.liveOnlyMode && _getCurrentBatch() !== "live" && prevSlot) {
+    if (_requireActiveCtx().liveOnlyMode && _getCurrentBatch() !== "live" && prevSlot) {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
     // Different type was here → replace with new TextNode.
@@ -474,7 +474,7 @@ function* reconcileOneGen(
   const allPropsForShown = mergedProps(vnode);
   if (!isShown(allPropsForShown)) {
     // In live-only mode, only hide when the effective batch is live.
-    if (renderState.liveOnlyMode) {
+    if (_requireActiveCtx().liveOnlyMode) {
       const effectiveBatch = getPatchMode(allPropsForShown) ?? _getCurrentBatch();
       if (effectiveBatch !== "live" && prevSlot) {
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -559,7 +559,7 @@ function* reconcileOneGen(
         // ┌─────────────────────────────────────────────────────────────────┐
         // │ Live-only mode: skip non-live components                       │
         // └─────────────────────────────────────────────────────────────────┘
-        if (renderState.liveOnlyMode) {
+        if (_requireActiveCtx().liveOnlyMode) {
           const effectiveBatch = getPatchMode(allProps) ?? _getCurrentBatch();
           if (effectiveBatch !== "live") {
             if (prevSlot.genInstance) {
@@ -630,7 +630,7 @@ function* reconcileOneGen(
       // ┌───────────────────────────────────────────────────────────────────┐
       // │ Live-only mode: structural changes (type mismatch / no prevSlot) │
       // └───────────────────────────────────────────────────────────────────┘
-      if (renderState.liveOnlyMode && prevSlot?.type !== vnode.type) {
+      if (_requireActiveCtx().liveOnlyMode && prevSlot?.type !== vnode.type) {
         const effectiveBatch = getPatchMode(allProps) ?? _getCurrentBatch();
         if (effectiveBatch !== "live") {
           if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -706,7 +706,7 @@ function* reconcileOneGen(
     try {
       if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
         // ── Same tag → update props in place and reconcile children ──
-        if (!renderState.liveOnlyMode || _getCurrentBatch() === "live") {
+        if (!_requireActiveCtx().liveOnlyMode || _getCurrentBatch() === "live") {
           const prevProps = prevSlot.props;
           domEnqueue(
             () => updateProps(prevSlot.node as HTMLElement, prevProps, vnode.props),
@@ -722,7 +722,7 @@ function* reconcileOneGen(
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
       // ── Different tag → build fresh element ──
-      if (renderState.liveOnlyMode && _getCurrentBatch() !== "live") {
+      if (_requireActiveCtx().liveOnlyMode && _getCurrentBatch() !== "live") {
         if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
         const empty = document.createTextNode("");
         return {
@@ -735,14 +735,14 @@ function* reconcileOneGen(
       applyProps(el, vnode.props);
       const flatChildren = flattenChildren(vnode.children);
       const childSlots: Slot[] = [];
-      const prevLiveOnly = renderState.liveOnlyMode;
-      renderState.liveOnlyMode = false;
+      const prevLiveOnly = _requireActiveCtx().liveOnlyMode;
+      _requireActiveCtx().liveOnlyMode = false;
       for (const child of flatChildren) {
         const { slot: childSlot, node: childNode } = yield* reconcileOneGen(null, child);
         childSlots.push(childSlot);
         el.appendChild(childNode);
       }
-      renderState.liveOnlyMode = prevLiveOnly;
+      _requireActiveCtx().liveOnlyMode = prevLiveOnly;
       return {
         slot: {
           type: vnode.type,
