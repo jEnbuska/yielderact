@@ -1,5 +1,6 @@
 import { depsChanged, type HookContext } from "./hooks/symbols";
 import { type Child, createElement, Fragment, type VNode } from "./jsx";
+import { _requireActiveCtx } from "./render/state";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -41,10 +42,8 @@ export interface UseContextDescriptor {
 }
 
 // ---------------------------------------------------------------------------
-// Module-level context map (updated during rendering)
+// Context map — stored on the active RenderContext, accessed via helpers
 // ---------------------------------------------------------------------------
-
-let _ctxMap: ReadonlyMap<Context<unknown>, unknown> = new Map();
 
 // ---------------------------------------------------------------------------
 // Public API
@@ -175,7 +174,7 @@ export function _processContext(descriptor: { [key: string]: unknown }, ctx: Hoo
   instance.consumedContexts.add(context);
   const selector = descriptor["selector"] as ((c: unknown) => unknown[]) | undefined;
   const transform = descriptor["transform"] as ((...args: unknown[]) => unknown) | undefined;
-  const ctxMap = _ctxMap;
+  const ctxMap = _requireActiveCtx().ctxMap;
   const rawValue = ctxMap.has(context) ? ctxMap.get(context) : context._defaultValue;
 
   if (!selector) {
@@ -216,14 +215,14 @@ export function _processContext(descriptor: { [key: string]: unknown }, ctx: Hoo
 // Internal helpers used by the renderer
 // ---------------------------------------------------------------------------
 
-/** Get the current module-level context map. */
+/** Get the current context map from the active render context. */
 export function _getCtxMap(): ReadonlyMap<Context<unknown>, unknown> {
-  return _ctxMap;
+  return _requireActiveCtx().ctxMap;
 }
 
-/** Replace the module-level context map. */
+/** Set the context map on the active render context. */
 export function _setCtxMap(map: ReadonlyMap<Context<unknown>, unknown>): void {
-  _ctxMap = map;
+  _requireActiveCtx().ctxMap = map;
 }
 
 /**
@@ -269,7 +268,9 @@ export const _batchCtx: Context<"live" | "default"> = {
  * @internal
  */
 export function _getCurrentBatch(): "live" | "default" {
-  return _resolveCtxValue(_ctxMap, _batchCtx as Context<unknown>) as "live" | "default";
+  return _resolveCtxValue(_requireActiveCtx().ctxMap, _batchCtx as Context<unknown>) as
+    | "live"
+    | "default";
 }
 
 /**
@@ -323,7 +324,7 @@ export const _priorityCtx: Context<number> = {
  * @internal
  */
 export function _getCurrentPriority(): number {
-  return _resolveCtxValue(_ctxMap, _priorityCtx as Context<unknown>) as number;
+  return _resolveCtxValue(_requireActiveCtx().ctxMap, _priorityCtx as Context<unknown>) as number;
 }
 
 /**

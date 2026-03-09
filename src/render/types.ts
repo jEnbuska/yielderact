@@ -2,6 +2,45 @@ import type { Context, UseContextState } from "../context";
 import type { UseRenderState } from "../hooks/$render";
 import type { Child, GeneratorComponentFn, VNode } from "../jsx";
 
+// ── Render context ─────────────────────────────────────────────────────────
+//
+// Per-root mutable state. Each `createRoot()` (or `render()`) creates its
+// own `RenderContext`. During rendering the "active" context is set so that
+// all internal modules can read/write the correct root's state.
+
+/**
+ * Per-root render state.
+ *
+ * Replaces the previous module-level singletons (`renderState`, `_ctxMap`,
+ * `_ops`, scheduler variables). Stored on each `GenInstance.renderCtx` so
+ * that closures and hook handlers can reach it without global lookups.
+ *
+ * **Created by:** `createRenderContext()` in `state.ts`, called from
+ * `render()` and `createRoot()` in `index.ts`.
+ */
+export interface RenderContext {
+  // ── From state.ts (persistent per-root) ──
+  patchDepth: number;
+  dirtyInstances: Set<GenInstance>;
+  isInitialMount: boolean;
+
+  // ── From state.ts (rendering-phase temporary) ──
+  liveOnlyMode: boolean;
+  renderingPriority: number | null;
+
+  // ── From context.ts ──
+  ctxMap: ReadonlyMap<Context<unknown>, unknown>;
+
+  // ── From patch-queue.ts ──
+  ops: (() => void)[] | null;
+
+  // ── From scheduler.ts ──
+  pendingUpdates: Map<number, Set<GenInstance>>;
+  isProcessing: boolean;
+  activePriority: number | null;
+  syncMode: boolean;
+}
+
 // ── Hook state discriminated union ──────────────────────────────────────────
 //
 // Each hook stores a tagged object in `GenInstance.hookStates`. The `kind`
@@ -154,7 +193,7 @@ export interface Slot {
  * Persistent state for one mounted generator component instance.
  *
  * **Created by:** `mountGeneratorComponent` in `mount.ts` — once per
- * component mount. Stored in `renderState.genInstanceMap` (keyed by host
+ * component mount. Referenced by the component's `Slot.genInstance` (keyed by host
  * element) and referenced by the component's `Slot.genInstance`.
  *
  * **Survives across re-renders** — props, capturedCtx, and hookStates are
@@ -162,9 +201,22 @@ export interface Slot {
  * cleanup functions persist.
  *
  * **Destroyed by:** `unmountSlot` in `hooks-runtime.ts` — calls all
- * `cleanupFns`, removes from `renderState.dirtyInstances`.
+ * `cleanupFns`, removes from `renderCtx.dirtyInstances`.
  */
 export interface GenInstance {
+  /**
+   * The per-root render context this instance belongs to.
+   *
+   * All rendering state (patch depth, dirty instances, context map,
+   * scheduler queues, etc.) lives here instead of in module-level globals.
+   *
+   * **Set by:** `mountGeneratorComponent` — from the active render context
+   * at the time the component is first mounted.
+   * **Read by:** closures (`rerender`, `executeRerender`, `resume`), hook
+   * handlers, the scheduler, and `unmountSlot`.
+   */
+  renderCtx: RenderContext;
+
   /**
    * The generator-function component that produced this instance.
    * Called by `executeRerender` to create a fresh generator on each render:

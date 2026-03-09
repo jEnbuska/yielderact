@@ -1,4 +1,4 @@
-import { renderState } from "../render/state";
+import { nextId } from "../render/state";
 import { $ID, type HookContext } from "./symbols";
 
 /**
@@ -30,7 +30,7 @@ export function _processId(ctx: HookContext): unknown {
   const { hookIndex, hookStates } = ctx;
   const existing = hookStates[hookIndex];
   if (existing === undefined || existing.kind !== "id") {
-    const newState = { kind: "id" as const, id: `:r${renderState.idCounter++}:` };
+    const newState = { kind: "id" as const, id: nextId() };
     hookStates[hookIndex] = newState;
     return newState.id;
   }
