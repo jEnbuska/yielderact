@@ -98,6 +98,25 @@ export function flushSync(fn?: () => void): void {
   rctx.syncMode = prevSync;
 }
 
+/**
+ * Flush any pending work for a specific render context.
+ *
+ * Called by the event dispatch system after a delegated event has been
+ * fully dispatched. Unlike `flushSync()`, this takes an explicit
+ * `RenderContext` rather than reading the active context pointer, which
+ * is important when an event handler in root A might have changed the
+ * active context to root B.
+ *
+ * @internal
+ */
+export function _flushPendingWork(rctx: RenderContext): void {
+  if (_hasPendingWork(rctx)) {
+    _setActiveCtx(rctx);
+    rctx.isProcessing = true;
+    _runLoop(rctx);
+  }
+}
+
 // ── Internal helpers ─────────────────────────────────────────────────────────
 
 /** Returns true if any priority level has pending instances. */

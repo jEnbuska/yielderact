@@ -21,6 +21,7 @@ export function createRenderContext(): RenderContext {
     isProcessing: false,
     activePriority: null,
     syncMode: true,
+    delegationRoot: null,
   };
 }
 

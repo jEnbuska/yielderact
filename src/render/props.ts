@@ -1,5 +1,12 @@
 import type { SyntheticEvent } from "../events";
-import { addSyntheticListener, removeSyntheticListener } from "./events";
+import {
+  NON_DELEGATED_EVENTS,
+  registerHandler,
+  resolveEventProp,
+  unregisterHandler,
+} from "./delegation";
+import { addNonDelegatedListener, removeNonDelegatedListener } from "./events";
+import { _requireActiveCtx } from "./state";
 
 // ── Ref helpers ─────────────────────────────────────────────────────────────
 
@@ -23,6 +30,38 @@ export function clearRef(ref: unknown): void {
   }
 }
 
+// ── Event registration helpers ─────────────────────────────────────────────
+
+/**
+ * Register an event handler for an element, using either delegation or
+ * per-element attachment depending on the event type.
+ */
+function _registerEvent(
+  el: HTMLElement,
+  propKey: string,
+  handler: (e: SyntheticEvent) => void,
+): void {
+  const { domEvent, isCapture } = resolveEventProp(propKey);
+  if (NON_DELEGATED_EVENTS.has(domEvent)) {
+    addNonDelegatedListener(el, domEvent, handler);
+  } else {
+    registerHandler(el, domEvent, handler, isCapture);
+    _requireActiveCtx().delegationRoot!.ensureListening(domEvent);
+  }
+}
+
+/**
+ * Unregister an event handler from an element.
+ */
+function _unregisterEvent(el: HTMLElement, propKey: string): void {
+  const { domEvent, isCapture } = resolveEventProp(propKey);
+  if (NON_DELEGATED_EVENTS.has(domEvent)) {
+    removeNonDelegatedListener(el, domEvent);
+  } else {
+    unregisterHandler(el, domEvent, isCapture);
+  }
+}
+
 // ── Prop application ────────────────────────────────────────────────────────
 
 /**
@@ -40,7 +79,7 @@ export function clearRef(ref: unknown): void {
  *
  * **Prop handling rules:**
  * - All `$`-prefixed props are skipped (framework-internal special props).
- * - `onXxx` props → `addSyntheticListener(el, eventName, handler)`.
+ * - `onXxx` props → delegated or per-element via `_registerEvent`.
  * - `className` → `el.className`.
  * - `htmlFor` → `el.setAttribute('for', …)`.
  * - `style` (object) → `Object.assign(el.style, …)`.
@@ -60,7 +99,7 @@ export function applyProps(el: HTMLElement, props: Record<string, unknown>): voi
   for (const [key, value] of Object.entries(props)) {
     if (key.startsWith("$")) continue;
     if (key.startsWith("on") && typeof value === "function") {
-      addSyntheticListener(el, key.slice(2).toLowerCase(), value as (e: SyntheticEvent) => void);
+      _registerEvent(el, key, value as (e: SyntheticEvent) => void);
     } else if (key === "className") {
       el.className = String(value);
     } else if (key === "htmlFor") {
@@ -137,7 +176,7 @@ export function updateProps(
     if (key.startsWith("$")) continue;
     if (key in nextProps) continue;
     if (key.startsWith("on") && typeof prevProps[key] === "function") {
-      removeSyntheticListener(el, key.slice(2).toLowerCase());
+      _unregisterEvent(el, key);
     } else if (key === "className") {
       el.className = "";
     } else if (key === "htmlFor") {
@@ -157,8 +196,8 @@ export function updateProps(
     if (Object.is(next, prev)) continue;
 
     if (key.startsWith("on") && typeof next === "function") {
-      if (typeof prev === "function") removeSyntheticListener(el, key.slice(2).toLowerCase());
-      addSyntheticListener(el, key.slice(2).toLowerCase(), next as (e: SyntheticEvent) => void);
+      if (typeof prev === "function") _unregisterEvent(el, key);
+      _registerEvent(el, key, next as (e: SyntheticEvent) => void);
     } else if (key === "style" && typeof next === "object" && next !== null) {
       // Clear removed style properties, then apply current ones
       if (typeof prev === "object" && prev !== null) {

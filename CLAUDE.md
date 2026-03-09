@@ -92,6 +92,9 @@ function* Counter(_props: object) {
 | `render/scheduler.ts`    | Priority-aware cooperative scheduler                  |
 | `render/patch-queue.ts`  | Atomic DOM commit queue                               |
 | `render/patch.ts`        | Global/local UI patch (`startUIPatch`/`commitUIPatch`)|
+| `render/delegation.ts`   | Handler registry, `DelegationRoot`, prop→event mapping|
+| `render/dispatch.ts`     | Delegated event dispatch (capture→bubble phases)      |
+| `render/events.ts`       | Per-element listeners for non-delegated events        |
 | `context.ts`             | `createContext`, `$context`, context map helpers       |
 | `hooks/*.ts`             | Individual hook implementations                       |
 | `jsx-runtime.ts`         | Automatic JSX transform                               |
