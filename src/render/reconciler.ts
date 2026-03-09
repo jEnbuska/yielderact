@@ -28,48 +28,48 @@
  * yield to the browser for event processing.
  */
 
-import { type VNode, type Child, type AnyComponentFn, type PlainComponentFn } from '../jsx';
 import {
+  _batchCtx,
   _getCtxMap,
-  _setCtxMap,
-  _getProviderCtx,
-  _resolveCtxValue,
   _getCurrentBatch,
   _getCurrentPriority,
+  _getProviderCtx,
   _instanceBatch,
+  _resolveCtxValue,
+  _setCtxMap,
   _withBatch,
   _withPriority,
-  _batchCtx,
   type Context,
-} from '../context';
-import { depsChanged } from '../hooks';
-import { type Slot, type GenInstance } from './types';
-import { renderState } from './state';
-import { applyProps, updateProps } from './props';
+  type UseContextState,
+} from "../context";
+import { depsChanged } from "../hooks";
+import type { AnyComponentFn, Child, PlainComponentFn, VNode } from "../jsx";
 import {
-  isGeneratorFn,
-  shallowEqual,
-  onlyPatchChanged,
   flattenChildren,
-  mergedProps,
+  isGeneratorFn,
   isShown,
+  mergedProps,
+  onlyPatchChanged,
+  shallowEqual,
   stripDeferred,
-} from './helpers';
-import { unmountSlot, propagateContextUpdate } from './hooks-runtime';
-import { type UseContextState } from '../context';
+} from "./helpers";
+import { propagateContextUpdate, unmountSlot } from "./hooks-runtime";
 import {
-  mountGeneratorComponent,
-  mountContextProvider,
-  mountPlainComponent,
   buildNode,
-} from './mount';
+  mountContextProvider,
+  mountGeneratorComponent,
+  mountPlainComponent,
+} from "./mount";
 import {
-  domInsertBefore,
   domAppendChild,
+  domEnqueue,
+  domInsertBefore,
   domRemoveChild,
   domSetText,
-  domEnqueue,
-} from './patch-queue';
+} from "./patch-queue";
+import { applyProps, updateProps } from "./props";
+import { renderState } from "./state";
+import type { GenInstance, Slot } from "./types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -110,8 +110,8 @@ function removeSlotNodes(parent: Node, slot: Slot): void {
  * Returns `undefined` for primitives, null, false, and VNodes without a key.
  */
 function getChildKey(child: Child): string | undefined {
-  if (child == null || typeof child !== 'object') return undefined;
-  return (child as VNode).props?.$key as string | undefined;
+  if (child == null || typeof child !== "object") return undefined;
+  return (child as VNode).props?.["$key"] as string | undefined;
 }
 
 /**
@@ -174,7 +174,7 @@ function* reconcileKeyedSlotsGen(
   const prevKeyMap = new Map<string | number, number>();
   const nonKeyedPrevIndices: number[] = [];
   for (let i = 0; i < prevSlots.length; i++) {
-    const key = prevSlots[i].props.$key as string | undefined;
+    const key = prevSlots[i]!.props["$key"] as string | undefined;
     if (key !== undefined) {
       prevKeyMap.set(key, i);
     } else {
@@ -188,7 +188,7 @@ function* reconcileKeyedSlotsGen(
   let nonKeyedCursor = 0;
 
   for (let i = 0; i < flatNext.length; i++) {
-    const nextChild = flatNext[i];
+    const nextChild = flatNext[i]!;
     const nextKey = getChildKey(nextChild);
 
     let matchedPrevSlot: Slot | null = null;
@@ -197,15 +197,15 @@ function* reconcileKeyedSlotsGen(
       // Keyed match
       const prevIndex = prevKeyMap.get(nextKey)!;
       if (!usedPrevIndices.has(prevIndex)) {
-        matchedPrevSlot = prevSlots[prevIndex];
+        matchedPrevSlot = prevSlots[prevIndex] ?? null;
         usedPrevIndices.add(prevIndex);
       }
     } else if (nextKey === undefined) {
       // Non-keyed: match positionally against non-keyed prev slots
       while (nonKeyedCursor < nonKeyedPrevIndices.length) {
-        const prevIndex = nonKeyedPrevIndices[nonKeyedCursor++];
+        const prevIndex = nonKeyedPrevIndices[nonKeyedCursor++]!;
         if (!usedPrevIndices.has(prevIndex)) {
-          matchedPrevSlot = prevSlots[prevIndex];
+          matchedPrevSlot = prevSlots[prevIndex] ?? null;
           usedPrevIndices.add(prevIndex);
           break;
         }
@@ -234,8 +234,8 @@ function* reconcileKeyedSlotsGen(
   // Unmount unused prev slots
   for (let i = 0; i < prevSlots.length; i++) {
     if (!usedPrevIndices.has(i)) {
-      unmountSlot(prevSlots[i]);
-      removeSlotNodes(parent, prevSlots[i]);
+      unmountSlot(prevSlots[i]!);
+      removeSlotNodes(parent, prevSlots[i]!);
     }
   }
 
@@ -246,7 +246,7 @@ function* reconcileKeyedSlotsGen(
     if (freshNode) {
       domInsertBefore(parent, freshNode, anchor);
     } else {
-      for (const n of collectSlotDOMNodes(nextSlots[i])) {
+      for (const n of collectSlotDOMNodes(nextSlots[i]!)) {
         domInsertBefore(parent, n, anchor);
       }
     }
@@ -314,7 +314,7 @@ export function* reconcileSlotsGen(
 
   // Remove any extra old DOM nodes (the new list is shorter).
   for (let i = flatNext.length; i < prevSlots.length; i++) {
-    const old = prevSlots[i];
+    const old = prevSlots[i]!;
     unmountSlot(old);
     removeSlotNodes(parent, old);
   }
@@ -411,21 +411,21 @@ function* reconcileOneGen(
     // existing slot is a $patch="live" component (it knows it's live).
     if (renderState.liveOnlyMode && prevSlot) {
       const prevIsLive = prevSlot.genInstance
-        ? ((prevSlot.genInstance.props['$patch'] as 'live' | 'default' | undefined) ??
-            _instanceBatch(prevSlot.genInstance.capturedCtx)) === 'live'
+        ? ((prevSlot.genInstance.props["$patch"] as "live" | "default" | undefined) ??
+            _instanceBatch(prevSlot.genInstance.capturedCtx)) === "live"
         : false;
-      if (_getCurrentBatch() !== 'live' && !prevIsLive) {
+      if (_getCurrentBatch() !== "live" && !prevIsLive) {
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
     }
     // Already empty → reuse.
-    if (prevSlot?.type === 'empty') {
+    if (prevSlot?.type === "empty") {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
     // Different type was here before → replace with empty placeholder.
-    const node = document.createTextNode('');
+    const node = document.createTextNode("");
     return {
-      slot: { type: 'empty', node, props: {}, childSlots: [], genInstance: null },
+      slot: { type: "empty", node, props: {}, childSlots: [], genInstance: null },
       node,
       replaced: true,
     };
@@ -435,13 +435,13 @@ function* reconcileOneGen(
   // SECTION: Primitive (text / number)
   // Handles: string, number → TextNode.
   // ════════════════════════════════════════════════════════════════════════
-  if (typeof nextChild === 'string' || typeof nextChild === 'number') {
+  if (typeof nextChild === "string" || typeof nextChild === "number") {
     const text = String(nextChild);
-    if (prevSlot?.type === 'text' && prevSlot.node instanceof Text) {
+    if (prevSlot?.type === "text" && prevSlot.node instanceof Text) {
       // Same type (text) → update content in place.
       // In live-only mode, only update when the current batch is live.
       if (
-        (!renderState.liveOnlyMode || _getCurrentBatch() === 'live') &&
+        (!renderState.liveOnlyMode || _getCurrentBatch() === "live") &&
         prevSlot.node.textContent !== text
       ) {
         domSetText(prevSlot.node, text);
@@ -450,13 +450,13 @@ function* reconcileOneGen(
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
     // In live-only default mode, don't insert new text nodes.
-    if (renderState.liveOnlyMode && _getCurrentBatch() !== 'live' && prevSlot) {
+    if (renderState.liveOnlyMode && _getCurrentBatch() !== "live" && prevSlot) {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
     // Different type was here → replace with new TextNode.
     const node = document.createTextNode(text);
     return {
-      slot: { type: 'text', node, props: { text }, childSlots: [], genInstance: null },
+      slot: { type: "text", node, props: { text }, childSlots: [], genInstance: null },
       node,
       replaced: true,
     };
@@ -474,17 +474,17 @@ function* reconcileOneGen(
     // In live-only mode, only hide when the effective batch is live.
     if (renderState.liveOnlyMode) {
       const effectiveBatch =
-        (allPropsForShown['$patch'] as 'live' | 'default' | undefined) ?? _getCurrentBatch();
-      if (effectiveBatch !== 'live' && prevSlot) {
+        (allPropsForShown["$patch"] as "live" | "default" | undefined) ?? _getCurrentBatch();
+      if (effectiveBatch !== "live" && prevSlot) {
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
     }
-    if (prevSlot?.type === 'empty') {
+    if (prevSlot?.type === "empty") {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
-    const node = document.createTextNode('');
+    const node = document.createTextNode("");
     return {
-      slot: { type: 'empty', node, props: {}, childSlots: [], genInstance: null },
+      slot: { type: "empty", node, props: {}, childSlots: [], genInstance: null },
       node,
       replaced: true,
     };
@@ -494,7 +494,7 @@ function* reconcileOneGen(
   // SECTION: Function component
   // Handles generator components, plain components, and context Providers.
   // ════════════════════════════════════════════════════════════════════════
-  if (typeof vnode.type === 'function') {
+  if (typeof vnode.type === "function") {
     /** The merged props (including children if any), with $deferred stripped. */
     const allPropsRaw = allPropsForShown;
     const allProps = stripDeferred(allPropsRaw);
@@ -505,7 +505,7 @@ function* reconcileOneGen(
 
     // Propagate $deferred to the subtree via context.
     // Save and restore the context map so siblings are unaffected.
-    const compDeferred = allPropsRaw['$deferred'] as boolean | undefined;
+    const compDeferred = allPropsRaw["$deferred"] as boolean | undefined;
     const prevCtxComp = _getCtxMap();
     if (compDeferred) _setCtxMap(_withPriority(prevCtxComp, _getCurrentPriority() + 1));
     try {
@@ -520,7 +520,7 @@ function* reconcileOneGen(
           const inst = prevSlot.genInstance;
           if (patchOnly && inst) {
             // Forward the new $patch value so shouldDefer reads it correctly.
-            inst.props['$patch'] = allProps['$patch'];
+            inst.props["$patch"] = allProps["$patch"];
             if (inst.consumedContexts.has(_batchCtx as Context<unknown>)) {
               prevSlot.props = allProps;
               inst.capturedCtx = _withBatch(inst.capturedCtx, _getCurrentBatch());
@@ -560,19 +560,19 @@ function* reconcileOneGen(
         // └─────────────────────────────────────────────────────────────────┘
         if (renderState.liveOnlyMode) {
           const effectiveBatch =
-            (allProps['$patch'] as 'live' | 'default' | undefined) ?? _getCurrentBatch();
-          if (effectiveBatch !== 'live') {
+            (allProps["$patch"] as "live" | "default" | undefined) ?? _getCurrentBatch();
+          if (effectiveBatch !== "live") {
             if (prevSlot.genInstance) {
               prevSlot.genInstance.capturedCtx = _withBatch(
                 prevSlot.genInstance.capturedCtx,
                 _getCurrentBatch(),
               );
-              prevSlot.genInstance.props['$patch'] = allProps['$patch'];
+              prevSlot.genInstance.props["$patch"] = allProps["$patch"];
             }
             if (!providerCtx) {
               const hasContentChange = Object.keys({ ...prevSlot.props, ...allProps }).some(
                 (k) =>
-                  k !== '$patch' && k !== '$shown' && !Object.is(prevSlot.props[k], allProps[k]),
+                  k !== "$patch" && k !== "$shown" && !Object.is(prevSlot.props[k], allProps[k]),
               );
               if (!hasContentChange) prevSlot.props = allProps;
             }
@@ -586,11 +586,11 @@ function* reconcileOneGen(
         if (providerCtx) {
           const prevCtxMap = _getCtxMap();
           const newCtxMap = new Map(prevCtxMap);
-          newCtxMap.set(providerCtx as never, allProps.value as unknown);
+          newCtxMap.set(providerCtx as never, allProps["value"] as unknown);
           _setCtxMap(newCtxMap);
           try {
-            if (!Object.is(prevSlot.props['value'], allProps['value'])) {
-              propagateContextUpdate(providerCtx, allProps.value, prevSlot.childSlots);
+            if (!Object.is(prevSlot.props["value"], allProps["value"])) {
+              propagateContextUpdate(providerCtx, allProps["value"], prevSlot.childSlots);
             }
             const childVNode = (fn as PlainComponentFn)(allProps);
             if (childVNode != null) {
@@ -632,12 +632,12 @@ function* reconcileOneGen(
       // └───────────────────────────────────────────────────────────────────┘
       if (renderState.liveOnlyMode && prevSlot?.type !== vnode.type) {
         const effectiveBatch =
-          (allProps['$patch'] as 'live' | 'default' | undefined) ?? _getCurrentBatch();
-        if (effectiveBatch !== 'live') {
+          (allProps["$patch"] as "live" | "default" | undefined) ?? _getCurrentBatch();
+        if (effectiveBatch !== "live") {
           if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
-          const node = document.createTextNode('');
+          const node = document.createTextNode("");
           return {
-            slot: { type: 'empty', node, props: {}, childSlots: [], genInstance: null },
+            slot: { type: "empty", node, props: {}, childSlots: [], genInstance: null },
             node,
             replaced: true,
           };
@@ -696,18 +696,18 @@ function* reconcileOneGen(
   // SECTION: HTML element
   // Handles: string tag names (e.g. 'div', 'span').
   // ════════════════════════════════════════════════════════════════════════
-  if (typeof vnode.type === 'string') {
+  if (typeof vnode.type === "string") {
     // Propagate $patch and $deferred to children via the context map.
     // Save and restore the context map around child reconciliation.
-    const elBatch = vnode.props['$patch'] as 'live' | 'default' | undefined;
-    const elDeferred = vnode.props['$deferred'] as boolean | undefined;
+    const elBatch = vnode.props["$patch"] as "live" | "default" | undefined;
+    const elDeferred = vnode.props["$deferred"] as boolean | undefined;
     const prevCtxEl = _getCtxMap();
     if (elBatch !== undefined) _setCtxMap(_withBatch(prevCtxEl, elBatch));
     if (elDeferred) _setCtxMap(_withPriority(_getCtxMap(), _getCurrentPriority() + 1));
     try {
       if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
         // ── Same tag → update props in place and reconcile children ──
-        if (!renderState.liveOnlyMode || _getCurrentBatch() === 'live') {
+        if (!renderState.liveOnlyMode || _getCurrentBatch() === "live") {
           const prevProps = prevSlot.props;
           domEnqueue(
             () => updateProps(prevSlot.node as HTMLElement, prevProps, vnode.props),
@@ -723,11 +723,11 @@ function* reconcileOneGen(
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
       // ── Different tag → build fresh element ──
-      if (renderState.liveOnlyMode && _getCurrentBatch() !== 'live') {
+      if (renderState.liveOnlyMode && _getCurrentBatch() !== "live") {
         if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
-        const empty = document.createTextNode('');
+        const empty = document.createTextNode("");
         return {
-          slot: { type: 'empty', node: empty, props: {}, childSlots: [], genInstance: null },
+          slot: { type: "empty", node: empty, props: {}, childSlots: [], genInstance: null },
           node: empty,
           replaced: true,
         };
@@ -783,12 +783,12 @@ function _hasStableContextSelectors(
   ctx: Context<unknown>,
   newValue: unknown,
 ): boolean {
-  let foundAny = false;
+  let _foundAny = false;
   for (const s of inst.hookStates) {
-    if (s == null || typeof s !== 'object') continue;
+    if (s == null || typeof s !== "object") continue;
     const state = s as UseContextState;
     if (state.ctx !== ctx) continue;
-    foundAny = true;
+    _foundAny = true;
     if (!state.selector) return false;
     const newDeps = state.selector(newValue);
     if (depsChanged(state.lastDeps, newDeps)) return false;

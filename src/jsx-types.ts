@@ -7,8 +7,8 @@
  *
  * @module jsx-types
  */
-import type { SyntheticEvent } from './events';
-import type { Child, SpecialProps } from './jsx';
+import type { SyntheticEvent } from "./events";
+import type { SpecialProps } from "./jsx";
 
 // ---------------------------------------------------------------------------
 // CSS Properties
@@ -343,53 +343,53 @@ export type EventHandlers<T extends EventTarget = EventTarget> = {
 
 /** WAI-ARIA attributes applicable to any HTML element. */
 export interface AriaAttributes {
-  'aria-activedescendant'?: string;
-  'aria-atomic'?: boolean | 'false' | 'true';
-  'aria-autocomplete'?: 'none' | 'inline' | 'list' | 'both';
-  'aria-busy'?: boolean | 'false' | 'true';
-  'aria-checked'?: boolean | 'false' | 'mixed' | 'true';
-  'aria-colcount'?: number;
-  'aria-colindex'?: number;
-  'aria-colspan'?: number;
-  'aria-controls'?: string;
-  'aria-current'?: boolean | 'false' | 'true' | 'page' | 'step' | 'location' | 'date' | 'time';
-  'aria-describedby'?: string;
-  'aria-details'?: string;
-  'aria-disabled'?: boolean | 'false' | 'true';
-  'aria-dropeffect'?: 'none' | 'copy' | 'execute' | 'link' | 'move' | 'popup';
-  'aria-errormessage'?: string;
-  'aria-expanded'?: boolean | 'false' | 'true';
-  'aria-flowto'?: string;
-  'aria-grabbed'?: boolean | 'false' | 'true';
-  'aria-haspopup'?: boolean | 'false' | 'true' | 'menu' | 'listbox' | 'tree' | 'grid' | 'dialog';
-  'aria-hidden'?: boolean | 'false' | 'true';
-  'aria-invalid'?: boolean | 'false' | 'true' | 'grammar' | 'spelling';
-  'aria-keyshortcuts'?: string;
-  'aria-label'?: string;
-  'aria-labelledby'?: string;
-  'aria-level'?: number;
-  'aria-live'?: 'off' | 'assertive' | 'polite';
-  'aria-modal'?: boolean | 'false' | 'true';
-  'aria-multiline'?: boolean | 'false' | 'true';
-  'aria-multiselectable'?: boolean | 'false' | 'true';
-  'aria-orientation'?: 'horizontal' | 'vertical';
-  'aria-owns'?: string;
-  'aria-placeholder'?: string;
-  'aria-posinset'?: number;
-  'aria-pressed'?: boolean | 'false' | 'mixed' | 'true';
-  'aria-readonly'?: boolean | 'false' | 'true';
-  'aria-required'?: boolean | 'false' | 'true';
-  'aria-roledescription'?: string;
-  'aria-rowcount'?: number;
-  'aria-rowindex'?: number;
-  'aria-rowspan'?: number;
-  'aria-selected'?: boolean | 'false' | 'true';
-  'aria-setsize'?: number;
-  'aria-sort'?: 'none' | 'ascending' | 'descending' | 'other';
-  'aria-valuemax'?: number;
-  'aria-valuemin'?: number;
-  'aria-valuenow'?: number;
-  'aria-valuetext'?: string;
+  "aria-activedescendant"?: string;
+  "aria-atomic"?: boolean | "false" | "true";
+  "aria-autocomplete"?: "none" | "inline" | "list" | "both";
+  "aria-busy"?: boolean | "false" | "true";
+  "aria-checked"?: boolean | "false" | "mixed" | "true";
+  "aria-colcount"?: number;
+  "aria-colindex"?: number;
+  "aria-colspan"?: number;
+  "aria-controls"?: string;
+  "aria-current"?: boolean | "false" | "true" | "page" | "step" | "location" | "date" | "time";
+  "aria-describedby"?: string;
+  "aria-details"?: string;
+  "aria-disabled"?: boolean | "false" | "true";
+  "aria-dropeffect"?: "none" | "copy" | "execute" | "link" | "move" | "popup";
+  "aria-errormessage"?: string;
+  "aria-expanded"?: boolean | "false" | "true";
+  "aria-flowto"?: string;
+  "aria-grabbed"?: boolean | "false" | "true";
+  "aria-haspopup"?: boolean | "false" | "true" | "menu" | "listbox" | "tree" | "grid" | "dialog";
+  "aria-hidden"?: boolean | "false" | "true";
+  "aria-invalid"?: boolean | "false" | "true" | "grammar" | "spelling";
+  "aria-keyshortcuts"?: string;
+  "aria-label"?: string;
+  "aria-labelledby"?: string;
+  "aria-level"?: number;
+  "aria-live"?: "off" | "assertive" | "polite";
+  "aria-modal"?: boolean | "false" | "true";
+  "aria-multiline"?: boolean | "false" | "true";
+  "aria-multiselectable"?: boolean | "false" | "true";
+  "aria-orientation"?: "horizontal" | "vertical";
+  "aria-owns"?: string;
+  "aria-placeholder"?: string;
+  "aria-posinset"?: number;
+  "aria-pressed"?: boolean | "false" | "mixed" | "true";
+  "aria-readonly"?: boolean | "false" | "true";
+  "aria-required"?: boolean | "false" | "true";
+  "aria-roledescription"?: string;
+  "aria-rowcount"?: number;
+  "aria-rowindex"?: number;
+  "aria-rowspan"?: number;
+  "aria-selected"?: boolean | "false" | "true";
+  "aria-setsize"?: number;
+  "aria-sort"?: "none" | "ascending" | "descending" | "other";
+  "aria-valuemax"?: number;
+  "aria-valuemin"?: number;
+  "aria-valuenow"?: number;
+  "aria-valuetext"?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -406,19 +406,21 @@ export interface AriaAttributes {
  * element, used to narrow `event.currentTarget` in event handlers.
  */
 export interface HTMLAttributes<T extends HTMLElement = HTMLElement>
-  extends SpecialProps<T>, AriaAttributes, EventHandlers<T> {
+  extends SpecialProps<T>,
+    AriaAttributes,
+    EventHandlers<T> {
   // ── Global HTML attributes ───────────────────────────────────────────────
   autoCapitalize?: string;
   autoFocus?: boolean;
   className?: string;
-  contentEditable?: boolean | 'true' | 'false' | 'inherit' | 'plaintext-only';
-  dir?: 'ltr' | 'rtl' | 'auto';
+  contentEditable?: boolean | "true" | "false" | "inherit" | "plaintext-only";
+  dir?: "ltr" | "rtl" | "auto";
   draggable?: boolean;
-  enterKeyHint?: 'enter' | 'done' | 'go' | 'next' | 'previous' | 'search' | 'send';
+  enterKeyHint?: "enter" | "done" | "go" | "next" | "previous" | "search" | "send";
   hidden?: boolean;
   id?: string;
   inert?: boolean;
-  inputMode?: 'none' | 'text' | 'decimal' | 'numeric' | 'tel' | 'search' | 'email' | 'url';
+  inputMode?: "none" | "text" | "decimal" | "numeric" | "tel" | "search" | "email" | "url";
   is?: string;
   lang?: string;
   nonce?: string;
@@ -429,7 +431,7 @@ export interface HTMLAttributes<T extends HTMLElement = HTMLElement>
   style?: CSSProperties;
   tabIndex?: number;
   title?: string;
-  translate?: 'yes' | 'no';
+  translate?: "yes" | "no";
 
   /** Any `data-*` attribute. */
   [key: `data-${string}`]: string | number | boolean | undefined;
@@ -449,7 +451,7 @@ export interface AnchorHTMLAttributes extends HTMLAttributes<HTMLAnchorElement> 
   referrerPolicy?: ReferrerPolicy;
   rel?: string;
   /** `string & object` keeps IDE autocomplete for the named values while still accepting any string. */
-  target?: '_self' | '_blank' | '_parent' | '_top' | (string & object);
+  target?: "_self" | "_blank" | "_parent" | "_top" | (string & object);
   type?: string;
 }
 
@@ -462,7 +464,7 @@ export interface AreaHTMLAttributes extends HTMLAttributes<HTMLAreaElement> {
   ping?: string;
   referrerPolicy?: ReferrerPolicy;
   rel?: string;
-  shape?: 'rect' | 'circle' | 'poly' | 'default';
+  shape?: "rect" | "circle" | "poly" | "default";
   target?: string;
 }
 
@@ -470,11 +472,11 @@ export interface AreaHTMLAttributes extends HTMLAttributes<HTMLAreaElement> {
 export interface AudioHTMLAttributes extends HTMLAttributes<HTMLAudioElement> {
   autoPlay?: boolean;
   controls?: boolean;
-  crossOrigin?: 'anonymous' | 'use-credentials';
+  crossOrigin?: "anonymous" | "use-credentials";
   loop?: boolean;
   mediaGroup?: string;
   muted?: boolean;
-  preload?: 'none' | 'metadata' | 'auto' | '';
+  preload?: "none" | "metadata" | "auto" | "";
   src?: string;
 }
 
@@ -500,7 +502,7 @@ export interface ButtonHTMLAttributes extends HTMLAttributes<HTMLButtonElement> 
   formNoValidate?: boolean;
   formTarget?: string;
   name?: string;
-  type?: 'submit' | 'reset' | 'button';
+  type?: "submit" | "reset" | "button";
   value?: string | number;
 }
 
@@ -558,7 +560,7 @@ export interface FormHTMLAttributes extends HTMLAttributes<HTMLFormElement> {
   action?: string;
   autoComplete?: string;
   encType?: string;
-  method?: 'get' | 'post' | 'dialog';
+  method?: "get" | "post" | "dialog";
   name?: string;
   noValidate?: boolean;
   rel?: string;
@@ -577,7 +579,7 @@ export interface IframeHTMLAttributes extends HTMLAttributes<HTMLIFrameElement> 
   allowTransparency?: boolean;
   frameBorder?: string | number;
   height?: string | number;
-  loading?: 'eager' | 'lazy';
+  loading?: "eager" | "lazy";
   name?: string;
   referrerPolicy?: ReferrerPolicy;
   sandbox?: string;
@@ -592,11 +594,11 @@ export interface IframeHTMLAttributes extends HTMLAttributes<HTMLIFrameElement> 
 /** `<img>` */
 export interface ImgHTMLAttributes extends HTMLAttributes<HTMLImageElement> {
   alt?: string;
-  crossOrigin?: 'anonymous' | 'use-credentials';
-  decoding?: 'async' | 'auto' | 'sync';
-  fetchPriority?: 'high' | 'low' | 'auto';
+  crossOrigin?: "anonymous" | "use-credentials";
+  decoding?: "async" | "auto" | "sync";
+  fetchPriority?: "high" | "low" | "auto";
   height?: string | number;
-  loading?: 'eager' | 'lazy';
+  loading?: "eager" | "lazy";
   referrerPolicy?: ReferrerPolicy;
   sizes?: string;
   src?: string;
@@ -610,7 +612,7 @@ export interface InputHTMLAttributes extends HTMLAttributes<HTMLInputElement> {
   accept?: string;
   alt?: string;
   autoComplete?: string;
-  capture?: boolean | 'user' | 'environment';
+  capture?: boolean | "user" | "environment";
   checked?: boolean;
   defaultChecked?: boolean;
   defaultValue?: string | number;
@@ -638,28 +640,28 @@ export interface InputHTMLAttributes extends HTMLAttributes<HTMLInputElement> {
   src?: string;
   step?: string | number;
   type?:
-    | 'button'
-    | 'checkbox'
-    | 'color'
-    | 'date'
-    | 'datetime-local'
-    | 'email'
-    | 'file'
-    | 'hidden'
-    | 'image'
-    | 'month'
-    | 'number'
-    | 'password'
-    | 'radio'
-    | 'range'
-    | 'reset'
-    | 'search'
-    | 'submit'
-    | 'tel'
-    | 'text'
-    | 'time'
-    | 'url'
-    | 'week';
+    | "button"
+    | "checkbox"
+    | "color"
+    | "date"
+    | "datetime-local"
+    | "email"
+    | "file"
+    | "hidden"
+    | "image"
+    | "month"
+    | "number"
+    | "password"
+    | "radio"
+    | "range"
+    | "reset"
+    | "search"
+    | "submit"
+    | "tel"
+    | "text"
+    | "time"
+    | "url"
+    | "week";
   value?: string | number;
   width?: string | number;
 }
@@ -679,8 +681,8 @@ export interface LiHTMLAttributes extends HTMLAttributes<HTMLLIElement> {
 /** `<link>` */
 export interface LinkHTMLAttributes extends HTMLAttributes<HTMLLinkElement> {
   as?: string;
-  crossOrigin?: 'anonymous' | 'use-credentials';
-  fetchPriority?: 'high' | 'low' | 'auto';
+  crossOrigin?: "anonymous" | "use-credentials";
+  fetchPriority?: "high" | "low" | "auto";
   href?: string;
   hrefLang?: string;
   imageSizes?: string;
@@ -734,7 +736,7 @@ export interface ObjectHTMLAttributes extends HTMLAttributes<HTMLObjectElement> 
 export interface OlHTMLAttributes extends HTMLAttributes<HTMLOListElement> {
   reversed?: boolean;
   start?: number;
-  type?: '1' | 'a' | 'A' | 'i' | 'I';
+  type?: "1" | "a" | "A" | "i" | "I";
 }
 
 /** `<optgroup>` */
@@ -829,13 +831,13 @@ export interface TableHTMLAttributes extends HTMLAttributes<HTMLTableElement> {
 /** `<td>` */
 export interface TdHTMLAttributes extends HTMLAttributes<HTMLTableCellElement> {
   abbr?: string;
-  align?: 'left' | 'center' | 'right' | 'justify' | 'char';
+  align?: "left" | "center" | "right" | "justify" | "char";
   colSpan?: number;
   headers?: string;
   height?: string | number;
   rowSpan?: number;
   scope?: string;
-  valign?: 'top' | 'middle' | 'bottom' | 'baseline';
+  valign?: "top" | "middle" | "bottom" | "baseline";
   width?: string | number;
 }
 
@@ -860,11 +862,11 @@ export interface TextareaHTMLAttributes extends HTMLAttributes<HTMLTextAreaEleme
 /** `<th>` */
 export interface ThHTMLAttributes extends HTMLAttributes<HTMLTableCellElement> {
   abbr?: string;
-  align?: 'left' | 'center' | 'right' | 'justify' | 'char';
+  align?: "left" | "center" | "right" | "justify" | "char";
   colSpan?: number;
   headers?: string;
   rowSpan?: number;
-  scope?: 'col' | 'row' | 'colgroup' | 'rowgroup';
+  scope?: "col" | "row" | "colgroup" | "rowgroup";
 }
 
 /** `<time>` */
@@ -875,7 +877,7 @@ export interface TimeHTMLAttributes extends HTMLAttributes<HTMLTimeElement> {
 /** `<track>` */
 export interface TrackHTMLAttributes extends HTMLAttributes<HTMLTrackElement> {
   default?: boolean;
-  kind?: 'subtitles' | 'captions' | 'descriptions' | 'chapters' | 'metadata';
+  kind?: "subtitles" | "captions" | "descriptions" | "chapters" | "metadata";
   label?: string;
   src?: string;
   srcLang?: string;
@@ -885,7 +887,7 @@ export interface TrackHTMLAttributes extends HTMLAttributes<HTMLTrackElement> {
 export interface VideoHTMLAttributes extends HTMLAttributes<HTMLVideoElement> {
   autoPlay?: boolean;
   controls?: boolean;
-  crossOrigin?: 'anonymous' | 'use-credentials';
+  crossOrigin?: "anonymous" | "use-credentials";
   disablePictureInPicture?: boolean;
   disableRemotePlayback?: boolean;
   height?: string | number;
@@ -893,7 +895,7 @@ export interface VideoHTMLAttributes extends HTMLAttributes<HTMLVideoElement> {
   muted?: boolean;
   playsInline?: boolean;
   poster?: string;
-  preload?: 'none' | 'metadata' | 'auto' | '';
+  preload?: "none" | "metadata" | "auto" | "";
   src?: string;
   width?: string | number;
 }
@@ -904,7 +906,9 @@ export interface VideoHTMLAttributes extends HTMLAttributes<HTMLVideoElement> {
 
 /** Presentation attributes shared by all SVG elements. */
 export interface SVGAttributes<T extends SVGElement = SVGElement>
-  extends SpecialProps<T>, AriaAttributes, EventHandlers<T> {
+  extends SpecialProps<T>,
+    AriaAttributes,
+    EventHandlers<T> {
   className?: string;
   id?: string;
   style?: CSSProperties;
@@ -914,15 +918,15 @@ export interface SVGAttributes<T extends SVGElement = SVGElement>
   color?: string;
   fill?: string;
   fillOpacity?: string | number;
-  fillRule?: 'nonzero' | 'evenodd';
+  fillRule?: "nonzero" | "evenodd";
   filter?: string;
   mask?: string;
   opacity?: string | number;
   stroke?: string;
   strokeDasharray?: string | number;
   strokeDashoffset?: string | number;
-  strokeLinecap?: 'butt' | 'round' | 'square' | 'inherit';
-  strokeLinejoin?: 'miter' | 'round' | 'bevel' | 'inherit';
+  strokeLinecap?: "butt" | "round" | "square" | "inherit";
+  strokeLinejoin?: "miter" | "round" | "bevel" | "inherit";
   strokeMiterlimit?: string | number;
   strokeOpacity?: string | number;
   strokeWidth?: string | number;
@@ -932,7 +936,7 @@ export interface SVGAttributes<T extends SVGElement = SVGElement>
 
   // Presentation
   clipPath?: string;
-  clipRule?: 'nonzero' | 'evenodd';
+  clipRule?: "nonzero" | "evenodd";
   colorInterpolation?: string;
   colorRendering?: string;
   cursor?: string;
@@ -1024,7 +1028,7 @@ export interface PolylineSVGAttributes extends SVGAttributes<SVGPolylineElement>
 export interface TextSVGAttributes extends SVGAttributes<SVGTextElement> {
   dx?: string | number;
   dy?: string | number;
-  lengthAdjust?: 'spacing' | 'spacingAndGlyphs';
+  lengthAdjust?: "spacing" | "spacingAndGlyphs";
   rotate?: string | number;
   textLength?: string | number;
   x?: string | number;
@@ -1035,7 +1039,7 @@ export interface TextSVGAttributes extends SVGAttributes<SVGTextElement> {
 export interface TSpanSVGAttributes extends SVGAttributes<SVGTSpanElement> {
   dx?: string | number;
   dy?: string | number;
-  lengthAdjust?: 'spacing' | 'spacingAndGlyphs';
+  lengthAdjust?: "spacing" | "spacingAndGlyphs";
   rotate?: string | number;
   textLength?: string | number;
   x?: string | number;
@@ -1082,7 +1086,7 @@ export interface LinearGradientSVGAttributes extends SVGAttributes<SVGLinearGrad
   gradientTransform?: string;
   gradientUnits?: string;
   href?: string;
-  spreadMethod?: 'pad' | 'reflect' | 'repeat';
+  spreadMethod?: "pad" | "reflect" | "repeat";
   x1?: string | number;
   x2?: string | number;
   y1?: string | number;
@@ -1100,7 +1104,7 @@ export interface RadialGradientSVGAttributes extends SVGAttributes<SVGRadialGrad
   gradientUnits?: string;
   href?: string;
   r?: string | number;
-  spreadMethod?: 'pad' | 'reflect' | 'repeat';
+  spreadMethod?: "pad" | "reflect" | "repeat";
 }
 
 /** `<stop>` */
@@ -1110,7 +1114,7 @@ export interface StopSVGAttributes extends SVGAttributes<SVGStopElement> {
 
 /** `<clipPath>` */
 export interface ClipPathSVGAttributes extends SVGAttributes<SVGClipPathElement> {
-  clipPathUnits?: 'userSpaceOnUse' | 'objectBoundingBox';
+  clipPathUnits?: "userSpaceOnUse" | "objectBoundingBox";
 }
 
 /** `<mask>` */
@@ -1135,8 +1139,8 @@ export interface FilterSVGAttributes extends SVGAttributes<SVGFilterElement> {
 
 /** `<image>` (SVG) */
 export interface ImageSVGAttributes extends SVGAttributes<SVGImageElement> {
-  crossOrigin?: 'anonymous' | 'use-credentials';
-  decoding?: 'async' | 'auto' | 'sync';
+  crossOrigin?: "anonymous" | "use-credentials";
+  decoding?: "async" | "auto" | "sync";
   height?: string | number;
   href?: string;
   preserveAspectRatio?: string;

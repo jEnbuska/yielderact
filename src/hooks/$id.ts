@@ -1,5 +1,5 @@
-import { $ID, type HookContext } from './symbols';
-import { renderState } from '../render/state';
+import { renderState } from "../render/state";
+import { $ID, type HookContext } from "./symbols";
 
 /**
  * Stable unique ID hook for generator components.

@@ -46,7 +46,7 @@
  * When using the published npm package this alias is not necessary because the
  * package ships a `./jsx-dev-runtime` export that maps to the same module.
  */
-import type { Plugin } from 'vite';
+import type { Plugin } from "vite";
 
 /**
  * Returns a Vite plugin that configures the esbuild JSX transform to use
@@ -54,12 +54,12 @@ import type { Plugin } from 'vite';
  */
 export function yielderactPlugin(): Plugin {
   return {
-    name: 'vite-plugin-yielderact',
+    name: "vite-plugin-yielderact",
     config() {
       return {
         esbuild: {
-          jsx: 'automatic',
-          jsxImportSource: 'yielderact',
+          jsx: "automatic",
+          jsxImportSource: "yielderact",
         },
       };
     },

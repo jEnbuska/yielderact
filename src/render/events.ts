@@ -1,4 +1,4 @@
-import { createSyntheticEvent, type SyntheticEvent } from '../events';
+import { createSyntheticEvent, type SyntheticEvent } from "../events";
 
 /**
  * Maps each DOM element to its currently-registered synthetic event wrappers.
@@ -60,6 +60,6 @@ export function removeSyntheticListener(el: HTMLElement, eventName: string): voi
   const wrapper = listenerWrappers.get(el)?.get(eventName);
   if (wrapper) {
     el.removeEventListener(eventName, wrapper);
-    listenerWrappers.get(el)!.delete(eventName);
+    listenerWrappers.get(el)?.delete(eventName);
   }
 }

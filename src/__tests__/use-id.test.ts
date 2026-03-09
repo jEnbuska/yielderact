@@ -1,14 +1,14 @@
-import { createElement } from '../jsx';
-import { render } from '../render';
-import { $state, $id } from '../hooks';
+import { $id, $state } from "../hooks";
+import { createElement } from "../jsx";
+import { render } from "../render";
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe('$id', () => {
+describe("$id", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
-    container = document.createElement('div');
+    container = document.createElement("div");
     document.body.appendChild(container);
   });
 
@@ -16,20 +16,20 @@ describe('$id', () => {
     document.body.removeChild(container);
   });
 
-  it('returns a non-empty string', () => {
+  it("returns a non-empty string", () => {
     let capturedId: string | null = null;
 
     function* Comp() {
       capturedId = yield* $id();
-      return createElement('div', null);
+      return createElement("div", null);
     }
 
     render(createElement(Comp as never, {}), container);
-    expect(typeof capturedId).toBe('string');
+    expect(typeof capturedId).toBe("string");
     expect(capturedId!.length).toBeGreaterThan(0);
   });
 
-  it('returns the same id across re-renders', () => {
+  it("returns the same id across re-renders", () => {
     const ids: string[] = [];
     let setValue: ((v: number) => void) | null = null;
 
@@ -38,7 +38,7 @@ describe('$id', () => {
       setValue = sv;
       const id = yield* $id();
       ids.push(id);
-      return createElement('div', null);
+      return createElement("div", null);
     }
 
     render(createElement(Comp as never, {}), container);
@@ -48,14 +48,14 @@ describe('$id', () => {
     expect(ids[0]).toBe(ids[1]);
   });
 
-  it('returns distinct ids for different hook call sites', () => {
+  it("returns distinct ids for different hook call sites", () => {
     let id1: string | null = null;
     let id2: string | null = null;
 
     function* Comp() {
       id1 = yield* $id();
       id2 = yield* $id();
-      return createElement('div', null);
+      return createElement("div", null);
     }
 
     render(createElement(Comp as never, {}), container);

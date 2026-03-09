@@ -8,7 +8,7 @@
  *  3. Generator component – a stateful counter toggled via `$shown`; the
  *     counter resets to zero each time it is re-mounted.
  */
-import { $state } from 'yielderact';
+import { $state } from "yielderact";
 
 // ---------------------------------------------------------------------------
 // Sub-components used in the demo
@@ -19,13 +19,13 @@ function InfoPanel() {
     <div
       data-testid="info-panel"
       style={{
-        padding: '0.75rem 1rem',
-        background: '#f0f4ff',
-        border: '1px solid #c0cff8',
-        borderRadius: '6px',
+        padding: "0.75rem 1rem",
+        background: "#f0f4ff",
+        border: "1px solid #c0cff8",
+        borderRadius: "6px",
       }}
     >
-      I am a <strong>function component</strong> – I mount and unmount based on the{' '}
+      I am a <strong>function component</strong> – I mount and unmount based on the{" "}
       <code>$shown</code> prop.
     </div>
   );
@@ -38,13 +38,13 @@ function* StatefulCounter() {
     <div
       data-testid="stateful-counter"
       style={{
-        display: 'flex',
-        gap: '0.5rem',
-        alignItems: 'center',
-        padding: '0.75rem 1rem',
-        background: '#f0fff4',
-        border: '1px solid #b0e8c0',
-        borderRadius: '6px',
+        display: "flex",
+        gap: "0.5rem",
+        alignItems: "center",
+        padding: "0.75rem 1rem",
+        background: "#f0fff4",
+        border: "1px solid #b0e8c0",
+        borderRadius: "6px",
       }}
     >
       <strong>Stateful counter (resets on re-mount):</strong>
@@ -81,9 +81,9 @@ export function* ShownDemo() {
       </p>
 
       {/* ── Row 1: HTML element ── */}
-      <div style={{ marginBottom: '1rem' }}>
+      <div style={{ marginBottom: "1rem" }}>
         <label
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}
+          style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}
         >
           <input
             type="checkbox"
@@ -97,21 +97,21 @@ export function* ShownDemo() {
           $shown={showElement}
           data-testid="shown-element"
           style={{
-            padding: '0.75rem 1rem',
-            background: '#fff8e1',
-            border: '1px solid #ffe082',
-            borderRadius: '6px',
+            padding: "0.75rem 1rem",
+            background: "#fff8e1",
+            border: "1px solid #ffe082",
+            borderRadius: "6px",
           }}
         >
-          I am a plain <strong>&lt;div&gt;</strong> element — toggled with the <code>$shown</code>{' '}
+          I am a plain <strong>&lt;div&gt;</strong> element — toggled with the <code>$shown</code>{" "}
           prop.
         </div>
       </div>
 
       {/* ── Row 2: function component ── */}
-      <div style={{ marginBottom: '1rem' }}>
+      <div style={{ marginBottom: "1rem" }}>
         <label
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}
+          style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}
         >
           <input
             type="checkbox"
@@ -127,7 +127,7 @@ export function* ShownDemo() {
       {/* ── Row 3: generator component ── */}
       <div>
         <label
-          style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.4rem' }}
+          style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}
         >
           <input
             type="checkbox"

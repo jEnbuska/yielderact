@@ -1,4 +1,4 @@
-import type { IntrinsicElements as IntrinsicElementsDef } from './jsx-types';
+import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
 
 /**
  * Virtual DOM node produced by createElement / JSX.
@@ -41,7 +41,7 @@ export interface SpecialProps<TRef = unknown> {
    * - `'live'`: updates flush immediately, even during an active patch.
    * - `'default'` (default): updates are deferred until the patch commits.
    */
-  $patch?: 'live' | 'default';
+  $patch?: "live" | "default";
   /**
    * Marks this subtree as deferred (lower priority).
    *
@@ -124,7 +124,7 @@ export type AnyComponentFn<P extends Record<string, unknown> = Record<string, un
  *   );
  * }
  */
-export const Fragment: unique symbol = Symbol('Fragment');
+export const Fragment: unique symbol = Symbol("Fragment");
 
 // ---------------------------------------------------------------------------
 // createElement overloads
@@ -158,14 +158,14 @@ export function createElement(type: symbol, props: null, ...children: Child[]): 
 
 // Overload 4: escape-hatch (union type)
 export function createElement(
-  type: VNode['type'],
+  type: VNode["type"],
   props: Record<string, unknown> | null,
   ...children: Child[]
 ): VNode;
 
 // Implementation
 export function createElement(
-  type: VNode['type'],
+  type: VNode["type"],
   props: Record<string, unknown> | null,
   ...children: Child[]
 ): VNode {

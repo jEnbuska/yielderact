@@ -18,31 +18,29 @@
  */
 
 import {
-  Fragment,
-  type VNode,
-  type Child,
-  type AnyComponentFn,
-  type GeneratorComponentFn,
-  type PlainComponentFn,
-} from '../jsx';
-import {
   _getCtxMap,
-  _setCtxMap,
+  _getCurrentPriority,
   _getProviderCtx,
   _instanceBatch,
-  _instancePriority,
-  _getCurrentPriority,
+  _setCtxMap,
   _withBatch,
   _withPriority,
-} from '../context';
-import { type Slot, type GenInstance } from './types';
-import { renderState } from './state';
-import { applyProps } from './props';
-import { isGeneratorFn, mergedProps, isShown, stripDeferred } from './helpers';
-import { runHooks, flushEffects } from './hooks-runtime';
-import { reconcileSlots } from './reconciler';
-import { isPatchActive } from './patch-queue';
-import { scheduleUpdate } from './scheduler';
+} from "../context";
+import {
+  type AnyComponentFn,
+  type Child,
+  Fragment,
+  type GeneratorComponentFn,
+  type PlainComponentFn,
+} from "../jsx";
+import { isGeneratorFn, isShown, mergedProps, stripDeferred } from "./helpers";
+import { flushEffects, runHooks } from "./hooks-runtime";
+import { isPatchActive } from "./patch-queue";
+import { applyProps } from "./props";
+import { reconcileSlots } from "./reconciler";
+import { scheduleUpdate } from "./scheduler";
+import { renderState } from "./state";
+import type { GenInstance, Slot } from "./types";
 
 /**
  * Build a single real DOM node from a virtual DOM node (or primitive value).
@@ -69,10 +67,10 @@ import { scheduleUpdate } from './scheduler';
  *   a `DocumentFragment` containing the output nodes + endMarker.
  */
 export function buildNode(child: Child): Node {
-  if (child == null || typeof child === 'boolean') {
-    return document.createTextNode('');
+  if (child == null || typeof child === "boolean") {
+    return document.createTextNode("");
   }
-  if (typeof child === 'string' || typeof child === 'number') {
+  if (typeof child === "string" || typeof child === "number") {
     return document.createTextNode(String(child));
   }
 
@@ -84,15 +82,15 @@ export function buildNode(child: Child): Node {
     return frag;
   }
 
-  if (typeof child.type === 'function') {
+  if (typeof child.type === "function") {
     const fn = child.type as AnyComponentFn;
     const allPropsRaw = mergedProps(child);
     if (!isShown(allPropsRaw)) {
-      return document.createTextNode('');
+      return document.createTextNode("");
     }
     // Strip $deferred from component props; propagate via context.
     const allProps = stripDeferred(allPropsRaw);
-    const compDeferred = allPropsRaw['$deferred'] as boolean | undefined;
+    const compDeferred = allPropsRaw["$deferred"] as boolean | undefined;
     const prevCtxFn = _getCtxMap();
     if (compDeferred) _setCtxMap(_withPriority(prevCtxFn, _getCurrentPriority() + 1));
     try {
@@ -110,14 +108,14 @@ export function buildNode(child: Child): Node {
   }
 
   if (!isShown(child.props)) {
-    return document.createTextNode('');
+    return document.createTextNode("");
   }
 
   // HTML element — propagate $patch and $deferred to children via context.
   const el = document.createElement(child.type as string);
   applyProps(el, child.props);
-  const elBatch = child.props['$patch'] as 'live' | 'default' | undefined;
-  const elDeferred = child.props['$deferred'] as boolean | undefined;
+  const elBatch = child.props["$patch"] as "live" | "default" | undefined;
+  const elDeferred = child.props["$deferred"] as boolean | undefined;
   const prevCtxBuildNode = _getCtxMap();
   if (elBatch !== undefined) _setCtxMap(_withBatch(prevCtxBuildNode, elBatch));
   if (elDeferred) _setCtxMap(_withPriority(_getCtxMap(), _getCurrentPriority() + 1));
@@ -141,10 +139,10 @@ export function buildNode(child: Child): Node {
 function commitOrDefer(instance: GenInstance, vnode: Child): void {
   const parent = instance.endMarker.parentNode as HTMLElement;
   const effectiveBatch =
-    (instance.props['$patch'] as 'live' | 'default' | undefined) ??
+    (instance.props["$patch"] as "live" | "default" | undefined) ??
     _instanceBatch(instance.capturedCtx);
   const shouldDefer =
-    (renderState.patchDepth > 0 || instance.localPatchRefCount > 0) && effectiveBatch !== 'live';
+    (renderState.patchDepth > 0 || instance.localPatchRefCount > 0) && effectiveBatch !== "live";
   if (shouldDefer) {
     instance.pendingVNode = vnode;
     renderState.dirtyInstances.add(instance);
@@ -190,7 +188,7 @@ export function mountGeneratorComponent(
   fn: GeneratorComponentFn,
   props: Record<string, unknown>,
 ): { fragment: DocumentFragment; genInstance: GenInstance } {
-  const endMarker = document.createComment('');
+  const endMarker = document.createComment("");
 
   /**
    * The context map captured at mount time, representing the **inherited**
@@ -211,7 +209,7 @@ export function mountGeneratorComponent(
   /** Queued effects for the current render pass. See `GenInstance.pendingEffects`. */
   const pendingEffects: Array<{
     hookIndex: number;
-    fn: (signal: AbortSignal) => (() => void) | void;
+    fn: (signal: AbortSignal) => (() => void) | undefined;
     controller: AbortController;
   }> = [];
 
@@ -244,7 +242,7 @@ export function mountGeneratorComponent(
 
     // Restore context: inherited context + own $patch applied for children.
     const prevCtx = _getCtxMap();
-    const ownPatchResume = instance.props['$patch'] as 'live' | 'default' | undefined;
+    const ownPatchResume = instance.props["$patch"] as "live" | "default" | undefined;
     _setCtxMap(
       ownPatchResume !== undefined
         ? _withBatch(instance.capturedCtx, ownPatchResume)
@@ -295,7 +293,8 @@ export function mountGeneratorComponent(
    * @param mounted - `false` on initial mount, `true` on rerenders. Controls
    *   whether nodes are stored for fragment assembly or reconciled in place.
    */
-  function executeRerender(mounted: boolean): Promise<void> {
+  function executeRerender(initiallyMounted: boolean): Promise<void> {
+    let mounted = initiallyMounted;
     // eslint-disable-next-line no-constant-condition
     while (true) {
       instance.isRendering = true;
@@ -308,7 +307,7 @@ export function mountGeneratorComponent(
 
       // Restore context: inherited context + own $patch for children.
       const prevCtx = _getCtxMap();
-      const ownPatch = instance.props['$patch'] as 'live' | 'default' | undefined;
+      const ownPatch = instance.props["$patch"] as "live" | "default" | undefined;
       _setCtxMap(
         ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx,
       );
@@ -475,10 +474,10 @@ export function mountContextProvider(
 ): { fragment: DocumentFragment; endMarker: Comment; childSlots: Slot[] } {
   const prevCtxMap = _getCtxMap();
   const newCtxMap = new Map(prevCtxMap);
-  newCtxMap.set(providerCtx as never, props.value);
+  newCtxMap.set(providerCtx as never, props["value"]);
   _setCtxMap(newCtxMap);
 
-  const endMarker = document.createComment('');
+  const endMarker = document.createComment("");
   const fragment = document.createDocumentFragment();
   fragment.appendChild(endMarker);
   let childSlots: Slot[] = [];
@@ -522,14 +521,14 @@ export function mountContextProvider(
  */
 export function mountPlainComponent(fn: PlainComponentFn, props: Record<string, unknown>): Node {
   const vnode = fn(props);
-  if (vnode == null) return document.createTextNode('');
+  if (vnode == null) return document.createTextNode("");
   const node = buildNode(vnode);
   // DocumentFragment gets consumed on append — its children move to the parent
   // and the fragment itself becomes empty. Wrap in a span to preserve a stable
   // slot.node reference for the reconciler's replaceChild/removeChild calls.
   if (node instanceof DocumentFragment) {
-    const host = document.createElement('span');
-    host.style.display = 'contents';
+    const host = document.createElement("span");
+    host.style.display = "contents";
     host.appendChild(node);
     return host;
   }

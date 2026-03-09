@@ -5,7 +5,7 @@
  * recreating them, and that generator component state is preserved
  * across reorders.
  */
-import { $state, $ref } from 'yielderact';
+import { $ref, $state } from "yielderact";
 
 /* ── Stateful counter item (generator component) ── */
 
@@ -19,17 +19,17 @@ function* CounterItem({ id, color }: { id: string; color: string }) {
       data-testid={`item-${id}`}
       data-id={id}
       style={{
-        display: 'flex',
-        gap: '0.5rem',
-        alignItems: 'center',
-        padding: '0.4rem 0.75rem',
-        marginBottom: '0.35rem',
-        borderRadius: '4px',
+        display: "flex",
+        gap: "0.5rem",
+        alignItems: "center",
+        padding: "0.4rem 0.75rem",
+        marginBottom: "0.35rem",
+        borderRadius: "4px",
         border: `2px solid ${color}`,
-        background: '#fafafa',
+        background: "#fafafa",
       }}
     >
-      <strong style={{ minWidth: '1.5rem' }}>{id}</strong>
+      <strong style={{ minWidth: "1.5rem" }}>{id}</strong>
       <span data-testid={`count-${id}`}>{count}</span>
       <button data-testid={`inc-${id}`} onClick={() => setCount(count + 1)}>
         +
@@ -45,13 +45,13 @@ function PlainTag({ label }: { label: string }) {
     <span
       data-testid={`tag-${label}`}
       style={{
-        display: 'inline-block',
-        padding: '0.25rem 0.6rem',
-        marginRight: '0.35rem',
-        marginBottom: '0.35rem',
-        borderRadius: '12px',
-        background: '#e0e7ff',
-        fontSize: '0.85rem',
+        display: "inline-block",
+        padding: "0.25rem 0.6rem",
+        marginRight: "0.35rem",
+        marginBottom: "0.35rem",
+        borderRadius: "12px",
+        background: "#e0e7ff",
+        fontSize: "0.85rem",
       }}
     >
       {label}
@@ -62,14 +62,14 @@ function PlainTag({ label }: { label: string }) {
 /* ── Helpers ── */
 
 const COLORS: Record<string, string> = {
-  A: '#e74c3c',
-  B: '#2ecc71',
-  C: '#3498db',
-  D: '#f39c12',
-  E: '#9b59b6',
+  A: "#e74c3c",
+  B: "#2ecc71",
+  C: "#3498db",
+  D: "#f39c12",
+  E: "#9b59b6",
 };
 
-const ALL_IDS = ['A', 'B', 'C', 'D', 'E'];
+const ALL_IDS = ["A", "B", "C", "D", "E"];
 
 function shuffle<T>(arr: T[]): T[] {
   const copy = [...arr];
@@ -83,9 +83,9 @@ function shuffle<T>(arr: T[]): T[] {
 /* ── Main demo ── */
 
 export function* KeyShuffleDemo() {
-  const [order, setOrder] = yield* $state(['A', 'B', 'C']);
-  const [tagOrder, setTagOrder] = yield* $state(['red', 'green', 'blue']);
-  const [elemOrder, setElemOrder] = yield* $state(['first', 'second', 'third']);
+  const [order, setOrder] = yield* $state(["A", "B", "C"]);
+  const [tagOrder, setTagOrder] = yield* $state(["red", "green", "blue"]);
+  const [elemOrder, setElemOrder] = yield* $state(["first", "second", "third"]);
 
   return (
     <section aria-label="Key shuffle example">
@@ -97,7 +97,7 @@ export function* KeyShuffleDemo() {
 
       {/* ── Generator component list ── */}
       <h3>Generator components (stateful)</h3>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', flexWrap: 'wrap' }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
         <button data-testid="shuffle-btn" onClick={() => setOrder(shuffle(order))}>
           Shuffle
         </button>
@@ -123,19 +123,19 @@ export function* KeyShuffleDemo() {
         </button>
       </div>
       <div data-testid="generator-list">
-        <CounterItem id={'a'} color={'blue'} />
+        <CounterItem id={"a"} color={"blue"} />
         {order.map((id) => (
-          <CounterItem $key={id} id={id} color={COLORS[id] ?? '#999'} />
+          <CounterItem $key={id} id={id} color={COLORS[id] ?? "#999"} />
         ))}
-        <CounterItem id={'b'} color={'green'} />
+        <CounterItem id={"b"} color={"green"} />
       </div>
-      <p data-testid="generator-order" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-        Order: {order.join(', ')}
+      <p data-testid="generator-order" style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
+        Order: {order.join(", ")}
       </p>
 
       {/* ── Plain function component list ── */}
       <h3>Plain function components</h3>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
         <button data-testid="tag-reverse-btn" onClick={() => setTagOrder([...tagOrder].reverse())}>
           Reverse tags
         </button>
@@ -145,13 +145,13 @@ export function* KeyShuffleDemo() {
           <PlainTag $key={label} label={label} />
         ))}
       </div>
-      <p data-testid="tag-order" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-        Order: {tagOrder.join(', ')}
+      <p data-testid="tag-order" style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
+        Order: {tagOrder.join(", ")}
       </p>
 
       {/* ── Keyed HTML elements ── */}
       <h3>Keyed HTML elements</h3>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
         <button
           data-testid="elem-reverse-btn"
           onClick={() => setElemOrder([...elemOrder].reverse())}
@@ -166,8 +166,8 @@ export function* KeyShuffleDemo() {
           </li>
         ))}
       </ul>
-      <p data-testid="elem-order" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
-        Order: {elemOrder.join(', ')}
+      <p data-testid="elem-order" style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
+        Order: {elemOrder.join(", ")}
       </p>
     </section>
   );

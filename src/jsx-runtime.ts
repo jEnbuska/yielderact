@@ -10,13 +10,13 @@
  *
  *   /\*\* \@jsxImportSource yielderact \*\/
  */
-import { createElement, Fragment, VNode, Child } from './jsx';
+import { type Child, createElement, Fragment, type VNode } from "./jsx";
 
 export { Fragment };
 
 /** Used by the JSX transform for single-child expressions. */
 export function jsx(
-  type: VNode['type'],
+  type: VNode["type"],
   props: { children?: Child; $children?: Child | Child[] } & Record<string, unknown>,
   key?: string | number | null,
 ): VNode {
@@ -25,7 +25,7 @@ export function jsx(
   const { children, $children, ...rest } = props;
   // The automatic JSX transform extracts `key` and passes it as the third
   // argument. Map it to `$key` (string only) for our reconciler.
-  if (key != null) rest.$key = String(key);
+  if (key != null) rest["$key"] = String(key);
   const effectiveChildren = $children ?? children;
   if (effectiveChildren === undefined) {
     return createElement(type, rest);

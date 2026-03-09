@@ -8,19 +8,19 @@
  * increments it directly.
  * Unmounting the panel aborts all signals.
  */
-import { $state, $effect } from 'yielderact';
+import { $effect, $state } from "yielderact";
 
 function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) {
-  const [status, setStatus] = yield* $state<string>('idle');
+  const [status, setStatus] = yield* $state<string>("idle");
   const [abortCount, setAbortCount] = yield* $state(0);
 
   yield* $effect(
     (signal) => {
       if (activeId !== userId) {
-        setStatus('inactive');
+        setStatus("inactive");
         return;
       }
-      setStatus('polling');
+      setStatus("polling");
 
       let stopped = false;
       const poll = async () => {
@@ -31,7 +31,7 @@ function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) 
           await new Promise<void>((resolve, reject) => {
             const timer = setTimeout(resolve, 400);
             signal.addEventListener(
-              'abort',
+              "abort",
               () => {
                 clearTimeout(timer);
                 reject(signal.reason);
@@ -47,11 +47,11 @@ function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) 
       poll();
 
       signal.addEventListener(
-        'abort',
+        "abort",
         () => {
           stopped = true;
           setAbortCount((c) => c + 1);
-          setStatus('aborted');
+          setStatus("aborted");
         },
         { once: true },
       );
@@ -65,7 +65,7 @@ function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) 
   return (
     <tr
       data-testid={`signal-row-${userId}`}
-      style={{ background: isActive ? '#e8f5e9' : 'transparent' }}
+      style={{ background: isActive ? "#e8f5e9" : "transparent" }}
     >
       <td>
         <strong data-testid={`row-uid-${userId}`}>User {userId}</strong>
@@ -73,7 +73,7 @@ function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) 
       <td data-testid={`row-status-${userId}`}>{status}</td>
       <td
         data-testid={`row-abort-count-${userId}`}
-        style={{ color: abortCount > 0 ? 'red' : 'green' }}
+        style={{ color: abortCount > 0 ? "red" : "green" }}
       >
         {abortCount}
       </td>
@@ -97,13 +97,13 @@ export function* AbortSignalEffectDemo() {
         function needed. The abort count tracks how many times each signal has been aborted.
       </p>
 
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
         {[1, 2, 3].map((n) => (
           <button
             $key={n}
             data-testid={`user-btn-${n}`}
             onClick={() => setActiveId(n)}
-            style={{ fontWeight: activeId === n ? 'bold' : 'normal' }}
+            style={{ fontWeight: activeId === n ? "bold" : "normal" }}
           >
             User {n}
           </button>
@@ -111,7 +111,7 @@ export function* AbortSignalEffectDemo() {
       </div>
 
       <label
-        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}
+        style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.75rem" }}
       >
         <input
           type="checkbox"
@@ -124,14 +124,14 @@ export function* AbortSignalEffectDemo() {
 
       <table
         $shown={showPanel}
-        style={{ borderCollapse: 'collapse', width: '100%' }}
+        style={{ borderCollapse: "collapse", width: "100%" }}
         data-testid="signal-table"
       >
         <thead>
           <tr>
-            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>User</th>
-            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>Status</th>
-            <th style={{ textAlign: 'left', padding: '0.25rem 0.5rem' }}>Abort count</th>
+            <th style={{ textAlign: "left", padding: "0.25rem 0.5rem" }}>User</th>
+            <th style={{ textAlign: "left", padding: "0.25rem 0.5rem" }}>Status</th>
+            <th style={{ textAlign: "left", padding: "0.25rem 0.5rem" }}>Abort count</th>
           </tr>
         </thead>
         <tbody>

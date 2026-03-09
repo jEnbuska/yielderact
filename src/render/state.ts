@@ -1,4 +1,4 @@
-import { type GenInstance } from './types';
+import type { GenInstance } from "./types";
 
 /**
  * Shared mutable render state.

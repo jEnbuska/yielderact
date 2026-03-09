@@ -1,5 +1,5 @@
-import { createElement, Fragment, type Child, type VNode } from './jsx';
-import { depsChanged, type HookContext } from './hooks/symbols';
+import { depsChanged, type HookContext } from "./hooks/symbols";
+import { type Child, createElement, Fragment, type VNode } from "./jsx";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -18,7 +18,7 @@ export interface Context<T> {
 // Internal symbols used to tag Provider functions
 // ---------------------------------------------------------------------------
 
-const PROVIDER_CTX = Symbol('providerCtx');
+const PROVIDER_CTX = Symbol("providerCtx");
 
 /**
  * Hook descriptor type for `useContext`. Yielded by the `useContext` generator
@@ -26,7 +26,7 @@ const PROVIDER_CTX = Symbol('providerCtx');
  *
  * @internal
  */
-export const $CONTEXT = Symbol('$context');
+export const $CONTEXT = Symbol("$context");
 
 // ---------------------------------------------------------------------------
 // Internal descriptor type for useContext (carries optional selector/transform)
@@ -79,7 +79,7 @@ export function createContext<T>(defaultValue: T): Context<T> {
 
   const ctx: Context<T> = {
     _defaultValue: defaultValue,
-    Provider: ContextProvider as Context<T>['Provider'],
+    Provider: ContextProvider as Context<T>["Provider"],
   };
 
   // Tag the provider function so the renderer can identify it and which
@@ -170,10 +170,10 @@ export type UseContextState = {
 /** @internal */
 export function _processContext(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
   const { hookIndex, hookStates, instance } = ctx;
-  const context = descriptor['ctx'] as Context<unknown>;
+  const context = descriptor["ctx"] as Context<unknown>;
   instance.consumedContexts.add(context);
-  const selector = descriptor['selector'] as ((c: unknown) => unknown[]) | undefined;
-  const transform = descriptor['transform'] as ((...args: unknown[]) => unknown) | undefined;
+  const selector = descriptor["selector"] as ((c: unknown) => unknown[]) | undefined;
+  const transform = descriptor["transform"] as ((...args: unknown[]) => unknown) | undefined;
   const ctxMap = _ctxMap;
   const rawValue = ctxMap.has(context) ? ctxMap.get(context) : context._defaultValue;
 
@@ -250,8 +250,8 @@ export function _resolveCtxValue(
  *
  * @internal
  */
-export const _batchCtx: Context<'live' | 'default'> = {
-  _defaultValue: 'default',
+export const _batchCtx: Context<"live" | "default"> = {
+  _defaultValue: "default",
   Provider: undefined as never,
 };
 
@@ -260,8 +260,8 @@ export const _batchCtx: Context<'live' | 'default'> = {
  * Falls back to `'default'` when no `createRoot` or `$patch` ancestor has set it.
  * @internal
  */
-export function _getCurrentBatch(): 'live' | 'default' {
-  return _resolveCtxValue(_ctxMap, _batchCtx as Context<unknown>) as 'live' | 'default';
+export function _getCurrentBatch(): "live" | "default" {
+  return _resolveCtxValue(_ctxMap, _batchCtx as Context<unknown>) as "live" | "default";
 }
 
 /**
@@ -271,8 +271,8 @@ export function _getCurrentBatch(): 'live' | 'default' {
  */
 export function _instanceBatch(
   capturedCtx: ReadonlyMap<Context<unknown>, unknown>,
-): 'live' | 'default' {
-  return _resolveCtxValue(capturedCtx, _batchCtx as Context<unknown>) as 'live' | 'default';
+): "live" | "default" {
+  return _resolveCtxValue(capturedCtx, _batchCtx as Context<unknown>) as "live" | "default";
 }
 
 /**
@@ -282,7 +282,7 @@ export function _instanceBatch(
  */
 export function _withBatch(
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-  batch: 'live' | 'default',
+  batch: "live" | "default",
 ): ReadonlyMap<Context<unknown>, unknown> {
   if ((_resolveCtxValue(ctxMap, _batchCtx as Context<unknown>) as string) === batch) return ctxMap;
   const newMap = new Map(ctxMap);

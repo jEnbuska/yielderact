@@ -1,5 +1,5 @@
-import { type VNode, type Child, type GeneratorComponentFn } from '../jsx';
-import { type Context } from '../context';
+import type { Context } from "../context";
+import type { Child, GeneratorComponentFn, VNode } from "../jsx";
 
 /**
  * A **Slot** tracks one reconciled position in the rendered DOM tree.
@@ -23,7 +23,7 @@ export interface Slot {
    *
    * Used by `reconcileOne` to detect same-type matches (reuse) vs type changes (replace).
    */
-  type: VNode['type'] | 'text' | 'empty';
+  type: VNode["type"] | "text" | "empty";
 
   /**
    * The real DOM node for this position.
@@ -239,7 +239,7 @@ export interface GenInstance {
    */
   pendingEffects: Array<{
     hookIndex: number;
-    fn: (signal: AbortSignal) => (() => void) | void;
+    fn: (signal: AbortSignal) => (() => void) | undefined;
     controller: AbortController;
   }>;
 

@@ -1,5 +1,5 @@
-import { type Child, type AnyComponentFn } from '../jsx';
-import { $RESOLVE_RAW, $RESOLVE, depsChanged, type HookContext } from './symbols';
+import type { AnyComponentFn, Child } from "../jsx";
+import { $RESOLVE, $RESOLVE_RAW, depsChanged, type HookContext } from "./symbols";
 
 /**
  * A value that can be rendered: a VNode-like child, a component function,
@@ -33,7 +33,7 @@ export type ResolveRawResult<T, E = unknown> =
 /** Normalise a Renderable to a `Child` value the renderer can process. */
 function toChild(renderable: Renderable): Child {
   if (renderable == null) return null;
-  if (typeof renderable === 'function') {
+  if (typeof renderable === "function") {
     return { type: renderable as AnyComponentFn, props: {}, children: [] };
   }
   return renderable as Child;
@@ -116,27 +116,27 @@ export function _processResolveRaw(
   ctx: HookContext,
 ): unknown {
   type RawState =
-    | { promise: Promise<unknown>; status: 'pending' }
-    | { promise: Promise<unknown>; status: 'resolved'; data: unknown }
-    | { promise: Promise<unknown>; status: 'rejected'; error: unknown };
+    | { promise: Promise<unknown>; status: "pending" }
+    | { promise: Promise<unknown>; status: "resolved"; data: unknown }
+    | { promise: Promise<unknown>; status: "rejected"; error: unknown };
 
   const { hookIndex, hookStates, rerender } = ctx;
-  const promise = descriptor['promise'] as Promise<unknown>;
+  const promise = descriptor["promise"] as Promise<unknown>;
   const existing = hookStates[hookIndex] as RawState | undefined;
 
   if (!existing || existing.promise !== promise) {
-    const state: RawState = { promise, status: 'pending' };
+    const state: RawState = { promise, status: "pending" };
     hookStates[hookIndex] = state;
     promise.then(
       (data) => {
         if (hookStates[hookIndex] === state) {
-          hookStates[hookIndex] = { promise, status: 'resolved', data };
+          hookStates[hookIndex] = { promise, status: "resolved", data };
           rerender();
         }
       },
       (error) => {
         if (hookStates[hookIndex] === state) {
-          hookStates[hookIndex] = { promise, status: 'rejected', error };
+          hookStates[hookIndex] = { promise, status: "rejected", error };
           rerender();
         }
       },
@@ -144,9 +144,9 @@ export function _processResolveRaw(
   }
 
   const s = hookStates[hookIndex] as RawState;
-  if (s.status === 'resolved')
+  if (s.status === "resolved")
     return { data: s.data, loading: false, error: undefined } as ResolveRawResult<unknown>;
-  if (s.status === 'rejected')
+  if (s.status === "rejected")
     return { data: undefined, loading: false, error: s.error } as ResolveRawResult<unknown>;
   return { data: undefined, loading: true, error: undefined } as ResolveRawResult<unknown>;
 }
@@ -159,8 +159,8 @@ export function _processResolve(descriptor: { [key: string]: unknown }, ctx: Hoo
     controller: AbortController;
   };
   const { hookIndex, hookStates, cleanupFns } = ctx;
-  const fn = descriptor['fn'] as (signal: AbortSignal) => Promise<unknown>;
-  const deps = descriptor['deps'] as unknown[];
+  const fn = descriptor["fn"] as (signal: AbortSignal) => Promise<unknown>;
+  const deps = descriptor["deps"] as unknown[];
   const existing = hookStates[hookIndex] as ResolveState | undefined;
 
   if (!existing || depsChanged(existing.deps, deps)) {

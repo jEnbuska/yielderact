@@ -24,10 +24,10 @@
  * effects or context propagation is processed immediately).
  */
 
-import { _getCtxMap, _setCtxMap } from '../context';
-import { renderState } from './state';
-import { beginPatch, commitPatch, savePatchOps, restorePatchOps } from './patch-queue';
-import type { GenInstance } from './types';
+import { _getCtxMap, _setCtxMap } from "../context";
+import { beginPatch, commitPatch, restorePatchOps, savePatchOps } from "./patch-queue";
+import { renderState } from "./state";
+import type { GenInstance } from "./types";
 
 // ── Scheduler state ──────────────────────────────────────────────────────────
 
@@ -53,7 +53,7 @@ let _activePriority: number | null = null;
 let _syncMode = true;
 
 /** Time budget per work chunk in milliseconds. */
-let _timeSlice = 5;
+const _timeSlice = 5;
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -264,7 +264,7 @@ function _yieldToBrowser(): void {
   const savedCtxMap = _getCtxMap();
   const savedLiveOnlyMode = renderState.liveOnlyMode;
 
-  if (typeof MessageChannel !== 'undefined') {
+  if (typeof MessageChannel !== "undefined") {
     const mc = new MessageChannel();
     mc.port1.onmessage = () => {
       _setCtxMap(savedCtxMap);

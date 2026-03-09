@@ -2,7 +2,7 @@
  * TodoList – a generator component demonstrating array state management
  * with `yield* $state`.
  */
-import { render, $state, $id } from 'yielderact';
+import { $id, $state, render } from "yielderact";
 
 interface Todo {
   id: number;
@@ -24,11 +24,11 @@ export function* TodoList() {
 
   const [state, setState] = yield* $state<TodoState>({
     todos: [
-      { id: 1, text: 'Learn yielderact', done: false },
-      { id: 2, text: 'Build something with generators', done: false },
+      { id: 1, text: "Learn yielderact", done: false },
+      { id: 2, text: "Build something with generators", done: false },
     ],
     nextId: 3,
-    inputValue: '',
+    inputValue: "",
   });
 
   const { todos, nextId, inputValue } = state;
@@ -39,7 +39,7 @@ export function* TodoList() {
     setState({
       todos: [...todos, { id: nextId, text, done: false }],
       nextId: nextId + 1,
-      inputValue: '',
+      inputValue: "",
     });
   }
 
@@ -58,7 +58,7 @@ export function* TodoList() {
         Array state lives in <code>yield* $state</code> — no special reactive primitives needed,
         just plain objects and setters.
       </p>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
         <label htmlFor={inputId}>New todo:</label>
         <input
           id={inputId}
@@ -67,31 +67,31 @@ export function* TodoList() {
           value={inputValue}
           placeholder="New todo…"
           onInput={(e) => {
-            setState({ ...state, inputValue: e.currentTarget?.value ?? '' });
+            setState({ ...state, inputValue: e.currentTarget?.value ?? "" });
           }}
           onKeydown={(e) => {
-            if (e.nativeEvent.key === 'Enter') addTodo();
+            if (e.nativeEvent.key === "Enter") addTodo();
           }}
         />
         <button id={addBtnId} data-testid="add-todo-btn" onClick={addTodo}>
           Add
         </button>
       </div>
-      <ul id={listId} data-testid="todo-list" style={{ listStyle: 'none', padding: 0, margin: 0 }}>
+      <ul id={listId} data-testid="todo-list" style={{ listStyle: "none", padding: 0, margin: 0 }}>
         {todos.map((todo) => (
           <li
             $key={todo.id}
             data-testid={`todo-item-${todo.id}`}
             data-id={todo.id}
             style={{
-              display: 'flex',
-              gap: '0.5rem',
-              alignItems: 'center',
-              marginBottom: '0.35rem',
+              display: "flex",
+              gap: "0.5rem",
+              alignItems: "center",
+              marginBottom: "0.35rem",
             }}
           >
             <input type="checkbox" checked={todo.done} onChange={() => toggleTodo(todo.id)} />
-            <span style={{ textDecoration: todo.done ? 'line-through' : 'none', flex: 1 }}>
+            <span style={{ textDecoration: todo.done ? "line-through" : "none", flex: 1 }}>
               {todo.text}
             </span>
             <button
@@ -109,7 +109,7 @@ export function* TodoList() {
         $shown={todos.length === 0}
         id={emptyMsgId}
         data-testid="empty-message"
-        style={{ color: '#888' }}
+        style={{ color: "#888" }}
       >
         No todos yet. Add one above!
       </p>

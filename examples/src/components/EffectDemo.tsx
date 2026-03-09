@@ -6,7 +6,7 @@
  *   2. A log of effect / cleanup calls to make the lifecycle visible.
  *   3. Toggling the component on/off to observe cleanup on unmount.
  */
-import { $state, $effect } from 'yielderact';
+import { $effect, $state } from "yielderact";
 
 function* Timer() {
   const [tick, setTick] = yield* $state(0);
@@ -32,7 +32,7 @@ function* LifecycleLog({ id }: { id: number }) {
   }, [id]);
 
   return (
-    <ul data-testid="lifecycle-log" style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+    <ul data-testid="lifecycle-log" style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
       {log.map((entry, i) => (
         <li $key={i}>{entry}</li>
       ))}
@@ -52,31 +52,31 @@ export function* EffectDemo() {
 
       <h3>1. Interval timer (effect with cleanup)</h3>
       <p>
-        The timer starts an <code>setInterval</code> in a <code>$effect</code> with <code>[]</code>{' '}
+        The timer starts an <code>setInterval</code> in a <code>$effect</code> with <code>[]</code>{" "}
         deps. The interval is cleared when the component unmounts.
       </p>
       <label
-        style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}
+        style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}
       >
         <input type="checkbox" checked={showTimer} onChange={() => setShowTimer((v) => !v)} />
         Show timer
       </label>
       <Timer $shown={showTimer} />
 
-      <hr style={{ margin: '1.5rem 0' }} />
+      <hr style={{ margin: "1.5rem 0" }} />
 
       <h3>2. Lifecycle log (effect re-runs when deps change)</h3>
       <p>
         Each button changes <code>id</code>. The effect logs ▶ on run and ■ cleanup before the next
         run.
       </p>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
         {[1, 2, 3].map((n) => (
           <button
             $key={n}
             data-testid={`id-btn-${n}`}
             onClick={() => setLogId(n)}
-            style={{ fontWeight: logId === n ? 'bold' : 'normal' }}
+            style={{ fontWeight: logId === n ? "bold" : "normal" }}
           >
             id = {n}
           </button>

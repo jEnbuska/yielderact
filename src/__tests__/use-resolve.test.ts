@@ -1,14 +1,14 @@
-import { createElement } from '../jsx';
-import { render } from '../render';
-import { $state, $resolve, $resolveRaw, $memo } from '../hooks';
+import { $memo, $resolve, $resolveRaw, $state } from "../hooks";
+import { createElement } from "../jsx";
+import { render } from "../render";
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe('render – generator components with $resolve', () => {
+describe("render – generator components with $resolve", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
-    container = document.createElement('div');
+    container = document.createElement("div");
     document.body.appendChild(container);
   });
 
@@ -16,7 +16,7 @@ describe('render – generator components with $resolve', () => {
     document.body.removeChild(container);
   });
 
-  it('shows loading state while promise is pending', async () => {
+  it("shows loading state while promise is pending", async () => {
     let resolvePromise!: (data: string) => void;
     const promise = new Promise<string>((res) => {
       resolvePromise = res;
@@ -26,27 +26,27 @@ describe('render – generator components with $resolve', () => {
       const data = yield* $resolve(
         {
           fn: (_signal) => promise,
-          loading: createElement('span', { id: 'loading' }, 'Loading…'),
-          error: createElement('span', { id: 'error' }, 'Error'),
+          loading: createElement("span", { id: "loading" }, "Loading…"),
+          error: createElement("span", { id: "error" }, "Error"),
         },
         [],
       );
-      return createElement('span', { id: 'data' }, data);
+      return createElement("span", { id: "data" }, data);
     }
 
     render(createElement(DataComp as never, {}), container);
-    expect(container.querySelector('#loading')).not.toBeNull();
-    expect(container.querySelector('#data')).toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
+    expect(container.querySelector("#data")).toBeNull();
 
-    resolvePromise('Hello World');
+    resolvePromise("Hello World");
     await promise;
 
-    expect(container.querySelector('#loading')).toBeNull();
-    expect(container.querySelector('#data')).not.toBeNull();
-    expect(container.querySelector('#data')!.textContent).toBe('Hello World');
+    expect(container.querySelector("#loading")).toBeNull();
+    expect(container.querySelector("#data")).not.toBeNull();
+    expect(container.querySelector("#data")!.textContent).toBe("Hello World");
   });
 
-  it('shows error state when promise rejects', async () => {
+  it("shows error state when promise rejects", async () => {
     let rejectPromise!: (reason: unknown) => void;
     const promise = new Promise<string>((_res, rej) => {
       rejectPromise = rej;
@@ -56,25 +56,25 @@ describe('render – generator components with $resolve', () => {
       const data = yield* $resolve(
         {
           fn: (_signal) => promise,
-          loading: createElement('span', { id: 'loading' }, 'Loading…'),
-          error: createElement('span', { id: 'error' }, 'Error'),
+          loading: createElement("span", { id: "loading" }, "Loading…"),
+          error: createElement("span", { id: "error" }, "Error"),
         },
         [],
       );
-      return createElement('span', { id: 'data' }, data);
+      return createElement("span", { id: "data" }, data);
     }
 
     render(createElement(DataComp as never, {}), container);
-    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
 
-    rejectPromise(new Error('network error'));
+    rejectPromise(new Error("network error"));
     await promise.catch(() => {}); // wait for rejection to propagate
 
-    expect(container.querySelector('#error')).not.toBeNull();
-    expect(container.querySelector('#data')).toBeNull();
+    expect(container.querySelector("#error")).not.toBeNull();
+    expect(container.querySelector("#data")).toBeNull();
   });
 
-  it('$resolve can coexist with $state in the same component', async () => {
+  it("$resolve can coexist with $state in the same component", async () => {
     let resolvePromise!: (data: string) => void;
     const promise = new Promise<string>((res) => {
       resolvePromise = res;
@@ -82,32 +82,32 @@ describe('render – generator components with $resolve', () => {
     let setLabel: ((v: string) => void) | null = null;
 
     function* DataComp() {
-      const [label, sl] = yield* $state('prefix');
+      const [label, sl] = yield* $state("prefix");
       setLabel = sl;
       const data = yield* $resolve(
         {
           fn: (_signal) => promise,
-          loading: createElement('span', { id: 'loading' }, 'Loading…'),
-          error: createElement('span', null, 'Error'),
+          loading: createElement("span", { id: "loading" }, "Loading…"),
+          error: createElement("span", null, "Error"),
         },
         [],
       );
-      return createElement('p', { id: 'result' }, `${label}:${data}`);
+      return createElement("p", { id: "result" }, `${label}:${data}`);
     }
 
     render(createElement(DataComp as never, {}), container);
-    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
 
-    resolvePromise('world');
+    resolvePromise("world");
     await promise;
 
-    expect(container.querySelector('#result')!.textContent).toBe('prefix:world');
+    expect(container.querySelector("#result")!.textContent).toBe("prefix:world");
 
-    setLabel!('updated');
-    expect(container.querySelector('#result')!.textContent).toBe('updated:world');
+    setLabel!("updated");
+    expect(container.querySelector("#result")!.textContent).toBe("updated:world");
   });
 
-  it('$state change while promise is pending triggers fresh run and shows correct state after resolve', async () => {
+  it("$state change while promise is pending triggers fresh run and shows correct state after resolve", async () => {
     let resolvePromise!: (data: string) => void;
     const promise = new Promise<string>((res) => {
       resolvePromise = res;
@@ -115,35 +115,35 @@ describe('render – generator components with $resolve', () => {
     let setLabel: ((v: string) => void) | null = null;
 
     function* DataComp() {
-      const [label, sl] = yield* $state('prefix');
+      const [label, sl] = yield* $state("prefix");
       setLabel = sl;
       const data = yield* $resolve(
         {
           fn: (_signal) => promise,
-          loading: createElement('span', { id: 'loading' }, 'Loading…'),
-          error: createElement('span', null, 'Error'),
+          loading: createElement("span", { id: "loading" }, "Loading…"),
+          error: createElement("span", null, "Error"),
         },
         [],
       );
-      return createElement('p', { id: 'result' }, `${label}:${data}`);
+      return createElement("p", { id: "result" }, `${label}:${data}`);
     }
 
     render(createElement(DataComp as never, {}), container);
-    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
 
     // Change state WHILE the promise is still pending
-    setLabel!('updated');
+    setLabel!("updated");
     // Still loading, but label should be reflected after resolve
-    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
 
-    resolvePromise('world');
+    resolvePromise("world");
     await promise;
 
     // The fresh run after setLabel captured 'updated'; resume uses that generator
-    expect(container.querySelector('#result')!.textContent).toBe('updated:world');
+    expect(container.querySelector("#result")!.textContent).toBe("updated:world");
   });
 
-  it('$resolve re-runs when deps change', async () => {
+  it("$resolve re-runs when deps change", async () => {
     let resolveFirst!: (data: string) => void;
     let resolveSecond!: (data: string) => void;
     const firstPromise = new Promise<string>((res) => {
@@ -165,33 +165,33 @@ describe('render – generator components with $resolve', () => {
             fetchCount++;
             return id === 1 ? firstPromise : secondPromise;
           },
-          loading: createElement('span', { id: 'loading' }, 'Loading…'),
-          error: createElement('span', null, 'Error'),
+          loading: createElement("span", { id: "loading" }, "Loading…"),
+          error: createElement("span", null, "Error"),
         },
         [id],
       );
-      return createElement('p', { id: 'result' }, `${id}:${data}`);
+      return createElement("p", { id: "result" }, `${id}:${data}`);
     }
 
     render(createElement(DataComp as never, {}), container);
     expect(fetchCount).toBe(1);
-    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
 
-    resolveFirst('user1');
+    resolveFirst("user1");
     await firstPromise;
-    expect(container.querySelector('#result')!.textContent).toBe('1:user1');
+    expect(container.querySelector("#result")!.textContent).toBe("1:user1");
 
     // Change the dep – should re-run the promise
     setId!(2);
     expect(fetchCount).toBe(2);
-    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
 
-    resolveSecond('user2');
+    resolveSecond("user2");
     await secondPromise;
-    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+    expect(container.querySelector("#result")!.textContent).toBe("2:user2");
   });
 
-  it('stale promise result is ignored when deps change before it resolves', async () => {
+  it("stale promise result is ignored when deps change before it resolves", async () => {
     let resolveFirst!: (data: string) => void;
     let resolveSecond!: (data: string) => void;
     const firstPromise = new Promise<string>((res) => {
@@ -209,33 +209,33 @@ describe('render – generator components with $resolve', () => {
       const data = yield* $resolve(
         {
           fn: (_signal) => (id === 1 ? firstPromise : secondPromise),
-          loading: createElement('span', { id: 'loading' }, 'Loading…'),
-          error: createElement('span', null, 'Error'),
+          loading: createElement("span", { id: "loading" }, "Loading…"),
+          error: createElement("span", null, "Error"),
         },
         [id],
       );
-      return createElement('p', { id: 'result' }, `${id}:${data}`);
+      return createElement("p", { id: "result" }, `${id}:${data}`);
     }
 
     render(createElement(DataComp as never, {}), container);
-    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
 
     // Change dep before first promise resolves
     setId!(2);
-    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
 
     // Resolve second promise first
-    resolveSecond('user2');
+    resolveSecond("user2");
     await secondPromise;
-    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+    expect(container.querySelector("#result")!.textContent).toBe("2:user2");
 
     // Now resolve the stale first promise – should NOT update the DOM
-    resolveFirst('user1');
+    resolveFirst("user1");
     await firstPromise;
-    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+    expect(container.querySelector("#result")!.textContent).toBe("2:user2");
   });
 
-  it('aborts the previous AbortSignal when deps change', async () => {
+  it("aborts the previous AbortSignal when deps change", async () => {
     const abortedSignals: AbortSignal[] = [];
     let setId: ((v: number) => void) | null = null;
 
@@ -245,15 +245,15 @@ describe('render – generator components with $resolve', () => {
       yield* $resolve(
         {
           fn: (signal) => {
-            signal.addEventListener('abort', () => abortedSignals.push(signal));
+            signal.addEventListener("abort", () => abortedSignals.push(signal));
             return new Promise(() => {}); // never resolves
           },
-          loading: createElement('span', { id: 'loading' }, 'Loading…'),
-          error: createElement('span', null, 'Error'),
+          loading: createElement("span", { id: "loading" }, "Loading…"),
+          error: createElement("span", null, "Error"),
         },
         [id],
       );
-      return createElement('span', {}, 'done');
+      return createElement("span", {}, "done");
     }
 
     render(createElement(DataComp as never, {}), container);
@@ -262,10 +262,10 @@ describe('render – generator components with $resolve', () => {
     // Changing deps should abort the first signal and start a new fetch.
     setId!(2);
     expect(abortedSignals).toHaveLength(1);
-    expect(abortedSignals[0].aborted).toBe(true);
+    expect(abortedSignals[0]!.aborted).toBe(true);
   });
 
-  it('aborts the AbortSignal when the component unmounts', async () => {
+  it("aborts the AbortSignal when the component unmounts", async () => {
     let capturedSignal: AbortSignal | null = null;
     let setShow: ((v: boolean) => void) | null = null;
 
@@ -276,12 +276,12 @@ describe('render – generator components with $resolve', () => {
             capturedSignal = signal;
             return new Promise(() => {}); // never resolves
           },
-          loading: createElement('span', { id: 'loading' }, 'Loading…'),
-          error: createElement('span', null, 'Error'),
+          loading: createElement("span", { id: "loading" }, "Loading…"),
+          error: createElement("span", null, "Error"),
         },
         [],
       );
-      return createElement('span', {}, 'done');
+      return createElement("span", {}, "done");
     }
 
     function* Outer() {
@@ -300,11 +300,11 @@ describe('render – generator components with $resolve', () => {
   });
 });
 
-describe('render – generator components with $resolveRaw', () => {
+describe("render – generator components with $resolveRaw", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
-    container = document.createElement('div');
+    container = document.createElement("div");
     document.body.appendChild(container);
   });
 
@@ -312,7 +312,7 @@ describe('render – generator components with $resolveRaw', () => {
     document.body.removeChild(container);
   });
 
-  it('renders loading state while promise is pending', async () => {
+  it("renders loading state while promise is pending", async () => {
     let resolvePromise!: (data: string) => void;
     const promise = new Promise<string>((res) => {
       resolvePromise = res;
@@ -321,23 +321,23 @@ describe('render – generator components with $resolveRaw', () => {
     function* DataComp() {
       const p = yield* $memo(() => promise, []);
       const { data, loading } = yield* $resolveRaw<string>(p);
-      if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
-      return createElement('span', { id: 'data' }, data);
+      if (loading) return createElement("span", { id: "loading" }, "Loading…");
+      return createElement("span", { id: "data" }, data);
     }
 
     render(createElement(DataComp as never, {}), container);
-    expect(container.querySelector('#loading')).not.toBeNull();
-    expect(container.querySelector('#data')).toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
+    expect(container.querySelector("#data")).toBeNull();
 
-    resolvePromise('Hello');
+    resolvePromise("Hello");
     await promise;
 
-    expect(container.querySelector('#loading')).toBeNull();
-    expect(container.querySelector('#data')).not.toBeNull();
-    expect(container.querySelector('#data')!.textContent).toBe('Hello');
+    expect(container.querySelector("#loading")).toBeNull();
+    expect(container.querySelector("#data")).not.toBeNull();
+    expect(container.querySelector("#data")!.textContent).toBe("Hello");
   });
 
-  it('renders error state when promise rejects', async () => {
+  it("renders error state when promise rejects", async () => {
     let rejectPromise!: (reason: unknown) => void;
     const promise = new Promise<string>((_res, rej) => {
       rejectPromise = rej;
@@ -346,23 +346,23 @@ describe('render – generator components with $resolveRaw', () => {
     function* DataComp() {
       const p = yield* $memo(() => promise, []);
       const { data, loading, error } = yield* $resolveRaw<string, Error>(p);
-      if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
-      if (error) return createElement('span', { id: 'error' }, error.message);
-      return createElement('span', { id: 'data' }, data);
+      if (loading) return createElement("span", { id: "loading" }, "Loading…");
+      if (error) return createElement("span", { id: "error" }, error.message);
+      return createElement("span", { id: "data" }, data);
     }
 
     render(createElement(DataComp as never, {}), container);
-    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
 
-    rejectPromise(new Error('network error'));
+    rejectPromise(new Error("network error"));
     await promise.catch(() => {});
 
-    expect(container.querySelector('#error')).not.toBeNull();
-    expect(container.querySelector('#error')!.textContent).toBe('network error');
-    expect(container.querySelector('#data')).toBeNull();
+    expect(container.querySelector("#error")).not.toBeNull();
+    expect(container.querySelector("#error")!.textContent).toBe("network error");
+    expect(container.querySelector("#data")).toBeNull();
   });
 
-  it('re-fetches when the promise reference changes', async () => {
+  it("re-fetches when the promise reference changes", async () => {
     let resolveFirst!: (data: string) => void;
     let resolveSecond!: (data: string) => void;
     const firstPromise = new Promise<string>((res) => {
@@ -378,26 +378,26 @@ describe('render – generator components with $resolveRaw', () => {
       setId = si;
       const p = yield* $memo(() => (id === 1 ? firstPromise : secondPromise), [id]);
       const { data, loading } = yield* $resolveRaw<string>(p);
-      if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
-      return createElement('p', { id: 'result' }, `${id}:${data}`);
+      if (loading) return createElement("span", { id: "loading" }, "Loading…");
+      return createElement("p", { id: "result" }, `${id}:${data}`);
     }
 
     render(createElement(DataComp as never, {}), container);
-    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
 
-    resolveFirst('user1');
+    resolveFirst("user1");
     await firstPromise;
-    expect(container.querySelector('#result')!.textContent).toBe('1:user1');
+    expect(container.querySelector("#result")!.textContent).toBe("1:user1");
 
     setId!(2);
-    expect(container.querySelector('#loading')).not.toBeNull();
+    expect(container.querySelector("#loading")).not.toBeNull();
 
-    resolveSecond('user2');
+    resolveSecond("user2");
     await secondPromise;
-    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+    expect(container.querySelector("#result")!.textContent).toBe("2:user2");
   });
 
-  it('ignores stale promise result when promise reference changes', async () => {
+  it("ignores stale promise result when promise reference changes", async () => {
     let resolveFirst!: (data: string) => void;
     let resolveSecond!: (data: string) => void;
     const firstPromise = new Promise<string>((res) => {
@@ -413,21 +413,21 @@ describe('render – generator components with $resolveRaw', () => {
       setId = si;
       const p = yield* $memo(() => (id === 1 ? firstPromise : secondPromise), [id]);
       const { data, loading } = yield* $resolveRaw<string>(p);
-      if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
-      return createElement('p', { id: 'result' }, `${id}:${data}`);
+      if (loading) return createElement("span", { id: "loading" }, "Loading…");
+      return createElement("p", { id: "result" }, `${id}:${data}`);
     }
 
     render(createElement(DataComp as never, {}), container);
 
     setId!(2);
 
-    resolveSecond('user2');
+    resolveSecond("user2");
     await secondPromise;
-    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+    expect(container.querySelector("#result")!.textContent).toBe("2:user2");
 
-    resolveFirst('user1');
+    resolveFirst("user1");
     await firstPromise;
     // Stale result must not overwrite the current render
-    expect(container.querySelector('#result')!.textContent).toBe('2:user2');
+    expect(container.querySelector("#result")!.textContent).toBe("2:user2");
   });
 });

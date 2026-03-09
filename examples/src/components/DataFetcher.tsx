@@ -6,7 +6,7 @@
  * if it rejects).  Once resolved, execution continues and the component
  * returns its final JSX.
  */
-import { render, $resolve, $resolveRaw, $memo, $id, $state } from 'yielderact';
+import { $id, $memo, $resolve, $resolveRaw, $state, render } from "yielderact";
 
 interface User {
   id: number;
@@ -18,18 +18,18 @@ interface User {
 async function fetchUser(signal: AbortSignal): Promise<User> {
   await new Promise((resolve, reject) => {
     const t = setTimeout(resolve, 1500);
-    signal.addEventListener('abort', () => {
+    signal.addEventListener("abort", () => {
       clearTimeout(t);
-      reject(new DOMException('Aborted', 'AbortError'));
+      reject(new DOMException("Aborted", "AbortError"));
     });
   });
-  return { id: 1, name: 'Jane Doe', email: 'jane@example.com' };
+  return { id: 1, name: "Jane Doe", email: "jane@example.com" };
 }
 
 function* Spinner() {
   const id = yield* $id();
   return (
-    <p id={id} data-testid="loading-message" style={{ color: '#888', fontStyle: 'italic' }}>
+    <p id={id} data-testid="loading-message" style={{ color: "#888", fontStyle: "italic" }}>
       Loading user data…
     </p>
   );
@@ -38,7 +38,7 @@ function* Spinner() {
 function* ErrorMessage() {
   const id = yield* $id();
   return (
-    <p id={id} data-testid="error-message" style={{ color: '#c00' }}>
+    <p id={id} data-testid="error-message" style={{ color: "#c00" }}>
       Failed to load data. Please try again.
     </p>
   );
@@ -67,10 +67,10 @@ export function* DataFetcher() {
         id={userDataId}
         data-testid="user-data"
         style={{
-          padding: '0.75rem',
-          background: '#f5f5f5',
-          borderRadius: '4px',
-          fontFamily: 'monospace',
+          padding: "0.75rem",
+          background: "#f5f5f5",
+          borderRadius: "4px",
+          fontFamily: "monospace",
         }}
       >
         <div>
@@ -90,7 +90,7 @@ export function* DataFetcher() {
 
 async function fetchPost(id: number): Promise<{ id: number; title: string; body: string }> {
   await new Promise((resolve) => setTimeout(resolve, 800));
-  if (id === 0) throw new Error('Invalid post ID');
+  if (id === 0) throw new Error("Invalid post ID");
   return { id, title: `Post #${id}`, body: `This is the content of post number ${id}.` };
 }
 
@@ -103,7 +103,7 @@ export function* ResolveRawDemo() {
   >(promise);
 
   return (
-    <section aria-label="$resolveRaw demo" style={{ marginTop: '2rem' }}>
+    <section aria-label="$resolveRaw demo" style={{ marginTop: "2rem" }}>
       <h2>
         <code>$resolveRaw</code>
       </h2>
@@ -111,31 +111,31 @@ export function* ResolveRawDemo() {
         Low-level async hook — returns <code>{`{ data, loading, error }`}</code> directly so the
         component controls rendering at each stage.
       </p>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
+      <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
         {[1, 2, 3, 0].map((id) => (
           <button
             $key={id}
             data-testid={`post-btn-${id}`}
             onClick={() => setPostId(id)}
-            style={{ fontWeight: postId === id ? 'bold' : 'normal' }}
+            style={{ fontWeight: postId === id ? "bold" : "normal" }}
           >
-            {id === 0 ? 'Error' : `Post ${id}`}
+            {id === 0 ? "Error" : `Post ${id}`}
           </button>
         ))}
       </div>
-      <p $shown={loading} data-testid="raw-loading" style={{ color: '#888', fontStyle: 'italic' }}>
+      <p $shown={loading} data-testid="raw-loading" style={{ color: "#888", fontStyle: "italic" }}>
         Loading…
       </p>
-      <p $shown={!!error} data-testid="raw-error" style={{ color: '#c00' }}>
+      <p $shown={!!error} data-testid="raw-error" style={{ color: "#c00" }}>
         Error: {error?.message}
       </p>
       <div
         $shown={!!data}
         data-testid="raw-data"
-        style={{ padding: '0.75rem', background: '#f5f5f5', borderRadius: '4px' }}
+        style={{ padding: "0.75rem", background: "#f5f5f5", borderRadius: "4px" }}
       >
         <strong>{data?.title}</strong>
-        <p style={{ margin: '0.4rem 0 0' }}>{data?.body}</p>
+        <p style={{ margin: "0.4rem 0 0" }}>{data?.body}</p>
       </div>
     </section>
   );

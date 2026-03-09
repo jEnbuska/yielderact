@@ -22,50 +22,55 @@
  * render(<Counter />, document.getElementById('root')!);
  * ```
  */
-export { createElement, Fragment } from './jsx';
-export type { SpecialProps } from './jsx';
-export { render, createRoot, startUIPatch, commitUIPatch, flushSync } from './render';
-export type { Root } from './render';
-export { createContext, $context } from './context';
+
+export type { Context } from "./context";
+export { $context, createContext } from "./context";
+export type { SEvent, SyntheticEvent } from "./events";
+export type {
+  RefObject,
+  Renderable,
+  ResolveRawResult,
+  UseRenderFn,
+  UseResolveOptions,
+} from "./hooks";
 export {
-  $state,
   $effect,
-  $resolve,
-  $resolveRaw,
-  $ref,
   $id,
   $memo,
-  $render,
-  $resume,
-  $uiPatch,
   $patchContext,
-} from './hooks';
-export type { VNode, Child, GeneratorComponentFn, PlainComponentFn, AnyComponentFn } from './jsx';
-export type { Context } from './context';
-export type { SyntheticEvent, SEvent } from './events';
+  $ref,
+  $render,
+  $resolve,
+  $resolveRaw,
+  $resume,
+  $state,
+  $uiPatch,
+} from "./hooks";
 export type {
-  UseResolveOptions,
-  Renderable,
-  RefObject,
-  UseRenderFn,
-  ResolveRawResult,
-} from './hooks';
+  AnyComponentFn,
+  Child,
+  GeneratorComponentFn,
+  PlainComponentFn,
+  SpecialProps,
+  VNode,
+} from "./jsx";
+export { createElement, Fragment } from "./jsx";
 export type {
-  CSSProperties,
-  EventHandlers,
-  AriaAttributes,
-  HTMLAttributes,
   AnchorHTMLAttributes,
   AreaHTMLAttributes,
+  AriaAttributes,
   AudioHTMLAttributes,
   ButtonHTMLAttributes,
   CanvasHTMLAttributes,
   ColHTMLAttributes,
+  CSSProperties,
   DetailsHTMLAttributes,
   DialogHTMLAttributes,
   EmbedHTMLAttributes,
+  EventHandlers,
   FieldsetHTMLAttributes,
   FormHTMLAttributes,
+  HTMLAttributes,
   IframeHTMLAttributes,
   ImgHTMLAttributes,
   InputHTMLAttributes,
@@ -85,6 +90,8 @@ export type {
   SlotHTMLAttributes,
   SourceHTMLAttributes,
   StyleHTMLAttributes,
+  SVGAttributes,
+  SvgHTMLAttributes,
   TableHTMLAttributes,
   TdHTMLAttributes,
   TextareaHTMLAttributes,
@@ -92,6 +99,6 @@ export type {
   TimeHTMLAttributes,
   TrackHTMLAttributes,
   VideoHTMLAttributes,
-  SVGAttributes,
-  SvgHTMLAttributes,
-} from './jsx-types';
+} from "./jsx-types";
+export type { Root } from "./render";
+export { commitUIPatch, createRoot, flushSync, render, startUIPatch } from "./render";
