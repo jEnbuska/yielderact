@@ -1,6 +1,6 @@
 import { createElement, Fragment } from '../jsx';
 import { render } from '../render';
-import { useState } from '../hooks';
+import { $state } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
@@ -54,7 +54,7 @@ describe('prop memoization', () => {
     }
 
     function* Parent() {
-      const [phase, sp] = yield* useState(0);
+      const [phase, sp] = yield* $state(0);
       setPhase = sp;
       return createElement(
         'div',
@@ -120,7 +120,7 @@ describe('component renders component', () => {
     let parentRerender: (() => void) | null = null;
 
     function* Counter() {
-      const [count, setCount] = yield* useState(0);
+      const [count, setCount] = yield* $state(0);
       incrementCounter = () => setCount(count + 1);
       return createElement('span', { id: 'counter' }, String(count));
     }
@@ -154,7 +154,7 @@ describe('component renders component', () => {
     }
 
     function* Parent() {
-      const [phase, sp] = yield* useState(0);
+      const [phase, sp] = yield* $state(0);
       setPhase = sp;
       return createElement(
         'div',
@@ -176,7 +176,7 @@ describe('component renders component', () => {
     let setStep: ((v: number) => void) | null = null;
 
     function* App() {
-      const [step, ss] = yield* useState(0);
+      const [step, ss] = yield* $state(0);
       setStep = ss;
       return step === 0
         ? createElement('p', { className: 'first' }, 'hello')

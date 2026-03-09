@@ -1,10 +1,10 @@
 import { createElement } from '../jsx';
 import { render } from '../render';
-import { useState } from '../hooks';
+import { $state } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe('useState', () => {
+describe('$state', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -22,7 +22,7 @@ describe('useState', () => {
     let setValue: ((v: number) => void) | null = null;
 
     function* Comp() {
-      const [v, sv] = yield* useState(init);
+      const [v, sv] = yield* $state(init);
       capturedValue = v;
       setValue = sv;
       return createElement('div', null);
@@ -43,7 +43,7 @@ describe('useState', () => {
     let setValue: ((v: number | ((prev: number) => number)) => void) | null = null;
 
     function* Comp() {
-      const [v, sv] = yield* useState(0);
+      const [v, sv] = yield* $state(0);
       values.push(v);
       setValue = sv;
       return createElement('div', null);

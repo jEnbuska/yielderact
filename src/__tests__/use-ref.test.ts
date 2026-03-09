@@ -1,10 +1,10 @@
 import { createElement } from '../jsx';
 import { render } from '../render';
-import { useState, useRef } from '../hooks';
+import { $state, $ref } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe('useRef', () => {
+describe('$ref', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -20,7 +20,7 @@ describe('useRef', () => {
     let capturedRef: { current: number } | null = null;
 
     function* Comp() {
-      const ref = yield* useRef(42);
+      const ref = yield* $ref(42);
       capturedRef = ref;
       return createElement('div', null);
     }
@@ -35,9 +35,9 @@ describe('useRef', () => {
     let setValue: ((v: number) => void) | null = null;
 
     function* Comp() {
-      const [, sv] = yield* useState(0);
+      const [, sv] = yield* $state(0);
       setValue = sv;
-      const ref = yield* useRef(0);
+      const ref = yield* $ref(0);
       refInstances.push(ref);
       return createElement('div', null);
     }
@@ -55,7 +55,7 @@ describe('useRef', () => {
 
     function* Comp() {
       renderCount++;
-      const ref = yield* useRef(0);
+      const ref = yield* $ref(0);
       capturedRef = ref;
       return createElement('div', null);
     }

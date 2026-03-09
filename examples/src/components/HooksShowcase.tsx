@@ -1,12 +1,12 @@
 /**
  * HooksShowcase – demonstrates three built-in hooks in one component:
  *
- *  • useId   – connects a <label> to its <input> with a stable unique id.
- *  • useMemo – recomputes a filtered list only when the search query changes.
- *  • useRef  – tracks how many times the component has rendered without
- *              triggering a re-render on mutation.
+ *  • $id   – connects a <label> to its <input> with a stable unique id.
+ *  • $memo – recomputes a filtered list only when the search query changes.
+ *  • $ref  – tracks how many times the component has rendered without
+ *            triggering a re-render on mutation.
  */
-import { useId, useMemo, useRef, useState } from 'yielderact';
+import { $id, $memo, $ref, $state } from 'yielderact';
 
 const FRUITS = [
   'Apple',
@@ -24,19 +24,19 @@ const FRUITS = [
 ];
 
 export function* HooksShowcase() {
-  // useId: stable unique ID used to associate the <label> with the <input>
-  const inputId = yield* useId();
+  // $id: stable unique ID used to associate the <label> with the <input>
+  const inputId = yield* $id();
 
-  const [query, setQuery] = yield* useState('');
+  const [query, setQuery] = yield* $state('');
 
-  // useRef: mutable counter that persists across renders without causing them
-  const renderCount = yield* useRef(0);
+  // $ref: mutable counter that persists across renders without causing them
+  const renderCount = yield* $ref(0);
   renderCount.current += 1;
 
-  // useMemo: deps are forwarded as arguments to the factory — `searchQuery`
+  // $memo: deps are forwarded as arguments to the factory — `searchQuery`
   // receives the current value of `query` and the list only recomputes when
   // the query changes (yielderact's unique dep-forwarding behaviour).
-  const filtered = yield* useMemo(
+  const filtered = yield* $memo(
     (searchQuery: string) =>
       FRUITS.filter((fruit) => fruit.toLowerCase().includes(searchQuery.toLowerCase())),
     [query],
@@ -46,11 +46,11 @@ export function* HooksShowcase() {
     <section aria-label="Hooks showcase">
       <h2>Hooks Showcase</h2>
       <p>
-        Demonstrates <code>useId</code>, <code>useMemo</code>, and <code>useRef</code> together in
-        one component.
+        Demonstrates <code>$id</code>, <code>$memo</code>, and <code>$ref</code> together in one
+        component.
       </p>
 
-      {/* useId: the generated id wires the <label> to the <input> */}
+      {/* $id: the generated id wires the <label> to the <input> */}
       <div style={{ marginBottom: '0.75rem' }}>
         <label data-testid="hooks-search-label" htmlFor={inputId} style={{ marginRight: '0.5rem' }}>
           Search fruits:
@@ -65,13 +65,13 @@ export function* HooksShowcase() {
         />
       </div>
 
-      {/* useMemo: filtered list, only recomputed when query changes */}
+      {/* $memo: filtered list, only recomputed when query changes */}
       <ul
         data-testid="hooks-fruit-list"
         style={{ listStyle: 'disc', paddingLeft: '1.25rem', margin: '0 0 0.5rem' }}
       >
         {filtered.map((fruit) => (
-          <li key={fruit} data-testid={`fruit-${fruit.toLowerCase()}`}>
+          <li $key={fruit} data-testid={`fruit-${fruit.toLowerCase()}`}>
             {fruit}
           </li>
         ))}
@@ -80,12 +80,12 @@ export function* HooksShowcase() {
         No fruits match "{query}".
       </p>
 
-      {/* useRef: render count is tracked without triggering a re-render */}
+      {/* $ref: render count is tracked without triggering a re-render */}
       <p
         data-testid="hooks-render-count"
         style={{ marginTop: '0.75rem', color: '#666', fontSize: '0.85rem' }}
       >
-        Component has rendered {renderCount.current} time(s) — tracked with <code>useRef</code>{' '}
+        Component has rendered {renderCount.current} time(s) — tracked with <code>$ref</code>{' '}
         (mutations do not cause a re-render).
       </p>
     </section>

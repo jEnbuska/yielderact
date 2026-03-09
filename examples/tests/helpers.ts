@@ -12,15 +12,16 @@ const tabIds: Record<string, string> = {
   'Todo List': 'tab-todos',
   'Context / Theme': 'tab-theme',
   'Data Fetcher': 'tab-data',
-  useResolveRaw: 'tab-raw',
+  $resolveRaw: 'tab-raw',
   'Hooks Showcase': 'tab-hooks',
   '$shown prop': 'tab-shown',
-  useRender: 'tab-confirm',
-  useEffect: 'tab-effect',
+  $render: 'tab-confirm',
+  $effect: 'tab-effect',
   'UI Patch': 'tab-transition',
   'Context Scoping': 'tab-context',
   'Lazy Context': 'tab-lazy-ctx',
   'AbortSignal Effect': 'tab-abort-signal',
+  'Key Shuffle': 'tab-key-shuffle',
 };
 
 /** Click the tab with the given label. */

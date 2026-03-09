@@ -1,4 +1,4 @@
-import { USE_UI_PATCH } from './symbols';
+import { $UI_PATCH, type HookContext } from './symbols';
 
 /**
  * Returns a stable `startPatch` function that begins a **local** UI patch
@@ -20,8 +20,8 @@ import { USE_UI_PATCH } from './symbols';
  *
  * @example
  * function* PageComponent(_props: object) {
- *   const [page, setPage] = yield* useState('home');
- *   const startPatch = yield* useUIPatch();
+ *   const [page, setPage] = yield* $state('home');
+ *   const startPatch = yield* $uiPatch();
  *
  *   const navigate = async (next: string) => {
  *     const commit = startPatch();
@@ -37,7 +37,29 @@ import { USE_UI_PATCH } from './symbols';
  *   return <main>...</main>;
  * }
  */
-export function* useUIPatch(): Generator<unknown, () => () => void, unknown> {
-  const startPatch = yield { type: USE_UI_PATCH };
+export function* $uiPatch(): Generator<unknown, () => () => void, unknown> {
+  const startPatch = yield { type: $UI_PATCH };
   return startPatch as () => () => void;
+}
+
+/** @internal */
+export function _processUIPatch(ctx: HookContext): unknown {
+  const { hookIndex, hookStates, instance, collectDescendants, flushPendingVNodes } = ctx;
+  if (!(hookIndex in hookStates)) {
+    hookStates[hookIndex] = (): (() => void) => {
+      const snapshot = collectDescendants(instance);
+
+      instance.localPatchRefCount++;
+      for (const inst of snapshot) inst.localPatchRefCount++;
+
+      return (): void => {
+        instance.localPatchRefCount = Math.max(0, instance.localPatchRefCount - 1);
+        for (const inst of snapshot) {
+          inst.localPatchRefCount = Math.max(0, inst.localPatchRefCount - 1);
+        }
+        flushPendingVNodes([instance, ...snapshot]);
+      };
+    };
+  }
+  return hookStates[hookIndex];
 }

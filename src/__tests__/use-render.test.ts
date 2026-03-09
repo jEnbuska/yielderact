@@ -1,10 +1,10 @@
 import { createElement } from '../jsx';
 import { render } from '../render';
-import { useState, useRender, useResume } from '../hooks';
+import { $state, $render, $resume } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe('useRender (Variant 2 – inline function)', () => {
+describe('$render (Variant 2 – inline function)', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -21,7 +21,7 @@ describe('useRender (Variant 2 – inline function)', () => {
     let finalText: string | null = null;
 
     function* Comp() {
-      const answer = yield* useRender<string>(({ resume }) => {
+      const answer = yield* $render<string>(({ resume }) => {
         capturedResume = resume;
         return createElement('span', null, 'waiting');
       }, []);
@@ -48,7 +48,7 @@ describe('useRender (Variant 2 – inline function)', () => {
     let finalValue: number | null = null;
 
     function* Comp() {
-      const v = yield* useRender<number>(({ resume }) => {
+      const v = yield* $render<number>(({ resume }) => {
         capturedResume = resume;
         return createElement('span', null);
       }, []);
@@ -71,9 +71,9 @@ describe('useRender (Variant 2 – inline function)', () => {
     let renderCount = 0;
 
     function* Comp() {
-      const [, sv] = yield* useState(0);
+      const [, sv] = yield* $state(0);
       setVal = sv;
-      yield* useRender<boolean>(({ resume }) => {
+      yield* $render<boolean>(({ resume }) => {
         renderCount++;
         capturedResume = resume;
         return createElement('span', null);
@@ -99,9 +99,9 @@ describe('useRender (Variant 2 – inline function)', () => {
     let resolveCount = 0;
 
     function* Comp() {
-      const [dep, sd] = yield* useState(0);
+      const [dep, sd] = yield* $state(0);
       setDep = sd;
-      yield* useRender<string>(
+      yield* $render<string>(
         ({ resume }) => {
           capturedResume = resume;
           return createElement('span', null, String(dep));
@@ -127,7 +127,7 @@ describe('useRender (Variant 2 – inline function)', () => {
   });
 });
 
-describe('useRender (Variant 1 – JSX child with useResume)', () => {
+describe('$render (Variant 1 – JSX child with $resume)', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -139,18 +139,18 @@ describe('useRender (Variant 1 – JSX child with useResume)', () => {
     document.body.removeChild(container);
   });
 
-  it('child component receives resume via useResume and can resolve the parent', () => {
+  it('child component receives resume via $resume and can resolve the parent', () => {
     let capturedResume: ((v: string) => void) | null = null;
     let finalAnswer: string | null = null;
 
     function* Dialog() {
-      const resume = yield* useResume<string>();
+      const resume = yield* $resume<string>();
       capturedResume = resume;
       return createElement('span', null, 'dialog');
     }
 
     function* Parent() {
-      const answer = yield* useRender<string>(createElement(Dialog as never, {}));
+      const answer = yield* $render<string>(createElement(Dialog as never, {}));
       finalAnswer = answer;
       return createElement('p', null, answer);
     }
@@ -173,15 +173,15 @@ describe('useRender (Variant 1 – JSX child with useResume)', () => {
 
     function* Dialog() {
       mountCount++;
-      const resume = yield* useResume<string>();
+      const resume = yield* $resume<string>();
       capturedResume = resume;
       return createElement('span', null, 'dialog');
     }
 
     function* Parent() {
-      const [, sv] = yield* useState(0);
+      const [, sv] = yield* $state(0);
       setVal = sv;
-      yield* useRender<string>(createElement(Dialog as never, {}));
+      yield* $render<string>(createElement(Dialog as never, {}));
       return createElement('div', null);
     }
 
@@ -198,7 +198,7 @@ describe('useRender (Variant 1 – JSX child with useResume)', () => {
   });
 });
 
-describe('useResume', () => {
+describe('$resume', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -210,14 +210,14 @@ describe('useResume', () => {
     document.body.removeChild(container);
   });
 
-  it('throws when called outside a useRender context', () => {
+  it('throws when called outside a $render context', () => {
     function* Comp() {
-      yield* useResume();
+      yield* $resume();
       return createElement('div', null);
     }
 
     expect(() => render(createElement(Comp as never, {}), container)).toThrow(
-      'useResume must be called inside a component rendered by useRender',
+      '$resume must be called inside a component rendered by $render',
     );
   });
 });

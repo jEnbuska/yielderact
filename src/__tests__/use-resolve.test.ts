@@ -1,10 +1,10 @@
 import { createElement } from '../jsx';
 import { render } from '../render';
-import { useState, useResolve, useResolveRaw, useMemo } from '../hooks';
+import { $state, $resolve, $resolveRaw, $memo } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe('render – generator components with useResolve', () => {
+describe('render – generator components with $resolve', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -23,7 +23,7 @@ describe('render – generator components with useResolve', () => {
     });
 
     function* DataComp() {
-      const data = yield* useResolve(
+      const data = yield* $resolve(
         {
           fn: (_signal) => promise,
           loading: createElement('span', { id: 'loading' }, 'Loading…'),
@@ -53,7 +53,7 @@ describe('render – generator components with useResolve', () => {
     });
 
     function* DataComp() {
-      const data = yield* useResolve(
+      const data = yield* $resolve(
         {
           fn: (_signal) => promise,
           loading: createElement('span', { id: 'loading' }, 'Loading…'),
@@ -74,7 +74,7 @@ describe('render – generator components with useResolve', () => {
     expect(container.querySelector('#data')).toBeNull();
   });
 
-  it('useResolve can coexist with useState in the same component', async () => {
+  it('$resolve can coexist with $state in the same component', async () => {
     let resolvePromise!: (data: string) => void;
     const promise = new Promise<string>((res) => {
       resolvePromise = res;
@@ -82,9 +82,9 @@ describe('render – generator components with useResolve', () => {
     let setLabel: ((v: string) => void) | null = null;
 
     function* DataComp() {
-      const [label, sl] = yield* useState('prefix');
+      const [label, sl] = yield* $state('prefix');
       setLabel = sl;
-      const data = yield* useResolve(
+      const data = yield* $resolve(
         {
           fn: (_signal) => promise,
           loading: createElement('span', { id: 'loading' }, 'Loading…'),
@@ -107,7 +107,7 @@ describe('render – generator components with useResolve', () => {
     expect(container.querySelector('#result')!.textContent).toBe('updated:world');
   });
 
-  it('useState change while promise is pending triggers fresh run and shows correct state after resolve', async () => {
+  it('$state change while promise is pending triggers fresh run and shows correct state after resolve', async () => {
     let resolvePromise!: (data: string) => void;
     const promise = new Promise<string>((res) => {
       resolvePromise = res;
@@ -115,9 +115,9 @@ describe('render – generator components with useResolve', () => {
     let setLabel: ((v: string) => void) | null = null;
 
     function* DataComp() {
-      const [label, sl] = yield* useState('prefix');
+      const [label, sl] = yield* $state('prefix');
       setLabel = sl;
-      const data = yield* useResolve(
+      const data = yield* $resolve(
         {
           fn: (_signal) => promise,
           loading: createElement('span', { id: 'loading' }, 'Loading…'),
@@ -143,7 +143,7 @@ describe('render – generator components with useResolve', () => {
     expect(container.querySelector('#result')!.textContent).toBe('updated:world');
   });
 
-  it('useResolve re-runs when deps change', async () => {
+  it('$resolve re-runs when deps change', async () => {
     let resolveFirst!: (data: string) => void;
     let resolveSecond!: (data: string) => void;
     const firstPromise = new Promise<string>((res) => {
@@ -157,9 +157,9 @@ describe('render – generator components with useResolve', () => {
     let fetchCount = 0;
 
     function* DataComp() {
-      const [id, si] = yield* useState(1);
+      const [id, si] = yield* $state(1);
       setId = si;
-      const data = yield* useResolve(
+      const data = yield* $resolve(
         {
           fn: (_signal) => {
             fetchCount++;
@@ -204,9 +204,9 @@ describe('render – generator components with useResolve', () => {
     let setId: ((v: number) => void) | null = null;
 
     function* DataComp() {
-      const [id, si] = yield* useState(1);
+      const [id, si] = yield* $state(1);
       setId = si;
-      const data = yield* useResolve(
+      const data = yield* $resolve(
         {
           fn: (_signal) => (id === 1 ? firstPromise : secondPromise),
           loading: createElement('span', { id: 'loading' }, 'Loading…'),
@@ -240,9 +240,9 @@ describe('render – generator components with useResolve', () => {
     let setId: ((v: number) => void) | null = null;
 
     function* DataComp() {
-      const [id, si] = yield* useState(1);
+      const [id, si] = yield* $state(1);
       setId = si;
-      yield* useResolve(
+      yield* $resolve(
         {
           fn: (signal) => {
             signal.addEventListener('abort', () => abortedSignals.push(signal));
@@ -270,7 +270,7 @@ describe('render – generator components with useResolve', () => {
     let setShow: ((v: boolean) => void) | null = null;
 
     function* Inner() {
-      yield* useResolve(
+      yield* $resolve(
         {
           fn: (signal) => {
             capturedSignal = signal;
@@ -285,7 +285,7 @@ describe('render – generator components with useResolve', () => {
     }
 
     function* Outer() {
-      const [show, ss] = yield* useState(true);
+      const [show, ss] = yield* $state(true);
       setShow = ss;
       return show ? createElement(Inner as never, {}) : null;
     }
@@ -300,7 +300,7 @@ describe('render – generator components with useResolve', () => {
   });
 });
 
-describe('render – generator components with useResolveRaw', () => {
+describe('render – generator components with $resolveRaw', () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -319,8 +319,8 @@ describe('render – generator components with useResolveRaw', () => {
     });
 
     function* DataComp() {
-      const p = yield* useMemo(() => promise, []);
-      const { data, loading } = yield* useResolveRaw<string>(p);
+      const p = yield* $memo(() => promise, []);
+      const { data, loading } = yield* $resolveRaw<string>(p);
       if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
       return createElement('span', { id: 'data' }, data);
     }
@@ -344,8 +344,8 @@ describe('render – generator components with useResolveRaw', () => {
     });
 
     function* DataComp() {
-      const p = yield* useMemo(() => promise, []);
-      const { data, loading, error } = yield* useResolveRaw<string, Error>(p);
+      const p = yield* $memo(() => promise, []);
+      const { data, loading, error } = yield* $resolveRaw<string, Error>(p);
       if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
       if (error) return createElement('span', { id: 'error' }, error.message);
       return createElement('span', { id: 'data' }, data);
@@ -374,10 +374,10 @@ describe('render – generator components with useResolveRaw', () => {
     let setId: ((v: number) => void) | null = null;
 
     function* DataComp() {
-      const [id, si] = yield* useState(1);
+      const [id, si] = yield* $state(1);
       setId = si;
-      const p = yield* useMemo(() => (id === 1 ? firstPromise : secondPromise), [id]);
-      const { data, loading } = yield* useResolveRaw<string>(p);
+      const p = yield* $memo(() => (id === 1 ? firstPromise : secondPromise), [id]);
+      const { data, loading } = yield* $resolveRaw<string>(p);
       if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
       return createElement('p', { id: 'result' }, `${id}:${data}`);
     }
@@ -409,10 +409,10 @@ describe('render – generator components with useResolveRaw', () => {
     let setId: ((v: number) => void) | null = null;
 
     function* DataComp() {
-      const [id, si] = yield* useState(1);
+      const [id, si] = yield* $state(1);
       setId = si;
-      const p = yield* useMemo(() => (id === 1 ? firstPromise : secondPromise), [id]);
-      const { data, loading } = yield* useResolveRaw<string>(p);
+      const p = yield* $memo(() => (id === 1 ? firstPromise : secondPromise), [id]);
+      const { data, loading } = yield* $resolveRaw<string>(p);
       if (loading) return createElement('span', { id: 'loading' }, 'Loading…');
       return createElement('p', { id: 'result' }, `${id}:${data}`);
     }

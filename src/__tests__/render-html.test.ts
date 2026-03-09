@@ -1,6 +1,6 @@
 import { createElement, Fragment } from '../jsx';
 import { render, buildNode } from '../render';
-import { useState } from '../hooks';
+import { $state } from '../hooks';
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
@@ -67,7 +67,7 @@ describe('render – HTML elements', () => {
     let setStyle: ((s: Record<string, string>) => void) | null = null;
 
     function* Styled() {
-      const [style, ss] = yield* useState<Record<string, string>>({ color: 'red' });
+      const [style, ss] = yield* $state<Record<string, string>>({ color: 'red' });
       setStyle = ss;
       return createElement('div', { style });
     }
@@ -84,7 +84,7 @@ describe('render – HTML elements', () => {
     let setStyle: ((s: Record<string, string>) => void) | null = null;
 
     function* Styled() {
-      const [style, ss] = yield* useState<Record<string, string>>({
+      const [style, ss] = yield* $state<Record<string, string>>({
         color: 'red',
         fontSize: '14px',
       });
@@ -106,7 +106,7 @@ describe('render – HTML elements', () => {
     let setProps: ((p: Record<string, unknown>) => void) | null = null;
 
     function* Styled() {
-      const [props, sp] = yield* useState<Record<string, unknown>>({
+      const [props, sp] = yield* $state<Record<string, unknown>>({
         style: { color: 'red', fontWeight: 'bold' },
       });
       setProps = sp;
@@ -152,7 +152,7 @@ describe('render – HTML elements', () => {
     let setValue: ((v: string) => void) | null = null;
 
     function* Controlled() {
-      const [val, sv] = yield* useState('initial');
+      const [val, sv] = yield* $state('initial');
       setValue = sv;
       return createElement('input', { type: 'text', value: val });
     }
@@ -172,7 +172,7 @@ describe('render – HTML elements', () => {
     let setChecked: ((v: boolean) => void) | null = null;
 
     function* CheckBox() {
-      const [checked, sc] = yield* useState(false);
+      const [checked, sc] = yield* $state(false);
       setChecked = sc;
       return createElement('input', { type: 'checkbox', checked });
     }

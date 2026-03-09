@@ -11,35 +11,37 @@
  *
  * @example
  * function* Counter(_props: object) {
- *   const [count, setCount] = yield* useState(0);
+ *   const [count, setCount] = yield* $state(0);
  *   return (
  *     <button onClick={() => setCount(count + 1)}>{count}</button>
  *   );
  * }
  */
 export {
-  USE_STATE,
-  USE_REF,
-  USE_ID,
-  USE_MEMO,
-  USE_RESOLVE_RAW,
-  USE_RESOLVE,
-  USE_EFFECT,
-  USE_RENDER,
-  USE_UI_PATCH,
+  $STATE,
+  $REF,
+  $ID,
+  $MEMO,
+  $RESOLVE_RAW,
+  $RESOLVE,
+  $EFFECT,
+  $RENDER,
+  $UI_PATCH,
   depsChanged,
+  type HookContext,
 } from './symbols';
-export { useState } from './use-state';
-export { type RefObject, useRef } from './use-ref';
-export { useId } from './use-id';
-export { useMemo } from './use-memo';
+export { $state } from './$state';
+export { type RefObject, $ref } from './$ref';
+export { $id } from './$id';
+export { $memo } from './$memo';
 export {
   type Renderable,
   type UseResolveOptions,
   type ResolveRawResult,
-  useResolveRaw,
-  useResolve,
-} from './use-resolve';
-export { useEffect } from './use-effect';
-export { type UseRenderFn, type UseRenderState, useRender, useResume } from './use-render';
-export { useUIPatch } from './use-ui-patch';
+  $resolveRaw,
+  $resolve,
+} from './$resolve';
+export { $effect } from './$effect';
+export { type UseRenderFn, type UseRenderState, $render, $resume } from './$render';
+export { $uiPatch } from './$ui-patch';
+export { $patchContext } from './$patch-context';
