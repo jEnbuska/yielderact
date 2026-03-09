@@ -2,7 +2,7 @@
  * TodoList – a generator component demonstrating array state management
  * with `yield* $state`.
  */
-import { $id, $state, render } from "yielderact";
+import { $id, $state } from "yielderact";
 
 interface Todo {
   id: number;
@@ -115,8 +115,4 @@ export function* TodoList() {
       </p>
     </section>
   );
-}
-
-export function mountTodoList(container: HTMLElement): void {
-  render(<TodoList />, container);
 }

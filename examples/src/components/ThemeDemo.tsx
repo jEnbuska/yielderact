@@ -1,7 +1,7 @@
 /**
  * ThemeDemo – demonstrates createContext / $context with `yield* $state`.
  */
-import { $context, $id, $state, createContext, render } from "yielderact";
+import { $context, $id, $state, createContext } from "yielderact";
 
 type Theme = "light" | "dark";
 
@@ -66,8 +66,4 @@ export function* ThemeDemo() {
       </ThemeContext.Provider>
     </section>
   );
-}
-
-export function mountThemeDemo(container: HTMLElement): void {
-  render(<ThemeDemo />, container);
 }

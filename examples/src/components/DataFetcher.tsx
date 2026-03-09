@@ -6,7 +6,7 @@
  * if it rejects).  Once resolved, execution continues and the component
  * returns its final JSX.
  */
-import { $id, $memo, $resolve, $resolveRaw, $state, render } from "yielderact";
+import { $id, $memo, $resolve, $resolveRaw, $state } from "yielderact";
 
 interface User {
   id: number;
@@ -139,8 +139,4 @@ export function* ResolveRawDemo() {
       </div>
     </section>
   );
-}
-
-export function mountDataFetcher(container: HTMLElement): void {
-  render(<DataFetcher />, container);
 }
