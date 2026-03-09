@@ -37,16 +37,22 @@ export function* $state<T>(
 /** @internal */
 export function _processState(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
   const { hookIndex, hookStates, rerender } = ctx;
-  if (!(hookIndex in hookStates)) {
+  const existing = hookStates[hookIndex];
+  if (existing === undefined || existing.kind !== "state") {
     const init = descriptor["initialValue"];
-    hookStates[hookIndex] = typeof init === "function" ? (init as () => unknown)() : init;
+    hookStates[hookIndex] = {
+      kind: "state",
+      value: typeof init === "function" ? (init as () => unknown)() : init,
+    };
   }
+  // SAFETY: We just ensured hookStates[hookIndex] is a StateHookState above.
+  const stateObj = hookStates[hookIndex] as import("../render/types").StateHookState;
   const setter = (newValue: unknown): Promise<void> => {
-    hookStates[hookIndex] =
+    stateObj.value =
       typeof newValue === "function"
-        ? (newValue as (prev: unknown) => unknown)(hookStates[hookIndex])
+        ? (newValue as (prev: unknown) => unknown)(stateObj.value)
         : newValue;
     return rerender();
   };
-  return [hookStates[hookIndex], setter];
+  return [stateObj.value, setter];
 }

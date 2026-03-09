@@ -1,5 +1,84 @@
-import type { Context } from "../context";
+import type { Context, UseContextState } from "../context";
+import type { UseRenderState } from "../hooks/$render";
 import type { Child, GeneratorComponentFn, VNode } from "../jsx";
+
+// ── Hook state discriminated union ──────────────────────────────────────────
+//
+// Each hook stores a tagged object in `GenInstance.hookStates`. The `kind`
+// discriminant allows type-safe narrowing without `as` casts, especially in
+// cross-cutting code like `flushEffects` and `_hasStableSelectors`.
+
+/** Persistent state for a `$state` hook. */
+export interface StateHookState {
+  kind: "state";
+  value: unknown;
+}
+
+/** Persistent state for a `$ref` hook. Holds the mutable ref object. */
+export interface RefHookState {
+  kind: "ref";
+  current: unknown;
+}
+
+/** Persistent state for a `$id` hook. Holds the stable unique ID string. */
+export interface IdHookState {
+  kind: "id";
+  id: string;
+}
+
+/** Persistent state for a `$memo` hook. */
+export interface MemoHookState {
+  kind: "memo";
+  value: unknown;
+  deps: unknown[];
+}
+
+/** Persistent state for a `$effect` hook. */
+export interface EffectHookState {
+  kind: "effect";
+  deps: unknown[];
+  cleanup: (() => void) | undefined;
+  controller: AbortController;
+}
+
+/** Persistent state for a `$resolveRaw` hook. */
+export type ResolveRawHookState =
+  | { kind: "resolve-raw"; promise: Promise<unknown>; status: "pending" }
+  | { kind: "resolve-raw"; promise: Promise<unknown>; status: "resolved"; data: unknown }
+  | { kind: "resolve-raw"; promise: Promise<unknown>; status: "rejected"; error: unknown };
+
+/** Persistent state for a `$resolve` hook. */
+export interface ResolveHookState {
+  kind: "resolve";
+  deps: unknown[];
+  promise: Promise<unknown>;
+  controller: AbortController;
+}
+
+/** Persistent state for a `$uiPatch` hook. */
+export interface UIPatchHookState {
+  kind: "ui-patch";
+  startPatch: () => () => void;
+}
+
+/**
+ * Discriminated union of all possible hook state values.
+ *
+ * Each variant is tagged with a `kind` field that allows type-safe narrowing
+ * when iterating `GenInstance.hookStates` (e.g. in `flushEffects` or
+ * `_hasStableSelectors`).
+ */
+export type HookState =
+  | StateHookState
+  | RefHookState
+  | IdHookState
+  | MemoHookState
+  | EffectHookState
+  | UseContextState
+  | ResolveRawHookState
+  | ResolveHookState
+  | UseRenderState<unknown>
+  | UIPatchHookState;
 
 /**
  * A **Slot** tracks one reconciled position in the rendered DOM tree.
@@ -192,22 +271,13 @@ export interface GenInstance {
    * Persistent per-hook storage array. Index `i` corresponds to the `i`-th
    * hook descriptor yielded during the component body.
    *
-   * Contents vary by hook type:
-   * - `useState`: the current state value.
-   * - `useRef`: `{ current: T }` ref object.
-   * - `useId`: the stable `":rN:"` ID string.
-   * - `useMemo`: `{ value, deps }`.
-   * - `useContext`: `UseContextState` with `ctx`, `selector`, `lastDeps`, `lastResult`.
-   * - `useResolveRaw`: `{ promise, status, data?, error? }`.
-   * - `useResolve`: `{ deps, promise, controller }`.
-   * - `useEffect`: `{ deps, cleanup, controller }`.
-   * - `useRender`: `UseRenderState` with `status`, `deps`, `value`, `resumeCallback`.
-   * - `useUIPatch`: the `startPatch` function.
+   * Each entry is a tagged object from the {@link HookState} discriminated
+   * union. The `kind` field allows type-safe narrowing in cross-cutting code.
    *
    * **Survives across re-renders.** Written by `processOneDescriptor`,
    * read by subsequent renders to preserve state.
    */
-  hookStates: unknown[];
+  hookStates: HookState[];
 
   /**
    * Per-hook cleanup functions, parallel to `hookStates`.

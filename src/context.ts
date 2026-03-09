@@ -155,6 +155,7 @@ export function* $context<T, D extends unknown[], R>(
  * @internal
  */
 export type UseContextState = {
+  kind: "context";
   /** The context object this hook subscribes to. */
   ctx: Context<unknown>;
   /** Optional selector function — extracts deps from the context value. */
@@ -179,6 +180,7 @@ export function _processContext(descriptor: { [key: string]: unknown }, ctx: Hoo
 
   if (!selector) {
     hookStates[hookIndex] = {
+      kind: "context",
       ctx: context,
       selector: undefined,
       transform: undefined,
@@ -189,12 +191,18 @@ export function _processContext(descriptor: { [key: string]: unknown }, ctx: Hoo
   }
 
   const newDeps = selector(rawValue);
-  const prev = hookStates[hookIndex] as UseContextState | undefined;
-  if (prev?.selector && !depsChanged(prev.lastDeps, newDeps)) {
+  const prev = hookStates[hookIndex];
+  if (
+    prev !== undefined &&
+    prev.kind === "context" &&
+    prev.selector &&
+    !depsChanged(prev.lastDeps, newDeps)
+  ) {
     return prev.lastResult;
   }
   const result = transform ? transform(...newDeps) : rawValue;
   hookStates[hookIndex] = {
+    kind: "context",
     ctx: context,
     selector,
     transform,

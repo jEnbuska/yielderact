@@ -29,8 +29,11 @@ export function* $ref<T>(initialValue: T): Generator<unknown, RefObject<T>, unkn
 /** @internal */
 export function _processRef(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
   const { hookIndex, hookStates } = ctx;
-  if (!(hookIndex in hookStates)) {
-    hookStates[hookIndex] = { current: descriptor["initialValue"] };
+  const existing = hookStates[hookIndex];
+  if (existing === undefined || existing.kind !== "ref") {
+    const newState = { kind: "ref" as const, current: descriptor["initialValue"] };
+    hookStates[hookIndex] = newState;
+    return newState;
   }
-  return hookStates[hookIndex];
+  return existing;
 }

@@ -115,59 +115,61 @@ export function _processResolveRaw(
   descriptor: { [key: string]: unknown },
   ctx: HookContext,
 ): unknown {
-  type RawState =
-    | { promise: Promise<unknown>; status: "pending" }
-    | { promise: Promise<unknown>; status: "resolved"; data: unknown }
-    | { promise: Promise<unknown>; status: "rejected"; error: unknown };
-
   const { hookIndex, hookStates, rerender } = ctx;
   const promise = descriptor["promise"] as Promise<unknown>;
-  const existing = hookStates[hookIndex] as RawState | undefined;
+  const existing = hookStates[hookIndex];
 
-  if (!existing || existing.promise !== promise) {
-    const state: RawState = { promise, status: "pending" };
+  if (existing === undefined || existing.kind !== "resolve-raw" || existing.promise !== promise) {
+    const state: import("../render/types").ResolveRawHookState = {
+      kind: "resolve-raw",
+      promise,
+      status: "pending",
+    };
     hookStates[hookIndex] = state;
     promise.then(
       (data) => {
         if (hookStates[hookIndex] === state) {
-          hookStates[hookIndex] = { promise, status: "resolved", data };
+          hookStates[hookIndex] = { kind: "resolve-raw", promise, status: "resolved", data };
           rerender();
         }
       },
-      (error) => {
+      (error: unknown) => {
         if (hookStates[hookIndex] === state) {
-          hookStates[hookIndex] = { promise, status: "rejected", error };
+          hookStates[hookIndex] = { kind: "resolve-raw", promise, status: "rejected", error };
           rerender();
         }
       },
     );
   }
 
-  const s = hookStates[hookIndex] as RawState;
-  if (s.status === "resolved")
-    return { data: s.data, loading: false, error: undefined } as ResolveRawResult<unknown>;
-  if (s.status === "rejected")
-    return { data: undefined, loading: false, error: s.error } as ResolveRawResult<unknown>;
-  return { data: undefined, loading: true, error: undefined } as ResolveRawResult<unknown>;
+  const s = hookStates[hookIndex];
+  if (s !== undefined && s.kind === "resolve-raw") {
+    if (s.status === "resolved")
+      return { data: s.data, loading: false, error: undefined } satisfies ResolveRawResult<unknown>;
+    if (s.status === "rejected")
+      return {
+        data: undefined,
+        loading: false,
+        error: s.error,
+      } satisfies ResolveRawResult<unknown>;
+  }
+  return { data: undefined, loading: true, error: undefined } satisfies ResolveRawResult<unknown>;
 }
 
 /** @internal */
 export function _processResolve(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
-  type ResolveState = {
-    deps: unknown[];
-    promise: Promise<unknown>;
-    controller: AbortController;
-  };
   const { hookIndex, hookStates, cleanupFns } = ctx;
   const fn = descriptor["fn"] as (signal: AbortSignal) => Promise<unknown>;
   const deps = descriptor["deps"] as unknown[];
-  const existing = hookStates[hookIndex] as ResolveState | undefined;
+  const existing = hookStates[hookIndex];
 
-  if (!existing || depsChanged(existing.deps, deps)) {
-    existing?.controller.abort();
+  if (existing === undefined || existing.kind !== "resolve" || depsChanged(existing.deps, deps)) {
+    if (existing !== undefined && existing.kind === "resolve") {
+      existing.controller.abort();
+    }
     const controller = new AbortController();
     const promise = fn(controller.signal);
-    hookStates[hookIndex] = { deps, promise, controller } satisfies ResolveState;
+    hookStates[hookIndex] = { kind: "resolve", deps, promise, controller };
     cleanupFns[hookIndex] = () => controller.abort();
     return promise;
   }

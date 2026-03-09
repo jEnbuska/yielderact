@@ -36,9 +36,11 @@ export function _processMemo(descriptor: { [key: string]: unknown }, ctx: HookCo
   const { hookIndex, hookStates } = ctx;
   const fn = descriptor["fn"] as (...args: unknown[]) => unknown;
   const deps = descriptor["deps"] as unknown[];
-  const existing = hookStates[hookIndex] as { value: unknown; deps: unknown[] } | undefined;
-  if (!existing || depsChanged(existing.deps, deps)) {
-    hookStates[hookIndex] = { value: fn(...deps), deps };
+  const existing = hookStates[hookIndex];
+  if (existing === undefined || existing.kind !== "memo" || depsChanged(existing.deps, deps)) {
+    const newState = { kind: "memo" as const, value: fn(...deps), deps };
+    hookStates[hookIndex] = newState;
+    return newState.value;
   }
-  return (hookStates[hookIndex] as { value: unknown }).value;
+  return existing.value;
 }

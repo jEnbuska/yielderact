@@ -17,6 +17,7 @@ export type UseRenderFn<T> = (props: { resume: (value: T) => void }) => Child;
  * @internal
  */
 export type UseRenderState<T> = {
+  kind: "render";
   status: "waiting" | "resolved";
   deps: unknown[];
   value: T | undefined;
@@ -160,10 +161,12 @@ export function* $resume<T>(): Generator<unknown, (value: T) => void, unknown> {
 export function _processRender(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
   const { hookIndex, hookStates, resume } = ctx;
   const deps = descriptor["deps"] as unknown[];
-  let slot = hookStates[hookIndex] as UseRenderState<unknown> | undefined;
+  const existing = hookStates[hookIndex];
+  let slot: UseRenderState<unknown>;
 
-  if (!slot || depsChanged(slot.deps, deps)) {
+  if (existing === undefined || existing.kind !== "render" || depsChanged(existing.deps, deps)) {
     const newSlot: UseRenderState<unknown> = {
+      kind: "render",
       status: "waiting",
       deps,
       value: undefined,
@@ -171,8 +174,8 @@ export function _processRender(descriptor: { [key: string]: unknown }, ctx: Hook
     };
     hookStates[hookIndex] = newSlot;
     newSlot.resumeCallback = (value: unknown): void => {
-      const s = hookStates[hookIndex] as UseRenderState<unknown>;
-      if (s.status === "waiting") {
+      const s = hookStates[hookIndex];
+      if (s !== undefined && s.kind === "render" && s.status === "waiting") {
         s.status = "resolved";
         s.value = value;
         resume();
@@ -180,7 +183,8 @@ export function _processRender(descriptor: { [key: string]: unknown }, ctx: Hook
     };
     slot = newSlot;
   } else {
-    slot.status = "waiting";
+    existing.status = "waiting";
+    slot = existing;
   }
 
   return { slot, resumeCallback: slot.resumeCallback };

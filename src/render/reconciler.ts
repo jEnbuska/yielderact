@@ -40,14 +40,15 @@ import {
   _withBatch,
   _withPriority,
   type Context,
-  type UseContextState,
 } from "../context";
 import { depsChanged } from "../hooks";
 import type { AnyComponentFn, Child, PlainComponentFn, VNode } from "../jsx";
 import {
   flattenChildren,
+  getPatchMode,
   isGeneratorFn,
   isShown,
+  isVNode,
   mergedProps,
   onlyPatchChanged,
   shallowEqual,
@@ -110,8 +111,8 @@ function removeSlotNodes(parent: Node, slot: Slot): void {
  * Returns `undefined` for primitives, null, false, and VNodes without a key.
  */
 function getChildKey(child: Child): string | undefined {
-  if (child == null || typeof child !== "object") return undefined;
-  return (child as VNode).props?.["$key"] as string | undefined;
+  if (!isVNode(child)) return undefined;
+  return child.props["$key"] as string | undefined;
 }
 
 /**
@@ -411,7 +412,7 @@ function* reconcileOneGen(
     // existing slot is a $patch="live" component (it knows it's live).
     if (renderState.liveOnlyMode && prevSlot) {
       const prevIsLive = prevSlot.genInstance
-        ? ((prevSlot.genInstance.props["$patch"] as "live" | "default" | undefined) ??
+        ? (getPatchMode(prevSlot.genInstance.props) ??
             _instanceBatch(prevSlot.genInstance.capturedCtx)) === "live"
         : false;
       if (_getCurrentBatch() !== "live" && !prevIsLive) {
@@ -462,6 +463,7 @@ function* reconcileOneGen(
     };
   }
 
+  // SAFETY: All other Child types (null, false, string, number) are handled above.
   const vnode = nextChild as VNode;
 
   // ════════════════════════════════════════════════════════════════════════
@@ -473,8 +475,7 @@ function* reconcileOneGen(
   if (!isShown(allPropsForShown)) {
     // In live-only mode, only hide when the effective batch is live.
     if (renderState.liveOnlyMode) {
-      const effectiveBatch =
-        (allPropsForShown["$patch"] as "live" | "default" | undefined) ?? _getCurrentBatch();
+      const effectiveBatch = getPatchMode(allPropsForShown) ?? _getCurrentBatch();
       if (effectiveBatch !== "live" && prevSlot) {
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
@@ -505,7 +506,7 @@ function* reconcileOneGen(
 
     // Propagate $deferred to the subtree via context.
     // Save and restore the context map so siblings are unaffected.
-    const compDeferred = allPropsRaw["$deferred"] as boolean | undefined;
+    const compDeferred = allPropsRaw["$deferred"] as boolean | undefined; // SAFETY: $deferred is always boolean | undefined
     const prevCtxComp = _getCtxMap();
     if (compDeferred) _setCtxMap(_withPriority(prevCtxComp, _getCurrentPriority() + 1));
     try {
@@ -559,8 +560,7 @@ function* reconcileOneGen(
         // │ Live-only mode: skip non-live components                       │
         // └─────────────────────────────────────────────────────────────────┘
         if (renderState.liveOnlyMode) {
-          const effectiveBatch =
-            (allProps["$patch"] as "live" | "default" | undefined) ?? _getCurrentBatch();
+          const effectiveBatch = getPatchMode(allProps) ?? _getCurrentBatch();
           if (effectiveBatch !== "live") {
             if (prevSlot.genInstance) {
               prevSlot.genInstance.capturedCtx = _withBatch(
@@ -631,8 +631,7 @@ function* reconcileOneGen(
       // │ Live-only mode: structural changes (type mismatch / no prevSlot) │
       // └───────────────────────────────────────────────────────────────────┘
       if (renderState.liveOnlyMode && prevSlot?.type !== vnode.type) {
-        const effectiveBatch =
-          (allProps["$patch"] as "live" | "default" | undefined) ?? _getCurrentBatch();
+        const effectiveBatch = getPatchMode(allProps) ?? _getCurrentBatch();
         if (effectiveBatch !== "live") {
           if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
           const node = document.createTextNode("");
@@ -699,7 +698,7 @@ function* reconcileOneGen(
   if (typeof vnode.type === "string") {
     // Propagate $patch and $deferred to children via the context map.
     // Save and restore the context map around child reconciliation.
-    const elBatch = vnode.props["$patch"] as "live" | "default" | undefined;
+    const elBatch = getPatchMode(vnode.props);
     const elDeferred = vnode.props["$deferred"] as boolean | undefined;
     const prevCtxEl = _getCtxMap();
     if (elBatch !== undefined) _setCtxMap(_withBatch(prevCtxEl, elBatch));
@@ -785,13 +784,12 @@ function _hasStableContextSelectors(
 ): boolean {
   let _foundAny = false;
   for (const s of inst.hookStates) {
-    if (s == null || typeof s !== "object") continue;
-    const state = s as UseContextState;
-    if (state.ctx !== ctx) continue;
+    if (s === undefined || s.kind !== "context") continue;
+    if (s.ctx !== ctx) continue;
     _foundAny = true;
-    if (!state.selector) return false;
-    const newDeps = state.selector(newValue);
-    if (depsChanged(state.lastDeps, newDeps)) return false;
+    if (!s.selector) return false;
+    const newDeps = s.selector(newValue);
+    if (depsChanged(s.lastDeps, newDeps)) return false;
   }
   return true;
 }

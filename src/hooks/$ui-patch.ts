@@ -45,8 +45,9 @@ export function* $uiPatch(): Generator<unknown, () => () => void, unknown> {
 /** @internal */
 export function _processUIPatch(ctx: HookContext): unknown {
   const { hookIndex, hookStates, instance, collectDescendants, flushPendingVNodes } = ctx;
-  if (!(hookIndex in hookStates)) {
-    hookStates[hookIndex] = (): (() => void) => {
+  const existing = hookStates[hookIndex];
+  if (existing === undefined || existing.kind !== "ui-patch") {
+    const startPatch = (): (() => void) => {
       const snapshot = collectDescendants(instance);
 
       instance.localPatchRefCount++;
@@ -60,6 +61,8 @@ export function _processUIPatch(ctx: HookContext): unknown {
         flushPendingVNodes([instance, ...snapshot]);
       };
     };
+    hookStates[hookIndex] = { kind: "ui-patch", startPatch };
+    return startPatch;
   }
-  return hookStates[hookIndex];
+  return existing.startPatch;
 }

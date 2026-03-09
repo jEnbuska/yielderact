@@ -38,28 +38,25 @@ export function* $effect(
 
 /** @internal */
 export function _processEffect(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
-  type EffectState = {
-    deps: unknown[];
-    cleanup: (() => void) | undefined;
-    controller: AbortController;
-  };
   const { hookIndex, hookStates, cleanupFns, pendingEffects } = ctx;
   const fn = descriptor["fn"] as (signal: AbortSignal) => (() => void) | undefined;
   const deps = descriptor["deps"] as unknown[];
-  const existing = hookStates[hookIndex] as EffectState | undefined;
+  const existing = hookStates[hookIndex];
 
-  if (!existing || depsChanged(existing.deps, deps)) {
-    if (existing) {
+  if (existing === undefined || existing.kind !== "effect" || depsChanged(existing.deps, deps)) {
+    if (existing !== undefined && existing.kind === "effect") {
       existing.controller.abort();
       existing.cleanup?.();
     }
     const controller = new AbortController();
-    hookStates[hookIndex] = { deps, cleanup: undefined, controller } satisfies EffectState;
+    hookStates[hookIndex] = { kind: "effect", deps, cleanup: undefined, controller };
     pendingEffects.push({ hookIndex, fn, controller });
     cleanupFns[hookIndex] = () => {
-      const state = hookStates[hookIndex] as EffectState;
-      state.controller.abort();
-      state.cleanup?.();
+      const state = hookStates[hookIndex];
+      if (state !== undefined && state.kind === "effect") {
+        state.controller.abort();
+        state.cleanup?.();
+      }
     };
   }
   return undefined;

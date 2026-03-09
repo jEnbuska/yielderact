@@ -12,13 +12,7 @@
  * collection, and context propagation.
  */
 
-import {
-  _getProviderCtx,
-  _processContext,
-  $CONTEXT,
-  type Context,
-  type UseContextState,
-} from "../context";
+import { _getProviderCtx, _processContext, $CONTEXT, type Context } from "../context";
 import {
   $EFFECT,
   $ID,
@@ -44,7 +38,7 @@ import type { Child } from "../jsx";
 import { _flushPendingVNodes } from "./patch";
 import { clearRef } from "./props";
 import { renderState } from "./state";
-import type { GenInstance, Slot } from "./types";
+import type { GenInstance, HookState, Slot } from "./types";
 
 /**
  * Set of all known hook descriptor type symbols for fast membership test.
@@ -111,9 +105,10 @@ export function flushEffects(instance: GenInstance): void {
   if (instance.gen !== null) return;
   for (const { hookIndex, fn, controller } of instance.pendingEffects) {
     const cleanup = fn(controller.signal);
-    (
-      instance.hookStates[hookIndex] as { deps: unknown[]; cleanup: (() => void) | undefined }
-    ).cleanup = cleanup;
+    const state = instance.hookStates[hookIndex];
+    if (state !== undefined && state.kind === "effect") {
+      state.cleanup = cleanup;
+    }
   }
   instance.pendingEffects.length = 0;
 }
@@ -207,7 +202,7 @@ export function collectDescendants(instance: GenInstance): GenInstance[] {
 export function processOneDescriptor(
   descriptor: { type: symbol; [key: string]: unknown },
   hookIndex: number,
-  hookStates: unknown[],
+  hookStates: HookState[],
   cleanupFns: ((() => void) | undefined)[],
   pendingEffects: Array<{
     hookIndex: number;
@@ -343,12 +338,11 @@ export function runHooks(
  */
 function _hasStableSelectors(inst: GenInstance, ctx: Context<unknown>, newValue: unknown): boolean {
   for (const s of inst.hookStates) {
-    if (s == null || typeof s !== "object") continue;
-    const state = s as UseContextState;
-    if (state.ctx !== ctx) continue;
-    if (!state.selector) return false;
-    const newDeps = state.selector(newValue);
-    if (depsChanged(state.lastDeps, newDeps)) return false;
+    if (s === undefined || s.kind !== "context") continue;
+    if (s.ctx !== ctx) continue;
+    if (!s.selector) return false;
+    const newDeps = s.selector(newValue);
+    if (depsChanged(s.lastDeps, newDeps)) return false;
   }
   return true;
 }
