@@ -2,7 +2,7 @@
  * Counter – a generator component demonstrating stateful rendering with
  * `yield* $state` and returning JSX.
  */
-import { $id, $state, render } from "yielderact";
+import { $id, $state } from "yielderact";
 
 export function* Counter() {
   const decrementId = yield* $id();
@@ -40,8 +40,4 @@ export function* Counter() {
       </div>
     </section>
   );
-}
-
-export function mountCounter(container: HTMLElement): void {
-  render(<Counter />, container);
 }
