@@ -207,13 +207,5 @@ declare global {
      * declared in a component's props type to be accepted.
      */
     interface IntrinsicAttributes extends FrameworkProps {}
-    /**
-     * Tells TypeScript that JSX children (e.g. `<div>text</div>`) map to the
-     * `children` prop.
-     */
-    interface ElementChildrenAttribute {
-      // biome-ignore lint/complexity/noBannedTypes: required by TypeScript JSX interface
-      children: {};
-    }
   }
 }
