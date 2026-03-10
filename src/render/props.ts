@@ -11,24 +11,14 @@ import { _requireActiveCtx } from "./state";
 
 // ── Ref helpers ─────────────────────────────────────────────────────────────
 
-/** Attach a $ref (callback or object) to a DOM element. */
-export function setRef(ref: unknown, el: Element): void {
-  if (!ref) return;
-  if (typeof ref === "function") {
-    (ref as (instance: Element | null) => void)(el);
-  } else if (typeof ref === "object" && "current" in (ref as object)) {
-    (ref as { current: unknown }).current = el;
-  }
+/** Attach a $ref object to a DOM element. */
+export function setRef(ref: { current: unknown } | undefined, el: Element): void {
+  if (ref) ref.current = el;
 }
 
-/** Clear a $ref (callback with null, or set .current to null). */
-export function clearRef(ref: unknown): void {
-  if (!ref) return;
-  if (typeof ref === "function") {
-    (ref as (instance: Element | null) => void)(null);
-  } else if (typeof ref === "object" && "current" in (ref as object)) {
-    (ref as { current: unknown }).current = null;
-  }
+/** Clear a $ref object (set .current to undefined). */
+export function clearRef(ref: { current: unknown } | undefined): void {
+  if (ref) ref.current = undefined;
 }
 
 // ── Event registration helpers ─────────────────────────────────────────────
@@ -129,7 +119,7 @@ export function applyProps(el: HTMLElement, props: InternalProps): void {
   }
 
   // Handle $ref on initial mount
-  setRef(props["$ref"], el);
+  setRef(props.$ref, el);
 
   // Default <button> type to "button" to prevent accidental form submission.
   // The HTML default is "submit", which is almost never the intended behaviour.
@@ -232,8 +222,8 @@ export function updateProps(
   }
 
   // 3. Handle $ref changes
-  const prevRef = prevProps["$ref"];
-  const nextRef = nextProps["$ref"];
+  const prevRef = prevProps.$ref;
+  const nextRef = nextProps.$ref;
   if (!Object.is(prevRef, nextRef)) {
     clearRef(prevRef);
     setRef(nextRef, el);

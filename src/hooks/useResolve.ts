@@ -1,4 +1,5 @@
 import type { Child, Component } from "../jsx";
+import { isComponentRenderable } from "../render/helpers";
 import type { ResolveHookState, ResolveRawHookState } from "../render/types";
 import {
   $USE_RESOLVE,
@@ -41,10 +42,10 @@ export type ResolveRawResult<T, E = unknown> =
 /** Normalise a Renderable to a `Child` value the renderer can process. */
 function toChild(renderable: Renderable): Child {
   if (renderable == null) return null;
-  if (typeof renderable === "function") {
-    return { type: renderable as Component, props: {}, children: [] };
+  if (isComponentRenderable(renderable)) {
+    return { type: renderable, props: {}, children: [] };
   }
-  return renderable as Child;
+  return renderable;
 }
 
 /**

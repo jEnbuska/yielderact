@@ -50,9 +50,9 @@ export interface FrameworkProps {
 }
 
 /**
- * Full set of `$`-prefixed special props for intrinsic HTML/SVG elements.
+ * Full set of special props for intrinsic HTML/SVG elements.
  *
- * Extends {@link FrameworkProps} with `$children` and `$ref`, which are
+ * Extends {@link FrameworkProps} with `children` and `$ref`, which are
  * only available on elements and on components that explicitly declare them.
  *
  * @typeParam TRef - The concrete element type for `$ref`.
@@ -61,9 +61,9 @@ export interface FrameworkProps {
  */
 export interface SpecialProps<TRef = unknown> extends FrameworkProps {
   /** Nested children passed to the component or element. */
-  $children?: Child | Child[];
-  /** Ref callback or object — set to the DOM element on mount, null on unmount. */
-  $ref?: { current: TRef } | ((instance: TRef | null) => void) | null;
+  children?: Child | Child[];
+  /** Ref object — `.current` is set to the DOM element on mount, `undefined` on unmount. */
+  $ref?: { current: TRef | undefined };
 }
 
 /**
@@ -203,7 +203,7 @@ declare global {
      * needing to be declared in the component's own props type.
      *
      * Only framework-level props (`$key`, `$shown`, `$patch`, `$deferred`)
-     * are universally available. `$children` and `$ref` must be explicitly
+     * are universally available. `children` and `$ref` must be explicitly
      * declared in a component's props type to be accepted.
      */
     interface IntrinsicAttributes extends FrameworkProps {}

@@ -114,7 +114,7 @@ export function* ResolveRawDemo() {
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}>
         {[1, 2, 3, 0].map((id) => (
           <button
-            $key={id}
+            $key={String(id)}
             data-testid={`post-btn-${id}`}
             onClick={() => setPostId(id)}
             style={{ fontWeight: postId === id ? "bold" : "normal" }}
