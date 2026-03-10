@@ -11,7 +11,7 @@ import { useRef, useState } from "yielderact";
 
 function* CounterItem({ id, color }: { id: string; color: string }) {
   const [count, setCount] = yield* useState(0);
-  const nodeRef = yield* useRef<HTMLDivElement | undefined>(undefined);
+  const nodeRef = yield* useRef<HTMLDivElement>();
 
   return (
     <div

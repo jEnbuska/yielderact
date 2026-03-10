@@ -17,16 +17,35 @@ export interface RefObject<T> {
  *
  * Must be called with `yield*` inside a generator component or hook.
  *
+ * **Overload 1 — no argument:** `.current` is `T | undefined`, initially `undefined`.
+ * Useful for DOM refs that are set after mount.
+ *
  * @example
  * function* InputFocus() {
- *   const ref = yield* useRef<HTMLInputElement | undefined>(undefined);
+ *   const ref = yield* useRef<HTMLInputElement>();
  *   return <input $ref={ref} />;
  * }
+ *
+ * **Overload 2 — with initial value:** `.current` is `T` (non-optional).
+ *
+ * @example
+ * function* Counter() {
+ *   const renderCount = yield* useRef(0);
+ *   renderCount.current += 1;
+ * }
  */
-export function* useRef<T>(initialValue: T): ComponentGenerator<RefObject<T>> {
+
+// Overload 1: no argument — current is T | undefined
+export function useRef<T>(): ComponentGenerator<RefObject<T | undefined>>;
+
+// Overload 2: with initial value — current is T
+export function useRef<T>(initialValue: T): ComponentGenerator<RefObject<T>>;
+
+// Implementation
+export function* useRef<T>(initialValue?: T): ComponentGenerator<RefObject<T | undefined>> {
   const desc: RefDescriptor = { type: $USE_REF, initialValue };
   const ref = yield desc;
-  return ref as RefObject<T>;
+  return ref as RefObject<T | undefined>;
 }
 
 /** @internal */
