@@ -45,6 +45,8 @@ import {
 import { depsChanged } from "../hooks";
 import { $USE_CONTEXT } from "../hooks/descriptors";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
+import { Portal } from "../jsx";
+import { acquirePortalDelegation } from "./delegation";
 import {
   flattenChildren,
   getPatchMode,
@@ -108,6 +110,21 @@ function isLiveOnlyDefault(): boolean {
  * @param slot   - The slot whose nodes to remove.
  */
 function removeSlotNodes(parent: Node, slot: Slot): void {
+  if (slot.portalContainer) {
+    // Remove children from the portal container, not from the source parent.
+    for (const child of slot.childSlots) {
+      for (const node of collectSlotDOMNodes(child)) {
+        domRemoveChild(slot.portalContainer, node);
+      }
+    }
+    // Remove the endMarker from portal container.
+    if (slot.portalEndMarker) {
+      domRemoveChild(slot.portalContainer, slot.portalEndMarker);
+    }
+    // Remove the placeholder from the source tree.
+    domRemoveChild(parent, slot.node);
+    return;
+  }
   for (const node of collectSlotDOMNodes(slot)) {
     domRemoveChild(parent, node);
   }
@@ -141,6 +158,10 @@ function hasKeyedChildren(children: Child[]): boolean {
  * For HTML elements, text, empty: just the single node.
  */
 function collectSlotDOMNodes(slot: Slot): Node[] {
+  // Portal slots: only the placeholder Comment lives in the source tree.
+  if (slot.portalContainer) {
+    return [slot.node];
+  }
   if (slot.componentInstance) {
     const nodes: Node[] = [];
     for (const child of slot.componentInstance.slots) {
@@ -502,6 +523,13 @@ function* reconcileOneGen(
   }
 
   // ════════════════════════════════════════════════════════════════════════
+  // SECTION: Portal
+  // ════════════════════════════════════════════════════════════════════════
+  if (vnode.type === Portal) {
+    return yield* reconcilePortal(prevSlot, vnode);
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
   // SECTION: Function component
   // ════════════════════════════════════════════════════════════════════════
   if (isComponentNode(vnode)) {
@@ -775,6 +803,84 @@ function* reconcileHTMLElement(
   } finally {
     _setCtxMap(prevCtxEl);
   }
+}
+
+// ── Portal reconciliation ─────────────────────────────────────────────────
+
+/**
+ * Reconcile a portal VNode.
+ *
+ * Portals render their children into an external DOM container while
+ * maintaining component-tree context. A placeholder Comment node marks the
+ * portal's position in the source tree.
+ *
+ * On update (same container): reconciles children in place inside the
+ * portal container. On fresh mount (or container change): appends an
+ * endMarker to the portal container and reconciles children into it.
+ */
+function* reconcilePortal(
+  prevSlot: Slot | undefined,
+  vnode: VNode,
+): Generator<void, { slot: Slot; node: Node; replaced: boolean }, void> {
+  const portalContainer = vnode.props["$portalContainer"] as Element;
+  const rctx = _requireActiveCtx();
+
+  // Same portal at same position, same container → reconcile children in place
+  if (
+    prevSlot?.type === Portal &&
+    prevSlot.portalContainer === portalContainer &&
+    prevSlot.portalEndMarker &&
+    prevSlot.portalDelegationRoot
+  ) {
+    // Swap delegation root so event registration targets the portal container
+    const prevDelegation = rctx.delegationRoot;
+    rctx.delegationRoot = prevSlot.portalDelegationRoot;
+    try {
+      prevSlot.childSlots = yield* reconcileSlotsGen(
+        portalContainer,
+        prevSlot.childSlots,
+        vnode.children,
+        prevSlot.portalEndMarker,
+      );
+    } finally {
+      rctx.delegationRoot = prevDelegation;
+    }
+    prevSlot.props = vnode.props;
+    return { slot: prevSlot, node: prevSlot.node, replaced: false };
+  }
+
+  // Fresh mount (or container changed)
+  const placeholder = document.createComment("portal");
+  const endMarker = document.createComment("");
+  portalContainer.appendChild(endMarker);
+
+  const delegation = acquirePortalDelegation(portalContainer, rctx);
+  const prevDelegation = rctx.delegationRoot;
+  rctx.delegationRoot = delegation;
+
+  let childSlots: Slot[];
+  const prevLiveOnly = rctx.liveOnlyMode;
+  rctx.liveOnlyMode = false;
+  try {
+    childSlots = yield* reconcileSlotsGen(portalContainer, [], vnode.children, endMarker);
+  } finally {
+    rctx.delegationRoot = prevDelegation;
+    rctx.liveOnlyMode = prevLiveOnly;
+  }
+
+  return {
+    slot: {
+      type: Portal,
+      node: placeholder,
+      props: vnode.props,
+      childSlots,
+      portalContainer,
+      portalEndMarker: endMarker,
+      portalDelegationRoot: delegation,
+    },
+    node: placeholder,
+    replaced: true,
+  };
 }
 
 /**

@@ -128,6 +128,36 @@ export type Component<P extends InternalProps = InternalProps> = (
  */
 export const Fragment: unique symbol = Symbol("Fragment");
 
+/**
+ * Portal symbol – used as the `type` of VNodes created by `createPortal`.
+ *
+ * Portal VNodes render their children into an arbitrary DOM container
+ * outside the render root, while maintaining component-tree context
+ * (Providers, `$patch`, `$deferred`).
+ */
+export const Portal: unique symbol = Symbol("Portal");
+
+/**
+ * Create a portal that renders children into a DOM container outside
+ * the render root.
+ *
+ * @example
+ * function* App() {
+ *   return createPortal(<Modal />, document.body);
+ * }
+ *
+ * @param children  - The children to render into the container.
+ * @param container - The target DOM element.
+ * @param key       - Optional reconciliation key.
+ * @returns A VNode with `type = Portal`.
+ */
+export function createPortal(children: Child | Child[], container: Element, key?: string): VNode {
+  const childArray = Array.isArray(children) ? children : [children];
+  const props: InternalProps = { $portalContainer: container } as InternalProps;
+  if (key != null) props.$key = String(key);
+  return { type: Portal, props, children: childArray };
+}
+
 // ---------------------------------------------------------------------------
 // createElement overloads
 // ---------------------------------------------------------------------------

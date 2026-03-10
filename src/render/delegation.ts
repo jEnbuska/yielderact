@@ -15,6 +15,8 @@
  */
 
 import type { SyntheticEvent } from "../events";
+import { dispatchDelegatedEvent } from "./dispatch";
+import type { RenderContext } from "./types";
 
 // ---------------------------------------------------------------------------
 // Handler registry
@@ -209,5 +211,43 @@ export class DelegationRoot {
     }
     this._listeners.clear();
     this._registeredTypes.clear();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Portal delegation management
+// ---------------------------------------------------------------------------
+
+/** Ref-counted DelegationRoot entries for portal containers. */
+const _portalDelegationRoots = new Map<Element, { root: DelegationRoot; refCount: number }>();
+
+/**
+ * Acquire a DelegationRoot for a portal container. Multiple portals
+ * targeting the same container share one DelegationRoot (ref-counted).
+ */
+export function acquirePortalDelegation(container: Element, rctx: RenderContext): DelegationRoot {
+  const existing = _portalDelegationRoots.get(container);
+  if (existing) {
+    existing.refCount++;
+    return existing.root;
+  }
+  const root = new DelegationRoot(container, (nativeEvent, domEvent) =>
+    dispatchDelegatedEvent(nativeEvent, container, domEvent, rctx),
+  );
+  _portalDelegationRoots.set(container, { root, refCount: 1 });
+  return root;
+}
+
+/**
+ * Release a ref-counted DelegationRoot for a portal container.
+ * When refCount hits 0, the root is disposed and removed.
+ */
+export function releasePortalDelegation(container: Element): void {
+  const entry = _portalDelegationRoots.get(container);
+  if (!entry) return;
+  entry.refCount--;
+  if (entry.refCount <= 0) {
+    entry.root.dispose();
+    _portalDelegationRoots.delete(container);
   }
 }

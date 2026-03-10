@@ -56,7 +56,7 @@ export type {
   SpecialProps,
   VNode,
 } from "./jsx";
-export { createElement, Fragment } from "./jsx";
+export { createElement, createPortal, Fragment, Portal } from "./jsx";
 export type {
   AnchorHTMLAttributes,
   AreaHTMLAttributes,

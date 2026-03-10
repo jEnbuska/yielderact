@@ -46,6 +46,7 @@ import { _processResolve, _processResolveRaw } from "../hooks/useResolve";
 import { _createStateSetter, _processState } from "../hooks/useState";
 import { _processUIPatch } from "../hooks/useUIPatch";
 import type { Child } from "../jsx";
+import { releasePortalDelegation } from "./delegation";
 import { _flushPendingVNodes } from "./patch";
 import { clearRef } from "./props";
 import type { ComponentInstance, HookState, Slot } from "./types";
@@ -160,6 +161,10 @@ export function unmountSlot(slot: Slot): void {
     // localPatchRefCount is intentionally left as-is; the local patch commit()
     // checks pendingVNode === undefined and skips accordingly.
     slot.componentInstance.renderCtx.dirtyInstances.delete(slot.componentInstance);
+  }
+  // Portal cleanup: release the ref-counted delegation root.
+  if (slot.portalContainer) {
+    releasePortalDelegation(slot.portalContainer);
   }
 }
 

@@ -212,6 +212,15 @@ export interface Slot {
    * `inst.slots` for subtree walks.
    */
   componentInstance?: ComponentInstance;
+
+  /** Set only on Portal slots — the target DOM container. */
+  portalContainer?: Element;
+
+  /** Set only on Portal slots — the endMarker Comment inside the portal container. */
+  portalEndMarker?: Comment;
+
+  /** Set only on Portal slots — the DelegationRoot for the portal container. */
+  portalDelegationRoot?: DelegationRoot;
 }
 
 /**

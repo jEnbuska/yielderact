@@ -10,9 +10,9 @@
  *
  *   /\*\* \@jsxImportSource yielderact \*\/
  */
-import { type Child, createElement, Fragment, type VNode } from "./jsx";
+import { type Child, createElement, Fragment, Portal, type VNode } from "./jsx";
 
-export { Fragment };
+export { Fragment, Portal };
 
 /** Used by the JSX transform for single-child expressions. */
 export function jsx(
