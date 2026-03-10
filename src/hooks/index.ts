@@ -43,6 +43,7 @@ export {
   $RESOLVE_RAW,
   $STATE,
   $UI_PATCH,
+  type DependencyList,
   depsChanged,
   type HookContext,
 } from "./symbols";

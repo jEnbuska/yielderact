@@ -1,5 +1,6 @@
 import type { Context, UseContextState } from "../context";
 import type { UseRenderState } from "../hooks/$render";
+import type { DependencyList } from "../hooks/symbols";
 import type { Child, GeneratorComponentFn, VNode } from "../jsx";
 import type { DelegationRoot } from "./delegation";
 
@@ -79,13 +80,13 @@ export interface IdHookState {
 export interface MemoHookState {
   kind: "memo";
   value: unknown;
-  deps: unknown[];
+  deps: DependencyList;
 }
 
 /** Persistent state for a `$effect` hook. */
 export interface EffectHookState {
   kind: "effect";
-  deps: unknown[];
+  deps: DependencyList;
   cleanup: (() => void) | undefined;
   controller: AbortController;
 }
@@ -99,7 +100,7 @@ export type ResolveRawHookState =
 /** Persistent state for a `$resolve` hook. */
 export interface ResolveHookState {
   kind: "resolve";
-  deps: unknown[];
+  deps: DependencyList;
   promise: Promise<unknown>;
   controller: AbortController;
 }

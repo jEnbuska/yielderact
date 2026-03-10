@@ -1,4 +1,4 @@
-import { $EFFECT, depsChanged, type HookContext } from "./symbols";
+import { $EFFECT, type DependencyList, depsChanged, type HookContext } from "./symbols";
 
 /**
  * Side-effect hook for generator components.
@@ -31,7 +31,7 @@ import { $EFFECT, depsChanged, type HookContext } from "./symbols";
  */
 export function* $effect(
   fn: (signal: AbortSignal) => (() => void) | undefined,
-  deps: unknown[],
+  deps: DependencyList,
 ): Generator<unknown, void, unknown> {
   yield { type: $EFFECT, fn, deps };
 }
@@ -40,7 +40,7 @@ export function* $effect(
 export function _processEffect(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
   const { hookIndex, hookStates, cleanupFns, pendingEffects } = ctx;
   const fn = descriptor["fn"] as (signal: AbortSignal) => (() => void) | undefined;
-  const deps = descriptor["deps"] as unknown[];
+  const deps = descriptor["deps"] as DependencyList;
   const existing = hookStates[hookIndex];
 
   if (existing === undefined || existing.kind !== "effect" || depsChanged(existing.deps, deps)) {

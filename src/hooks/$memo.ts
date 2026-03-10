@@ -1,4 +1,4 @@
-import { $MEMO, depsChanged, type HookContext } from "./symbols";
+import { $MEMO, type DependencyList, depsChanged, type HookContext } from "./symbols";
 
 /**
  * Memoized value hook for generator components.
@@ -25,7 +25,7 @@ export function $memo<T, Deps extends [unknown, ...unknown[]]>(
 ): Generator<unknown, T, unknown>;
 export function* $memo<T>(
   fn: (...args: unknown[]) => T,
-  deps: unknown[],
+  deps: DependencyList,
 ): Generator<unknown, T, unknown> {
   const value = yield { type: $MEMO, fn, deps };
   return value as T;
@@ -35,7 +35,7 @@ export function* $memo<T>(
 export function _processMemo(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
   const { hookIndex, hookStates } = ctx;
   const fn = descriptor["fn"] as (...args: unknown[]) => unknown;
-  const deps = descriptor["deps"] as unknown[];
+  const deps = descriptor["deps"] as DependencyList;
   const existing = hookStates[hookIndex];
   if (existing === undefined || existing.kind !== "memo" || depsChanged(existing.deps, deps)) {
     const newState = { kind: "memo" as const, value: fn(...deps), deps };

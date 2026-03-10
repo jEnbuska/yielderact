@@ -1,6 +1,6 @@
 import { $context, createContext } from "../context";
 import { type Child, createElement } from "../jsx";
-import { $RENDER, depsChanged, type HookContext } from "./symbols";
+import { $RENDER, type DependencyList, depsChanged, type HookContext } from "./symbols";
 
 /**
  * Inline render factory passed to `$render` (Variant 2).
@@ -19,7 +19,7 @@ export type UseRenderFn<T> = (props: { resume: (value: T) => void }) => Child;
 export type UseRenderState<T> = {
   kind: "render";
   status: "waiting" | "resolved";
-  deps: unknown[];
+  deps: DependencyList;
   value: T | undefined;
   /** Stable callback reference – created once per deps change and reused. */
   resumeCallback: (value: T) => void;
@@ -86,10 +86,13 @@ const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
  * Must be called with `yield*` inside a generator component.
  */
 export function $render<T>(child: Child): Generator<unknown, T, unknown>;
-export function $render<T>(fn: UseRenderFn<T>, deps: unknown[]): Generator<unknown, T, unknown>;
+export function $render<T>(
+  fn: UseRenderFn<T>,
+  deps: DependencyList,
+): Generator<unknown, T, unknown>;
 export function* $render<T>(
   fnOrChild: Child | UseRenderFn<T>,
-  deps?: unknown[],
+  deps?: DependencyList,
 ): Generator<unknown, T, unknown> {
   // Request a persistent slot + stable resumeCallback from the renderer.
   const effectiveDeps = deps ?? [];
@@ -160,7 +163,7 @@ export function* $resume<T>(): Generator<unknown, (value: T) => void, unknown> {
 /** @internal */
 export function _processRender(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
   const { hookIndex, hookStates, resume } = ctx;
-  const deps = descriptor["deps"] as unknown[];
+  const deps = descriptor["deps"] as DependencyList;
   const existing = hookStates[hookIndex];
   let slot: UseRenderState<unknown>;
 
