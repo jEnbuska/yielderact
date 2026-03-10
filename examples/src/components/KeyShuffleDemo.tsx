@@ -11,8 +11,7 @@ import { useRef, useState } from "yielderact";
 
 function* CounterItem({ id, color }: { id: string; color: string }) {
   const [count, setCount] = yield* useState(0);
-  // biome-ignore lint/style/noNonNullAssertion: initial ref value before mount
-  const nodeRef = yield* useRef<HTMLDivElement>(null!);
+  const nodeRef = yield* useRef<HTMLDivElement | undefined>(undefined);
 
   return (
     <div

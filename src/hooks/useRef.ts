@@ -19,7 +19,7 @@ export interface RefObject<T> {
  *
  * @example
  * function* InputFocus() {
- *   const ref = yield* useRef<HTMLInputElement | null>(null);
+ *   const ref = yield* useRef<HTMLInputElement | undefined>(undefined);
  *   return <input $ref={ref} />;
  * }
  */

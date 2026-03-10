@@ -33,7 +33,7 @@ function* WithChildren(_props: { children?: Child[] }): ComponentGenerator<Child
 
 /** Component that explicitly declares $ref. */
 function* WithRef(_props: {
-  $ref?: ((el: HTMLElement | null) => void) | null;
+  $ref?: { current: HTMLElement | undefined };
 }): ComponentGenerator<Child> {
   return <div />;
 }
@@ -41,7 +41,7 @@ function* WithRef(_props: {
 /** Component that explicitly declares both children and $ref. */
 function* WithBoth(_props: {
   children?: Child[];
-  $ref?: ((el: HTMLElement | null) => void) | null;
+  $ref?: { current: HTMLElement | undefined };
 }): ComponentGenerator<Child> {
   return <div />;
 }
@@ -56,9 +56,6 @@ _sink(<NoProps children={[]} />);
 // @ts-expect-error — $ref not declared in NoProps
 _sink(<NoProps $ref={{ current: null }} />);
 
-// @ts-expect-error — $ref callback not declared in NoProps
-_sink(<NoProps $ref={() => {}} />);
-
 // Valid: NoProps with no special props
 _sink(<NoProps />);
 
@@ -71,9 +68,6 @@ _sink(<WithName name="hello" children={[]} />);
 
 // @ts-expect-error — $ref not declared in WithName
 _sink(<WithName name="hello" $ref={{ current: null }} />);
-
-// @ts-expect-error — $ref callback not declared in WithName
-_sink(<WithName name="hello" $ref={() => {}} />);
 
 // Valid: WithName with only declared props
 _sink(<WithName name="hello" />);
@@ -90,17 +84,16 @@ _sink(<WithChildren />);
 // 4. Components that declare $ref CAN receive it
 // ---------------------------------------------------------------------------
 
-_sink(<WithRef $ref={(_el) => {}} />);
-_sink(<WithRef $ref={null} />);
+_sink(<WithRef $ref={{ current: undefined }} />);
 _sink(<WithRef />);
 
 // ---------------------------------------------------------------------------
 // 5. Components with both children and $ref CAN receive them
 // ---------------------------------------------------------------------------
 
-_sink(<WithBoth children={[]} $ref={(_el) => {}} />);
+_sink(<WithBoth children={[]} $ref={{ current: undefined }} />);
 _sink(<WithBoth children={[]} />);
-_sink(<WithBoth $ref={null} />);
+_sink(<WithBoth $ref={{ current: undefined }} />);
 _sink(<WithBoth />);
 
 // ---------------------------------------------------------------------------
@@ -130,15 +123,15 @@ _sink(<span children={["text"]} />);
 // 8. HTML elements always accept $ref (via SpecialProps in HTMLAttributes)
 // ---------------------------------------------------------------------------
 
-_sink(<div $ref={(_el: HTMLDivElement | null) => {}} />);
-_sink(<input $ref={(_el: HTMLInputElement | null) => {}} />);
-_sink(<button $ref={null} />);
+_sink(<div $ref={{ current: undefined as HTMLDivElement | undefined }} />);
+_sink(<input $ref={{ current: undefined as HTMLInputElement | undefined }} />);
+_sink(<button $ref={{ current: undefined }} />);
 
 // ---------------------------------------------------------------------------
 // 9. HTML elements accept both children and $ref together
 // ---------------------------------------------------------------------------
 
-_sink(<div children={["text"]} $ref={(_el: HTMLDivElement | null) => {}} />);
+_sink(<div children={["text"]} $ref={{ current: undefined as HTMLDivElement | undefined }} />);
 
 // ---------------------------------------------------------------------------
 // 10. HTML elements also accept framework props

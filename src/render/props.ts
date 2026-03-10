@@ -11,23 +11,17 @@ import { _requireActiveCtx } from "./state";
 
 // ── Ref helpers ─────────────────────────────────────────────────────────────
 
-/** Attach a $ref (callback or object) to a DOM element. */
+/** Attach a $ref object to a DOM element. */
 export function setRef(ref: unknown, el: Element): void {
-  if (!ref) return;
-  if (typeof ref === "function") {
-    (ref as (instance: Element | null) => void)(el);
-  } else if (typeof ref === "object" && "current" in (ref as object)) {
+  if (ref && typeof ref === "object" && "current" in (ref as object)) {
     (ref as { current: unknown }).current = el;
   }
 }
 
-/** Clear a $ref (callback with null, or set .current to null). */
+/** Clear a $ref object (set .current to undefined). */
 export function clearRef(ref: unknown): void {
-  if (!ref) return;
-  if (typeof ref === "function") {
-    (ref as (instance: Element | null) => void)(null);
-  } else if (typeof ref === "object" && "current" in (ref as object)) {
-    (ref as { current: unknown }).current = null;
+  if (ref && typeof ref === "object" && "current" in (ref as object)) {
+    (ref as { current: unknown }).current = undefined;
   }
 }
 

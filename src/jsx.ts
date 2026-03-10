@@ -62,8 +62,8 @@ export interface FrameworkProps {
 export interface SpecialProps<TRef = unknown> extends FrameworkProps {
   /** Nested children passed to the component or element. */
   children?: Child | Child[];
-  /** Ref callback or object — set to the DOM element on mount, null on unmount. */
-  $ref?: { current: TRef } | ((instance: TRef | null) => void) | null;
+  /** Ref object — `.current` is set to the DOM element on mount, `undefined` on unmount. */
+  $ref?: { current: TRef | undefined };
 }
 
 /**
