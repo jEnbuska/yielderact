@@ -57,6 +57,7 @@ function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) 
       );
 
       // No cleanup function returned — relying entirely on the AbortSignal
+      return undefined;
     },
     [activeId],
   );
@@ -100,7 +101,7 @@ export function* AbortSignalEffectDemo() {
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
         {[1, 2, 3].map((n) => (
           <button
-            $key={n}
+            $key={String(n)}
             data-testid={`user-btn-${n}`}
             onClick={() => setActiveId(n)}
             style={{ fontWeight: activeId === n ? "bold" : "normal" }}

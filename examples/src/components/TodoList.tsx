@@ -80,7 +80,7 @@ export function* TodoList() {
       <ul id={listId} data-testid="todo-list" style={{ listStyle: "none", padding: 0, margin: 0 }}>
         {todos.map((todo) => (
           <li
-            $key={todo.id}
+            $key={String(todo.id)}
             data-testid={`todo-item-${todo.id}`}
             data-id={todo.id}
             style={{

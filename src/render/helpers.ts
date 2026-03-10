@@ -1,3 +1,4 @@
+import type { Renderable } from "../hooks";
 import {
   type Child,
   type Component,
@@ -28,6 +29,11 @@ export function isComponentNode(vnode: VNode): vnode is VNode<Component> {
 /** Narrows a VNode to an HTML element node (`VNode<string>`). */
 export function isElementNode(vnode: VNode): vnode is VNode<string> {
   return typeof vnode.type === "string";
+}
+
+/** Narrow Renderable type down to Component  */
+export function isComponentRenderable(renderable: Renderable): renderable is Component {
+  return typeof renderable === "function";
 }
 
 /**

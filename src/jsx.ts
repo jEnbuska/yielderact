@@ -62,6 +62,12 @@ export interface FrameworkProps {
 export interface SpecialProps<TRef = unknown> extends FrameworkProps {
   /** Nested children passed to the component or element. */
   $children?: Child | Child[];
+  /**
+   * Alias for `$children` — accepted by the automatic JSX transform
+   * (`react-jsx`), which always passes children as `children`.
+   * The `jsx-runtime.ts` normalizes both to the same value.
+   */
+  children?: Child | Child[];
   /** Ref callback or object — set to the DOM element on mount, null on unmount. */
   $ref?: { current: TRef } | ((instance: TRef | null) => void) | null;
 }
@@ -207,5 +213,14 @@ declare global {
      * declared in a component's props type to be accepted.
      */
     interface IntrinsicAttributes extends FrameworkProps {}
+    /**
+     * Tells TypeScript that JSX children (e.g. `<div>text</div>`) map to the
+     * `$children` prop. The automatic JSX transform passes children as
+     * `children` at runtime, which `jsx-runtime.ts` normalizes to `$children`.
+     */
+    interface ElementChildrenAttribute {
+      // biome-ignore lint/complexity/noBannedTypes: required by TypeScript JSX interface
+      $children: {};
+    }
   }
 }

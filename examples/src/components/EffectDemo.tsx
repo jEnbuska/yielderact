@@ -34,7 +34,7 @@ function* LifecycleLog({ id }: { id: number }) {
   return (
     <ul data-testid="lifecycle-log" style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
       {log.map((entry, i) => (
-        <li $key={i}>{entry}</li>
+        <li $key={String(i)}>{entry}</li>
       ))}
     </ul>
   );
@@ -73,7 +73,7 @@ export function* EffectDemo() {
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
         {[1, 2, 3].map((n) => (
           <button
-            $key={n}
+            $key={String(n)}
             data-testid={`id-btn-${n}`}
             onClick={() => setLogId(n)}
             style={{ fontWeight: logId === n ? "bold" : "normal" }}
