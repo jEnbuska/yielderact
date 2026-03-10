@@ -27,6 +27,7 @@ export type { Context } from "./context";
 export { $context, createContext } from "./context";
 export type { SEvent, SyntheticEvent } from "./events";
 export type {
+  DependencyList,
   RefObject,
   Renderable,
   ResolveRawResult,

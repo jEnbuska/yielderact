@@ -39,8 +39,16 @@ export const $RENDER = Symbol("$render");
 /** @internal */
 export const $UI_PATCH = Symbol("$uiPatch");
 
+/**
+ * Hook dependency list type, aligned with React 19's `DependencyList`.
+ *
+ * A read-only array of values compared via shallow `Object.is` by the
+ * renderer. Hooks re-run only when at least one element changes.
+ */
+export type DependencyList = readonly unknown[];
+
 /** Returns true when the dependency arrays differ (shallow Object.is comparison). */
-export function depsChanged(prev: unknown[] | undefined, next: unknown[]): boolean {
+export function depsChanged(prev: DependencyList | undefined, next: DependencyList): boolean {
   if (prev === undefined) return true;
   if (prev.length !== next.length) return true;
   for (let i = 0; i < prev.length; i++) {

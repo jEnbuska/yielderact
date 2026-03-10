@@ -1,5 +1,11 @@
 import type { AnyComponentFn, Child } from "../jsx";
-import { $RESOLVE, $RESOLVE_RAW, depsChanged, type HookContext } from "./symbols";
+import {
+  $RESOLVE,
+  $RESOLVE_RAW,
+  type DependencyList,
+  depsChanged,
+  type HookContext,
+} from "./symbols";
 
 /**
  * A value that can be rendered: a VNode-like child, a component function,
@@ -91,7 +97,7 @@ export function* $resolveRaw<T, E = unknown>(
  */
 export function* $resolve<T>(
   options: UseResolveOptions<T>,
-  deps: unknown[],
+  deps: DependencyList,
 ): Generator<unknown, T, unknown> {
   // $RESOLVE handles both memoization and AbortController lifecycle.
   // The renderer creates a new AbortController on first call or when deps change,
@@ -160,7 +166,7 @@ export function _processResolveRaw(
 export function _processResolve(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
   const { hookIndex, hookStates, cleanupFns } = ctx;
   const fn = descriptor["fn"] as (signal: AbortSignal) => Promise<unknown>;
-  const deps = descriptor["deps"] as unknown[];
+  const deps = descriptor["deps"] as DependencyList;
   const existing = hookStates[hookIndex];
 
   if (existing === undefined || existing.kind !== "resolve" || depsChanged(existing.deps, deps)) {
