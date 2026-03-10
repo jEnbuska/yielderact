@@ -13,16 +13,12 @@ import { _requireActiveCtx } from "./state";
 
 /** Attach a $ref object to a DOM element. */
 export function setRef(ref: unknown, el: Element): void {
-  if (ref && typeof ref === "object" && "current" in (ref as object)) {
-    (ref as { current: unknown }).current = el;
-  }
+  if (ref) (ref as { current: unknown }).current = el;
 }
 
 /** Clear a $ref object (set .current to undefined). */
 export function clearRef(ref: unknown): void {
-  if (ref && typeof ref === "object" && "current" in (ref as object)) {
-    (ref as { current: unknown }).current = undefined;
-  }
+  if (ref) (ref as { current: unknown }).current = undefined;
 }
 
 // ── Event registration helpers ─────────────────────────────────────────────
