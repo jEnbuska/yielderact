@@ -27,6 +27,7 @@ import type { RenderContext } from "./types";
  * @param domEvent    - The lowercase DOM event name (e.g. `"click"`).
  * @param rctx        - The render context for this root.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: capture+bubble dispatch with propagation checks
 export function dispatchDelegatedEvent(
   nativeEvent: Event,
   rootElement: Element,
@@ -60,7 +61,7 @@ export function dispatchDelegatedEvent(
   try {
     // 4. Capture phase (root → target): walk path from outermost to innermost.
     for (let i = path.length - 1; i >= 0; i--) {
-      const el = path[i]!;
+      const el = path[i] as Element;
       const entry = getHandlers(el, domEvent);
       if (entry?.capture) {
         syntheticEvent._setCurrentTarget(el);
@@ -77,7 +78,7 @@ export function dispatchDelegatedEvent(
     // 5. Bubble phase (target → root): walk path from innermost to outermost.
     if (!syntheticEvent._isPropagationStopped()) {
       for (let i = 0; i < path.length; i++) {
-        const el = path[i]!;
+        const el = path[i] as Element;
         const entry = getHandlers(el, domEvent);
         if (entry?.bubble) {
           syntheticEvent._setCurrentTarget(el);

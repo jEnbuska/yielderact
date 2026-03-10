@@ -33,7 +33,7 @@ describe("$memo", () => {
 
   it("does not recompute when deps are the same", () => {
     const factory = jest.fn((a: number) => a * 2);
-    let setValue: ((v: number) => void) | null = null;
+    let setValue: (v: number) => void = () => {};
 
     function* Comp() {
       const [v, sv] = yield* $state(10);
@@ -43,14 +43,14 @@ describe("$memo", () => {
     }
 
     render(createElement(Comp as never, {}), container);
-    setValue!(20); // trigger re-render, same dep [5]
+    setValue(20); // trigger re-render, same dep [5]
 
     expect(factory).toHaveBeenCalledTimes(1);
   });
 
   it("recomputes when deps change", () => {
     const factory = jest.fn((a: number) => a * 2);
-    let setValue: ((v: number) => void) | null = null;
+    let setValue: (v: number) => void = () => {};
     let capturedValue: number | null = null;
 
     function* Comp() {
@@ -64,7 +64,7 @@ describe("$memo", () => {
     expect(capturedValue).toBe(2);
     expect(factory).toHaveBeenCalledTimes(1);
 
-    setValue!(3);
+    setValue(3);
     expect(capturedValue).toBe(6);
     expect(factory).toHaveBeenCalledTimes(2);
     expect(factory).toHaveBeenLastCalledWith(3);
@@ -72,7 +72,7 @@ describe("$memo", () => {
 
   it("works with empty deps (zero-arg factory)", () => {
     const factory = jest.fn(() => 42);
-    let setValue: ((v: number) => void) | null = null;
+    let setValue: (v: number) => void = () => {};
     let capturedValue: number | null = null;
 
     function* Comp() {
@@ -86,7 +86,7 @@ describe("$memo", () => {
     expect(capturedValue).toBe(42);
     expect(factory).toHaveBeenCalledTimes(1);
 
-    setValue!(1); // re-render, empty deps never change
+    setValue(1); // re-render, empty deps never change
     expect(capturedValue).toBe(42);
     expect(factory).toHaveBeenCalledTimes(1);
   });

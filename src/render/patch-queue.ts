@@ -39,7 +39,7 @@ export function commitPatch(): void {
   if (ctx.ops === null) return;
   const ops = ctx.ops;
   ctx.ops = null;
-  for (let i = 0; i < ops.length; i++) ops[i]!();
+  for (let i = 0; i < ops.length; i++) ops[i]?.();
 }
 
 /** Returns `true` while a patch is being collected. */

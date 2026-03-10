@@ -23,12 +23,12 @@ describe("render – HTML elements", () => {
 
   it("renders a text child", () => {
     render(createElement("p", null, "Hello World"), container);
-    expect(container.querySelector("p")!.textContent).toBe("Hello World");
+    expect(container.querySelector("p")?.textContent).toBe("Hello World");
   });
 
   it("renders nested elements", () => {
     render(createElement("div", null, createElement("span", null, "inner")), container);
-    expect(container.querySelector("span")!.textContent).toBe("inner");
+    expect(container.querySelector("span")?.textContent).toBe("inner");
   });
 
   it("applies className", () => {
@@ -38,7 +38,7 @@ describe("render – HTML elements", () => {
 
   it("applies arbitrary attributes", () => {
     render(createElement("input", { type: "text", placeholder: "name" }), container);
-    const input = container.querySelector("input")!;
+    const input = container.querySelector("input") as HTMLInputElement;
     expect(input.getAttribute("type")).toBe("text");
     expect(input.getAttribute("placeholder")).toBe("name");
   });
@@ -46,7 +46,7 @@ describe("render – HTML elements", () => {
   it("applies event listeners and wraps in SyntheticEvent", () => {
     const onClick = jest.fn();
     render(createElement("button", { onClick }, "click me"), container);
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
     expect(onClick).toHaveBeenCalledTimes(1);
     // The handler receives a SyntheticEvent, not the raw native event
     const syntheticEvent = onClick.mock.calls[0][0];
@@ -64,7 +64,7 @@ describe("render – HTML elements", () => {
   });
 
   it("updates changed style properties on rerender", () => {
-    let setStyle: ((s: Record<string, string>) => void) | null = null;
+    let setStyle: (s: Record<string, string>) => void = () => {};
 
     function* Styled() {
       const [style, ss] = yield* $state<Record<string, string>>({ color: "red" });
@@ -76,12 +76,12 @@ describe("render – HTML elements", () => {
     const el = container.querySelector("div") as HTMLElement;
     expect(el.style.color).toBe("red");
 
-    setStyle!({ color: "blue" });
+    setStyle({ color: "blue" });
     expect(el.style.color).toBe("blue");
   });
 
   it("removes style properties that are no longer present on rerender", () => {
-    let setStyle: ((s: Record<string, string>) => void) | null = null;
+    let setStyle: (s: Record<string, string>) => void = () => {};
 
     function* Styled() {
       const [style, ss] = yield* $state<Record<string, string>>({
@@ -97,13 +97,13 @@ describe("render – HTML elements", () => {
     expect(el.style.color).toBe("red");
     expect(el.style.fontSize).toBe("14px");
 
-    setStyle!({ color: "blue" });
+    setStyle({ color: "blue" });
     expect(el.style.color).toBe("blue");
     expect(el.style.fontSize).toBe("");
   });
 
   it("clears all styles when style prop is removed", () => {
-    let setProps: ((p: Record<string, unknown>) => void) | null = null;
+    let setProps: (p: Record<string, unknown>) => void = () => {};
 
     function* Styled() {
       const [props, sp] = yield* $state<Record<string, unknown>>({
@@ -118,7 +118,7 @@ describe("render – HTML elements", () => {
     expect(el.style.color).toBe("red");
     expect(el.style.fontWeight).toBe("bold");
 
-    setProps!({});
+    setProps({});
     expect(el.style.color).toBe("");
     expect(el.style.fontWeight).toBe("");
   });
@@ -139,17 +139,17 @@ describe("render – HTML elements", () => {
     );
     const items = container.querySelectorAll("li");
     expect(items).toHaveLength(2);
-    expect(items[0]!.textContent).toBe("one");
-    expect(items[1]!.textContent).toBe("two");
+    expect(items[0]?.textContent).toBe("one");
+    expect(items[1]?.textContent).toBe("two");
   });
 
   it("skips null and undefined children", () => {
     render(createElement("div", null, null, undefined, "visible"), container);
-    expect(container.querySelector("div")!.textContent).toBe("visible");
+    expect(container.querySelector("div")?.textContent).toBe("visible");
   });
 
   it("sets input value as DOM property (not just attribute)", () => {
-    let setValue: ((v: string) => void) | null = null;
+    let setValue: (v: string) => void = () => {};
 
     function* Controlled() {
       const [val, sv] = yield* $state("initial");
@@ -161,15 +161,15 @@ describe("render – HTML elements", () => {
     const input = container.querySelector("input") as HTMLInputElement;
     expect(input.value).toBe("initial");
 
-    setValue!("updated");
+    setValue("updated");
     expect(input.value).toBe("updated");
 
-    setValue!("");
+    setValue("");
     expect(input.value).toBe("");
   });
 
   it("sets checkbox checked as DOM property", () => {
-    let setChecked: ((v: boolean) => void) | null = null;
+    let setChecked: (v: boolean) => void = () => {};
 
     function* CheckBox() {
       const [checked, sc] = yield* $state(false);
@@ -181,10 +181,10 @@ describe("render – HTML elements", () => {
     const cb = container.querySelector("input") as HTMLInputElement;
     expect(cb.checked).toBe(false);
 
-    setChecked!(true);
+    setChecked(true);
     expect(cb.checked).toBe(true);
 
-    setChecked!(false);
+    setChecked(false);
     expect(cb.checked).toBe(false);
   });
 });

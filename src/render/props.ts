@@ -46,7 +46,7 @@ function _registerEvent(
     addNonDelegatedListener(el, domEvent, handler);
   } else {
     registerHandler(el, domEvent, handler, isCapture);
-    _requireActiveCtx().delegationRoot!.ensureListening(domEvent);
+    _requireActiveCtx().delegationRoot?.ensureListening(domEvent);
   }
 }
 
@@ -95,6 +95,7 @@ function _unregisterEvent(el: HTMLElement, propKey: string): void {
  * @param el    - The freshly-created DOM element.
  * @param props - The VNode's props object.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: prop type dispatch with many branches
 export function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
   for (const [key, value] of Object.entries(props)) {
     if (key.startsWith("$")) continue;
@@ -166,6 +167,7 @@ export function applyProps(el: HTMLElement, props: Record<string, unknown>): voi
  * @param prevProps - The props from the previous render (stored in `Slot.props`).
  * @param nextProps - The props from the new VNode.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: prop type dispatch with many branches
 export function updateProps(
   el: HTMLElement,
   prevProps: Record<string, unknown>,

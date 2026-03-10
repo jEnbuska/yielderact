@@ -40,16 +40,16 @@ describe("event delegation", () => {
   it("dispatches click events through delegation", () => {
     const onClick = jest.fn();
     render(createElement("button", { onClick }, "click me"), container);
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it("wraps events in SyntheticEvent with correct properties", () => {
     const onClick = jest.fn();
     render(createElement("button", { onClick }, "click me"), container);
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
 
-    const syntheticEvent = onClick.mock.calls[0]![0];
+    const syntheticEvent = onClick.mock.calls[0]?.[0];
     expect(syntheticEvent).toHaveProperty("nativeEvent");
     expect(syntheticEvent).toHaveProperty("type", "click");
     expect(typeof syntheticEvent.preventDefault).toBe("function");
@@ -83,7 +83,7 @@ describe("event delegation", () => {
       container,
     );
 
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
 
     expect(order).toEqual(["outer-capture", "inner-capture", "inner-bubble", "outer-bubble"]);
   });
@@ -105,7 +105,7 @@ describe("event delegation", () => {
       container,
     );
 
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
 
     expect(innerClick).toHaveBeenCalledTimes(1);
     expect(outerClick).not.toHaveBeenCalled();
@@ -128,7 +128,7 @@ describe("event delegation", () => {
       container,
     );
 
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
 
     expect(outerCapture).toHaveBeenCalledTimes(1);
     expect(innerCapture).not.toHaveBeenCalled();
@@ -157,7 +157,7 @@ describe("event delegation", () => {
       container,
     );
 
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
 
     expect(order).toEqual(["outer-capture"]);
   });
@@ -181,7 +181,7 @@ describe("event delegation", () => {
       container,
     );
 
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
     expect(defaultPrevented).toBe(true);
   });
 
@@ -213,7 +213,7 @@ describe("event delegation", () => {
       container,
     );
 
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
 
     // Bubble phase: button first, then outer div
     expect(targets).toHaveLength(2);
@@ -244,11 +244,11 @@ describe("event delegation", () => {
 
     render(createElement(Multi as never, {}), container);
     expect(renderCount).toBe(1);
-    expect(container.querySelector("button")!.textContent).toBe("0-0");
+    expect(container.querySelector("button")?.textContent).toBe("0-0");
 
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
     // After click, both state updates should have been processed
-    expect(container.querySelector("button")!.textContent).toBe("1-1");
+    expect(container.querySelector("button")?.textContent).toBe("1-1");
     // Should have rendered only twice total (initial + one batched rerender)
     expect(renderCount).toBe(2);
   });
@@ -259,7 +259,7 @@ describe("event delegation", () => {
     const onScroll = jest.fn();
     render(createElement("div", { onScroll }, "content"), container);
 
-    const div = container.querySelector("div")!;
+    const div = container.querySelector("div") as HTMLElement;
     const addSpy = jest.spyOn(div, "addEventListener");
 
     // The scroll listener should have been added directly to the element,
@@ -296,13 +296,13 @@ describe("event delegation", () => {
       container,
     );
 
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
 
     expect(receivedEvent).not.toBeNull();
     // bubbles is a standard property that our proxy should forward
-    expect(receivedEvent!["bubbles"]).toBe(true);
+    expect(receivedEvent?.["bubbles"]).toBe(true);
     // type should be accessible
-    expect(receivedEvent!["type"]).toBe("click");
+    expect(receivedEvent?.["type"]).toBe("click");
   });
 
   // ── Event prop mapping ────────────────────────────────────────────────
@@ -311,7 +311,7 @@ describe("event delegation", () => {
     const onDoubleClick = jest.fn();
     render(createElement("button", { onDoubleClick }, "dblclick me"), container);
 
-    const btn = container.querySelector("button")!;
+    const btn = container.querySelector("button") as HTMLButtonElement;
     btn.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
 
     expect(onDoubleClick).toHaveBeenCalledTimes(1);
@@ -321,7 +321,7 @@ describe("event delegation", () => {
     const onFocus = jest.fn();
     render(createElement("input", { onFocus }), container);
 
-    const input = container.querySelector("input")!;
+    const input = container.querySelector("input") as HTMLInputElement;
     input.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
 
     expect(onFocus).toHaveBeenCalledTimes(1);
@@ -331,7 +331,7 @@ describe("event delegation", () => {
     const onBlur = jest.fn();
     render(createElement("input", { onBlur }), container);
 
-    const input = container.querySelector("input")!;
+    const input = container.querySelector("input") as HTMLInputElement;
     input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
 
     expect(onBlur).toHaveBeenCalledTimes(1);
@@ -346,13 +346,13 @@ describe("event delegation", () => {
     }
 
     render(createElement(Counter as never, {}), container);
-    expect(container.querySelector("button")!.textContent).toBe("0");
+    expect(container.querySelector("button")?.textContent).toBe("0");
 
-    container.querySelector("button")!.click();
-    expect(container.querySelector("button")!.textContent).toBe("1");
+    container.querySelector("button")?.click();
+    expect(container.querySelector("button")?.textContent).toBe("1");
 
-    container.querySelector("button")!.click();
-    expect(container.querySelector("button")!.textContent).toBe("2");
+    container.querySelector("button")?.click();
+    expect(container.querySelector("button")?.textContent).toBe("2");
   });
 
   it("handles handler changes across rerenders", () => {
@@ -368,7 +368,7 @@ describe("event delegation", () => {
     }
 
     render(createElement(HandlerChanger as never, {}), container);
-    const btn = container.querySelector("button")!;
+    const btn = container.querySelector("button") as HTMLButtonElement;
 
     btn.click();
     expect(btn.textContent).toBe("1");
@@ -419,7 +419,7 @@ describe("event delegation", () => {
       container,
     );
 
-    container.querySelector("button")!.click();
+    container.querySelector("button")?.click();
 
     expect(order).toEqual(["target", "level3", "level2", "level1"]);
   });

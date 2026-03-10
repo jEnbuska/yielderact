@@ -17,7 +17,7 @@ describe("$id", () => {
   });
 
   it("returns a non-empty string", () => {
-    let capturedId: string | null = null;
+    let capturedId = "";
 
     function* Comp() {
       capturedId = yield* $id();
@@ -26,12 +26,12 @@ describe("$id", () => {
 
     render(createElement(Comp as never, {}), container);
     expect(typeof capturedId).toBe("string");
-    expect(capturedId!.length).toBeGreaterThan(0);
+    expect(capturedId.length).toBeGreaterThan(0);
   });
 
   it("returns the same id across re-renders", () => {
     const ids: string[] = [];
-    let setValue: ((v: number) => void) | null = null;
+    let setValue: (v: number) => void = () => {};
 
     function* Comp() {
       const [, sv] = yield* $state(0);
@@ -42,15 +42,15 @@ describe("$id", () => {
     }
 
     render(createElement(Comp as never, {}), container);
-    setValue!(1);
+    setValue(1);
 
     expect(ids).toHaveLength(2);
     expect(ids[0]).toBe(ids[1]);
   });
 
   it("returns distinct ids for different hook call sites", () => {
-    let id1: string | null = null;
-    let id2: string | null = null;
+    let id1 = "";
+    let id2 = "";
 
     function* Comp() {
       id1 = yield* $id();
