@@ -1,7 +1,7 @@
 /**
- * ThemeDemo – demonstrates createContext / $context with `yield* $state`.
+ * ThemeDemo – demonstrates createContext / useContext with `yield* useState`.
  */
-import { $context, $id, $state, createContext } from "yielderact";
+import { createContext, useContext, useId, useState } from "yielderact";
 
 type Theme = "light" | "dark";
 
@@ -13,10 +13,10 @@ const styles: Record<Theme, { background: string; color: string; border: string 
 };
 
 function* ThemedCard() {
-  const cardId = yield* $id();
-  const themeValueId = yield* $id();
+  const cardId = yield* useId();
+  const themeValueId = yield* useId();
 
-  const theme = yield* $context(ThemeContext);
+  const theme = yield* useContext(ThemeContext);
   const s = styles[theme];
   return (
     <div
@@ -42,15 +42,15 @@ function* ThemedCard() {
 }
 
 export function* ThemeDemo() {
-  const toggleBtnId = yield* $id();
+  const toggleBtnId = yield* useId();
 
-  const [theme, setTheme] = yield* $state<Theme>("light");
+  const [theme, setTheme] = yield* useState<Theme>("light");
 
   return (
     <section aria-label="Theme context example">
       <h2>Context API</h2>
       <p>
-        <code>createContext</code> / <code>$context</code> let child components consume values
+        <code>createContext</code> / <code>useContext</code> let child components consume values
         without prop-drilling.
       </p>
       <button

@@ -3,7 +3,7 @@
  *
  * This module is the bridge between the generator-based hook API and the
  * renderer. Components yield hook descriptors (tagged objects like
- * `{ type: $STATE, initialValue }`) from their generator body. The
+ * `{ type: "$USE_STATE", initialValue }`) from their generator body. The
  * renderer calls `runHooks` which drives the generator in a loop,
  * dispatching each descriptor to `processOneDescriptor` and sending the
  * result back via `gen.next(result)`.
@@ -12,53 +12,69 @@
  * collection, and context propagation.
  */
 
-import { _getProviderCtx, _processContext, $CONTEXT, type Context } from "../context";
 import {
-  $EFFECT,
-  $ID,
-  $MEMO,
-  $REF,
-  $RENDER,
-  $RESOLVE,
-  $RESOLVE_RAW,
-  $STATE,
-  $UI_PATCH,
-  depsChanged,
-  type HookContext,
-} from "../hooks";
-import { _processEffect } from "../hooks/$effect";
-import { _processId } from "../hooks/$id";
-import { _processMemo } from "../hooks/$memo";
-import { _processRef } from "../hooks/$ref";
-import { _processRender } from "../hooks/$render";
-import { _processResolve, _processResolveRaw } from "../hooks/$resolve";
-import { _processState } from "../hooks/$state";
-import { _processUIPatch } from "../hooks/$ui-patch";
+  _getCtxMap,
+  _getProviderCtx,
+  _processContext,
+  _resolveCtxValue,
+  type Context,
+} from "../context";
+import {
+  $USE_CONTEXT,
+  $USE_EFFECT,
+  $USE_ID,
+  $USE_MEMO,
+  $USE_REF,
+  $USE_RENDER,
+  $USE_RESOLVE,
+  $USE_RESOLVE_RAW,
+  $USE_STATE,
+  $USE_UI_PATCH,
+  HOOK_TYPES,
+  type HookDescriptor,
+  type HookType,
+} from "../hooks/descriptors";
+import type { ComponentGenerator } from "../hooks/types";
+import { depsChanged } from "../hooks/types";
+import { _processEffect } from "../hooks/useEffect";
+import { _processId } from "../hooks/useId";
+import { _processMemo } from "../hooks/useMemo";
+import { _processRef } from "../hooks/useRef";
+import { _processRender } from "../hooks/useRender";
+import type { ResolveRawResult } from "../hooks/useResolve";
+import { _processResolve, _processResolveRaw } from "../hooks/useResolve";
+import { _createStateSetter, _processState } from "../hooks/useState";
+import { _processUIPatch } from "../hooks/useUIPatch";
 import type { Child } from "../jsx";
 import { _flushPendingVNodes } from "./patch";
 import { clearRef } from "./props";
-import type { GenInstance, HookState, Slot } from "./types";
+import type { ComponentInstance, HookState, Slot } from "./types";
 
 /**
- * Set of all known hook descriptor type symbols for fast membership test.
+ * Extract and validate the previous hook state at `hookIndex`.
  *
- * When a generator yields a value, `isHookDescriptor` checks whether its
- * `type` field is one of these symbols. If yes, the yielded value is a
- * hook descriptor to be processed. If no, it's a real VNode (or Child)
- * representing the component's render output.
+ * Returns the typed previous state if it exists and matches `expectedKind`,
+ * or `undefined` if first render. Throws on kind mismatch (hook order violation).
  */
-const HOOK_SYMBOLS = new Set<symbol>([
-  $STATE,
-  $REF,
-  $ID,
-  $MEMO,
-  $CONTEXT,
-  $RESOLVE_RAW,
-  $RESOLVE,
-  $EFFECT,
-  $RENDER,
-  $UI_PATCH,
-]);
+function getTypedPrev<K extends HookState["kind"]>(
+  hookStates: HookState[],
+  hookIndex: number,
+  expectedKind: K,
+  instance: ComponentInstance,
+): Extract<HookState, { kind: K }> | undefined {
+  const prev = hookStates[hookIndex];
+  if (prev === undefined) return undefined;
+  if (prev.kind !== expectedKind) {
+    const componentName = instance.component.name || "Anonymous";
+    throw new Error(
+      `Hook order mismatch in "${componentName}" at index ${hookIndex}: ` +
+        `expected ${prev.kind} (from previous render) but got ${expectedKind}. ` +
+        `Hooks must be called in the same order on every render. ` +
+        `Do not call hooks inside conditions, loops, or after early returns.`,
+    );
+  }
+  return prev as Extract<HookState, { kind: K }>;
+}
 
 /**
  * Returns true when a yielded value is a hook descriptor (not a VNode/Child).
@@ -72,7 +88,7 @@ export function isHookDescriptor(value: unknown): boolean {
   return (
     value !== null &&
     typeof value === "object" &&
-    HOOK_SYMBOLS.has((value as { type: symbol }).type)
+    HOOK_TYPES.has((value as { type: HookType }).type)
   );
 }
 
@@ -100,12 +116,12 @@ export function isHookDescriptor(value: unknown): boolean {
  *
  * @param instance - The generator instance whose effects to flush.
  */
-export function flushEffects(instance: GenInstance): void {
-  if (instance.gen !== null) return;
+export function flushEffects(instance: ComponentInstance): void {
+  if (instance.gen) return;
   for (const { hookIndex, fn, controller } of instance.pendingEffects) {
     const cleanup = fn(controller.signal);
     const state = instance.hookStates[hookIndex];
-    if (state !== undefined && state.kind === "effect") {
+    if (state !== undefined && state.kind === $USE_EFFECT) {
       state.cleanup = cleanup;
     }
   }
@@ -116,7 +132,7 @@ export function flushEffects(instance: GenInstance): void {
  * Recursively tear down a slot and all its descendants.
  *
  * Calls every cleanup function registered by hooks (`useEffect`,
- * `useResolve`) on every `GenInstance` in the subtree. Also removes the
+ * `useResolve`) on every `ComponentInstance` in the subtree. Also removes the
  * instance from `renderCtx.dirtyInstances` so that a pending
  * `commitUIPatch` doesn't try to reconcile a dead component.
  *
@@ -133,41 +149,38 @@ export function unmountSlot(slot: Slot): void {
   if (typeof slot.type === "string" && slot.props["$ref"]) {
     clearRef(slot.props["$ref"]);
   }
-  if (slot.genInstance) {
-    for (const child of slot.genInstance.slots) {
+  if (slot.componentInstance) {
+    for (const child of slot.componentInstance.slots) {
       unmountSlot(child);
     }
-    for (const fn of slot.genInstance.cleanupFns) {
+    for (const fn of slot.componentInstance.cleanupFns) {
       fn?.();
     }
     // Remove from dirty set so commitUIPatch skips unmounted instances.
     // localPatchRefCount is intentionally left as-is; the local patch commit()
     // checks pendingVNode === undefined and skips accordingly.
-    slot.genInstance.renderCtx.dirtyInstances.delete(slot.genInstance);
+    slot.componentInstance.renderCtx.dirtyInstances.delete(slot.componentInstance);
   }
 }
 
 /**
- * Collect all descendant `GenInstance`s reachable from `instance.slots`
+ * Collect all descendant `ComponentInstance`s reachable from `instance.slots`
  * via a depth-first traversal.
  *
- * **Called by:** `processOneDescriptor($UI_PATCH)` — `useUIPatch`'s
- * `startPatch()` function snapshots all current descendants at the moment
- * the patch begins. These are the instances that will have their
- * `localPatchRefCount` incremented (deferred) and later decremented
- * (committed).
+ * **Called by:** `_processUIPatch` — `useUIPatch`'s `startPatch()` function
+ * snapshots all current descendants at the moment the patch begins.
  *
  * @param instance - The root instance whose descendants to collect.
- * @returns A flat array of all descendant `GenInstance`s (not including
+ * @returns A flat array of all descendant `ComponentInstance`s (not including
  *   the root itself).
  */
-export function collectDescendants(instance: GenInstance): GenInstance[] {
-  const result: GenInstance[] = [];
+export function collectDescendants(instance: ComponentInstance): ComponentInstance[] {
+  const result: ComponentInstance[] = [];
   function walk(slots: Slot[]): void {
     for (const slot of slots) {
-      if (slot.genInstance) {
-        result.push(slot.genInstance);
-        walk(slot.genInstance.slots);
+      if (slot.componentInstance) {
+        result.push(slot.componentInstance);
+        walk(slot.componentInstance.slots);
       }
       walk(slot.childSlots);
     }
@@ -176,30 +189,30 @@ export function collectDescendants(instance: GenInstance): GenInstance[] {
   return result;
 }
 
+/** Derive the `ResolveRawResult` from the current hook state. */
+function _deriveResolveRawResult(s: HookState | undefined): ResolveRawResult<unknown> {
+  if (s !== undefined && s.kind === $USE_RESOLVE_RAW) {
+    if (s.status === "resolved") return { data: s.data, loading: false, error: undefined };
+    if (s.status === "rejected") return { data: undefined, loading: false, error: s.error };
+  }
+  return { data: undefined, loading: true, error: undefined };
+}
+
 /**
  * Process a single hook descriptor and return the value to send back to
  * the generator via `gen.next(value)`.
  *
  * This is the central dispatch function for all hooks. Each hook type
- * yields a descriptor object with a `type` symbol and associated data.
- * The actual processing logic lives in each hook's own file; this function
- * builds the shared `HookContext` and dispatches to the right handler.
+ * yields a descriptor object with a `type` string constant and associated data.
+ * Each hook's `_process` function is a pure state transition that receives the
+ * descriptor and the typed previous state. This function handles type validation,
+ * state writes, and side-effect orchestration (cleanup, pending effects, promise handlers).
  *
  * **Called by:** `runHooks` below — once for each hook descriptor yielded
  * during the component's generator body.
- *
- * @param descriptor    - The hook descriptor (e.g. `{ type: $STATE, initialValue: 0 }`).
- * @param hookIndex     - The positional index of this hook call (0-based, by call order).
- * @param hookStates    - The instance's persistent hook state array.
- * @param cleanupFns    - The instance's per-hook cleanup function array.
- * @param pendingEffects - The instance's queued-effects array (for `useEffect`).
- * @param rerender      - Function to trigger a full re-render of this component.
- * @param resume        - Function to resume a paused generator (for `useRender`).
- * @param instance      - The full `GenInstance` (needed by `useContext` and `useUIPatch`).
- * @returns The value to send back to the generator via `gen.next(value)`.
  */
 export function processOneDescriptor(
-  descriptor: { type: symbol; [key: string]: unknown },
+  descriptor: HookDescriptor,
   hookIndex: number,
   hookStates: HookState[],
   cleanupFns: ((() => void) | undefined)[],
@@ -210,43 +223,111 @@ export function processOneDescriptor(
   }>,
   rerender: () => Promise<void>,
   resume: () => void,
-  instance: GenInstance,
+  instance: ComponentInstance,
 ): unknown {
-  const ctx: HookContext = {
-    hookIndex,
-    hookStates,
-    cleanupFns,
-    pendingEffects,
-    rerender,
-    resume,
-    instance,
-    collectDescendants,
-    flushPendingVNodes: _flushPendingVNodes,
-  };
-
   switch (descriptor.type) {
-    case $STATE:
-      return _processState(descriptor, ctx);
-    case $REF:
-      return _processRef(descriptor, ctx);
-    case $ID:
-      return _processId(ctx);
-    case $MEMO:
-      return _processMemo(descriptor, ctx);
-    case $CONTEXT:
-      return _processContext(descriptor, ctx);
-    case $RESOLVE_RAW:
-      return _processResolveRaw(descriptor, ctx);
-    case $RESOLVE:
-      return _processResolve(descriptor, ctx);
-    case $EFFECT:
-      return _processEffect(descriptor, ctx);
-    case $RENDER:
-      return _processRender(descriptor, ctx);
-    case $UI_PATCH:
-      return _processUIPatch(ctx);
+    case $USE_STATE: {
+      const prev = getTypedPrev(hookStates, hookIndex, $USE_STATE, instance);
+      const state = _processState(descriptor, prev);
+      hookStates[hookIndex] = state;
+      return [state.value, _createStateSetter(state, rerender)];
+    }
+    case $USE_REF: {
+      const prev = getTypedPrev(hookStates, hookIndex, $USE_REF, instance);
+      const state = _processRef(descriptor, prev);
+      hookStates[hookIndex] = state;
+      return state;
+    }
+    case $USE_ID: {
+      const prev = getTypedPrev(hookStates, hookIndex, $USE_ID, instance);
+      const state = _processId(prev);
+      hookStates[hookIndex] = state;
+      return state.id;
+    }
+    case $USE_MEMO: {
+      const prev = getTypedPrev(hookStates, hookIndex, $USE_MEMO, instance);
+      const state = _processMemo(descriptor, prev);
+      hookStates[hookIndex] = state;
+      return state.value;
+    }
+    case $USE_EFFECT: {
+      const prev = getTypedPrev(hookStates, hookIndex, $USE_EFFECT, instance);
+      const { state, isNew } = _processEffect(descriptor, prev);
+      hookStates[hookIndex] = state;
+      if (isNew) {
+        pendingEffects.push({ hookIndex, fn: descriptor.fn, controller: state.controller });
+        cleanupFns[hookIndex] = () => {
+          state.controller.abort();
+          state.cleanup?.();
+        };
+      }
+      return undefined;
+    }
+    case $USE_CONTEXT: {
+      const prev = getTypedPrev(hookStates, hookIndex, $USE_CONTEXT, instance);
+      instance.consumedContexts.add(descriptor.ctx);
+      const rawValue = _resolveCtxValue(_getCtxMap(), descriptor.ctx);
+      const state = _processContext(descriptor, prev, rawValue);
+      hookStates[hookIndex] = state;
+      return state.lastResult;
+    }
+    case $USE_RESOLVE_RAW: {
+      const prev = getTypedPrev(hookStates, hookIndex, $USE_RESOLVE_RAW, instance);
+      const { state, isNew } = _processResolveRaw(descriptor, prev);
+      hookStates[hookIndex] = state;
+      if (isNew) {
+        descriptor.promise.then(
+          (data) => {
+            if (hookStates[hookIndex] === state) {
+              hookStates[hookIndex] = {
+                kind: $USE_RESOLVE_RAW,
+                promise: descriptor.promise,
+                status: "resolved",
+                data,
+              };
+              void rerender();
+            }
+          },
+          (error: unknown) => {
+            if (hookStates[hookIndex] === state) {
+              hookStates[hookIndex] = {
+                kind: $USE_RESOLVE_RAW,
+                promise: descriptor.promise,
+                status: "rejected",
+                error,
+              };
+              void rerender();
+            }
+          },
+        );
+      }
+      return _deriveResolveRawResult(hookStates[hookIndex]);
+    }
+    case $USE_RESOLVE: {
+      const prev = getTypedPrev(hookStates, hookIndex, $USE_RESOLVE, instance);
+      const { state, isNew } = _processResolve(descriptor, prev);
+      hookStates[hookIndex] = state;
+      if (isNew) {
+        cleanupFns[hookIndex] = () => state.controller.abort();
+      }
+      return state.promise;
+    }
+    case $USE_RENDER: {
+      const prev = getTypedPrev(hookStates, hookIndex, $USE_RENDER, instance);
+      const state = _processRender(descriptor, prev, hookStates, hookIndex, resume);
+      hookStates[hookIndex] = state;
+      return { slot: state, resumeCallback: state.resumeCallback };
+    }
+    case $USE_UI_PATCH: {
+      const prev = getTypedPrev(hookStates, hookIndex, $USE_UI_PATCH, instance);
+      const state = _processUIPatch(prev, instance, collectDescendants, _flushPendingVNodes);
+      hookStates[hookIndex] = state;
+      return state.startPatch;
+    }
     default:
-      throw new Error(`Unknown hook descriptor type: ${String(descriptor.type)}`);
+      throw new Error(
+        `Unknown hook descriptor type: ${String((descriptor as { type: string }).type)}`,
+      );
   }
 }
 
@@ -271,7 +352,7 @@ export function processOneDescriptor(
  * (both initial mount and subsequent rerenders).
  *
  * @param gen      - The generator created by calling the component function.
- * @param instance - The component's `GenInstance`.
+ * @param instance - The component's `ComponentInstance`.
  * @param rerender - Function to trigger a rerender (passed to hook descriptors).
  * @param resume   - Function to resume a paused generator (passed to `useRender`).
  * @returns An object with:
@@ -280,20 +361,20 @@ export function processOneDescriptor(
  *   - `cancelled`: true if a mid-render state change aborted this render.
  */
 export function runHooks(
-  gen: Generator<unknown, Child, unknown>,
-  instance: GenInstance,
+  gen: ComponentGenerator<Child>,
+  instance: ComponentInstance,
   rerender: () => Promise<void>,
   resume: () => void,
 ): {
   vnode: Child;
-  gen: Generator<unknown, Child, unknown> | null;
+  gen?: ComponentGenerator<Child>;
   cancelled: boolean;
 } {
   let hookIndex = 0;
-  let result = gen.next(undefined as unknown);
+  let result = gen.next(undefined);
 
   while (!result.done && isHookDescriptor(result.value)) {
-    const descriptor = result.value as { type: symbol; [key: string]: unknown };
+    const descriptor = result.value as HookDescriptor;
     const value = processOneDescriptor(
       descriptor,
       hookIndex++,
@@ -307,14 +388,29 @@ export function runHooks(
     // A mid-render state change was queued — abort this stale render so the
     // next iteration of executeRerender picks up the accumulated latest state.
     if (instance.pendingRerender) {
-      return { vnode: null, gen: null, cancelled: true };
+      return { vnode: null, cancelled: true };
     }
     result = gen.next(value);
   }
 
+  // Validate hook count on generator completion.
+  if (result.done) {
+    if (instance.finalHookCount !== undefined && hookIndex !== instance.finalHookCount) {
+      const componentName = instance.component.name || "Anonymous";
+      throw new Error(
+        `Hook count mismatch in "${componentName}": ` +
+          `previous render completed with ${instance.finalHookCount} hooks, ` +
+          `but this render completed with ${hookIndex}. ` +
+          `Hooks must be called in the same order and quantity on every render. ` +
+          `Do not call hooks inside conditions, loops, or after early returns.`,
+      );
+    }
+    instance.finalHookCount = hookIndex;
+  }
+
   return {
     vnode: (result.value as Child) ?? null,
-    gen: result.done ? null : gen,
+    gen: result.done ? undefined : gen,
     cancelled: false,
   };
 }
@@ -335,9 +431,13 @@ export function runHooks(
  * @param newValue - The new value supplied by the Provider.
  * @returns `true` if no rerender is needed (all selectors stable or context not consumed).
  */
-function _hasStableSelectors(inst: GenInstance, ctx: Context<unknown>, newValue: unknown): boolean {
+function _hasStableSelectors(
+  inst: ComponentInstance,
+  ctx: Context<unknown>,
+  newValue: unknown,
+): boolean {
   for (const s of inst.hookStates) {
-    if (s === undefined || s.kind !== "context") continue;
+    if (s === undefined || s.kind !== $USE_CONTEXT) continue;
     if (s.ctx !== ctx) continue;
     if (!s.selector) return false;
     const newDeps = s.selector(newValue);
@@ -350,7 +450,7 @@ function _hasStableSelectors(inst: GenInstance, ctx: Context<unknown>, newValue:
  * Walk all descendant slots and propagate a context value change.
  *
  * When a context Provider's `value` prop changes, this function:
- * 1. Updates `capturedCtx` on every descendant `GenInstance` so that any
+ * 1. Updates `capturedCtx` on every descendant `ComponentInstance` so that any
  *    future self-triggered re-render uses the new value.
  * 2. Immediately re-renders instances that **consumed** the changed context
  *    in their last render (tracked via `consumedContexts`), unless all their
@@ -378,7 +478,7 @@ export function propagateContextUpdate(
       continue;
     }
 
-    const inst = slot.genInstance;
+    const inst = slot.componentInstance;
     if (inst) {
       // Keep capturedCtx current so future self-triggered re-renders use the
       // new value even if this component doesn't consume the changed context.
@@ -398,7 +498,7 @@ export function propagateContextUpdate(
       }
     }
 
-    // Recurse into HTML-element child slots (genInstance slots have none).
+    // Recurse into HTML-element child slots (componentInstance slots have none).
     if (slot.childSlots.length > 0) {
       propagateContextUpdate(ctx, newValue, slot.childSlots);
     }

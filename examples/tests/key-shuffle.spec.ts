@@ -103,7 +103,7 @@ test.describe("Key Shuffle example", () => {
     await page.screenshot({ path: "test-results/key-shuffle-shuffle-reverse.png" });
   });
 
-  // ── Plain function components ──
+  // ── Generator function components ──
 
   test("renders initial tag list", async ({ page }) => {
     await expect(page.getByTestId("tag-order")).toHaveText("Order: red, green, blue");

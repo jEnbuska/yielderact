@@ -14,14 +14,10 @@ export function createRenderContext(): RenderContext {
     dirtyInstances: new Set(),
     isInitialMount: false,
     liveOnlyMode: false,
-    renderingPriority: null,
     ctxMap: new Map(),
-    ops: null,
     pendingUpdates: new Map(),
     isProcessing: false,
-    activePriority: null,
     syncMode: true,
-    delegationRoot: null,
   };
 }
 
@@ -31,25 +27,13 @@ export function createRenderContext(): RenderContext {
 // the "active" context is set to the root's `RenderContext`. All internal
 // modules read/write through this pointer instead of module-level variables.
 
-let _activeCtx: RenderContext | null = null;
-
-/**
- * Return the currently active render context, or `null` if none is active.
- *
- * Most call sites use this during a render pass (where the return is
- * guaranteed non-null). The nullable return is needed for save/restore
- * patterns at entry points (`render()`, `createRoot().render()`).
- * @internal
- */
-export function _getActiveCtx(): RenderContext | null {
-  return _activeCtx;
-}
+let _activeCtx: RenderContext | undefined;
 
 /**
  * Return the currently active render context.
  *
  * **Precondition:** Must only be called while a rendering operation is in
- * progress (i.e. `_setActiveCtx` was called with a non-null context).
+ * progress (i.e. `_setActiveCtx` was called with a defined context).
  * @internal
  */
 export function _requireActiveCtx(): RenderContext {
@@ -70,24 +54,6 @@ export function _requireActiveCtx(): RenderContext {
  *   context-dependent state from event handlers.
  * @internal
  */
-export function _setActiveCtx(ctx: RenderContext | null): void {
+export function _setActiveCtx(ctx: RenderContext | undefined): void {
   _activeCtx = ctx;
-}
-
-// ── Global ID counter ─────────────────────────────────────────────────────
-//
-// Unique IDs must be globally unique across all roots, so the counter stays
-// module-level rather than per-root.
-
-/**
- * Auto-incrementing counter for stable unique IDs produced by `$id`.
- *
- * Incremented by `_processId` in `hooks/$id.ts`. Each `$id()` call gets
- * `":r<N>:"` where N is the counter value at first mount.
- */
-export let idCounter = 0;
-
-/** Allocate the next unique ID string. @internal */
-export function nextId(): string {
-  return `:r${idCounter++}:`;
 }

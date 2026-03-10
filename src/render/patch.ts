@@ -3,7 +3,7 @@ import { getPatchMode } from "./helpers";
 import { flushEffects } from "./hooks-runtime";
 import { reconcileSlots } from "./reconciler";
 import { _requireActiveCtx } from "./state";
-import type { GenInstance } from "./types";
+import type { ComponentInstance } from "./types";
 
 /**
  * Apply deferred DOM updates for a list of generator instances.
@@ -27,7 +27,7 @@ import type { GenInstance } from "./types";
  * @param instances - The list of instances to flush. Instances with
  *   `pendingVNode === undefined` are skipped (no pending update).
  */
-export function _flushPendingVNodes(instances: GenInstance[]): void {
+export function _flushPendingVNodes(instances: ComponentInstance[]): void {
   for (const inst of instances) {
     if (inst.pendingVNode === undefined) continue;
     const vnode = inst.pendingVNode;

@@ -1,17 +1,17 @@
 /**
- * EffectDemo – demonstrates `$effect` for side-effects and cleanup.
+ * EffectDemo – demonstrates `useEffect` for side-effects and cleanup.
  *
  * Shows three patterns:
  *   1. A self-ticking timer (interval started in effect, cleared on unmount).
  *   2. A log of effect / cleanup calls to make the lifecycle visible.
  *   3. Toggling the component on/off to observe cleanup on unmount.
  */
-import { $effect, $state } from "yielderact";
+import { useEffect, useState } from "yielderact";
 
 function* Timer() {
-  const [tick, setTick] = yield* $state(0);
+  const [tick, setTick] = yield* useState(0);
 
-  yield* $effect(() => {
+  yield* useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
@@ -24,9 +24,9 @@ function* Timer() {
 }
 
 function* LifecycleLog({ id }: { id: number }) {
-  const [log, setLog] = yield* $state<string[]>([]);
+  const [log, setLog] = yield* useState<string[]>([]);
 
-  yield* $effect(() => {
+  yield* useEffect(() => {
     setLog((prev) => [...prev, `▶ effect for id=${id}`]);
     return () => setLog((prev) => [...prev, `■ cleanup for id=${id}`]);
   }, [id]);
@@ -41,19 +41,19 @@ function* LifecycleLog({ id }: { id: number }) {
 }
 
 export function* EffectDemo() {
-  const [showTimer, setShowTimer] = yield* $state(true);
-  const [logId, setLogId] = yield* $state(1);
+  const [showTimer, setShowTimer] = yield* useState(true);
+  const [logId, setLogId] = yield* useState(1);
 
   return (
-    <section aria-label="$effect demo">
+    <section aria-label="useEffect demo">
       <h2>
-        <code>$effect</code>
+        <code>useEffect</code>
       </h2>
 
       <h3>1. Interval timer (effect with cleanup)</h3>
       <p>
-        The timer starts an <code>setInterval</code> in a <code>$effect</code> with <code>[]</code>{" "}
-        deps. The interval is cleared when the component unmounts.
+        The timer starts an <code>setInterval</code> in a <code>useEffect</code> with{" "}
+        <code>[]</code> deps. The interval is cleared when the component unmounts.
       </p>
       <label
         style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}

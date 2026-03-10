@@ -54,8 +54,7 @@ export function addNonDelegatedListener(
  */
 export function removeNonDelegatedListener(el: Element, eventName: string): void {
   const wrapper = listenerWrappers.get(el)?.get(eventName);
-  if (wrapper) {
-    el.removeEventListener(eventName, wrapper);
-    listenerWrappers.get(el)?.delete(eventName);
-  }
+  if (!wrapper) return;
+  el.removeEventListener(eventName, wrapper);
+  listenerWrappers.get(el)?.delete(eventName);
 }

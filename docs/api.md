@@ -68,18 +68,6 @@ function* MyComponent(props: MyProps): Generator<unknown, Child, unknown> {
 - JSX is produced by `return`, not `yield`
 - The generator body re-runs from the top on every re-render; hook state persists across runs
 
-### Plain function components
-
-```ts
-function MyComponent(props: MyProps): Child {
-  return <div />;
-}
-```
-
-- Stateless; called once and not tracked
-- Cannot use hooks
-- Useful for pure presentational wrappers
-
 ### Fragments
 
 ```tsx

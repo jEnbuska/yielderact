@@ -1,25 +1,25 @@
 /**
- * LazyContextDemo -- demonstrates all three $context overloads:
+ * LazyContextDemo -- demonstrates all three useContext overloads:
  *
  *   1. No selector   -- rerenders whenever the Provider value changes.
  *   2. Selector only -- rerenders only when the selected deps change; returns full value.
  *   3. Selector + transform -- same rerender guard; returns the transformed value.
  */
-import { $state } from "yielderact";
+import { useState } from "yielderact";
 import { AppCtx, type AppState } from "./LazyContextDemo.shared";
 import { NoSelectorConsumer } from "./NoSelectorConsumer";
 import { SelectorConsumer } from "./SelectorConsumer";
 import { TransformConsumer } from "./TransformConsumer";
 
 export function* LazyContextDemo() {
-  const [state, setState] = yield* $state<AppState>({
+  const [state, setState] = yield* useState<AppState>({
     user: { name: "Alice", role: "admin" },
     count: 0,
   });
 
   return (
     <section aria-label="Lazy context demo" data-testid="lazy-ctx-demo">
-      <h2>Lazy $context (selector &amp; transform)</h2>
+      <h2>Lazy useContext (selector &amp; transform)</h2>
       <p style={{ fontSize: "0.875rem", color: "#555", marginBottom: "0.75rem" }}>
         The <strong>render count badge</strong> on each consumer shows how many times it has
         rendered. Use the buttons to change only <code>count</code> or only <code>user.name</code>{" "}

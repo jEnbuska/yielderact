@@ -4,17 +4,17 @@
  *
  * Three scenarios are shown:
  *  1. HTML element  – a <div> panel toggled via `$shown`.
- *  2. Function component – a stateless component toggled via `$shown`.
+ *  2. Generator component – a stateless component toggled via `$shown`.
  *  3. Generator component – a stateful counter toggled via `$shown`; the
  *     counter resets to zero each time it is re-mounted.
  */
-import { $state } from "yielderact";
+import { useState } from "yielderact";
 
 // ---------------------------------------------------------------------------
 // Sub-components used in the demo
 // ---------------------------------------------------------------------------
 
-function InfoPanel() {
+function* InfoPanel() {
   return (
     <div
       data-testid="info-panel"
@@ -25,14 +25,14 @@ function InfoPanel() {
         borderRadius: "6px",
       }}
     >
-      I am a <strong>function component</strong> – I mount and unmount based on the{" "}
+      I am a <strong>generator component</strong> – I mount and unmount based on the{" "}
       <code>$shown</code> prop.
     </div>
   );
 }
 
 function* StatefulCounter() {
-  const [count, setCount] = yield* $state(0);
+  const [count, setCount] = yield* useState(0);
 
   return (
     <div
@@ -64,9 +64,9 @@ function* StatefulCounter() {
 // ---------------------------------------------------------------------------
 
 export function* ShownDemo() {
-  const [showElement, setShowElement] = yield* $state(true);
-  const [showFunction, setShowFunction] = yield* $state(true);
-  const [showGenerator, setShowGenerator] = yield* $state(true);
+  const [showElement, setShowElement] = yield* useState(true);
+  const [showFunction, setShowFunction] = yield* useState(true);
+  const [showGenerator, setShowGenerator] = yield* useState(true);
 
   return (
     <section aria-label="shown prop demo">

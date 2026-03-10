@@ -1,11 +1,13 @@
+import type { ComponentGenerator } from "./hooks/types";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
 
+export type VNodeType = string | symbol | Component;
 /**
  * Virtual DOM node produced by createElement / JSX.
  */
-export interface VNode {
-  type: string | symbol | AnyComponentFn;
-  props: Record<string, unknown>;
+export interface VNode<T extends VNodeType = VNodeType> {
+  type: T;
+  props: InternalProps;
   children: Child[];
 }
 
@@ -15,25 +17,15 @@ export interface VNode {
 export type Child = VNode | string | number | boolean | null | undefined;
 
 /**
- * Props prefixed with `$` that are valid on every JSX element — both
- * intrinsic HTML/SVG elements and custom generator / plain-function
- * components — without needing to be declared in the component's own props type.
+ * Framework props valid on **every** JSX element — both intrinsic HTML/SVG
+ * elements and custom generator components — without needing to be declared
+ * in the component's own props type.
  *
- * These props are **never** rendered as DOM attributes. They are consumed
- * by the framework: `$key` for reconciliation, `$children` for nested
- * content, `$shown` for conditional mount/unmount, `$patch` for deferred
- * updates, and `$ref` for DOM element / component instance references.
- *
- * @typeParam TRef - The concrete element or instance type for `$ref`.
- *   Defaults to `unknown` in `IntrinsicAttributes`; narrowed to the
- *   specific `HTMLElement` / `SVGElement` subtype in per-element attribute
- *   interfaces.
+ * These are consumed by the framework and **never** rendered as DOM attributes.
  */
-export interface SpecialProps<TRef = unknown> {
+export interface FrameworkProps {
   /** Reconciliation key — not rendered to the DOM. Must be a string. */
   $key?: string;
-  /** Nested children passed to the component or element. */
-  $children?: Child | Child[];
   /** When false, the element/component is removed from the DOM. */
   $shown?: boolean;
   /**
@@ -55,9 +47,35 @@ export interface SpecialProps<TRef = unknown> {
    * see `$deferred` in their props object.
    */
   $deferred?: boolean;
+}
+
+/**
+ * Full set of `$`-prefixed special props for intrinsic HTML/SVG elements.
+ *
+ * Extends {@link FrameworkProps} with `$children` and `$ref`, which are
+ * only available on elements and on components that explicitly declare them.
+ *
+ * @typeParam TRef - The concrete element type for `$ref`.
+ *   Narrowed to the specific `HTMLElement` / `SVGElement` subtype in
+ *   per-element attribute interfaces.
+ */
+export interface SpecialProps<TRef = unknown> extends FrameworkProps {
+  /** Nested children passed to the component or element. */
+  $children?: Child | Child[];
   /** Ref callback or object — set to the DOM element on mount, null on unmount. */
   $ref?: { current: TRef } | ((instance: TRef | null) => void) | null;
 }
+
+/**
+ * Props object as stored and passed internally by the framework.
+ *
+ * Combines the well-typed `$`-prefixed framework props (`SpecialProps`)
+ * with an open string index for arbitrary user-defined props.
+ *
+ * Use this instead of raw `Record<string, unknown>` whenever a function
+ * receives or returns a merged/internal props object.
+ */
+export type InternalProps = SpecialProps & Record<string, unknown>;
 
 /**
  * A generator-function component.
@@ -73,7 +91,7 @@ export interface SpecialProps<TRef = unknown> {
  *
  * @example
  * function* Counter(_props: object) {
- *   const [count, setCount] = yield* $state(0);
+ *   const [count, setCount] = yield* useState(0);
  *   return (
  *     <button onClick={() => setCount(count + 1)}>{count}</button>
  *   );
@@ -81,7 +99,7 @@ export interface SpecialProps<TRef = unknown> {
  *
  * @example
  * function* UserCard(_props: object) {
- *   const user = yield* $resolve({
+ *   const user = yield* useResolve({
  *     fn: () => fetchUser(1),
  *     loading: <Spinner />,
  *     error:   <ErrorMsg />,
@@ -89,26 +107,10 @@ export interface SpecialProps<TRef = unknown> {
  *   return <div>{user.name}</div>;
  * }
  */
-export type GeneratorComponentFn<P extends Record<string, unknown> = Record<string, unknown>> = (
+export type Component<P extends InternalProps = InternalProps> = (
   props: P,
   rerender: () => Promise<void>,
-) => Generator<Child, Child, unknown>;
-
-/**
- * A plain-function component (no state, returns JSX once).
- *
- * @example
- * function Greeting({ name }: { name: string }) {
- *   return <h1>Hello, {name}!</h1>;
- * }
- */
-export type PlainComponentFn<P extends Record<string, unknown> = Record<string, unknown>> = (
-  props: P,
-) => VNode | null | undefined;
-
-export type AnyComponentFn<P extends Record<string, unknown> = Record<string, unknown>> =
-  | GeneratorComponentFn<P>
-  | PlainComponentFn<P>;
+) => ComponentGenerator<Child>;
 
 /**
  * Fragment symbol – use instead of a wrapper element when you need to
@@ -146,9 +148,9 @@ export function createElement<T extends keyof JSX.IntrinsicElements>(
   ...children: Child[]
 ): VNode;
 
-// Overload 2: typed component function
-export function createElement<P extends Record<string, unknown>>(
-  type: AnyComponentFn<P>,
+// Overload 2: generator component function
+export function createElement<P extends InternalProps>(
+  type: Component<P>,
   props: P | null,
   ...children: Child[]
 ): VNode;
@@ -156,7 +158,7 @@ export function createElement<P extends Record<string, unknown>>(
 // Overload 3: symbol (Fragment)
 export function createElement(type: symbol, props: null, ...children: Child[]): VNode;
 
-// Overload 4: escape-hatch (union type)
+// Overload 4: escape-hatch (jsx-runtime, dynamic types)
 export function createElement(
   type: VNode["type"],
   props: Record<string, unknown> | null,
@@ -171,7 +173,7 @@ export function createElement(
 ): VNode {
   return {
     type,
-    props: props ?? {},
+    props: (props ?? {}) as InternalProps,
     children: children.flat() as Child[],
   };
 }
@@ -187,10 +189,9 @@ export function createElement(
  * strings cause a compile-time error.
  *
  * `JSX.Element` is intentionally omitted so TypeScript falls back to the
- * return type of the `jsx()` factory (i.e. `VNode`), which means:
- *   - Plain-function components that return `VNode` are accepted.
- *   - Generator components that return `Generator<Child, Child, unknown>` are
- *     also accepted without a type error.
+ * return type of the `jsx()` factory (i.e. `VNode`), which means generator
+ * components that return `ComponentGenerator<Child>` are accepted
+ * without a type error.
  */
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -198,11 +199,13 @@ declare global {
     interface IntrinsicElements extends IntrinsicElementsDef {}
     /**
      * Props that are valid on every JSX element — both intrinsic HTML/SVG
-     * elements and custom generator / plain-function components — without
+     * elements and custom generator components — without
      * needing to be declared in the component's own props type.
      *
-     * All special `$`-prefixed props are inherited from {@link SpecialProps}.
+     * Only framework-level props (`$key`, `$shown`, `$patch`, `$deferred`)
+     * are universally available. `$children` and `$ref` must be explicitly
+     * declared in a component's props type to be accepted.
      */
-    interface IntrinsicAttributes extends SpecialProps {}
+    interface IntrinsicAttributes extends FrameworkProps {}
   }
 }

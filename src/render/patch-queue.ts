@@ -32,19 +32,19 @@ export function beginPatch(): void {
  * The commit is a plain `for` loop — synchronous and uninterruptible — so the
  * browser never paints an intermediate visual state.
  *
- * Resets the queue to `null` (no active patch) after committing.
+ * Resets the queue to `undefined` (no active patch) after committing.
  */
 export function commitPatch(): void {
   const ctx = _requireActiveCtx();
-  if (ctx.ops === null) return;
+  if (!ctx.ops) return;
   const ops = ctx.ops;
-  ctx.ops = null;
+  ctx.ops = undefined;
   for (let i = 0; i < ops.length; i++) ops[i]?.();
 }
 
 /** Returns `true` while a patch is being collected. */
 export function isPatchActive(): boolean {
-  return _requireActiveCtx().ops !== null;
+  return _requireActiveCtx().ops !== undefined;
 }
 
 /**
@@ -64,11 +64,11 @@ export function savePatchOps(): (() => void)[] {
  */
 export function restorePatchOps(saved: (() => void)[]): void {
   const ctx = _requireActiveCtx();
-  if (ctx.ops === null) {
+  if (!ctx.ops) {
     ctx.ops = saved;
-  } else {
-    ctx.ops = [...saved, ...ctx.ops];
+    return;
   }
+  ctx.ops = [...saved, ...ctx.ops];
 }
 
 // ── DOM operation wrappers ───────────────────────────────────────────────────
@@ -83,11 +83,11 @@ export function restorePatchOps(saved: (() => void)[]): void {
  */
 export function domInsertBefore(parent: Node, node: Node, ref: Node | null): void {
   const ops = _requireActiveCtx().ops;
-  if (ops !== null && parent.isConnected) {
-    ops.push(() => parent.insertBefore(node, ref));
-  } else {
+  if (!ops || !parent.isConnected) {
     parent.insertBefore(node, ref);
+    return;
   }
+  ops.push(() => parent.insertBefore(node, ref));
 }
 
 /**
@@ -96,11 +96,11 @@ export function domInsertBefore(parent: Node, node: Node, ref: Node | null): voi
  */
 export function domAppendChild(parent: Node, node: Node): void {
   const ops = _requireActiveCtx().ops;
-  if (ops !== null && parent.isConnected) {
-    ops.push(() => parent.appendChild(node));
-  } else {
+  if (!ops || !parent.isConnected) {
     parent.appendChild(node);
+    return;
   }
+  ops.push(() => parent.appendChild(node));
 }
 
 /**
@@ -110,13 +110,13 @@ export function domAppendChild(parent: Node, node: Node): void {
  */
 export function domRemoveChild(parent: Node, node: Node): void {
   const ops = _requireActiveCtx().ops;
-  if (ops !== null && node.isConnected) {
-    ops.push(() => {
-      if (node.parentNode) node.parentNode.removeChild(node);
-    });
-  } else {
+  if (!ops || !node.isConnected) {
     if (node.parentNode === parent) parent.removeChild(node);
+    return;
   }
+  ops.push(() => {
+    if (node.parentNode) node.parentNode.removeChild(node);
+  });
 }
 
 /**
@@ -125,13 +125,13 @@ export function domRemoveChild(parent: Node, node: Node): void {
  */
 export function domSetText(node: Text, text: string): void {
   const ops = _requireActiveCtx().ops;
-  if (ops !== null && node.isConnected) {
-    ops.push(() => {
-      node.textContent = text;
-    });
-  } else {
+  if (!ops || !node.isConnected) {
     node.textContent = text;
+    return;
   }
+  ops.push(() => {
+    node.textContent = text;
+  });
 }
 
 /**
@@ -147,9 +147,9 @@ export function domSetText(node: Text, text: string): void {
  */
 export function domEnqueue(op: () => void, liveNode?: Node): void {
   const ops = _requireActiveCtx().ops;
-  if (ops !== null && liveNode?.isConnected) {
-    ops.push(op);
-  } else {
+  if (!ops || !liveNode?.isConnected) {
     op();
+    return;
   }
+  ops.push(op);
 }

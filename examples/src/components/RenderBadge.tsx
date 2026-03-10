@@ -1,4 +1,4 @@
-export function RenderBadge({ count }: { count: number }) {
+export function* RenderBadge({ count }: { count: number }) {
   return (
     <span
       style={{

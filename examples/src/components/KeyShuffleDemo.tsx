@@ -5,13 +5,13 @@
  * recreating them, and that generator component state is preserved
  * across reorders.
  */
-import { $ref, $state } from "yielderact";
+import { useRef, useState } from "yielderact";
 
 /* ── Stateful counter item (generator component) ── */
 
 function* CounterItem({ id, color }: { id: string; color: string }) {
-  const [count, setCount] = yield* $state(0);
-  const nodeRef = yield* $ref<HTMLElement | null>(null);
+  const [count, setCount] = yield* useState(0);
+  const nodeRef = yield* useRef<HTMLElement | null>(null);
 
   return (
     <div
@@ -38,9 +38,9 @@ function* CounterItem({ id, color }: { id: string; color: string }) {
   );
 }
 
-/* ── Plain function item ── */
+/* ── Tag item (generator component) ── */
 
-function PlainTag({ label }: { label: string }) {
+function* PlainTag({ label }: { label: string }) {
   return (
     <span
       data-testid={`tag-${label}`}
@@ -83,9 +83,9 @@ function shuffle<T>(arr: T[]): T[] {
 /* ── Main demo ── */
 
 export function* KeyShuffleDemo() {
-  const [order, setOrder] = yield* $state(["A", "B", "C"]);
-  const [tagOrder, setTagOrder] = yield* $state(["red", "green", "blue"]);
-  const [elemOrder, setElemOrder] = yield* $state(["first", "second", "third"]);
+  const [order, setOrder] = yield* useState(["A", "B", "C"]);
+  const [tagOrder, setTagOrder] = yield* useState(["red", "green", "blue"]);
+  const [elemOrder, setElemOrder] = yield* useState(["first", "second", "third"]);
 
   return (
     <section aria-label="Key shuffle example">
@@ -133,8 +133,8 @@ export function* KeyShuffleDemo() {
         Order: {order.join(", ")}
       </p>
 
-      {/* ── Plain function component list ── */}
-      <h3>Plain function components</h3>
+      {/* ── Tag component list ── */}
+      <h3>Tag components</h3>
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
         <button data-testid="tag-reverse-btn" onClick={() => setTagOrder([...tagOrder].reverse())}>
           Reverse tags

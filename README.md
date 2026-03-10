@@ -58,17 +58,6 @@ render(<Counter />, document.getElementById('root')!);
 4. The host element is cleared and repopulated with the new DOM nodes.
 5. When the generator returns (`done: true`) it stops rerendering.
 
-### Stateless components
-
-Plain (non-generator) functions are also supported — they are called once and
-render their return value:
-
-```tsx
-function Greeting({ name }: { name: string }) {
-  return <h1>Hello, {name}!</h1>;
-}
-```
-
 ### Fragments
 
 ```tsx

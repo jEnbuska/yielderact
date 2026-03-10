@@ -8,7 +8,7 @@
  *  4. Cross-subtree isolation: two sibling Providers for the same context
  *     must not interfere with each other.
  */
-import { $state } from "yielderact";
+import { useState } from "yielderact";
 import { BothBadge } from "./BothBadge";
 import { type Locale, LocaleCtx, type Theme, ThemeCtx, themeStyles } from "./ContextDemo.shared";
 import { LocaleBadge } from "./LocaleBadge";
@@ -17,8 +17,8 @@ import { StatefulConsumer } from "./StatefulConsumer";
 import { ThemeBadge } from "./ThemeBadge";
 
 export function* ContextDemo() {
-  const [theme, setTheme] = yield* $state<Theme>("light");
-  const [locale, setLocale] = yield* $state<Locale>("en");
+  const [theme, setTheme] = yield* useState<Theme>("light");
+  const [locale, setLocale] = yield* useState<Locale>("en");
 
   return (
     <section aria-label="Context demo">

@@ -10,40 +10,45 @@
  * module-level variables.  All state management happens in the renderer.
  *
  * @example
- * function* Counter(_props: object) {
- *   const [count, setCount] = yield* $state(0);
+ * function* Counter() {
+ *   const [count, setCount] = yield* useState(0);
  *   return (
  *     <button onClick={() => setCount(count + 1)}>{count}</button>
  *   );
  * }
  */
 
-export { $effect } from "./$effect";
-export { $id } from "./$id";
-export { $memo } from "./$memo";
-export { $patchContext } from "./$patch-context";
-export { $ref, type RefObject } from "./$ref";
-export { $render, $resume, type UseRenderFn, type UseRenderState } from "./$render";
 export {
-  $resolve,
-  $resolveRaw,
+  $USE_CONTEXT,
+  $USE_EFFECT,
+  $USE_ID,
+  $USE_MEMO,
+  $USE_REF,
+  $USE_RENDER,
+  $USE_RESOLVE,
+  $USE_RESOLVE_RAW,
+  $USE_STATE,
+  $USE_UI_PATCH,
+  HOOK_TYPES,
+  type HookDescriptor,
+  type HookType,
+} from "./descriptors";
+export {
+  type ComponentGenerator,
+  type DependencyList,
+  depsChanged,
+} from "./types";
+export { useEffect } from "./useEffect";
+export { useId } from "./useId";
+export { useMemo } from "./useMemo";
+export { type RefObject, useRef } from "./useRef";
+export { type UseRenderFn, type UseRenderState, useRender, useResume } from "./useRender";
+export {
   type Renderable,
   type ResolveRawResult,
   type UseResolveOptions,
-} from "./$resolve";
-export { $state } from "./$state";
-export { $uiPatch } from "./$ui-patch";
-export {
-  $EFFECT,
-  $ID,
-  $MEMO,
-  $REF,
-  $RENDER,
-  $RESOLVE,
-  $RESOLVE_RAW,
-  $STATE,
-  $UI_PATCH,
-  type DependencyList,
-  depsChanged,
-  type HookContext,
-} from "./symbols";
+  useResolve,
+  useResolveRaw,
+} from "./useResolve";
+export { useState } from "./useState";
+export { useUIPatch } from "./useUIPatch";

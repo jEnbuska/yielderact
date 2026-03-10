@@ -1,9 +1,9 @@
-import { $effect, $state } from "yielderact";
+import { useEffect, useState } from "yielderact";
 import { LiveClock } from "./LiveClock";
 
 export function* Clocks() {
-  const [tick, setTick] = yield* $state(Date.now());
-  yield* $effect(() => {
+  const [tick, setTick] = yield* useState(Date.now());
+  yield* useEffect(() => {
     const interval = setInterval(() => {
       setTick(() => Date.now());
     }, 1000);

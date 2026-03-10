@@ -1,5 +1,14 @@
-import { depsChanged, type HookContext } from "./hooks/symbols";
-import { type Child, createElement, Fragment, type VNode } from "./jsx";
+import { $USE_CONTEXT, type ContextDescriptor } from "./hooks/descriptors";
+import type { ComponentGenerator } from "./hooks/types";
+import { depsChanged } from "./hooks/types";
+import {
+  type Child,
+  type Component,
+  createElement,
+  Fragment,
+  type InternalProps,
+  type VNode,
+} from "./jsx";
 import { _requireActiveCtx } from "./render/state";
 
 // ---------------------------------------------------------------------------
@@ -12,8 +21,24 @@ import { _requireActiveCtx } from "./render/state";
  */
 export interface Context<T> {
   readonly _defaultValue: T;
-  readonly Provider: (props: { value: T; $children?: Child[] }) => VNode;
+  readonly Provider: Component<InternalProps & { value: T; $children?: Child[] }>;
 }
+
+// ---------------------------------------------------------------------------
+// Provider function type — the actual callable form of Context.Provider
+// ---------------------------------------------------------------------------
+
+/**
+ * The actual callable signature of a context Provider function.
+ *
+ * Provider functions are stored as `Component` on the `Context` interface
+ * (so they can appear in JSX), but at runtime they are plain functions
+ * that return a VNode (not generators). This type represents their true
+ * runtime signature.
+ *
+ * @internal
+ */
+export type ProviderFunction = (props: InternalProps) => VNode | null | undefined;
 
 // ---------------------------------------------------------------------------
 // Internal symbols used to tag Provider functions
@@ -21,24 +46,16 @@ export interface Context<T> {
 
 const PROVIDER_CTX = Symbol("providerCtx");
 
-/**
- * Hook descriptor type for `useContext`. Yielded by the `useContext` generator
- * and processed by the renderer, which sends back the current context value.
- *
- * @internal
- */
-export const $CONTEXT = Symbol("$context");
-
 // ---------------------------------------------------------------------------
 // Internal descriptor type for useContext (carries optional selector/transform)
 // ---------------------------------------------------------------------------
 
 /** @internal */
 export interface UseContextDescriptor {
-  type: typeof $CONTEXT;
+  type: typeof $USE_CONTEXT;
   ctx: Context<unknown>;
-  selector: ((ctx: unknown) => unknown[]) | undefined;
-  transform: ((...args: unknown[]) => unknown) | undefined;
+  selector?: (ctx: unknown) => unknown[];
+  transform?: (...args: unknown[]) => unknown;
 }
 
 // ---------------------------------------------------------------------------
@@ -56,7 +73,7 @@ export interface UseContextDescriptor {
  * const ThemeCtx = createContext<'light' | 'dark'>('light');
  *
  * function* App() {
- *   const [theme] = yield* $state<'light' | 'dark'>('light');
+ *   const [theme] = yield* useState<'light' | 'dark'>('light');
  *   return (
  *     <ThemeCtx.Provider value={theme}>
  *       <Child />
@@ -65,7 +82,7 @@ export interface UseContextDescriptor {
  * }
  *
  * function* Child() {
- *   const theme = yield* $context(ThemeCtx);
+ *   const theme = yield* useContext(ThemeCtx);
  *   return <div className={theme}>hello</div>;
  * }
  */
@@ -78,7 +95,12 @@ export function createContext<T>(defaultValue: T): Context<T> {
 
   const ctx: Context<T> = {
     _defaultValue: defaultValue,
-    Provider: ContextProvider as Context<T>["Provider"],
+    Provider: ContextProvider as unknown as Component<
+      InternalProps & {
+        value: T;
+        $children?: Child[];
+      }
+    >,
   };
 
   // Tag the provider function so the renderer can identify it and which
@@ -108,34 +130,34 @@ export function createContext<T>(defaultValue: T): Context<T> {
  *
  * @example
  * // 1. Always rerenders on context change
- * const ctx = yield* $context(MyCtx);
+ * const ctx = yield* useContext(MyCtx);
  *
  * // 2. Rerenders only when currentGroup changes; returns full ctx
- * const { currentGroup } = yield* $context(MyCtx, (c) => [c.currentGroup]);
+ * const { currentGroup } = yield* useContext(MyCtx, (c) => [c.currentGroup]);
  *
  * // 3. Rerenders only when currentGroup changes; returns the group directly
- * const group = yield* $context(MyCtx, (c) => [c.currentGroup], (...args) => args[0]);
+ * const group = yield* useContext(MyCtx, (c) => [c.currentGroup], (...args) => args[0]);
  */
-export function $context<T>(ctx: Context<T>): Generator<UseContextDescriptor, T, unknown>;
-export function $context<T>(
+export function useContext<T>(ctx: Context<T>): ComponentGenerator<T>;
+export function useContext<T>(
   ctx: Context<T>,
   selector: (ctx: T) => unknown[],
-): Generator<UseContextDescriptor, T, unknown>;
-export function $context<T, D extends unknown[], R>(
+): ComponentGenerator<T>;
+export function useContext<T, D extends unknown[], R>(
   ctx: Context<T>,
   selector: (ctx: T) => D,
   transform: (...args: D) => R,
-): Generator<UseContextDescriptor, R, unknown>;
-export function* $context<T, D extends unknown[], R>(
+): ComponentGenerator<R>;
+export function* useContext<T, D extends unknown[], R>(
   ctx: Context<T>,
   selector?: (ctx: T) => D,
   transform?: (...args: D) => R,
-): Generator<UseContextDescriptor, T | R, unknown> {
+): ComponentGenerator<T | R> {
   const value = yield {
-    type: $CONTEXT,
+    type: $USE_CONTEXT,
     ctx: ctx as Context<unknown>,
-    selector: selector as ((ctx: unknown) => unknown[]) | undefined,
-    transform: transform as ((...args: unknown[]) => unknown) | undefined,
+    selector: selector as UseContextDescriptor["selector"],
+    transform: transform as UseContextDescriptor["transform"],
   };
   return value as T | R;
 }
@@ -147,68 +169,53 @@ export function* $context<T, D extends unknown[], R>(
 /**
  * Persistent hook state stored for a `useContext` call.
  *
- * Stored in `GenInstance.hookStates[hookIndex]` for each `useContext` hook.
+ * Stored in `ComponentInstance.hookStates[hookIndex]` for each `useContext` hook.
  * The reconciler reads these entries to determine whether a context change
  * requires a rerender (by checking `selector` and `lastDeps`).
  *
  * @internal
  */
 export type UseContextState = {
-  kind: "context";
+  kind: typeof $USE_CONTEXT;
   /** The context object this hook subscribes to. */
   ctx: Context<unknown>;
   /** Optional selector function — extracts deps from the context value. */
-  selector: ((ctx: unknown) => unknown[]) | undefined;
+  selector?: (ctx: unknown) => unknown[];
   /** Optional transform function — computes the returned value from deps. */
-  transform: ((...args: unknown[]) => unknown) | undefined;
+  transform?: (...args: unknown[]) => unknown;
   /** The last computed deps array (from `selector`). Used by `depsChanged`. */
-  lastDeps: unknown[] | undefined;
+  lastDeps?: unknown[];
   /** The last returned value (raw context value, or `transform(…deps)`). */
   lastResult: unknown;
 };
 
 /** @internal */
-export function _processContext(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
-  const { hookIndex, hookStates, instance } = ctx;
-  const context = descriptor["ctx"] as Context<unknown>;
-  instance.consumedContexts.add(context);
-  const selector = descriptor["selector"] as ((c: unknown) => unknown[]) | undefined;
-  const transform = descriptor["transform"] as ((...args: unknown[]) => unknown) | undefined;
-  const ctxMap = _requireActiveCtx().ctxMap;
-  const rawValue = ctxMap.has(context) ? ctxMap.get(context) : context._defaultValue;
+export function _processContext(
+  descriptor: ContextDescriptor,
+  prev: UseContextState | undefined,
+  rawValue: unknown,
+): UseContextState {
+  const context = descriptor.ctx as Context<unknown>;
+  const selector = descriptor.selector as UseContextDescriptor["selector"];
+  const transform = descriptor.transform as UseContextDescriptor["transform"];
 
   if (!selector) {
-    hookStates[hookIndex] = {
-      kind: "context",
-      ctx: context,
-      selector: undefined,
-      transform: undefined,
-      lastDeps: undefined,
-      lastResult: rawValue,
-    } satisfies UseContextState;
-    return rawValue;
+    return { kind: $USE_CONTEXT, ctx: context, lastResult: rawValue };
   }
 
   const newDeps = selector(rawValue);
-  const prev = hookStates[hookIndex];
-  if (
-    prev !== undefined &&
-    prev.kind === "context" &&
-    prev.selector &&
-    !depsChanged(prev.lastDeps, newDeps)
-  ) {
-    return prev.lastResult;
+  if (prev?.selector && !depsChanged(prev.lastDeps, newDeps)) {
+    return prev;
   }
   const result = transform ? transform(...newDeps) : rawValue;
-  hookStates[hookIndex] = {
-    kind: "context",
+  return {
+    kind: $USE_CONTEXT,
     ctx: context,
     selector,
     transform,
     lastDeps: newDeps,
     lastResult: result,
-  } satisfies UseContextState;
-  return result;
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -231,6 +238,19 @@ export function _setCtxMap(map: ReadonlyMap<Context<unknown>, unknown>): void {
  */
 export function _getProviderCtx(fn: unknown): Context<unknown> | null {
   return ((fn as Record<symbol, unknown>)?.[PROVIDER_CTX] as Context<unknown>) ?? null;
+}
+
+/**
+ * Cast a `Component` that is known to be a Provider to its actual callable form.
+ *
+ * Provider functions are stored with the `Component` type (so they can appear
+ * in JSX) but at runtime they are plain functions, not generators.
+ * This helper centralises the unsafe cast so call sites remain clean.
+ *
+ * @internal
+ */
+export function _asProviderFn(component: Component): ProviderFunction {
+  return component as unknown as ProviderFunction;
 }
 
 /**
@@ -325,15 +345,6 @@ export const _priorityCtx: Context<number> = {
  */
 export function _getCurrentPriority(): number {
   return _resolveCtxValue(_requireActiveCtx().ctxMap, _priorityCtx as Context<unknown>) as number;
-}
-
-/**
- * Read the effective `$deferred` priority from a captured context map
- * (typically `inst.capturedCtx`).
- * @internal
- */
-export function _instancePriority(capturedCtx: ReadonlyMap<Context<unknown>, unknown>): number {
-  return _resolveCtxValue(capturedCtx, _priorityCtx as Context<unknown>) as number;
 }
 
 /**

@@ -46,11 +46,13 @@ yielderact is a minimal JSX UI library using JavaScript generator functions.
 **Use `npm run <command>` only. No `npx`.**
 
 - `npm run build` — Compile TS to `dist/`
+- `npm run typecheck` — Type-check including test files (no emit)
 - `npm test` — Run Jest unit tests (jsdom)
 - `npm run test:visual` — Run Playwright visual tests
 - `npm run lint` — Check lint & formatting (Biome)
 - `npm run lint:fix` — Auto-fix lint & formatting issues
 - `npm run format` — Auto-fix formatting only (Biome)
+- `npm run format:check` — Check formatting without fixing (Biome)
 - `npm test -- <path>` — Run specific test file
 
 ### 3. Creating a Pull Request
@@ -80,24 +82,31 @@ function* Counter(_props: object) {
 
 ### Core Module Map
 
-| File                     | Responsibility                                        |
-| :----------------------- | :---------------------------------------------------- |
-| `jsx.ts`                 | VNode types & `createElement`                         |
-| `render/types.ts`        | `RenderContext`, `GenInstance`, `Slot`, `HookState`    |
-| `render/state.ts`        | `createRenderContext()`, active context pointer        |
-| `render/index.ts`        | `render()`, `createRoot()` entry points               |
-| `render/mount.ts`        | DOM construction & generator component lifecycle      |
-| `render/reconciler.ts`   | Positional reconciliation (diff + patch)              |
-| `render/hooks-runtime.ts`| Hook descriptor dispatch, effect flushing, unmount    |
-| `render/scheduler.ts`    | Priority-aware cooperative scheduler                  |
-| `render/patch-queue.ts`  | Atomic DOM commit queue                               |
-| `render/patch.ts`        | Global/local UI patch (`startUIPatch`/`commitUIPatch`)|
-| `render/delegation.ts`   | Handler registry, `DelegationRoot`, prop→event mapping|
-| `render/dispatch.ts`     | Delegated event dispatch (capture→bubble phases)      |
-| `render/events.ts`       | Per-element listeners for non-delegated events        |
-| `context.ts`             | `createContext`, `$context`, context map helpers       |
-| `hooks/*.ts`             | Individual hook implementations                       |
-| `jsx-runtime.ts`         | Automatic JSX transform                               |
+| File                      | Responsibility                                                          |
+| :------------------------ | :---------------------------------------------------------------------- |
+| `jsx.ts`                  | VNode types, `createElement`, `FrameworkProps`, `SpecialProps`, `Component` |
+| `jsx-types.ts`            | Intrinsic element type definitions (HTML/SVG attribute types)           |
+| `jsx-runtime.ts`          | Automatic JSX transform (`jsx`, `jsxs`, `jsxDEV`)                      |
+| `events.ts`               | `SyntheticEvent` type and proxy-based event wrapper                     |
+| `context.ts`              | `createContext`, `useContext`, `ProviderFunction`, context map helpers   |
+| `index.ts`                | Public API re-exports                                                   |
+| `render/types.ts`         | `RenderContext`, `ComponentInstance`, `Slot`, `HookState`               |
+| `render/state.ts`         | `createRenderContext()`, active context pointer                         |
+| `render/index.ts`         | `render()`, `createRoot()` entry points                                 |
+| `render/mount.ts`         | DOM construction & generator component lifecycle                        |
+| `render/reconciler.ts`    | Positional reconciliation (diff + patch)                                |
+| `render/hooks-runtime.ts` | Hook descriptor dispatch, effect flushing, unmount                      |
+| `render/helpers.ts`       | Type guards, shallow equality, props merging, `flattenChildren`         |
+| `render/props.ts`         | `applyProps`, `updateProps`, `setRef`, `clearRef`                       |
+| `render/scheduler.ts`     | Priority-aware cooperative scheduler                                    |
+| `render/patch-queue.ts`   | Atomic DOM commit queue                                                 |
+| `render/patch.ts`         | Global/local UI patch (`startUIPatch`/`commitUIPatch`)                  |
+| `render/delegation.ts`    | Handler registry, `DelegationRoot`, prop→event mapping                  |
+| `render/dispatch.ts`      | Delegated event dispatch (capture→bubble phases)                        |
+| `render/events.ts`        | Per-element listeners for non-delegated events                          |
+| `hooks/descriptors.ts`    | Hook type constants (`$USE_STATE`, etc.) and descriptor interfaces      |
+| `hooks/types.ts`          | `ComponentGenerator`, `DependencyList`, `depsChanged()`                 |
+| `hooks/*.ts`              | Individual hook implementations (`useState`, `useEffect`, etc.)         |
 
 ---
 
@@ -109,14 +118,22 @@ function* Counter(_props: object) {
 - **TypeScript:** Strictly typed; `any` is forbidden. `noUncheckedIndexedAccess` and `noPropertyAccessFromIndexSignature` are enabled.
 - **Special Props:** Always support the `$shown={boolean}` prop.
 - **Dependencies:** Zero-dependency goal.
-- **JSX Config:** `react-jsx` with `jsxImportSource: "yielderact"`.
+- **JSX Config:** The library build uses the classic `react` transform (`jsxFactory: "createElement"`). Consumers (including `examples/`) use `react-jsx` with `jsxImportSource: "yielderact"`, backed by `src/jsx-runtime.ts`.
 - **Multi-root:** Each `render()`/`createRoot()` creates an independent `RenderContext` with its own state (patch depth, dirty instances, scheduler queue, context map, DOM ops queue). The global `idCounter` is the only shared state (IDs must be globally unique).
+- **Guard Clauses:** Always prefer guard clauses (early returns) over nested conditionals. Return early when a condition short-circuits the rest of the logic.
+- **Lint Strictness:** Never weaken linting or tsconfig rules. Fix lint issues by improving code, not by adding `biome-ignore` or `@ts-ignore` comments. The only accepted exceptions are `biome-ignore lint/complexity/noExcessiveCognitiveComplexity` on architectural dispatch functions (reconciler, props, mount, dispatch) that inherently require many branches.
+- **Type Safety Tests:** Compile-time type tests live in `src/__tests__/*.typetest.tsx` and are checked by `npm run typecheck`.
 
 ### Examples Structure
 
-Example components live in `examples/src/components/`. Large demos are split one-component-per-file:
+Example components live in `examples/src/components/`. The app entry point is `examples/src/main.tsx`, which renders a tabbed view of all demos.
 
-- **TransitionDemo:** Split into `Navigation`, `LiveClock`, `Clocks`, `PageStubs`, `GlobalPatchDemo`, `LocalPatchDemo`, `VisibilityTarget`, `GlobalVisibilityDemo`, `LocalVisibilityDemo`, with `TransitionDemo.tsx` as root.
+**Top-level demos** (each a tab in main.tsx): `Counter`, `TodoList`, `ThemeDemo`, `DataFetcher`/`ResolveRawDemo`, `HooksShowcase`, `ShownDemo`, `ConfirmDialog`, `EffectDemo`, `TransitionDemo`, `ContextDemo`, `LazyContextDemo`, `AbortSignalEffectDemo`, `KeyShuffleDemo`.
+
+**Multi-file demos** split one-component-per-file:
+
+- **TransitionDemo:** Root imports `GlobalPatchDemo`, `LocalPatchDemo`, `GlobalVisibilityDemo`, `LocalVisibilityDemo`. Sub-components: `Navigation`, `Clocks` (→ `LiveClock`), `PageStubs`, `VisibilityTarget`.
 - **ContextDemo:** Shared context definitions in `ContextDemo.shared.ts`. Leaf components: `ThemeBadge`, `LocaleBadge`, `BothBadge`, `StatefulConsumer`, `SiblingProvidersDemo`.
-- **LazyContextDemo:** Shared context in `LazyContextDemo.shared.ts`. Consumers: `NoSelectorConsumer`, `SelectorConsumer`, `TransformConsumer`, `RenderBadge`.
-- **Utilities:** `examples/src/utils.ts` (`sleep`), `examples/src/types.ts` (`Page`).
+- **LazyContextDemo:** Shared context in `LazyContextDemo.shared.ts`. Consumers: `NoSelectorConsumer`, `SelectorConsumer`, `TransformConsumer`. Shared utility: `RenderBadge`.
+
+**Utilities:** `examples/src/utils.ts` (`sleep`), `examples/src/types.ts` (`Page`).

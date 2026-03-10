@@ -1,10 +1,10 @@
-import { $memo, $state } from "../hooks";
+import { useMemo, useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe("$memo", () => {
+describe("useMemo", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -21,7 +21,7 @@ describe("$memo", () => {
     let capturedValue: number | null = null;
 
     function* Comp() {
-      capturedValue = yield* $memo(factory, [2, 3]);
+      capturedValue = yield* useMemo(factory, [2, 3]);
       return createElement("div", null);
     }
 
@@ -36,9 +36,9 @@ describe("$memo", () => {
     let setValue: (v: number) => void = () => {};
 
     function* Comp() {
-      const [v, sv] = yield* $state(10);
+      const [v, sv] = yield* useState(10);
       setValue = sv;
-      yield* $memo(factory, [5]);
+      yield* useMemo(factory, [5]);
       return createElement("div", null, String(v));
     }
 
@@ -54,9 +54,9 @@ describe("$memo", () => {
     let capturedValue: number | null = null;
 
     function* Comp() {
-      const [v, sv] = yield* $state(1);
+      const [v, sv] = yield* useState(1);
       setValue = sv;
-      capturedValue = yield* $memo(factory, [v]);
+      capturedValue = yield* useMemo(factory, [v]);
       return createElement("div", null);
     }
 
@@ -76,9 +76,9 @@ describe("$memo", () => {
     let capturedValue: number | null = null;
 
     function* Comp() {
-      const [, sv] = yield* $state(0);
+      const [, sv] = yield* useState(0);
       setValue = sv;
-      capturedValue = yield* $memo(factory, []);
+      capturedValue = yield* useMemo(factory, []);
       return createElement("div", null);
     }
 

@@ -1,8 +1,9 @@
 import {
-  type AnyComponentFn,
   type Child,
+  type Component,
   Fragment,
-  type GeneratorComponentFn,
+  type InternalProps,
+  type SpecialProps,
   type VNode,
 } from "../jsx";
 
@@ -19,20 +20,14 @@ export function isVNode(child: Child): child is VNode {
   return child !== null && child !== undefined && typeof child === "object";
 }
 
-/**
- * Returns true when `fn` is a generator function (i.e. uses `function*`).
- *
- * **Called by:**
- * - `buildVNodeList` and `buildNode` in `mount.ts` — to choose between
- *   `mountGeneratorComponent` and `mountPlainComponent`.
- * - `reconcileOne` in `reconciler.ts` — same choice when mounting a fresh
- *   component during reconciliation.
- *
- * Detection relies on the constructor name being `"GeneratorFunction"`, which
- * is guaranteed by the JS spec for `function*` declarations/expressions.
- */
-export function isGeneratorFn(fn: AnyComponentFn): fn is GeneratorComponentFn {
-  return fn.constructor.name === "GeneratorFunction";
+/** Narrows a VNode to a component node (`VNode<Component>`). */
+export function isComponentNode(vnode: VNode): vnode is VNode<Component> {
+  return typeof vnode.type === "function";
+}
+
+/** Narrows a VNode to an HTML element node (`VNode<string>`). */
+export function isElementNode(vnode: VNode): vnode is VNode<string> {
+  return typeof vnode.type === "string";
 }
 
 /**
@@ -48,7 +43,7 @@ export function isGeneratorFn(fn: AnyComponentFn): fn is GeneratorComponentFn {
  * @param a - Previous props (from `Slot.props`).
  * @param b - Next props (from the new VNode).
  */
-export function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+export function shallowEqual(a: InternalProps, b: InternalProps): boolean {
   const aKeys = Object.keys(a);
   if (aKeys.length !== Object.keys(b).length) return false;
   return aKeys.every((k) => Object.is(a[k], b[k]));
@@ -72,7 +67,7 @@ export function shallowEqual(a: Record<string, unknown>, b: Record<string, unkno
  * @param b - Next props (from the new VNode).
  * @returns `true` if and only if `$patch` differs and all other props match.
  */
-export function onlyPatchChanged(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+export function onlyPatchChanged(a: InternalProps, b: InternalProps): boolean {
   const aKeys = Object.keys(a);
   if (aKeys.length !== Object.keys(b).length) return false;
   let patchDiffers = false;
@@ -128,22 +123,21 @@ export function flattenChildren(children: Child[]): Child[] {
  * @param vnode - The VNode whose props to merge.
  * @returns The props object, with `$children` included if non-empty.
  */
-export function mergedProps(vnode: VNode): Record<string, unknown> {
-  return vnode.children.length > 0 ? { ...vnode.props, $children: vnode.children } : vnode.props;
+export function mergedProps(vnode: VNode): InternalProps {
+  return (
+    vnode.children.length > 0 ? { ...vnode.props, $children: vnode.children } : vnode.props
+  ) as InternalProps;
 }
 
 /**
  * Read the `$patch` mode from a props object.
  *
  * Returns `'live'`, `'default'`, or `undefined` (when not set).
- * Avoids the `as "live" | "default" | undefined` cast that would otherwise
- * be needed at every call site.
- *
  * **Called by:** reconciler and mount — whenever the effective batch behaviour
  * needs to be determined from a VNode's props.
  */
-export function getPatchMode(props: Record<string, unknown>): "live" | "default" | undefined {
-  return props["$patch"] as "live" | "default" | undefined;
+export function getPatchMode(props: SpecialProps): SpecialProps["$patch"] {
+  return props.$patch;
 }
 
 /**
@@ -158,8 +152,8 @@ export function getPatchMode(props: Record<string, unknown>): "live" | "default"
  *
  * @param props - The (merged) props to check.
  */
-export function isShown(props: Record<string, unknown>): boolean {
-  return props["$shown"] !== false;
+export function isShown(props: SpecialProps): boolean {
+  return props.$shown !== false;
 }
 
 /**
@@ -178,8 +172,8 @@ export function isShown(props: Record<string, unknown>): boolean {
  * @param props - The (merged) props that may contain `$deferred`.
  * @returns Props without `$deferred`.
  */
-export function stripDeferred(props: Record<string, unknown>): Record<string, unknown> {
+export function stripDeferred(props: InternalProps): InternalProps {
   if (!("$deferred" in props)) return props;
   const { $deferred: _, ...rest } = props;
-  return rest;
+  return rest as InternalProps;
 }

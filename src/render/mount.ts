@@ -3,12 +3,11 @@
  *
  * This module handles:
  * 1. **Building** DOM nodes from VNode trees (`buildNode`).
- * 2. **Mounting** generator components (`mountGeneratorComponent`) — creates
- *    an end-marker Comment node, the `GenInstance`, and defines `resume`,
+ * 2. **Mounting** generator components (`mountComponent`) — creates
+ *    an end-marker Comment node, the `ComponentInstance`, and defines `resume`,
  *    `executeRerender`, and `rerender` closures that drive the component's
  *    lifecycle.
- * 3. **Mounting** plain function components (`mountPlainComponent`).
- * 4. **Mounting** context Providers (`mountContextProvider`).
+ * 3. **Mounting** context Providers (`mountContextProvider`).
  *
  * **No wrapper spans.** Components do not create wrapper `<span>` elements.
  * Instead, output nodes are placed directly in the parent DOM. Each generator
@@ -18,6 +17,7 @@
  */
 
 import {
+  _asProviderFn,
   _getCtxMap,
   _getCurrentPriority,
   _getProviderCtx,
@@ -25,22 +25,18 @@ import {
   _setCtxMap,
   _withBatch,
   _withPriority,
+  type Context,
 } from "../context";
-import {
-  type AnyComponentFn,
-  type Child,
-  Fragment,
-  type GeneratorComponentFn,
-  type PlainComponentFn,
-} from "../jsx";
-import { getPatchMode, isGeneratorFn, isShown, mergedProps, stripDeferred } from "./helpers";
+import { $USE_EFFECT } from "../hooks/descriptors";
+import { type Child, type Component, Fragment, type InternalProps } from "../jsx";
+import { getPatchMode, isComponentNode, isShown, mergedProps, stripDeferred } from "./helpers";
 import { flushEffects, runHooks } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
 import { reconcileSlots } from "./reconciler";
 import { scheduleUpdate } from "./scheduler";
 import { _requireActiveCtx, _setActiveCtx } from "./state";
-import type { GenInstance, HookState, RenderContext, Slot } from "./types";
+import type { ComponentInstance, HookState, RenderContext, Slot } from "./types";
 
 /**
  * Build a single real DOM node from a virtual DOM node (or primitive value).
@@ -50,7 +46,6 @@ import type { GenInstance, HookState, RenderContext, Slot } from "./types";
  *
  * **Called by:**
  * - `render()` and `createRoot().render()` in `index.ts` — top-level mount.
- * - `mountPlainComponent` — builds the plain component's output.
  * - Itself (recursively) — for Fragment children and HTML element children.
  * - `reconcileOne` in `reconciler.ts` — fallback for unrecognized VNode types.
  *
@@ -58,8 +53,8 @@ import type { GenInstance, HookState, RenderContext, Slot } from "./types";
  * 1. `null` / `undefined` / `false` → empty TextNode.
  * 2. `string` / `number` → TextNode.
  * 3. `Fragment` → `DocumentFragment` containing children.
- * 4. Function component → dispatches to `mountGeneratorComponent`,
- *    `mountPlainComponent`, or `mountContextProvider`.
+ * 4. Function component → dispatches to `mountComponent`
+ *    or `mountContextProvider`.
  * 5. HTML tag string → `HTMLElement` with props and children.
  *
  * @param child - The VNode or primitive to build.
@@ -83,28 +78,25 @@ export function buildNode(child: Child): Node {
     return frag;
   }
 
-  if (typeof child.type === "function") {
-    const fn = child.type as AnyComponentFn;
+  if (isComponentNode(child)) {
+    const component = child.type;
     const allPropsRaw = mergedProps(child);
     if (!isShown(allPropsRaw)) {
       return document.createTextNode("");
     }
     // Strip $deferred from component props; propagate via context.
     const allProps = stripDeferred(allPropsRaw);
-    const compDeferred = allPropsRaw["$deferred"] as boolean | undefined;
-    const prevCtxFn = _getCtxMap();
-    if (compDeferred) _setCtxMap(_withPriority(prevCtxFn, _getCurrentPriority() + 1));
+    const compDeferred = allPropsRaw.$deferred;
+    const prevCtx = _getCtxMap();
+    if (compDeferred) _setCtxMap(_withPriority(prevCtx, _getCurrentPriority() + 1));
     try {
-      const providerCtx = _getProviderCtx(fn);
+      const providerCtx = _getProviderCtx(component);
       if (providerCtx) {
-        return mountContextProvider(fn as PlainComponentFn, allProps, providerCtx).fragment;
+        return mountContextProvider(component, allProps, providerCtx).fragment;
       }
-      if (isGeneratorFn(fn)) {
-        return mountGeneratorComponent(fn, allProps).fragment;
-      }
-      return mountPlainComponent(fn as PlainComponentFn, allProps);
+      return mountComponent(component, allProps).fragment;
     } finally {
-      if (compDeferred) _setCtxMap(prevCtxFn);
+      if (compDeferred) _setCtxMap(prevCtx);
     }
   }
 
@@ -116,7 +108,7 @@ export function buildNode(child: Child): Node {
   const el = document.createElement(child.type as string);
   applyProps(el, child.props);
   const elBatch = getPatchMode(child.props);
-  const elDeferred = child.props["$deferred"] as boolean | undefined;
+  const elDeferred = child.props.$deferred;
   const prevCtxBuildNode = _getCtxMap();
   if (elBatch !== undefined) _setCtxMap(_withBatch(prevCtxBuildNode, elBatch));
   if (elDeferred) _setCtxMap(_withPriority(_getCtxMap(), _getCurrentPriority() + 1));
@@ -135,9 +127,9 @@ export function buildNode(child: Child): Node {
  * only `$patch="live"` descendants. Otherwise, the VNode is committed immediately
  * via `reconcileSlots` and effects are flushed.
  *
- * **Called by:** `resume` and `executeRerender` in `mountGeneratorComponent`.
+ * **Called by:** `resume` and `executeRerender` in `mountComponent`.
  */
-function commitOrDefer(instance: GenInstance, vnode: Child): void {
+function commitOrDefer(instance: ComponentInstance, vnode: Child): void {
   const rctx = instance.renderCtx;
   const parent = instance.endMarker.parentNode as HTMLElement;
   const effectiveBatch = getPatchMode(instance.props) ?? _instanceBatch(instance.capturedCtx);
@@ -167,7 +159,7 @@ function commitOrDefer(instance: GenInstance, vnode: Child): void {
  * 1. Creates an end-marker Comment node (`<!---->`) that serves as the
  *    component's positional anchor in the parent DOM.
  * 2. Captures the current context map (`capturedCtx`).
- * 3. Creates the `GenInstance` with all mutable state arrays.
+ * 3. Creates the `ComponentInstance` with all mutable state arrays.
  * 4. Defines three closures (`resume`, `executeRerender`, `rerender`) that
  *    close over the instance and drive the component's lifecycle.
  * 5. Calls `executeRerender(false)` to run the initial mount.
@@ -179,15 +171,15 @@ function commitOrDefer(instance: GenInstance, vnode: Child): void {
  * - `reconcileOne` in `reconciler.ts` — when a new generator component
  *   appears at a position where a different type was before.
  *
- * @param fn    - The generator function component.
- * @param props - The component's initial props.
- * @returns `{ fragment, genInstance }` — the fragment to insert into the DOM
+ * @param component - The component function.
+ * @param props     - The component's initial props.
+ * @returns `{ fragment, componentInstance }` — the fragment to insert into the DOM
  *   and the instance for slot tracking.
  */
-export function mountGeneratorComponent(
-  fn: GeneratorComponentFn,
-  props: Record<string, unknown>,
-): { fragment: DocumentFragment; genInstance: GenInstance } {
+export function mountComponent(
+  component: Component,
+  props: InternalProps,
+): { fragment: DocumentFragment; componentInstance: ComponentInstance } {
   const endMarker = document.createComment("");
 
   /** The per-root render context, captured from the active context at mount time. */
@@ -203,13 +195,13 @@ export function mountGeneratorComponent(
   /** Priority level captured from the context at mount time. */
   const priority = _getCurrentPriority();
 
-  /** Per-hook persistent state array. See `GenInstance.hookStates`. */
+  /** Per-hook persistent state array. See `ComponentInstance.hookStates`. */
   const hookStates: HookState[] = [];
 
-  /** Per-hook cleanup functions. See `GenInstance.cleanupFns`. */
+  /** Per-hook cleanup functions. See `ComponentInstance.cleanupFns`. */
   const cleanupFns: ((() => void) | undefined)[] = [];
 
-  /** Queued effects for the current render pass. See `GenInstance.pendingEffects`. */
+  /** Queued effects for the current render pass. See `ComponentInstance.pendingEffects`. */
   const pendingEffects: Array<{
     hookIndex: number;
     fn: (signal: AbortSignal) => (() => void) | undefined;
@@ -218,11 +210,12 @@ export function mountGeneratorComponent(
 
   // `instance` is assigned before any external code can observe it.
   // `resume`, `rerender`, and `executeRerender` all close over it.
-  let instance: GenInstance;
+  let instance: ComponentInstance;
 
-  // Nodes produced by the initial render — collected by the mount function
-  // after `executeRerender(false)` returns to build the DocumentFragment.
-  let initialFragment: DocumentFragment | null = null;
+  // Nodes produced by the initial render — set synchronously by
+  // executeRerender(false) below. Pre-initialized so the return statement
+  // doesn't require a non-null assertion or unsafe cast.
+  let initialFragment = document.createDocumentFragment();
 
   /**
    * Resume a paused generator (e.g. inside `useResolve` or `useRender`).
@@ -241,7 +234,7 @@ export function mountGeneratorComponent(
    *   but `resume` is for mid-generator continuation specifically).
    */
   function resume(): void {
-    if (instance.gen === null) return;
+    if (!instance.gen) return;
     _setActiveCtx(rctx);
 
     // Restore context: inherited context + own $patch applied for children.
@@ -257,7 +250,7 @@ export function mountGeneratorComponent(
     try {
       const { value, done } = instance.gen.next();
       if (done) {
-        instance.gen = null;
+        instance.gen = undefined;
       }
       vnode = (value as Child) ?? null;
     } finally {
@@ -278,7 +271,7 @@ export function mountGeneratorComponent(
    * 2. Clear paused generator and pending effects.
    * 3. Clear `consumedContexts` so the new render records fresh subscriptions.
    * 4. Set the context map to `capturedCtx` (with own `$patch` applied).
-   * 5. Create a fresh generator: `instance.fn(instance.props, rerender)`.
+   * 5. Create a fresh generator: `instance.component(instance.props, rerender)`.
    * 6. Run `runHooks(gen, …)` — processes hook descriptors, returns VNode.
    * 7. Set `isRendering = false`.
    * 8. If cancelled (mid-render setState detected) → revert effect deps, retry.
@@ -291,7 +284,7 @@ export function mountGeneratorComponent(
    * 11. If `pendingRerender` is set → loop again for follow-up rerender.
    *
    * **Called by:**
-   * - The initial mount at the bottom of `mountGeneratorComponent`.
+   * - The initial mount at the bottom of `mountComponent`.
    * - `rerender()` below — for all subsequent re-renders.
    *
    * @param mounted - `false` on initial mount, `true` on rerenders. Controls
@@ -304,7 +297,7 @@ export function mountGeneratorComponent(
     while (true) {
       instance.isRendering = true;
       // Discard any paused generator; the fresh run starts from the top.
-      instance.gen = null;
+      instance.gen = undefined;
       instance.pendingEffects.length = 0;
 
       // Reset consumed-context tracking so the new render records a fresh set.
@@ -322,7 +315,7 @@ export function mountGeneratorComponent(
       const prevRenderingPriority = rctx.renderingPriority;
       rctx.renderingPriority = instance.priority;
       try {
-        const gen = instance.fn(instance.props, rerender);
+        const gen = instance.component(instance.props, rerender);
         const result = runHooks(gen, instance, rerender, resume);
         instance.gen = result.gen;
         vnode = result.vnode;
@@ -338,7 +331,7 @@ export function mountGeneratorComponent(
         // retry re-queues them (their deps in hookStates already match).
         for (const pe of instance.pendingEffects) {
           const state = instance.hookStates[pe.hookIndex];
-          if (state !== undefined && state.kind === "effect") {
+          if (state !== undefined && state.kind === $USE_EFFECT) {
             state.deps = [];
           }
         }
@@ -395,7 +388,7 @@ export function mountGeneratorComponent(
    *
    * **Called by:**
    * - `useState` setters — via the setter function returned by
-   *   `processOneDescriptor($STATE)`.
+   *   `processOneDescriptor($USE_STATE)`.
    * - `reconcileOne` in `reconciler.ts` — when the parent passes new
    *   props, or a consumed context value changed.
    * - `propagateContextUpdate` in `hooks-runtime.ts` — when an ancestor
@@ -427,8 +420,7 @@ export function mountGeneratorComponent(
   // ── Initial mount ──
   instance = {
     renderCtx: rctx,
-    fn,
-    gen: null,
+    component,
     props,
     endMarker,
     capturedCtx,
@@ -436,7 +428,6 @@ export function mountGeneratorComponent(
     hookStates,
     cleanupFns,
     pendingEffects,
-    pendingVNode: undefined,
     localPatchRefCount: 0,
     isRendering: false,
     pendingRerender: false,
@@ -447,11 +438,11 @@ export function mountGeneratorComponent(
     consumedContexts: new Set(),
   };
 
-  executeRerender(false /* not yet mounted */);
+  void executeRerender(false /* not yet mounted */);
 
-  // initialFragment is populated by executeRerender(false) above (endMarker
+  // initialFragment is reassigned by executeRerender(false) above (endMarker
   // included). TypeScript can't track the mutation across the closure boundary.
-  return { fragment: initialFragment as unknown as DocumentFragment, genInstance: instance };
+  return { fragment: initialFragment, componentInstance: instance };
 }
 
 /**
@@ -477,13 +468,13 @@ export function mountGeneratorComponent(
  *   into the DOM, the endMarker for slot tracking, and Slot data for children.
  */
 export function mountContextProvider(
-  fn: PlainComponentFn,
-  props: Record<string, unknown>,
-  providerCtx: object,
+  component: Component,
+  props: InternalProps,
+  providerCtx: Context<unknown>,
 ): { fragment: DocumentFragment; endMarker: Comment; childSlots: Slot[] } {
   const prevCtxMap = _getCtxMap();
   const newCtxMap = new Map(prevCtxMap);
-  newCtxMap.set(providerCtx as never, props["value"]);
+  newCtxMap.set(providerCtx, props["value"]);
   _setCtxMap(newCtxMap);
 
   const endMarker = document.createComment("");
@@ -492,7 +483,7 @@ export function mountContextProvider(
   let childSlots: Slot[] = [];
 
   try {
-    const vnode = fn(props);
+    const vnode = _asProviderFn(component)(props);
     if (vnode != null) {
       const activeCtx = _requireActiveCtx();
       const prevLiveOnly = activeCtx.liveOnlyMode;
@@ -504,43 +495,4 @@ export function mountContextProvider(
     _setCtxMap(prevCtxMap);
   }
   return { fragment, endMarker, childSlots };
-}
-
-/**
- * Mount a plain (non-generator) function component.
- *
- * Called once; the component has no state of its own. If the parent
- * re-renders with different props, the reconciler remounts from scratch
- * (plain components don't have a `GenInstance` to rerender in place).
- *
- * Returns the rendered DOM node directly — no wrapper span is needed
- * because plain components are never reconciled in place. The only
- * exception is Fragment returns: a `DocumentFragment` gets consumed on
- * DOM insertion, so it must be wrapped in a `<span style="display:contents">`
- * to maintain a stable `slot.node` reference for the reconciler.
- *
- * **Called by:**
- * - `buildVNodeList` and `buildNode` — during initial mount.
- * - `reconcileOne` in `reconciler.ts` — when a plain component appears at
- *   a position where a different type was before, or when props change
- *   on a same-type plain component (falls through to fresh mount).
- *
- * @param fn    - The plain function component.
- * @param props - The component's props.
- * @returns The rendered DOM node (or a wrapper span for Fragment returns).
- */
-export function mountPlainComponent(fn: PlainComponentFn, props: Record<string, unknown>): Node {
-  const vnode = fn(props);
-  if (vnode == null) return document.createTextNode("");
-  const node = buildNode(vnode);
-  // DocumentFragment gets consumed on append — its children move to the parent
-  // and the fragment itself becomes empty. Wrap in a span to preserve a stable
-  // slot.node reference for the reconciler's replaceChild/removeChild calls.
-  if (node instanceof DocumentFragment) {
-    const host = document.createElement("span");
-    host.style.display = "contents";
-    host.appendChild(node);
-    return host;
-  }
-  return node;
 }

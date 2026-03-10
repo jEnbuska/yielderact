@@ -26,7 +26,7 @@
 
 import { beginPatch, commitPatch, restorePatchOps, savePatchOps } from "./patch-queue";
 import { _requireActiveCtx, _setActiveCtx } from "./state";
-import type { GenInstance, RenderContext } from "./types";
+import type { ComponentInstance, RenderContext } from "./types";
 
 /** Time budget per work chunk in milliseconds. */
 const _timeSlice = 5;
@@ -37,16 +37,16 @@ const _timeSlice = 5;
  * Schedule a rerender for `instance` at the appropriate priority.
  *
  * Priority is determined by:
- * - During render (`renderCtx.renderingPriority !== null`): caller's priority.
+ * - During render (`renderCtx.renderingPriority` is set): caller's priority.
  * - During idle: the instance's own priority (`instance.priority`).
  *
  * If the scheduler is already processing, the instance is queued and will
  * be picked up by the running work loop (same priority = same batch,
  * higher priority = preemption at next check).
  *
- * @param instance - The GenInstance to rerender.
+ * @param instance - The ComponentInstance to rerender.
  */
-export function scheduleUpdate(instance: GenInstance): void {
+export function scheduleUpdate(instance: ComponentInstance): void {
   const rctx = instance.renderCtx;
   const priority = rctx.renderingPriority ?? instance.priority;
 
@@ -129,12 +129,12 @@ function _hasPendingWork(rctx: RenderContext): boolean {
 
 /**
  * Returns the lowest priority number (= highest urgency) that has pending
- * work, or `null` if all queues are empty.
+ * work, or `undefined` if all queues are empty.
  */
-function _getLowestPriority(rctx: RenderContext): number | null {
-  let min: number | null = null;
+function _getLowestPriority(rctx: RenderContext): number | undefined {
+  let min: number | undefined;
   for (const [p, set] of rctx.pendingUpdates) {
-    if (set.size > 0 && (min === null || p < min)) min = p;
+    if (set.size > 0 && (min === undefined || p < min)) min = p;
   }
   return min;
 }
@@ -143,10 +143,10 @@ function _getLowestPriority(rctx: RenderContext): number | null {
  * Returns the lowest priority number that is strictly less than `ceiling`
  * and has pending work. Used for preemption detection.
  */
-function _getHigherPriorityThan(rctx: RenderContext, ceiling: number): number | null {
-  let min: number | null = null;
+function _getHigherPriorityThan(rctx: RenderContext, ceiling: number): number | undefined {
+  let min: number | undefined;
   for (const [p, set] of rctx.pendingUpdates) {
-    if (p < ceiling && set.size > 0 && (min === null || p < min)) min = p;
+    if (p < ceiling && set.size > 0 && (min === undefined || p < min)) min = p;
   }
   return min;
 }
@@ -169,12 +169,12 @@ function _runLoop(rctx: RenderContext): void {
   while (true) {
     let priority: number;
 
-    if (rctx.activePriority !== null) {
+    if (rctx.activePriority !== undefined) {
       // Resuming a partially-processed priority level (after yield-to-browser).
       priority = rctx.activePriority;
     } else {
       const p = _getLowestPriority(rctx);
-      if (p === null) {
+      if (p === undefined) {
         rctx.isProcessing = false;
         return;
       }
@@ -184,11 +184,11 @@ function _runLoop(rctx: RenderContext): void {
     }
 
     // SAFETY: priority came from _getLowestPriority or activePriority — entry always exists
-    const set = rctx.pendingUpdates.get(priority) as Set<GenInstance>;
+    const set = rctx.pendingUpdates.get(priority) as Set<ComponentInstance>;
 
     while (set.size > 0) {
       // SAFETY: set.size > 0 guarantees .next().value is defined
-      const instance = set.values().next().value as GenInstance;
+      const instance = set.values().next().value as ComponentInstance;
       set.delete(instance);
 
       instance._executeRerender();
@@ -206,7 +206,7 @@ function _runLoop(rctx: RenderContext): void {
     // All instances at this priority level processed — commit the batch.
     commitPatch();
     rctx.pendingUpdates.delete(priority);
-    rctx.activePriority = null;
+    rctx.activePriority = undefined;
     deadline = performance.now() + _timeSlice;
   }
 }
@@ -223,19 +223,19 @@ function _runLoop(rctx: RenderContext): void {
 function _handlePreemption(rctx: RenderContext, currentPriority: number): void {
   while (true) {
     const hp = _getHigherPriorityThan(rctx, currentPriority);
-    if (hp === null) return;
+    if (hp === undefined) return;
 
     // Save current priority's partial patch ops.
     const savedOps = savePatchOps();
 
     // Process the higher-priority level fully.
     // SAFETY: hp came from _getHigherPriorityThan which checks set.size > 0
-    const set = rctx.pendingUpdates.get(hp) as Set<GenInstance>;
+    const set = rctx.pendingUpdates.get(hp) as Set<ComponentInstance>;
     beginPatch();
 
     while (set.size > 0) {
       // SAFETY: set.size > 0 guarantees .next().value is defined
-      const inst = set.values().next().value as GenInstance;
+      const inst = set.values().next().value as ComponentInstance;
       set.delete(inst);
       inst._executeRerender();
 

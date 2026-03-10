@@ -43,6 +43,9 @@
         "useExhaustiveDependencies": "off",
         "useYield": "off"
       },
+      "nursery": {
+        "noFloatingPromises": "warn"
+      },
       "performance": {
         "noAccumulatingSpread": "warn"
       },
@@ -51,6 +54,18 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["**/*.typetest.tsx"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "off"
+          }
+        }
+      }
+    }
+  ],
   "files": {
     "ignoreUnknown": true
   }

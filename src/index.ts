@@ -8,10 +8,10 @@
  * Quick-start:
  *
  * ```tsx
- * import { render, $state } from 'yielderact';
+ * import { render, useState } from 'yielderact';
  *
  * function* Counter(_props: object) {
- *   const [count, setCount] = yield* $state(0);
+ *   const [count, setCount] = yield* useState(0);
  *   return (
  *     <button onClick={() => setCount(count + 1)}>
  *       Clicked {count} times
@@ -24,10 +24,12 @@
  */
 
 export type { Context } from "./context";
-export { $context, createContext } from "./context";
+export { createContext, useContext } from "./context";
 export type { SEvent, SyntheticEvent } from "./events";
 export type {
+  ComponentGenerator,
   DependencyList,
+  HookDescriptor,
   RefObject,
   Renderable,
   ResolveRawResult,
@@ -35,23 +37,22 @@ export type {
   UseResolveOptions,
 } from "./hooks";
 export {
-  $effect,
-  $id,
-  $memo,
-  $patchContext,
-  $ref,
-  $render,
-  $resolve,
-  $resolveRaw,
-  $resume,
-  $state,
-  $uiPatch,
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useRender,
+  useResolve,
+  useResolveRaw,
+  useResume,
+  useState,
+  useUIPatch,
 } from "./hooks";
 export type {
-  AnyComponentFn,
   Child,
-  GeneratorComponentFn,
-  PlainComponentFn,
+  Component,
+  FrameworkProps,
+  InternalProps,
   SpecialProps,
   VNode,
 } from "./jsx";

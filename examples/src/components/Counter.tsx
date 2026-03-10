@@ -1,22 +1,22 @@
 /**
  * Counter – a generator component demonstrating stateful rendering with
- * `yield* $state` and returning JSX.
+ * `yield* useState` and returning JSX.
  */
-import { $id, $state } from "yielderact";
+import { useId, useState } from "yielderact";
 
 export function* Counter() {
-  const decrementId = yield* $id();
-  const valueId = yield* $id();
-  const incrementId = yield* $id();
-  const resetId = yield* $id();
+  const decrementId = yield* useId();
+  const valueId = yield* useId();
+  const incrementId = yield* useId();
+  const resetId = yield* useId();
 
-  const [count, setCount] = yield* $state(0);
+  const [count, setCount] = yield* useState(0);
 
   return (
     <section aria-label="Counter example">
       <h2>Counter</h2>
       <p>
-        A generator component keeps state via <code>yield* $state</code>. Each call to the setter
+        A generator component keeps state via <code>yield* useState</code>. Each call to the setter
         re-runs the component body and reconciles the DOM.
       </p>
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>

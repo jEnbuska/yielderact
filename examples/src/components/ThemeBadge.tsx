@@ -1,8 +1,8 @@
-import { $context } from "yielderact";
+import { useContext } from "yielderact";
 import { ThemeCtx, themeStyles } from "./ContextDemo.shared";
 
 export function* ThemeBadge(props: { "data-testid"?: string }) {
-  const theme = yield* $context(ThemeCtx);
+  const theme = yield* useContext(ThemeCtx);
   const s = themeStyles[theme];
   return (
     <span

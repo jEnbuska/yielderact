@@ -1,49 +1,8 @@
-import { $state } from "../hooks";
+import { useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
-
-describe("render – plain function components", () => {
-  let container: HTMLElement;
-
-  beforeEach(() => {
-    container = document.createElement("div");
-    document.body.appendChild(container);
-  });
-
-  afterEach(() => {
-    document.body.removeChild(container);
-  });
-
-  it("calls the function and renders the returned JSX", () => {
-    function Greeting({ name }: { name: string }) {
-      return createElement("h1", null, `Hello, ${name}!`);
-    }
-    render(createElement(Greeting as never, { name: "World" }), container);
-    expect(container.querySelector("h1")?.textContent).toBe("Hello, World!");
-  });
-
-  it("renders an empty text node when the component returns null", () => {
-    function Empty() {
-      return null;
-    }
-    render(createElement(Empty as never, {}), container);
-    const node = container.firstChild as ChildNode;
-    expect(node.nodeType).toBe(Node.TEXT_NODE);
-    expect(node.textContent).toBe("");
-  });
-
-  it("renders an empty text node when the component returns undefined", () => {
-    function Empty() {
-      return undefined;
-    }
-    render(createElement(Empty as never, {}), container);
-    const node = container.firstChild as ChildNode;
-    expect(node.nodeType).toBe(Node.TEXT_NODE);
-    expect(node.textContent).toBe("");
-  });
-});
 
 describe("render – generator components", () => {
   let container: HTMLElement;
@@ -65,11 +24,11 @@ describe("render – generator components", () => {
     expect(container.querySelector("h2")?.textContent).toBe("Hi, Alice!");
   });
 
-  it("rerenders via $state setter", () => {
+  it("rerenders via useState setter", () => {
     let setCount: (v: number) => void = () => {};
 
     function* Counter() {
-      const [count, sc] = yield* $state(0);
+      const [count, sc] = yield* useState(0);
       setCount = sc;
       return createElement("button", {}, String(count));
     }
@@ -86,7 +45,7 @@ describe("render – generator components", () => {
 
   it("rerenders when rerender() is called directly from an event handler", () => {
     function* Counter(_props: Record<string, unknown>, _rerender: () => void) {
-      const [count, setCount] = yield* $state(0);
+      const [count, setCount] = yield* useState(0);
       return createElement(
         "button",
         {
@@ -138,7 +97,7 @@ describe("render – generator components", () => {
   });
 });
 
-describe("render – generator components with $state", () => {
+describe("render – generator components with useState", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -150,11 +109,11 @@ describe("render – generator components with $state", () => {
     document.body.removeChild(container);
   });
 
-  it("$state persists value across re-renders", () => {
+  it("useState persists value across re-renders", () => {
     let setLabel: (v: string) => void = () => {};
 
     function* Label() {
-      const [text, st] = yield* $state("initial");
+      const [text, st] = yield* useState("initial");
       setLabel = st;
       return createElement("p", null, text);
     }
@@ -169,13 +128,13 @@ describe("render – generator components with $state", () => {
     expect(container.querySelector("p")?.textContent).toBe("again");
   });
 
-  it("multiple $state calls maintain independent state", () => {
+  it("multiple useState calls maintain independent state", () => {
     let setA: (v: string) => void = () => {};
     let setB: (v: number) => void = () => {};
 
     function* Multi() {
-      const [a, sa] = yield* $state("hello");
-      const [b, sb] = yield* $state(0);
+      const [a, sa] = yield* useState("hello");
+      const [b, sb] = yield* useState(0);
       setA = sa;
       setB = sb;
       return createElement("p", null, `${a}-${b}`);

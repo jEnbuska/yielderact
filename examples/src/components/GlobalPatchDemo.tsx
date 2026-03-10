@@ -1,4 +1,4 @@
-import { $state, commitUIPatch, startUIPatch } from "yielderact";
+import { commitUIPatch, startUIPatch, useState } from "yielderact";
 import type { Page } from "../types";
 import { sleep } from "../utils";
 import { Clocks } from "./Clocks";
@@ -6,9 +6,9 @@ import { Navigation } from "./Navigation";
 import { AboutPage, ContactPage, HomePage } from "./PageStubs";
 
 export function* GlobalPatchDemo() {
-  const [page, setPage] = yield* $state<Page>("home");
-  const [isPending, setIsPending] = yield* $state(false);
-  const [log, setLog] = yield* $state<string[]>([]);
+  const [page, setPage] = yield* useState<Page>("home");
+  const [isPending, setIsPending] = yield* useState(false);
+  const [log, setLog] = yield* useState<string[]>([]);
 
   const navigate = async (next: Page) => {
     setIsPending(true);

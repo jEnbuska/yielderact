@@ -1,4 +1,4 @@
-import { $effect, $memo, $state } from "../hooks";
+import { useEffect, useMemo, useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
@@ -19,7 +19,7 @@ describe("stop-render-on-update", () => {
     let renderCount = 0;
 
     function* Comp() {
-      const [n, setN] = yield* $state(0);
+      const [n, setN] = yield* useState(0);
       setter = setN;
       renderCount++;
       return createElement("span", null, String(n));
@@ -36,18 +36,18 @@ describe("stop-render-on-update", () => {
     expect(container.querySelector("span")?.textContent).toBe("42");
   });
 
-  it("setState called during synchronous $memo queues the rerender instead of running recursively", () => {
+  it("setState called during synchronous useMemo queues the rerender instead of running recursively", () => {
     // Keep track of how many times the component body runs
     let renderCount = 0;
     let memoRuns = 0;
 
     function* Comp() {
       renderCount++;
-      const [n, setN] = yield* $state(0);
+      const [n, setN] = yield* useState(0);
 
-      // $memo factory calls setState synchronously — this must be queued,
+      // useMemo factory calls setState synchronously — this must be queued,
       // not executed as a nested synchronous rerender.
-      yield* $memo(() => {
+      yield* useMemo(() => {
         memoRuns++;
         if (n === 0) {
           setN(1); // synchronous setState during render
@@ -59,10 +59,10 @@ describe("stop-render-on-update", () => {
 
     render(createElement(Comp as never, {}), container);
 
-    // First render: n=0, $memo calls setN(1) synchronously.
+    // First render: n=0, useMemo calls setN(1) synchronously.
     // This should queue a rerender (pendingRerender=true), abort the first
     // render, and re-run with n=1.
-    // Second render: n=1, $memo sees same dep (1) — cache hit, does NOT re-run.
+    // Second render: n=1, useMemo sees same dep (1) — cache hit, does NOT re-run.
     // Total renders: 2 (first cancelled + second committed), but renderCount
     // increments on every attempt so it will be 2.
     expect(renderCount).toBe(2);
@@ -78,12 +78,12 @@ describe("stop-render-on-update", () => {
     let renderCount = 0;
     function* Comp() {
       renderCount++;
-      const [a, sa] = yield* $state(0);
-      const [b, sb] = yield* $state(0);
-      // sa and sb are used directly in the $memo callback below
+      const [a, sa] = yield* useState(0);
+      const [b, sb] = yield* useState(0);
+      // sa and sb are used directly in the useMemo callback below
 
       // Synchronously update both on first render
-      yield* $memo(() => {
+      yield* useMemo(() => {
         if (a === 0 && b === 0) {
           sa(10);
           sb(20);
@@ -103,21 +103,21 @@ describe("stop-render-on-update", () => {
     expect(renderCount).toBe(2);
   });
 
-  it("$effect cleanup does NOT fire for a cancelled (mid-render-interrupted) render", () => {
+  it("useEffect cleanup does NOT fire for a cancelled (mid-render-interrupted) render", () => {
     let cleanupCount = 0;
     let renderCount = 0;
 
     function* Comp() {
       renderCount++;
-      const [n, setN] = yield* $state(0);
+      const [n, setN] = yield* useState(0);
 
-      yield* $effect(() => {
+      yield* useEffect(() => {
         return () => {
           cleanupCount++;
         };
       }, [n]);
 
-      yield* $memo(() => {
+      yield* useMemo(() => {
         if (n === 0) setN(1);
       }, [n]);
 
@@ -126,7 +126,7 @@ describe("stop-render-on-update", () => {
 
     render(createElement(Comp as never, {}), container);
 
-    // The render with n=0 was cancelled, so its $effect should NOT fire
+    // The render with n=0 was cancelled, so its useEffect should NOT fire
     // (and therefore its cleanup never runs either).
     // The committed render is n=1.
     expect(renderCount).toBe(2);
@@ -136,13 +136,13 @@ describe("stop-render-on-update", () => {
     expect(cleanupCount).toBe(0);
   });
 
-  it("await setState resolves after the committed render, allowing async $memo continuation", async () => {
+  it("await setState resolves after the committed render, allowing async useMemo continuation", async () => {
     const log: string[] = [];
 
     function* Comp() {
-      const [name, setName] = yield* $state("joona");
+      const [name, setName] = yield* useState("joona");
 
-      yield* $memo(async () => {
+      yield* useMemo(async () => {
         log.push(`memo run: ${name}`);
         if (name !== name.toUpperCase()) {
           log.push("calling setName");
@@ -173,22 +173,22 @@ describe("stop-render-on-update", () => {
     ]);
   });
 
-  it("$memo cache is reused across a cancelled + retried render when deps are unchanged", () => {
+  it("useMemo cache is reused across a cancelled + retried render when deps are unchanged", () => {
     let memoRuns = 0;
     let setter: (v: string) => Promise<void> = () => Promise.resolve();
 
     function* Comp() {
-      const [label, setLabel] = yield* $state("a");
+      const [label, setLabel] = yield* useState("a");
       setter = setLabel;
 
       // memo deps: [label]
-      const derived = yield* $memo(() => {
+      const derived = yield* useMemo(() => {
         memoRuns++;
         return label.toUpperCase();
       }, [label]);
 
       // On first render only: change unrelated state to trigger a cancel
-      yield* $memo(() => {
+      yield* useMemo(() => {
         if (label === "a") {
           setLabel("b"); // queues rerender
         }
@@ -206,7 +206,7 @@ describe("stop-render-on-update", () => {
 
     // Now trigger an external state change that does NOT change the memo deps
     setter("b"); // same value → shallowEqual, no rerender
-    // (setter called with same value — $state setter still calls rerender but
+    // (setter called with same value — useState setter still calls rerender but
     //  since value didn't change the component just re-renders and memo cache hits)
   });
 
@@ -214,9 +214,9 @@ describe("stop-render-on-update", () => {
     const domValues: string[] = [];
 
     function* Comp() {
-      const [val, setVal] = yield* $state("start");
+      const [val, setVal] = yield* useState("start");
 
-      yield* $memo(async () => {
+      yield* useMemo(async () => {
         if (val === "start") {
           await setVal("middle");
           // After this resolves, DOM has 'middle'
