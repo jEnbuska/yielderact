@@ -33,7 +33,7 @@ describe("render – $effect", () => {
 
   it("does not re-run effect when deps are unchanged", () => {
     const calls: string[] = [];
-    let setCount: ((v: number) => void) | null = null;
+    let setCount: (v: number) => void = () => {};
 
     function* Comp() {
       const [count, sc] = yield* $state(0);
@@ -48,14 +48,14 @@ describe("render – $effect", () => {
     render(createElement(Comp as never, {}), container);
     expect(calls).toEqual(["effect"]);
 
-    setCount!(1);
-    setCount!(2);
+    setCount(1);
+    setCount(2);
     expect(calls).toEqual(["effect"]); // still only once
   });
 
   it("re-runs effect and calls previous cleanup when deps change", () => {
     const log: string[] = [];
-    let setId: ((v: number) => void) | null = null;
+    let setId: (v: number) => void = () => {};
 
     function* Comp() {
       const [id, si] = yield* $state(1);
@@ -70,16 +70,16 @@ describe("render – $effect", () => {
     render(createElement(Comp as never, {}), container);
     expect(log).toEqual(["effect:1"]);
 
-    setId!(2);
+    setId(2);
     expect(log).toEqual(["effect:1", "cleanup:1", "effect:2"]);
 
-    setId!(3);
+    setId(3);
     expect(log).toEqual(["effect:1", "cleanup:1", "effect:2", "cleanup:2", "effect:3"]);
   });
 
   it("calls cleanup on unmount", () => {
     const log: string[] = [];
-    let setShow: ((v: boolean) => void) | null = null;
+    let setShow: (v: boolean) => void = () => {};
 
     function* Inner() {
       yield* $effect(() => {
@@ -98,7 +98,7 @@ describe("render – $effect", () => {
     render(createElement(Outer as never, {}), container);
     expect(log).toEqual(["mount"]);
 
-    setShow!(false);
+    setShow(false);
     expect(log).toEqual(["mount", "unmount"]);
   });
 
@@ -155,7 +155,7 @@ describe("render – $effect", () => {
 
   it("aborts the signal when deps change", () => {
     const signals: AbortSignal[] = [];
-    let setId: ((v: number) => void) | null = null;
+    let setId: (v: number) => void = () => {};
 
     function* Comp() {
       const [id, si] = yield* $state(1);
@@ -172,18 +172,18 @@ describe("render – $effect", () => {
 
     render(createElement(Comp as never, {}), container);
     expect(signals).toHaveLength(1);
-    expect(signals[0]!.aborted).toBe(false);
+    expect(signals[0]?.aborted).toBe(false);
 
-    setId!(2);
+    setId(2);
     // The first signal should now be aborted.
-    expect(signals[0]!.aborted).toBe(true);
+    expect(signals[0]?.aborted).toBe(true);
     expect(signals).toHaveLength(2);
-    expect(signals[1]!.aborted).toBe(false);
+    expect(signals[1]?.aborted).toBe(false);
   });
 
   it("aborts the signal on unmount", () => {
     let capturedSignal: AbortSignal | null = null;
-    let setShow: ((v: boolean) => void) | null = null;
+    let setShow: (v: boolean) => void = () => {};
 
     function* Inner() {
       yield* $effect((signal) => {
@@ -203,13 +203,13 @@ describe("render – $effect", () => {
     expect(capturedSignal).toBeInstanceOf(AbortSignal);
     expect((capturedSignal as unknown as AbortSignal).aborted).toBe(false);
 
-    setShow!(false);
+    setShow(false);
     expect((capturedSignal as unknown as AbortSignal).aborted).toBe(true);
   });
 
   it("aborts the signal before calling the cleanup function", () => {
     const log: string[] = [];
-    let setId: ((v: number) => void) | null = null;
+    let setId: (v: number) => void = () => {};
 
     function* Comp() {
       const [id, si] = yield* $state(1);
@@ -226,7 +226,7 @@ describe("render – $effect", () => {
     }
 
     render(createElement(Comp as never, {}), container);
-    setId!(2);
+    setId(2);
     expect(log).toEqual(["cleanup:1:aborted=true"]);
   });
 });

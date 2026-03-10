@@ -39,7 +39,7 @@ describe("no wrapper spans in rendered output", () => {
       return createElement("h1", null, `Hello, ${name}!`);
     }
     render(createElement(Greeting as never, { name: "World" }), container);
-    expect(container.querySelector("h1")!.textContent).toBe("Hello, World!");
+    expect(container.querySelector("h1")?.textContent).toBe("Hello, World!");
     expectNoDisplayContentsSpans(container);
   });
 
@@ -59,7 +59,7 @@ describe("no wrapper spans in rendered output", () => {
       return createElement("div", null, createElement(Inner as never, {}));
     }
     render(createElement(Outer as never, {}), container);
-    expect(container.querySelector("span")!.textContent).toBe("inner");
+    expect(container.querySelector("span")?.textContent).toBe("inner");
     expectNoDisplayContentsSpans(container);
   });
 
@@ -70,12 +70,12 @@ describe("no wrapper spans in rendered output", () => {
       return createElement("div", { className: "card" }, "content");
     }
     render(createElement(Card as never, {}), container);
-    expect(container.querySelector(".card")!.textContent).toBe("content");
+    expect(container.querySelector(".card")?.textContent).toBe("content");
     expectNoDisplayContentsSpans(container);
   });
 
   it("generator component with $state", () => {
-    let setCount: ((v: number) => void) | null = null;
+    let setCount: (v: number) => void = () => {};
 
     function* Counter() {
       const [count, sc] = yield* $state(0);
@@ -84,11 +84,11 @@ describe("no wrapper spans in rendered output", () => {
     }
 
     render(createElement(Counter as never, {}), container);
-    expect(container.querySelector("button")!.textContent).toBe("0");
+    expect(container.querySelector("button")?.textContent).toBe("0");
     expectNoDisplayContentsSpans(container);
 
-    setCount!(5);
-    expect(container.querySelector("button")!.textContent).toBe("5");
+    setCount(5);
+    expect(container.querySelector("button")?.textContent).toBe("5");
     expectNoDisplayContentsSpans(container);
   });
 
@@ -100,7 +100,7 @@ describe("no wrapper spans in rendered output", () => {
       return createElement("div", null, createElement(Inner as never, {}));
     }
     render(createElement(Outer as never, {}), container);
-    expect(container.querySelector("span")!.textContent).toBe("hello");
+    expect(container.querySelector("span")?.textContent).toBe("hello");
     expectNoDisplayContentsSpans(container);
   });
 
@@ -112,7 +112,7 @@ describe("no wrapper spans in rendered output", () => {
       createElement("div", { className: "wrapper" }, createElement(Label as never, { text: "hi" })),
       container,
     );
-    expect(container.querySelector("span")!.textContent).toBe("hi");
+    expect(container.querySelector("span")?.textContent).toBe("hi");
     expectNoDisplayContentsSpans(container);
   });
 
@@ -131,8 +131,8 @@ describe("no wrapper spans in rendered output", () => {
     );
     const ps = container.querySelectorAll("p");
     expect(ps).toHaveLength(2);
-    expect(ps[0]!.textContent).toBe("A");
-    expect(ps[1]!.textContent).toBe("B");
+    expect(ps[0]?.textContent).toBe("A");
+    expect(ps[1]?.textContent).toBe("B");
     expectNoDisplayContentsSpans(container);
   });
 
@@ -154,9 +154,9 @@ describe("no wrapper spans in rendered output", () => {
       ),
       container,
     );
-    expect(container.querySelector("p")!.textContent).toBe("text");
-    expect(container.querySelector("em")!.textContent).toBe("gen");
-    expect(container.querySelector("strong")!.textContent).toBe("plain");
+    expect(container.querySelector("p")?.textContent).toBe("text");
+    expect(container.querySelector("em")?.textContent).toBe("gen");
+    expect(container.querySelector("strong")?.textContent).toBe("plain");
     expectNoDisplayContentsSpans(container);
   });
 
@@ -174,8 +174,8 @@ describe("no wrapper spans in rendered output", () => {
     render(createElement("div", null, createElement(Multi as never, {})), container);
     const ps = container.querySelectorAll("p");
     expect(ps).toHaveLength(2);
-    expect(ps[0]!.textContent).toBe("one");
-    expect(ps[1]!.textContent).toBe("two");
+    expect(ps[0]?.textContent).toBe("one");
+    expect(ps[1]?.textContent).toBe("two");
     expectNoDisplayContentsSpans(container);
   });
 
@@ -197,7 +197,7 @@ describe("no wrapper spans in rendered output", () => {
       ),
       container,
     );
-    expect(container.querySelector("span")!.textContent).toBe("provided");
+    expect(container.querySelector("span")?.textContent).toBe("provided");
     expectNoDisplayContentsSpans(container);
   });
 
@@ -221,7 +221,7 @@ describe("no wrapper spans in rendered output", () => {
       ),
       container,
     );
-    expect(container.querySelector("span")!.textContent).toBe("inner");
+    expect(container.querySelector("span")?.textContent).toBe("inner");
     expectNoDisplayContentsSpans(container);
   });
 
@@ -255,14 +255,14 @@ describe("no wrapper spans in rendered output", () => {
       ),
       container,
     );
-    expect(container.querySelector("b")!.textContent).toBe("deep");
+    expect(container.querySelector("b")?.textContent).toBe("deep");
     expectNoDisplayContentsSpans(container);
   });
 
   // ── After rerender ──
 
   it("no wrappers after state-driven rerender with children swap", () => {
-    let toggle: (() => void) | null = null;
+    let toggle: () => void = () => {};
 
     function* Child({ label }: { label: string }) {
       return createElement("span", null, label);
@@ -277,11 +277,11 @@ describe("no wrapper spans in rendered output", () => {
     }
 
     render(createElement(Parent as never, {}), container);
-    expect(container.querySelector("span")!.textContent).toBe("A");
+    expect(container.querySelector("span")?.textContent).toBe("A");
     expectNoDisplayContentsSpans(container);
 
-    toggle!();
-    expect(container.querySelector("span")!.textContent).toBe("B");
+    toggle();
+    expect(container.querySelector("span")?.textContent).toBe("B");
     expectNoDisplayContentsSpans(container);
   });
 });

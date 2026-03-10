@@ -170,7 +170,7 @@ export function _processRender(descriptor: { [key: string]: unknown }, ctx: Hook
       status: "waiting",
       deps,
       value: undefined,
-      resumeCallback: null!,
+      resumeCallback: null as unknown as (value: unknown) => void,
     };
     hookStates[hookIndex] = newSlot;
     newSlot.resumeCallback = (value: unknown): void => {

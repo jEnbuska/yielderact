@@ -174,6 +174,7 @@ function collectSlotDOMNodes(slot: Slot): Node[] {
  * 4. Unmount any unused previous slots.
  * 5. Reorder DOM nodes so they appear in the new child order.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: keyed reconciliation with reuse/reorder/remove phases
 function* reconcileKeyedSlotsGen(
   parent: HTMLElement | Node,
   prevSlots: Slot[],
@@ -185,7 +186,7 @@ function* reconcileKeyedSlotsGen(
   const prevKeyMap = new Map<string | number, number>();
   const nonKeyedPrevIndices: number[] = [];
   for (let i = 0; i < prevSlots.length; i++) {
-    const key = prevSlots[i]!.props["$key"] as string | undefined;
+    const key = prevSlots[i]?.props["$key"] as string | undefined;
     if (key !== undefined) {
       prevKeyMap.set(key, i);
     } else {
@@ -199,14 +200,15 @@ function* reconcileKeyedSlotsGen(
   let nonKeyedCursor = 0;
 
   for (let i = 0; i < flatNext.length; i++) {
-    const nextChild = flatNext[i]!;
+    const nextChild = flatNext[i] as Child;
     const nextKey = getChildKey(nextChild);
 
     let matchedPrevSlot: Slot | null = null;
 
     if (nextKey !== undefined && prevKeyMap.has(nextKey)) {
       // Keyed match
-      const prevIndex = prevKeyMap.get(nextKey)!;
+      // SAFETY: guarded by prevKeyMap.has(nextKey) above
+      const prevIndex = prevKeyMap.get(nextKey) as number;
       if (!usedPrevIndices.has(prevIndex)) {
         matchedPrevSlot = prevSlots[prevIndex] ?? null;
         usedPrevIndices.add(prevIndex);
@@ -214,7 +216,7 @@ function* reconcileKeyedSlotsGen(
     } else if (nextKey === undefined) {
       // Non-keyed: match positionally against non-keyed prev slots
       while (nonKeyedCursor < nonKeyedPrevIndices.length) {
-        const prevIndex = nonKeyedPrevIndices[nonKeyedCursor++]!;
+        const prevIndex = nonKeyedPrevIndices[nonKeyedCursor++] as number;
         if (!usedPrevIndices.has(prevIndex)) {
           matchedPrevSlot = prevSlots[prevIndex] ?? null;
           usedPrevIndices.add(prevIndex);
@@ -245,8 +247,9 @@ function* reconcileKeyedSlotsGen(
   // Unmount unused prev slots
   for (let i = 0; i < prevSlots.length; i++) {
     if (!usedPrevIndices.has(i)) {
-      unmountSlot(prevSlots[i]!);
-      removeSlotNodes(parent, prevSlots[i]!);
+      // SAFETY: i is bounded by prevSlots.length
+      unmountSlot(prevSlots[i] as Slot);
+      removeSlotNodes(parent, prevSlots[i] as Slot);
     }
   }
 
@@ -257,7 +260,7 @@ function* reconcileKeyedSlotsGen(
     if (freshNode) {
       domInsertBefore(parent, freshNode, anchor);
     } else {
-      for (const n of collectSlotDOMNodes(nextSlots[i]!)) {
+      for (const n of collectSlotDOMNodes(nextSlots[i] as Slot)) {
         domInsertBefore(parent, n, anchor);
       }
     }
@@ -275,6 +278,7 @@ function* reconcileKeyedSlotsGen(
  * In sync mode, the scheduler (or `runToCompletion`) drains the generator
  * immediately — identical to the non-generator behavior.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: positional diffing with keyed fallback
 export function* reconcileSlotsGen(
   parent: HTMLElement | Node,
   prevSlots: Slot[],
@@ -325,7 +329,8 @@ export function* reconcileSlotsGen(
 
   // Remove any extra old DOM nodes (the new list is shorter).
   for (let i = flatNext.length; i < prevSlots.length; i++) {
-    const old = prevSlots[i]!;
+    // SAFETY: i is bounded by prevSlots.length
+    const old = prevSlots[i] as Slot;
     unmountSlot(old);
     removeSlotNodes(parent, old);
   }
@@ -409,6 +414,7 @@ export function reconcileSlots(
  *     freshly-mounted generator components / Providers).
  *   - `replaced` — true if the DOM node changed and needs to be swapped in by the caller.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode type dispatch with many match/replace branches
 function* reconcileOneGen(
   prevSlot: Slot | null,
   nextChild: Child,
@@ -532,6 +538,7 @@ function* reconcileOneGen(
  * Handles same-type updates (props diff, context propagation, live-only skip),
  * Provider in-place reconciliation, generator rerenders, and fresh mounts.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: component reconciliation with provider/generator/plain paths
 function* reconcileFunctionComponent(
   prevSlot: Slot | null,
   vnode: VNode,

@@ -21,7 +21,7 @@ describe("render – plain function components", () => {
       return createElement("h1", null, `Hello, ${name}!`);
     }
     render(createElement(Greeting as never, { name: "World" }), container);
-    expect(container.querySelector("h1")!.textContent).toBe("Hello, World!");
+    expect(container.querySelector("h1")?.textContent).toBe("Hello, World!");
   });
 
   it("renders an empty text node when the component returns null", () => {
@@ -29,7 +29,7 @@ describe("render – plain function components", () => {
       return null;
     }
     render(createElement(Empty as never, {}), container);
-    const node = container.firstChild!;
+    const node = container.firstChild as ChildNode;
     expect(node.nodeType).toBe(Node.TEXT_NODE);
     expect(node.textContent).toBe("");
   });
@@ -39,7 +39,7 @@ describe("render – plain function components", () => {
       return undefined;
     }
     render(createElement(Empty as never, {}), container);
-    const node = container.firstChild!;
+    const node = container.firstChild as ChildNode;
     expect(node.nodeType).toBe(Node.TEXT_NODE);
     expect(node.textContent).toBe("");
   });
@@ -62,11 +62,11 @@ describe("render – generator components", () => {
       return createElement("h2", null, `Hi, ${name}!`);
     }
     render(createElement(Greeting as never, { name: "Alice" }), container);
-    expect(container.querySelector("h2")!.textContent).toBe("Hi, Alice!");
+    expect(container.querySelector("h2")?.textContent).toBe("Hi, Alice!");
   });
 
   it("rerenders via $state setter", () => {
-    let setCount: ((v: number) => void) | null = null;
+    let setCount: (v: number) => void = () => {};
 
     function* Counter() {
       const [count, sc] = yield* $state(0);
@@ -75,13 +75,13 @@ describe("render – generator components", () => {
     }
 
     render(createElement(Counter as never, {}), container);
-    expect(container.querySelector("button")!.textContent).toBe("0");
+    expect(container.querySelector("button")?.textContent).toBe("0");
 
-    setCount!(1);
-    expect(container.querySelector("button")!.textContent).toBe("1");
+    setCount(1);
+    expect(container.querySelector("button")?.textContent).toBe("1");
 
-    setCount!(5);
-    expect(container.querySelector("button")!.textContent).toBe("5");
+    setCount(5);
+    expect(container.querySelector("button")?.textContent).toBe("5");
   });
 
   it("rerenders when rerender() is called directly from an event handler", () => {
@@ -100,11 +100,11 @@ describe("render – generator components", () => {
 
     render(createElement(Counter as never, {}), container);
 
-    expect(container.querySelector("button")!.textContent).toBe("0");
-    container.querySelector("button")!.click();
-    expect(container.querySelector("button")!.textContent).toBe("1");
-    container.querySelector("button")!.click();
-    expect(container.querySelector("button")!.textContent).toBe("2");
+    expect(container.querySelector("button")?.textContent).toBe("0");
+    container.querySelector("button")?.click();
+    expect(container.querySelector("button")?.textContent).toBe("1");
+    container.querySelector("button")?.click();
+    expect(container.querySelector("button")?.textContent).toBe("2");
   });
 
   it("renders generator components nested inside HTML elements", () => {
@@ -121,7 +121,7 @@ describe("render – generator components", () => {
       container,
     );
 
-    expect(container.querySelector("span")!.textContent).toBe("nested");
+    expect(container.querySelector("span")?.textContent).toBe("nested");
   });
 
   it("passes children in props", () => {
@@ -134,7 +134,7 @@ describe("render – generator components", () => {
       container,
     );
 
-    expect(container.querySelector("p")!.textContent).toBe("child content");
+    expect(container.querySelector("p")?.textContent).toBe("child content");
   });
 });
 
@@ -151,7 +151,7 @@ describe("render – generator components with $state", () => {
   });
 
   it("$state persists value across re-renders", () => {
-    let setLabel: ((v: string) => void) | null = null;
+    let setLabel: (v: string) => void = () => {};
 
     function* Label() {
       const [text, st] = yield* $state("initial");
@@ -160,18 +160,18 @@ describe("render – generator components with $state", () => {
     }
 
     render(createElement(Label as never, {}), container);
-    expect(container.querySelector("p")!.textContent).toBe("initial");
+    expect(container.querySelector("p")?.textContent).toBe("initial");
 
-    setLabel!("updated");
-    expect(container.querySelector("p")!.textContent).toBe("updated");
+    setLabel("updated");
+    expect(container.querySelector("p")?.textContent).toBe("updated");
 
-    setLabel!("again");
-    expect(container.querySelector("p")!.textContent).toBe("again");
+    setLabel("again");
+    expect(container.querySelector("p")?.textContent).toBe("again");
   });
 
   it("multiple $state calls maintain independent state", () => {
-    let setA: ((v: string) => void) | null = null;
-    let setB: ((v: number) => void) | null = null;
+    let setA: (v: string) => void = () => {};
+    let setB: (v: number) => void = () => {};
 
     function* Multi() {
       const [a, sa] = yield* $state("hello");
@@ -182,12 +182,12 @@ describe("render – generator components with $state", () => {
     }
 
     render(createElement(Multi as never, {}), container);
-    expect(container.querySelector("p")!.textContent).toBe("hello-0");
+    expect(container.querySelector("p")?.textContent).toBe("hello-0");
 
-    setA!("world");
-    expect(container.querySelector("p")!.textContent).toBe("world-0");
+    setA("world");
+    expect(container.querySelector("p")?.textContent).toBe("world-0");
 
-    setB!(42);
-    expect(container.querySelector("p")!.textContent).toBe("world-42");
+    setB(42);
+    expect(container.querySelector("p")?.textContent).toBe("world-42");
   });
 });

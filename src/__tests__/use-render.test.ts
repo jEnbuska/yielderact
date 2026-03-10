@@ -17,7 +17,7 @@ describe("$render (Variant 2 – inline function)", () => {
   });
 
   it("yields JSX while waiting and returns the value passed to resume", () => {
-    let capturedResume: ((v: string) => void) | null = null;
+    let capturedResume: (v: string) => void = () => {};
     let finalText: string | null = null;
 
     function* Comp() {
@@ -36,14 +36,14 @@ describe("$render (Variant 2 – inline function)", () => {
     expect(finalText).toBeNull();
 
     // Resolving unblocks the generator
-    capturedResume!("DONE");
+    capturedResume("DONE");
 
     expect(container.querySelector("p")?.textContent).toBe("DONE");
     expect(finalText).toBe("DONE");
   });
 
   it("resume is idempotent – calling it twice only resolves once", () => {
-    let capturedResume: ((v: number) => void) | null = null;
+    let capturedResume: (v: number) => void = () => {};
     let resolveCount = 0;
     let finalValue: number | null = null;
 
@@ -58,16 +58,16 @@ describe("$render (Variant 2 – inline function)", () => {
     }
 
     render(createElement(Comp as never, {}), container);
-    capturedResume!(1);
-    capturedResume!(2); // second call ignored
+    capturedResume(1);
+    capturedResume(2); // second call ignored
 
     expect(resolveCount).toBe(1);
     expect(finalValue).toBe(1);
   });
 
   it("resets to waiting on parent rerender while waiting", () => {
-    let capturedResume: ((v: boolean) => void) | null = null;
-    let setVal: ((v: number) => void) | null = null;
+    let capturedResume: (v: boolean) => void = () => {};
+    let setVal: (v: number) => void = () => {};
     let renderCount = 0;
 
     function* Comp() {
@@ -85,17 +85,17 @@ describe("$render (Variant 2 – inline function)", () => {
     expect(renderCount).toBe(1);
 
     // Trigger a rerender while waiting
-    setVal!(1);
+    setVal(1);
     expect(renderCount).toBe(2);
 
     // The generator is still waiting – resolve it now
-    capturedResume!(true);
+    capturedResume(true);
     expect(container.querySelector("div")).not.toBeNull();
   });
 
   it("deps change resets the interaction", () => {
-    let setDep: ((v: number) => void) | null = null;
-    let capturedResume: ((v: string) => void) | null = null;
+    let setDep: (v: number) => void = () => {};
+    let capturedResume: (v: string) => void = () => {};
     let resolveCount = 0;
 
     function* Comp() {
@@ -115,14 +115,14 @@ describe("$render (Variant 2 – inline function)", () => {
     render(createElement(Comp as never, {}), container);
 
     // Resolve first interaction
-    capturedResume!("first");
+    capturedResume("first");
     expect(resolveCount).toBe(1);
 
     // Change dep → should reset and show dialog again
-    setDep!(1);
+    setDep(1);
     expect(container.querySelector("span")).not.toBeNull();
 
-    capturedResume!("second");
+    capturedResume("second");
     expect(resolveCount).toBe(2);
   });
 });
@@ -140,7 +140,7 @@ describe("$render (Variant 1 – JSX child with $resume)", () => {
   });
 
   it("child component receives resume via $resume and can resolve the parent", () => {
-    let capturedResume: ((v: string) => void) | null = null;
+    let capturedResume: (v: string) => void = () => {};
     let finalAnswer: string | null = null;
 
     function* Dialog() {
@@ -160,7 +160,7 @@ describe("$render (Variant 1 – JSX child with $resume)", () => {
     expect(container.querySelector("span")?.textContent).toBe("dialog");
     expect(finalAnswer).toBeNull();
 
-    capturedResume!("ACCEPTED");
+    capturedResume("ACCEPTED");
 
     expect(container.querySelector("p")?.textContent).toBe("ACCEPTED");
     expect(finalAnswer).toBe("ACCEPTED");
@@ -168,8 +168,8 @@ describe("$render (Variant 1 – JSX child with $resume)", () => {
 
   it("does not remount the child when the parent rerenders while waiting", () => {
     let mountCount = 0;
-    let capturedResume: ((v: string) => void) | null = null;
-    let setVal: ((v: number) => void) | null = null;
+    let capturedResume: (v: string) => void = () => {};
+    let setVal: (v: number) => void = () => {};
 
     function* Dialog() {
       mountCount++;
@@ -189,11 +189,11 @@ describe("$render (Variant 1 – JSX child with $resume)", () => {
     expect(mountCount).toBe(1);
 
     // Trigger a parent rerender while the dialog is still open
-    setVal!(1);
+    setVal(1);
     expect(mountCount).toBe(1); // Dialog must NOT remount
 
     // Resolve still works after the rerender
-    capturedResume!("OK");
+    capturedResume("OK");
     expect(container.querySelector("div")).not.toBeNull();
   });
 });

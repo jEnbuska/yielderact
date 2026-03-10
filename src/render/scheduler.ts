@@ -183,10 +183,12 @@ function _runLoop(rctx: RenderContext): void {
       beginPatch();
     }
 
-    const set = rctx.pendingUpdates.get(priority)!;
+    // SAFETY: priority came from _getLowestPriority or activePriority — entry always exists
+    const set = rctx.pendingUpdates.get(priority) as Set<GenInstance>;
 
     while (set.size > 0) {
-      const instance = set.values().next().value!;
+      // SAFETY: set.size > 0 guarantees .next().value is defined
+      const instance = set.values().next().value as GenInstance;
       set.delete(instance);
 
       instance._executeRerender();
@@ -227,11 +229,13 @@ function _handlePreemption(rctx: RenderContext, currentPriority: number): void {
     const savedOps = savePatchOps();
 
     // Process the higher-priority level fully.
-    const set = rctx.pendingUpdates.get(hp)!;
+    // SAFETY: hp came from _getHigherPriorityThan which checks set.size > 0
+    const set = rctx.pendingUpdates.get(hp) as Set<GenInstance>;
     beginPatch();
 
     while (set.size > 0) {
-      const inst = set.values().next().value!;
+      // SAFETY: set.size > 0 guarantees .next().value is defined
+      const inst = set.values().next().value as GenInstance;
       set.delete(inst);
       inst._executeRerender();
 

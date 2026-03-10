@@ -22,7 +22,7 @@ describe("prop memoization", () => {
 
   it("does not re-mount a child component when the parent re-renders with unchanged child props", () => {
     let mountCount = 0;
-    let parentRerender: (() => void) | null = null;
+    let parentRerender: () => void = () => {};
 
     function* Child({ label }: { label: string }) {
       mountCount++;
@@ -36,17 +36,17 @@ describe("prop memoization", () => {
 
     render(createElement(Parent as never, {}), container);
     expect(mountCount).toBe(1);
-    expect(container.querySelector("span")!.textContent).toBe("hello");
+    expect(container.querySelector("span")?.textContent).toBe("hello");
 
     // Trigger parent re-render with same child props
-    parentRerender!();
+    parentRerender();
     // Child was NOT remounted (same props)
     expect(mountCount).toBe(1);
   });
 
   it("remounts a child component when props change", () => {
     let mountCount = 0;
-    let setPhase: ((v: number) => void) | null = null;
+    let setPhase: (v: number) => void = () => {};
 
     function* Child({ label }: { label: string }) {
       mountCount++;
@@ -65,11 +65,11 @@ describe("prop memoization", () => {
 
     render(createElement(Parent as never, {}), container);
     expect(mountCount).toBe(1);
-    expect(container.querySelector("span")!.textContent).toBe("first");
+    expect(container.querySelector("span")?.textContent).toBe("first");
 
-    setPhase!(1);
+    setPhase(1);
     expect(mountCount).toBe(2);
-    expect(container.querySelector("span")!.textContent).toBe("second");
+    expect(container.querySelector("span")?.textContent).toBe("second");
   });
 });
 
@@ -99,7 +99,7 @@ describe("component renders component", () => {
     }
 
     render(createElement(App as never, {}), container);
-    expect(container.querySelector("h1")!.textContent).toBe("Hello, World!");
+    expect(container.querySelector("h1")?.textContent).toBe("Hello, World!");
   });
 
   it("generator renders a generator component child", () => {
@@ -112,12 +112,12 @@ describe("component renders component", () => {
     }
 
     render(createElement(App as never, {}), container);
-    expect(container.querySelector("em")!.textContent).toBe("from-child");
+    expect(container.querySelector("em")?.textContent).toBe("from-child");
   });
 
   it("child generator component maintains its own state across parent re-renders", () => {
-    let incrementCounter: (() => void) | null = null;
-    let parentRerender: (() => void) | null = null;
+    let incrementCounter: () => void = () => {};
+    let parentRerender: () => void = () => {};
 
     function* Counter() {
       const [count, setCount] = yield* $state(0);
@@ -131,20 +131,20 @@ describe("component renders component", () => {
     }
 
     render(createElement(Wrapper as never, {}), container);
-    expect(container.querySelector("#counter")!.textContent).toBe("0");
+    expect(container.querySelector("#counter")?.textContent).toBe("0");
 
     // Increment child
-    incrementCounter!();
-    expect(container.querySelector("#counter")!.textContent).toBe("1");
+    incrementCounter();
+    expect(container.querySelector("#counter")?.textContent).toBe("1");
 
     // Parent re-renders with SAME Counter props → child is reused (not remounted)
-    parentRerender!();
+    parentRerender();
     // Counter state is preserved (still at 1)
-    expect(container.querySelector("#counter")!.textContent).toBe("1");
+    expect(container.querySelector("#counter")?.textContent).toBe("1");
   });
 
   it("parent switching child component type unmounts old and mounts new", () => {
-    let setPhase: ((v: number) => void) | null = null;
+    let setPhase: (v: number) => void = () => {};
 
     function* CompA() {
       return createElement("span", { id: "a" }, "A");
@@ -167,13 +167,13 @@ describe("component renders component", () => {
     expect(container.querySelector("#a")).not.toBeNull();
     expect(container.querySelector("#b")).toBeNull();
 
-    setPhase!(1);
+    setPhase(1);
     expect(container.querySelector("#a")).toBeNull();
     expect(container.querySelector("#b")).not.toBeNull();
   });
 
   it("reconciles HTML element children in place across re-renders", () => {
-    let setStep: ((v: number) => void) | null = null;
+    let setStep: (v: number) => void = () => {};
 
     function* App() {
       const [step, ss] = yield* $state(0);
@@ -184,11 +184,11 @@ describe("component renders component", () => {
     }
 
     render(createElement(App as never, {}), container);
-    const p = container.querySelector("p")!;
+    const p = container.querySelector("p") as HTMLParagraphElement;
     expect(p.className).toBe("first");
     expect(p.textContent).toBe("hello");
 
-    setStep!(1);
+    setStep(1);
     // Same <p> element is reused (updated in place)
     expect(container.querySelector("p")).toBe(p);
     expect(p.className).toBe("second");
@@ -213,7 +213,7 @@ describe("component renders component", () => {
     }
 
     render(createElement(App as never, {}), container);
-    expect(container.querySelector("#a")!.textContent).toBe("A");
-    expect(container.querySelector("#b")!.textContent).toBe("B");
+    expect(container.querySelector("#a")?.textContent).toBe("A");
+    expect(container.querySelector("#b")?.textContent).toBe("B");
   });
 });

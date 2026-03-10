@@ -17,7 +17,7 @@ describe("$ref", () => {
   });
 
   it("returns an object with the initial value in .current", () => {
-    let capturedRef: { current: number } | null = null;
+    let capturedRef: { current: number } = { current: 0 };
 
     function* Comp() {
       const ref = yield* $ref(42);
@@ -26,13 +26,12 @@ describe("$ref", () => {
     }
 
     render(createElement(Comp as never, {}), container);
-    expect(capturedRef).not.toBeNull();
-    expect(capturedRef!.current).toBe(42);
+    expect(capturedRef.current).toBe(42);
   });
 
   it("persists the same object across re-renders", () => {
     const refInstances: object[] = [];
-    let setValue: ((v: number) => void) | null = null;
+    let setValue: (v: number) => void = () => {};
 
     function* Comp() {
       const [, sv] = yield* $state(0);
@@ -43,7 +42,7 @@ describe("$ref", () => {
     }
 
     render(createElement(Comp as never, {}), container);
-    setValue!(1);
+    setValue(1);
 
     expect(refInstances).toHaveLength(2);
     expect(refInstances[0]).toBe(refInstances[1]);
@@ -51,7 +50,7 @@ describe("$ref", () => {
 
   it("mutations to .current do not trigger a re-render", () => {
     let renderCount = 0;
-    let capturedRef: { current: number } | null = null;
+    let capturedRef: { current: number } = { current: 0 };
 
     function* Comp() {
       renderCount++;
@@ -63,8 +62,8 @@ describe("$ref", () => {
     render(createElement(Comp as never, {}), container);
     expect(renderCount).toBe(1);
 
-    capturedRef!.current = 99;
+    capturedRef.current = 99;
     expect(renderCount).toBe(1);
-    expect(capturedRef!.current).toBe(99);
+    expect(capturedRef.current).toBe(99);
   });
 });

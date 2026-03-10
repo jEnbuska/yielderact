@@ -19,7 +19,7 @@ describe("shown prop", () => {
   it("renders an HTML element when shown is true", () => {
     render(createElement("div", { $shown: true }, "visible"), container);
     expect(container.querySelector("div")).not.toBeNull();
-    expect(container.querySelector("div")!.textContent).toBe("visible");
+    expect(container.querySelector("div")?.textContent).toBe("visible");
   });
 
   it("does not render an HTML element when shown is false", () => {
@@ -34,7 +34,7 @@ describe("shown prop", () => {
 
   it("does not set shown as a DOM attribute", () => {
     render(createElement("div", { $shown: true }, "visible"), container);
-    const el = container.querySelector("div")!;
+    const el = container.querySelector("div") as HTMLElement;
     expect(el.hasAttribute("$shown")).toBe(false);
   });
 
@@ -83,7 +83,7 @@ describe("shown prop", () => {
   });
 
   it("unmounts an HTML element when shown changes from true to false", () => {
-    let setShown: ((v: boolean) => void) | null = null;
+    let setShown: (v: boolean) => void = () => {};
 
     function* Wrapper() {
       const [$shown, setS] = yield* $state(true);
@@ -94,12 +94,12 @@ describe("shown prop", () => {
     render(createElement(Wrapper as never, {}), container);
     expect(container.querySelector("div")).not.toBeNull();
 
-    setShown!(false);
+    setShown(false);
     expect(container.querySelector("div")).toBeNull();
   });
 
   it("mounts an HTML element when shown changes from false to true", () => {
-    let setShown: ((v: boolean) => void) | null = null;
+    let setShown: (v: boolean) => void = () => {};
 
     function* Wrapper() {
       const [$shown, setS] = yield* $state(false);
@@ -110,13 +110,13 @@ describe("shown prop", () => {
     render(createElement(Wrapper as never, {}), container);
     expect(container.querySelector("div")).toBeNull();
 
-    setShown!(true);
+    setShown(true);
     expect(container.querySelector("div")).not.toBeNull();
-    expect(container.querySelector("div")!.textContent).toBe("content");
+    expect(container.querySelector("div")?.textContent).toBe("content");
   });
 
   it("unmounts a component when shown changes from true to false", () => {
-    let setShown: ((v: boolean) => void) | null = null;
+    let setShown: (v: boolean) => void = () => {};
 
     function* Inner() {
       return createElement("p", null, "inner");
@@ -131,12 +131,12 @@ describe("shown prop", () => {
     render(createElement(Wrapper as never, {}), container);
     expect(container.querySelector("p")).not.toBeNull();
 
-    setShown!(false);
+    setShown(false);
     expect(container.querySelector("p")).toBeNull();
   });
 
   it("mounts a component when shown changes from false to true", () => {
-    let setShown: ((v: boolean) => void) | null = null;
+    let setShown: (v: boolean) => void = () => {};
 
     function* Inner() {
       return createElement("p", null, "inner");
@@ -151,8 +151,8 @@ describe("shown prop", () => {
     render(createElement(Wrapper as never, {}), container);
     expect(container.querySelector("p")).toBeNull();
 
-    setShown!(true);
+    setShown(true);
     expect(container.querySelector("p")).not.toBeNull();
-    expect(container.querySelector("p")!.textContent).toBe("inner");
+    expect(container.querySelector("p")?.textContent).toBe("inner");
   });
 });

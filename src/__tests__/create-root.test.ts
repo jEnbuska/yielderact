@@ -23,7 +23,7 @@ describe("createRoot", () => {
     }
     const root = createRoot(container);
     root.render(createElement(Greeting as never, { name: "World" }));
-    expect(container.querySelector("h1")!.textContent).toBe("Hello, World!");
+    expect(container.querySelector("h1")?.textContent).toBe("Hello, World!");
   });
 
   it("renders a generator component into the container", () => {
@@ -62,8 +62,8 @@ describe("createRoot", () => {
     const container2 = document.createElement("div");
     document.body.appendChild(container2);
 
-    let setCount1: ((v: number | ((p: number) => number)) => void) | null = null;
-    let setCount2: ((v: number | ((p: number) => number)) => void) | null = null;
+    let setCount1: (v: number | ((p: number) => number)) => void = () => {};
+    let setCount2: (v: number | ((p: number) => number)) => void = () => {};
 
     function* Counter1() {
       const [count, set] = yield* $state(0);
@@ -82,18 +82,18 @@ describe("createRoot", () => {
     root1.render(createElement(Counter1 as never, {}));
     root2.render(createElement(Counter2 as never, {}));
 
-    expect(container.querySelector("#c1")!.textContent).toBe("0");
-    expect(container2.querySelector("#c2")!.textContent).toBe("100");
+    expect(container.querySelector("#c1")?.textContent).toBe("0");
+    expect(container2.querySelector("#c2")?.textContent).toBe("100");
 
     // Update root 1 — root 2 must not be affected.
-    setCount1!(5);
-    expect(container.querySelector("#c1")!.textContent).toBe("5");
-    expect(container2.querySelector("#c2")!.textContent).toBe("100");
+    setCount1(5);
+    expect(container.querySelector("#c1")?.textContent).toBe("5");
+    expect(container2.querySelector("#c2")?.textContent).toBe("100");
 
     // Update root 2 — root 1 must not be affected.
-    setCount2!(200);
-    expect(container.querySelector("#c1")!.textContent).toBe("5");
-    expect(container2.querySelector("#c2")!.textContent).toBe("200");
+    setCount2(200);
+    expect(container.querySelector("#c1")?.textContent).toBe("5");
+    expect(container2.querySelector("#c2")?.textContent).toBe("200");
 
     document.body.removeChild(container2);
   });
@@ -151,7 +151,7 @@ describe("$patchContext", () => {
   });
 
   it("rerenders when inherited batch changes", () => {
-    let setLive: ((v: boolean) => void) | null = null;
+    let setLive: (v: boolean) => void = () => {};
     let patchValue: "live" | "default" | undefined;
 
     function* Child() {
@@ -171,11 +171,11 @@ describe("$patchContext", () => {
 
     render(createElement(Parent as never, {}), container);
     expect(patchValue).toBe("default");
-    expect(container.querySelector("#patch")!.textContent).toBe("default");
+    expect(container.querySelector("#patch")?.textContent).toBe("default");
 
-    setLive!(true);
+    setLive(true);
     expect(patchValue).toBe("live");
-    expect(container.querySelector("#patch")!.textContent).toBe("live");
+    expect(container.querySelector("#patch")?.textContent).toBe("live");
   });
 
   it("works the same as $context(ThemeContext) pattern", () => {
@@ -197,7 +197,7 @@ describe("$patchContext", () => {
 
   it("does not rerender when only $patch prop changes (no $patchContext)", () => {
     let renderCount = 0;
-    let setPatch: ((v: "live" | "default") => void) | null = null;
+    let setPatch: (v: "live" | "default") => void = () => {};
 
     function* Child({ label }: { label: string; $patch?: string }) {
       yield* $state(0); // just to make it a stateful generator component
@@ -213,17 +213,17 @@ describe("$patchContext", () => {
 
     render(createElement(Parent as never, {}), container);
     expect(renderCount).toBe(1);
-    expect(container.querySelector("#child")!.textContent).toBe("hello");
+    expect(container.querySelector("#child")?.textContent).toBe("hello");
 
     // Change only $patch — Child should NOT rerender
-    setPatch!("live");
+    setPatch("live");
     expect(renderCount).toBe(1);
-    expect(container.querySelector("#child")!.textContent).toBe("hello");
+    expect(container.querySelector("#child")?.textContent).toBe("hello");
   });
 
   it("rerenders when $patch changes and component consumes $patchContext", () => {
     let renderCount = 0;
-    let setPatch: ((v: "live" | "default") => void) | null = null;
+    let setPatch: (v: "live" | "default") => void = () => {};
     let patchValue: "live" | "default" | undefined;
 
     function* Child(_props: { $patch?: string }) {
@@ -243,9 +243,9 @@ describe("$patchContext", () => {
     expect(patchValue).toBe("default");
 
     // Change $patch — Child SHOULD rerender because it consumes $patchContext
-    setPatch!("live");
+    setPatch("live");
     expect(renderCount).toBe(2);
     expect(patchValue).toBe("live");
-    expect(container.querySelector("#child")!.textContent).toBe("live");
+    expect(container.querySelector("#child")?.textContent).toBe("live");
   });
 });

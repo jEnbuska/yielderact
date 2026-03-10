@@ -15,7 +15,7 @@ describe("stop-render-on-update", () => {
   });
 
   it("setState returns Promise<void> that resolves after the rerender commits", async () => {
-    let setter: ((v: number) => Promise<void>) | null = null;
+    let setter: (v: number) => Promise<void> = () => Promise.resolve();
     let renderCount = 0;
 
     function* Comp() {
@@ -27,13 +27,13 @@ describe("stop-render-on-update", () => {
 
     render(createElement(Comp as never, {}), container);
     expect(renderCount).toBe(1);
-    expect(container.querySelector("span")!.textContent).toBe("0");
+    expect(container.querySelector("span")?.textContent).toBe("0");
 
-    const p = setter!(42);
+    const p = setter(42);
     // After the promise resolves the DOM must reflect the new state
     await p;
     expect(renderCount).toBe(2);
-    expect(container.querySelector("span")!.textContent).toBe("42");
+    expect(container.querySelector("span")?.textContent).toBe("42");
   });
 
   it("setState called during synchronous $memo queues the rerender instead of running recursively", () => {
@@ -71,7 +71,7 @@ describe("stop-render-on-update", () => {
     // - Run 1 (cancelled): n=0, deps=[0], memoRuns++, setN(1) → pendingRerender
     // - Run 2 (committed): n=1, deps=[1], memoRuns++ (deps changed)
     expect(memoRuns).toBe(2);
-    expect(container.querySelector("span")!.textContent).toBe("1");
+    expect(container.querySelector("span")?.textContent).toBe("1");
   });
 
   it("multiple synchronous setState calls during one render collapse into a single follow-up render", () => {
@@ -98,7 +98,7 @@ describe("stop-render-on-update", () => {
     // Initial render: cancelled after first setState
     // Follow-up render: committed with a=10, b=20 (sa(10) and sb(20) both applied)
     // Only ONE follow-up render should happen (both state changes batched)
-    expect(container.querySelector("span")!.textContent).toBe("10:20");
+    expect(container.querySelector("span")?.textContent).toBe("10:20");
     // renderCount is 2: one cancelled, one committed
     expect(renderCount).toBe(2);
   });
@@ -130,7 +130,7 @@ describe("stop-render-on-update", () => {
     // (and therefore its cleanup never runs either).
     // The committed render is n=1.
     expect(renderCount).toBe(2);
-    expect(container.querySelector("span")!.textContent).toBe("1");
+    expect(container.querySelector("span")?.textContent).toBe("1");
 
     // No cleanup should have fired yet — only one effect was committed (n=1)
     expect(cleanupCount).toBe(0);
@@ -160,7 +160,7 @@ describe("stop-render-on-update", () => {
     // (synchronously, before the first await in the async factory), which
     // queued a rerender. The first render was cancelled; the second committed
     // with 'JOONA'. After that the async memo's await resolved.
-    expect(container.querySelector("span")!.textContent).toBe("JOONA");
+    expect(container.querySelector("span")?.textContent).toBe("JOONA");
 
     // Yield to the microtask queue so the async continuation runs
     await Promise.resolve();
@@ -175,7 +175,7 @@ describe("stop-render-on-update", () => {
 
   it("$memo cache is reused across a cancelled + retried render when deps are unchanged", () => {
     let memoRuns = 0;
-    let setter: ((v: string) => Promise<void>) | null = null;
+    let setter: (v: string) => Promise<void> = () => Promise.resolve();
 
     function* Comp() {
       const [label, setLabel] = yield* $state("a");
@@ -202,10 +202,10 @@ describe("stop-render-on-update", () => {
     // Run 1 (cancelled, label='a'): memoRuns++ (→1), setLabel('b') queued
     // Run 2 (committed, label='b'): memoRuns++ (→2) because deps changed
     expect(memoRuns).toBe(2);
-    expect(container.querySelector("span")!.textContent).toBe("B");
+    expect(container.querySelector("span")?.textContent).toBe("B");
 
     // Now trigger an external state change that does NOT change the memo deps
-    setter!("b"); // same value → shallowEqual, no rerender
+    setter("b"); // same value → shallowEqual, no rerender
     // (setter called with same value — $state setter still calls rerender but
     //  since value didn't change the component just re-renders and memo cache hits)
   });
@@ -231,16 +231,16 @@ describe("stop-render-on-update", () => {
     render(createElement(Comp as never, {}), container);
     // Synchronous: val='start', setVal('middle') called → queued, render cancelled
     // Committed: val='middle'
-    expect(container.querySelector("span")!.textContent).toBe("middle");
+    expect(container.querySelector("span")?.textContent).toBe("middle");
 
     // First microtask: await setVal('middle') resolved → setVal('end') called
     await Promise.resolve();
     // setVal('end') runs rerender synchronously (isRendering=false)
-    expect(container.querySelector("span")!.textContent).toBe("end");
+    expect(container.querySelector("span")?.textContent).toBe("end");
 
     // Second microtask: await setVal('end') resolved
     await Promise.resolve();
-    domValues.push(container.querySelector("span")!.textContent!);
+    domValues.push(container.querySelector("span")?.textContent ?? "");
     expect(domValues).toEqual(["end"]);
   });
 });

@@ -66,6 +66,7 @@ import type { GenInstance, HookState, RenderContext, Slot } from "./types";
  * @returns The real DOM node. For generator components and Providers, returns
  *   a `DocumentFragment` containing the output nodes + endMarker.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode type dispatch with many branches
 export function buildNode(child: Child): Node {
   if (child == null || typeof child === "boolean") {
     return document.createTextNode("");
@@ -296,6 +297,7 @@ export function mountGeneratorComponent(
    * @param mounted - `false` on initial mount, `true` on rerenders. Controls
    *   whether nodes are stored for fragment assembly or reconciled in place.
    */
+  // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: generator lifecycle with retry, defer, and reconciliation
   function executeRerender(initiallyMounted: boolean): Promise<void> {
     let mounted = initiallyMounted;
     // eslint-disable-next-line no-constant-condition

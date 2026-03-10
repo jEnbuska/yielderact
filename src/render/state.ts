@@ -53,7 +53,10 @@ export function _getActiveCtx(): RenderContext | null {
  * @internal
  */
 export function _requireActiveCtx(): RenderContext {
-  return _activeCtx!;
+  if (!_activeCtx) {
+    throw new Error("No active render context — _requireActiveCtx called outside a render pass");
+  }
+  return _activeCtx;
 }
 
 /**

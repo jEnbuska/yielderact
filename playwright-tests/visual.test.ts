@@ -58,7 +58,7 @@ test("renders a plain HTML element", async ({ page }) => {
     ).Yielderact;
     render(
       createElement("h1", { id: "heading", className: "title" }, "Hello yielderact"),
-      document.getElementById("root")!,
+      document.getElementById("root") as HTMLElement,
     );
   });
 
@@ -82,7 +82,7 @@ test("renders nested elements", async ({ page }) => {
         createElement("li", null, "Item 2"),
         createElement("li", null, "Item 3"),
       ),
-      document.getElementById("root")!,
+      document.getElementById("root") as HTMLElement,
     );
   });
 
@@ -117,7 +117,7 @@ test("generator counter increments on click", async ({ page }) => {
       );
     }
 
-    render(createElement(Counter as never, {}), document.getElementById("root")!);
+    render(createElement(Counter as never, {}), document.getElementById("root") as HTMLElement);
   });
 
   await expect(page.locator("#btn")).toHaveText("0");
@@ -151,7 +151,7 @@ test("plain function component renders correctly", async ({ page }) => {
 
     render(
       createElement(Greeting as never, { name: "Playwright" }),
-      document.getElementById("root")!,
+      document.getElementById("root") as HTMLElement,
     );
   });
 
@@ -184,7 +184,7 @@ test("generator renders child generator component", async ({ page }) => {
       );
     }
 
-    render(createElement(App as never, {}), document.getElementById("root")!);
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
   });
 
   await expect(page.locator("#app h2")).toHaveText("App");
@@ -215,7 +215,7 @@ test("parent re-render preserves child generator state (memoization)", async ({ 
       return createElement("div", null, createElement(Child as never, {}));
     }
 
-    render(createElement(Parent as never, {}), document.getElementById("root")!);
+    render(createElement(Parent as never, {}), document.getElementById("root") as HTMLElement);
   });
 
   await expect(page.locator("#child-count")).toHaveText("0");
@@ -260,7 +260,7 @@ test("context Provider supplies value to deeply nested consumer", async ({ page 
         { value: "dark" },
         createElement(Section as never, {}),
       ),
-      document.getElementById("root")!,
+      document.getElementById("root") as HTMLElement,
     );
   });
 
@@ -289,7 +289,7 @@ test("Fragment renders multiple children without a wrapper", async ({ page }) =>
       );
     }
 
-    render(createElement(App as never, {}), document.getElementById("root")!);
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
   });
 
   await expect(page.locator("#p1")).toHaveText("First");
@@ -338,10 +338,10 @@ test("$context selector: consumer skips rerender when selected dep is unchanged"
       );
     }
 
-    render(createElement(App as never, {}), document.getElementById("root")!);
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
 
     // Expose setter on window for Playwright to call
-    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt!(v);
+    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt?.(v);
   });
 
   // Initial state
@@ -397,8 +397,8 @@ test("$context selector: consumer rerenders in-place ($ref preserved) when selec
       );
     }
 
-    render(createElement(App as never, {}), document.getElementById("root")!);
-    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt!(v);
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt?.(v);
   });
 
   await expect(page.locator("#name")).toHaveText("Alice");
@@ -464,8 +464,8 @@ test("$context transform: suppresses rerender when dep stable; updates transform
       );
     }
 
-    render(createElement(App as never, {}), document.getElementById("root")!);
-    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt!(v);
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt?.(v);
   });
 
   // Initial: ALICE, rendered once
@@ -538,8 +538,8 @@ test("$context no-selector vs selector: no-selector updates on any field change,
       ]);
     }
 
-    render(createElement(App as never, {}), document.getElementById("root")!);
-    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt!(v);
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+    (window as unknown as Record<string, unknown>).__setSt = (v: State) => setSt?.(v);
   });
 
   await expect(page.locator("#no-sel-count")).toHaveText("0");
@@ -592,9 +592,9 @@ test("$context selector: hook state preserved when rerender suppressed", async (
       );
     }
 
-    render(createElement(App as never, {}), document.getElementById("root")!);
-    (window as unknown as Record<string, unknown>).__setCtx = (v: State) => setCtx!(v);
-    (window as unknown as Record<string, unknown>).__setLocal = (v: number) => setLocal!(v);
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+    (window as unknown as Record<string, unknown>).__setCtx = (v: State) => setCtx?.(v);
+    (window as unknown as Record<string, unknown>).__setLocal = (v: number) => setLocal?.(v);
   });
 
   // Set local state to 100
@@ -636,7 +636,7 @@ test("inline styles are applied correctly", async ({ page }) => {
         },
         "Styled",
       ),
-      document.getElementById("root")!,
+      document.getElementById("root") as HTMLElement,
     );
   });
 
@@ -680,16 +680,16 @@ test("global patch: child prop change before patch survives to commit (disabled 
       return createElement("div", null, createElement(Nav as never, { isPending }));
     }
 
-    render(createElement(App as never, {}), document.getElementById("root")!);
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
 
     // Step 1: set isPending=true BEFORE the patch (immediate DOM update)
-    setPending!(true);
+    setPending?.(true);
 
     // Step 2: start the patch
     startUIPatch();
 
     // Step 3: clear isPending INSIDE the patch (deferred — DOM still shows disabled)
-    setPending!(false);
+    setPending?.(false);
 
     // Expose a commit handle for the test to call after asserting frozen state
     doCommit = commitUIPatch;
@@ -734,16 +734,16 @@ test("local patch: child prop change before patch survives to commit (disabled b
       return createElement("div", null, createElement(Nav as never, { isPending }));
     }
 
-    render(createElement(App as never, {}), document.getElementById("root")!);
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
 
     // Step 1: set isPending=true BEFORE the patch (immediate DOM update)
-    setPending!(true);
+    setPending?.(true);
 
     // Step 2: start the local patch and capture the commit fn
-    const commit = capturedStartPatch!();
+    const commit = capturedStartPatch?.();
 
     // Step 3: clear isPending inside the patch (deferred)
-    setPending!(false);
+    setPending?.(false);
 
     // Expose the commit fn for the test to call after asserting the frozen state
     (window as unknown as { doCommit: () => void }).doCommit = commit;
@@ -820,7 +820,7 @@ test("$effect: AbortSignal abort count increments when deps change", async ({ pa
       );
     }
 
-    render(createElement(App, {}), document.getElementById("root")!);
+    render(createElement(App, {}), document.getElementById("root") as HTMLElement);
   });
 
   // Initial: user 1 is polling, others inactive, all abort counts 0
@@ -911,7 +911,7 @@ test("$effect: AbortSignal is aborted on component unmount", async ({ page }) =>
       );
     }
 
-    render(createElement(App, {}), document.getElementById("root")!);
+    render(createElement(App, {}), document.getElementById("root") as HTMLElement);
   });
 
   // Ticker should be running
@@ -983,7 +983,7 @@ test("$effect: AbortSignal aborts async work (fetch-like) on deps change", async
       );
     }
 
-    render(createElement(App, {}), document.getElementById("root")!);
+    render(createElement(App, {}), document.getElementById("root") as HTMLElement);
   });
 
   // Initial: pending then resolves to done-1
