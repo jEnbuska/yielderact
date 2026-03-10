@@ -21,7 +21,7 @@ import { _requireActiveCtx } from "./render/state";
  */
 export interface Context<T> {
   readonly _defaultValue: T;
-  readonly Provider: Component<InternalProps & { value: T; $children?: Child[] }>;
+  readonly Provider: Component<InternalProps & { value: T; children?: Child[] }>;
 }
 
 // ---------------------------------------------------------------------------
@@ -89,8 +89,8 @@ export interface UseContextDescriptor {
 export function createContext<T>(defaultValue: T): Context<T> {
   // Build the Provider function first, then assemble the context object.
   // This avoids a `null!` placeholder.
-  function ContextProvider(props: { value: T; $children?: Child[] }): VNode {
-    return createElement(Fragment, null, ...(props.$children ?? []));
+  function ContextProvider(props: { value: T; children?: Child[] }): VNode {
+    return createElement(Fragment, null, ...(props.children ?? []));
   }
 
   const ctx: Context<T> = {
@@ -98,7 +98,7 @@ export function createContext<T>(defaultValue: T): Context<T> {
     Provider: ContextProvider as unknown as Component<
       InternalProps & {
         value: T;
-        $children?: Child[];
+        children?: Child[];
       }
     >,
   };

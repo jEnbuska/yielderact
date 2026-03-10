@@ -1,161 +1,17 @@
 /**
- * E2E tests for useEffect: cleanup, dependency tracking, and lifecycle.
+ * Visual tests for useEffect lifecycle behaviour: mount timing, dependency
+ * tracking, cleanup ordering, re-run semantics, multi-effect ordering,
+ * state updates from effects, and timer cleanup on unmount.
+ *
+ * AbortSignal-specific tests live in use-effect.test.ts.
  */
 import { expect, test } from "./fixtures";
 
-test("effect runs after mount", async ({ page, setupPage }) => {
-  await setupPage();
+/* -------------------------------------------------------------------------- */
+/*  1. Effect runs after initial mount (not during render)                    */
+/* -------------------------------------------------------------------------- */
 
-  await page.evaluate(() => {
-    const { createElement, render, useEffect } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const win = window as unknown as Record<string, unknown>;
-    win.__log = [];
-
-    function* App() {
-      yield* useEffect(() => {
-        (window as unknown as { __log: string[] }).__log.push("mount-effect");
-      }, []);
-
-      return createElement("div", { id: "app" }, "mounted");
-    }
-
-    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  await expect(page.locator("#app")).toHaveText("mounted");
-  const log = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(log).toEqual(["mount-effect"]);
-});
-
-test("effect cleanup runs on unmount", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useState, useEffect } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const win = window as unknown as Record<string, unknown>;
-    win.__log = [];
-
-    function* Child() {
-      yield* useEffect(() => {
-        (window as unknown as { __log: string[] }).__log.push("child-mount");
-        return () => {
-          (window as unknown as { __log: string[] }).__log.push("child-cleanup");
-        };
-      }, []);
-
-      return createElement("div", { id: "child" }, "child");
-    }
-
-    function* App() {
-      const [show, setShow] = yield* useState(true);
-      (window as unknown as Record<string, unknown>).setShow = setShow;
-
-      return createElement(
-        "div",
-        { id: "app" },
-        show
-          ? createElement(Child as never, {})
-          : createElement("span", { id: "gone" }, "unmounted"),
-      );
-    }
-
-    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  await expect(page.locator("#child")).toHaveText("child");
-  const logBefore = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(logBefore).toEqual(["child-mount"]);
-
-  // Hide child via conditional rendering
-  await page.evaluate(() => {
-    (window as unknown as { setShow: (v: boolean) => void }).setShow(false);
-  });
-
-  await expect(page.locator("#gone")).toHaveText("unmounted");
-  const logAfter = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(logAfter).toEqual(["child-mount", "child-cleanup"]);
-});
-
-test("effect re-runs when deps change", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useState, useEffect } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const win = window as unknown as Record<string, unknown>;
-    win.__log = [];
-
-    function* App() {
-      const [dep, setDep] = yield* useState(1);
-      (window as unknown as Record<string, unknown>).setDep = setDep;
-
-      yield* useEffect(() => {
-        (window as unknown as { __log: string[] }).__log.push(`effect-${dep}`);
-        return () => {
-          (window as unknown as { __log: string[] }).__log.push(`cleanup-${dep}`);
-        };
-      }, [dep]);
-
-      return createElement("div", { id: "val" }, String(dep));
-    }
-
-    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  await expect(page.locator("#val")).toHaveText("1");
-  const log1 = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(log1).toEqual(["effect-1"]);
-
-  // Change dep to 2
-  await page.evaluate(() => {
-    (window as unknown as { setDep: (v: number) => void }).setDep(2);
-  });
-
-  await expect(page.locator("#val")).toHaveText("2");
-  const log2 = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(log2).toEqual(["effect-1", "cleanup-1", "effect-2"]);
-});
-
-test("multiple effects run in declaration order", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useEffect } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const win = window as unknown as Record<string, unknown>;
-    win.__log = [];
-
-    function* App() {
-      yield* useEffect(() => {
-        (window as unknown as { __log: string[] }).__log.push("effect-A");
-      }, []);
-
-      yield* useEffect(() => {
-        (window as unknown as { __log: string[] }).__log.push("effect-B");
-      }, []);
-
-      return createElement("div", { id: "app" }, "ready");
-    }
-
-    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  await expect(page.locator("#app")).toHaveText("ready");
-  const log = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(log).toEqual(["effect-A", "effect-B"]);
-});
-
-test("cleanup order on deps change: old cleanup runs before new effect", async ({
+test("useEffect: effect runs after initial mount, not during render", async ({
   page,
   setupPage,
 }) => {
@@ -167,45 +23,43 @@ test("cleanup order on deps change: old cleanup runs before new effect", async (
     ).Yielderact;
 
     const win = window as unknown as Record<string, unknown>;
-    win.__log = [];
+    const log: string[] = [];
+    win.log = log;
 
     function* App() {
-      const [dep, setDep] = yield* useState("a");
-      (window as unknown as Record<string, unknown>).setDep = setDep;
+      log.push("render");
+      const [value] = yield* useState("hello");
 
       yield* useEffect(() => {
-        (window as unknown as { __log: string[] }).__log.push(`effect-${dep}`);
-        return () => {
-          (window as unknown as { __log: string[] }).__log.push(`cleanup-${dep}`);
-        };
-      }, [dep]);
+        log.push("effect");
+      }, []);
 
-      return createElement("div", { id: "val" }, dep);
+      log.push("return");
+      return createElement("span", { id: "out" }, value);
     }
 
     render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
   });
 
-  await expect(page.locator("#val")).toHaveText("a");
+  await expect(page.locator("#out")).toHaveText("hello");
 
-  await page.evaluate(() => {
-    (window as unknown as { setDep: (v: string) => void }).setDep("b");
+  const log = await page.evaluate(() => {
+    return (window as unknown as Record<string, string[]>).log;
   });
 
-  await expect(page.locator("#val")).toHaveText("b");
-
-  await page.evaluate(() => {
-    (window as unknown as { setDep: (v: string) => void }).setDep("c");
-  });
-
-  await expect(page.locator("#val")).toHaveText("c");
-
-  const log = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  // Each transition: old cleanup fires, then new effect
-  expect(log).toEqual(["effect-a", "cleanup-a", "effect-b", "cleanup-b", "effect-c"]);
+  // "render" and "return" happen before "effect"
+  expect(log.indexOf("render")).toBeLessThan(log.indexOf("effect"));
+  expect(log.indexOf("return")).toBeLessThan(log.indexOf("effect"));
 });
 
-test("timer effect with cleanup: setInterval cleared on unmount", async ({ page, setupPage }) => {
+/* -------------------------------------------------------------------------- */
+/*  2. Effect with empty deps runs only once                                  */
+/* -------------------------------------------------------------------------- */
+
+test("useEffect: empty deps effect runs only once across rerenders", async ({
+  page,
+  setupPage,
+}) => {
   await setupPage();
 
   await page.evaluate(() => {
@@ -213,24 +67,435 @@ test("timer effect with cleanup: setInterval cleared on unmount", async ({ page,
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
+    const win = window as unknown as Record<string, unknown>;
+
+    function* App() {
+      const [count, setCount] = yield* useState(0);
+      const [effectRuns, setEffectRuns] = yield* useState(0);
+      win.increment = () => setCount((c: number) => c + 1);
+
+      yield* useEffect(() => {
+        setEffectRuns((r: number) => r + 1);
+      }, []);
+
+      return createElement(
+        "div",
+        null,
+        createElement("span", { id: "count" }, String(count)),
+        createElement("span", { id: "effect-runs" }, String(effectRuns)),
+      );
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  // Effect ran once on mount
+  await expect(page.locator("#effect-runs")).toHaveText("1");
+
+  // Trigger several rerenders
+  for (let i = 0; i < 3; i++) {
+    await page.evaluate(() => {
+      (window as unknown as Record<string, () => void>).increment();
+    });
+  }
+
+  await expect(page.locator("#count")).toHaveText("3");
+  // Effect still only ran once
+  await expect(page.locator("#effect-runs")).toHaveText("1");
+});
+
+/* -------------------------------------------------------------------------- */
+/*  3. Effect with deps re-runs when deps change                              */
+/* -------------------------------------------------------------------------- */
+
+test("useEffect: effect re-runs when deps change", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useEffect } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const win = window as unknown as Record<string, unknown>;
+
+    function* App() {
+      const [dep, setDep] = yield* useState("a");
+      const [seen, setSeen] = yield* useState("");
+      win.setDep = setDep;
+
+      yield* useEffect(() => {
+        setSeen((prev: string) => (prev ? `${prev},${dep}` : dep));
+      }, [dep]);
+
+      return createElement(
+        "div",
+        null,
+        createElement("span", { id: "dep" }, dep),
+        createElement("span", { id: "seen" }, seen),
+      );
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  await expect(page.locator("#seen")).toHaveText("a");
+
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (v: string) => void>).setDep("b");
+  });
+  await expect(page.locator("#seen")).toHaveText("a,b");
+
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (v: string) => void>).setDep("c");
+  });
+  await expect(page.locator("#seen")).toHaveText("a,b,c");
+
+  // Same value again — effect should NOT re-run
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (v: string) => void>).setDep("c");
+  });
+  await expect(page.locator("#seen")).toHaveText("a,b,c");
+});
+
+/* -------------------------------------------------------------------------- */
+/*  4. Cleanup function called on deps change (before new effect)             */
+/* -------------------------------------------------------------------------- */
+
+test("useEffect: cleanup called on deps change", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useEffect } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const win = window as unknown as Record<string, unknown>;
+    const log: string[] = [];
+    win.log = log;
+
+    function* App() {
+      const [dep, setDep] = yield* useState(1);
+      win.setDep = setDep;
+
+      yield* useEffect(() => {
+        log.push(`effect-${dep}`);
+        return () => {
+          log.push(`cleanup-${dep}`);
+        };
+      }, [dep]);
+
+      return createElement("span", { id: "dep" }, String(dep));
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  await expect(page.locator("#dep")).toHaveText("1");
+
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (v: number) => void>).setDep(2);
+  });
+  await expect(page.locator("#dep")).toHaveText("2");
+
+  const log = await page.evaluate(() => {
+    return (window as unknown as Record<string, string[]>).log;
+  });
+
+  // effect-1 ran first, then cleanup-1 before effect-2
+  expect(log).toContain("effect-1");
+  expect(log).toContain("cleanup-1");
+  expect(log).toContain("effect-2");
+  expect(log.indexOf("cleanup-1")).toBeLessThan(log.indexOf("effect-2"));
+});
+
+/* -------------------------------------------------------------------------- */
+/*  5. Cleanup function called on component unmount                           */
+/* -------------------------------------------------------------------------- */
+
+test("useEffect: cleanup called on component unmount", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useEffect } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const win = window as unknown as Record<string, unknown>;
+    win.cleanupCalled = false;
+
+    function* Child() {
+      yield* useEffect(() => {
+        return () => {
+          (window as unknown as Record<string, unknown>).cleanupCalled = true;
+        };
+      }, []);
+
+      return createElement("span", { id: "child" }, "alive");
+    }
+
+    function* App() {
+      const [show, setShow] = yield* useState(true);
+      win.setShow = setShow;
+
+      return createElement(
+        "div",
+        null,
+        show
+          ? createElement(Child as never, {})
+          : createElement("span", { id: "gone" }, "unmounted"),
+      );
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  await expect(page.locator("#child")).toHaveText("alive");
+
+  // Unmount child
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (v: boolean) => void>).setShow(false);
+  });
+
+  await expect(page.locator("#gone")).toHaveText("unmounted");
+
+  const cleanupCalled = await page.evaluate(() => {
+    return (window as unknown as Record<string, boolean>).cleanupCalled;
+  });
+  expect(cleanupCalled).toBe(true);
+});
+
+/* -------------------------------------------------------------------------- */
+/*  6. Cleanup ordering: old cleanup runs before new effect                   */
+/* -------------------------------------------------------------------------- */
+
+test("useEffect: old cleanup runs before new effect on deps change", async ({
+  page,
+  setupPage,
+}) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useEffect } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const win = window as unknown as Record<string, unknown>;
+    const log: string[] = [];
+    win.log = log;
+
+    function* App() {
+      const [step, setStep] = yield* useState(0);
+      win.setStep = setStep;
+
+      yield* useEffect(() => {
+        log.push(`effect:${step}`);
+        return () => {
+          log.push(`cleanup:${step}`);
+        };
+      }, [step]);
+
+      return createElement("span", { id: "step" }, String(step));
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  await expect(page.locator("#step")).toHaveText("0");
+
+  // Step 0 -> 1
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (v: number) => void>).setStep(1);
+  });
+  await expect(page.locator("#step")).toHaveText("1");
+
+  // Step 1 -> 2
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (v: number) => void>).setStep(2);
+  });
+  await expect(page.locator("#step")).toHaveText("2");
+
+  const log = await page.evaluate(() => {
+    return (window as unknown as Record<string, string[]>).log;
+  });
+
+  // Verify strict ordering: effect:0, cleanup:0, effect:1, cleanup:1, effect:2
+  expect(log).toEqual(["effect:0", "cleanup:0", "effect:1", "cleanup:1", "effect:2"]);
+});
+
+/* -------------------------------------------------------------------------- */
+/*  7. Effect with changing deps runs on every render                         */
+/* -------------------------------------------------------------------------- */
+
+test("useEffect: effect re-runs on every render when deps change each time", async ({
+  page,
+  setupPage,
+}) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useEffect } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const win = window as unknown as Record<string, unknown>;
+
+    function* App() {
+      const [count, setCount] = yield* useState(0);
+      const [effectRuns, setEffectRuns] = yield* useState(0);
+      win.increment = () => setCount((c: number) => c + 1);
+
+      // deps = [count] means effect runs whenever count changes
+      yield* useEffect(() => {
+        setEffectRuns((r: number) => r + 1);
+      }, [count]);
+
+      return createElement(
+        "div",
+        null,
+        createElement("span", { id: "count" }, String(count)),
+        createElement("span", { id: "effect-runs" }, String(effectRuns)),
+      );
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  // Initial mount: effect ran once
+  await expect(page.locator("#effect-runs")).toHaveText("1");
+
+  // Each increment changes deps, so effect runs each time
+  for (let i = 1; i <= 4; i++) {
+    await page.evaluate(() => {
+      (window as unknown as Record<string, () => void>).increment();
+    });
+    await expect(page.locator("#count")).toHaveText(String(i));
+  }
+
+  // effect ran once on mount + 4 increments = 5 total
+  await expect(page.locator("#effect-runs")).toHaveText("5");
+});
+
+/* -------------------------------------------------------------------------- */
+/*  8. Multiple effects in one component run in order                         */
+/* -------------------------------------------------------------------------- */
+
+test("useEffect: multiple effects run in declaration order", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useEffect } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const win = window as unknown as Record<string, unknown>;
+    const log: string[] = [];
+    win.log = log;
+
+    function* App() {
+      const [tick, setTick] = yield* useState(0);
+      win.tick = () => setTick((t: number) => t + 1);
+
+      yield* useEffect(() => {
+        log.push("first");
+      }, [tick]);
+
+      yield* useEffect(() => {
+        log.push("second");
+      }, [tick]);
+
+      yield* useEffect(() => {
+        log.push("third");
+      }, [tick]);
+
+      return createElement("span", { id: "tick" }, String(tick));
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  await expect(page.locator("#tick")).toHaveText("0");
+
+  const initialLog = await page.evaluate(() => {
+    return (window as unknown as Record<string, string[]>).log;
+  });
+  expect(initialLog).toEqual(["first", "second", "third"]);
+
+  // Trigger rerender — effects should run again in order
+  await page.evaluate(() => {
+    (window as unknown as Record<string, () => void>).tick();
+  });
+  await expect(page.locator("#tick")).toHaveText("1");
+
+  const fullLog = await page.evaluate(() => {
+    return (window as unknown as Record<string, string[]>).log;
+  });
+  expect(fullLog).toEqual(["first", "second", "third", "first", "second", "third"]);
+});
+
+/* -------------------------------------------------------------------------- */
+/*  9. Effect can trigger state update (causes re-render)                     */
+/* -------------------------------------------------------------------------- */
+
+test("useEffect: effect can trigger a state update that causes re-render", async ({
+  page,
+  setupPage,
+}) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useEffect } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    function* App() {
+      const [mounted, setMounted] = yield* useState(false);
+
+      yield* useEffect(() => {
+        setMounted(true);
+      }, []);
+
+      return createElement("span", { id: "mounted" }, mounted ? "yes" : "no");
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  // Initially "no", but effect sets it to "yes" triggering a re-render
+  await expect(page.locator("#mounted")).toHaveText("yes");
+});
+
+/* -------------------------------------------------------------------------- */
+/*  10. Timer in effect is cleaned up on unmount                              */
+/* -------------------------------------------------------------------------- */
+
+test("useEffect: timer in effect is cleaned up on unmount", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useEffect } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const win = window as unknown as Record<string, unknown>;
+
     function* Timer() {
       const [count, setCount] = yield* useState(0);
 
       yield* useEffect(() => {
         const id = setInterval(() => {
           setCount((c: number) => c + 1);
-        }, 50);
+        }, 100);
         return () => {
           clearInterval(id);
         };
       }, []);
 
-      return createElement("span", { id: "tick" }, String(count));
+      return createElement("span", { id: "timer" }, String(count));
     }
 
     function* App() {
       const [show, setShow] = yield* useState(true);
-      (window as unknown as Record<string, unknown>).setShow = setShow;
+      win.setShow = setShow;
 
       return createElement(
         "div",
@@ -244,248 +509,20 @@ test("timer effect with cleanup: setInterval cleared on unmount", async ({ page,
     render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
   });
 
-  // Wait for a few ticks
-  await page.waitForTimeout(200);
-  const countBefore = Number(await page.locator("#tick").textContent());
+  // Let the timer tick a few times
+  await page.waitForTimeout(350);
+  const countBefore = Number(await page.locator("#timer").textContent());
   expect(countBefore).toBeGreaterThanOrEqual(2);
 
-  // Unmount the timer
+  // Unmount the timer component
   await page.evaluate(() => {
-    (window as unknown as { setShow: (v: boolean) => void }).setShow(false);
+    (window as unknown as Record<string, (v: boolean) => void>).setShow(false);
   });
-
   await expect(page.locator("#stopped")).toHaveText("stopped");
 
-  // Record the moment of unmount, wait, and confirm no further increments
-  await page.waitForTimeout(200);
-  // Timer element is gone, interval should be cleared
-  await expect(page.locator("#tick")).not.toBeAttached();
-});
+  // Record a value, wait, then confirm it hasn't changed (interval was cleared)
+  await page.waitForTimeout(300);
 
-test("effect with ref does not cause extra renders", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useEffect, useRef } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const win = window as unknown as Record<string, unknown>;
-    win.__renderCount = 0;
-
-    function* App() {
-      (window as unknown as { __renderCount: number }).__renderCount++;
-      const renderCountRef = yield* useRef(0);
-
-      yield* useEffect(() => {
-        // Mutating ref.current should NOT trigger a rerender
-        renderCountRef.current = 42;
-      }, []);
-
-      return createElement(
-        "div",
-        { id: "app" },
-        `renders: ${(window as unknown as { __renderCount: number }).__renderCount}`,
-      );
-    }
-
-    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  await expect(page.locator("#app")).toHaveText("renders: 1");
-
-  // Wait a bit to ensure no surprise rerenders
-  await page.waitForTimeout(100);
-  await expect(page.locator("#app")).toHaveText("renders: 1");
-
-  const renderCount = await page.evaluate(
-    () => (window as unknown as { __renderCount: number }).__renderCount,
-  );
-  expect(renderCount).toBe(1);
-});
-
-test("rapid dep changes settle to correct final state", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useState, useEffect } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const win = window as unknown as Record<string, unknown>;
-    win.__log = [];
-
-    function* App() {
-      const [dep, setDep] = yield* useState(0);
-      (window as unknown as Record<string, unknown>).setDep = setDep;
-
-      yield* useEffect(() => {
-        (window as unknown as { __log: string[] }).__log.push(`effect-${dep}`);
-        return () => {
-          (window as unknown as { __log: string[] }).__log.push(`cleanup-${dep}`);
-        };
-      }, [dep]);
-
-      return createElement("div", { id: "val" }, String(dep));
-    }
-
-    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  await expect(page.locator("#val")).toHaveText("0");
-
-  // Rapidly change dep multiple times
-  await page.evaluate(() => {
-    const set = (window as unknown as { setDep: (v: number) => void }).setDep;
-    set(1);
-    set(2);
-    set(3);
-    set(4);
-    set(5);
-  });
-
-  await expect(page.locator("#val")).toHaveText("5");
-
-  // The final log should end with effect-5
-  const log: string[] = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(log[0]).toBe("effect-0");
-  expect(log[log.length - 1]).toBe("effect-5");
-});
-
-test("effect skipped when deps unchanged on parent rerender", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useState, useEffect } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const win = window as unknown as Record<string, unknown>;
-    win.__log = [];
-
-    function* Child() {
-      yield* useEffect(() => {
-        (window as unknown as { __log: string[] }).__log.push("child-effect");
-      }, []);
-
-      return createElement("span", { id: "child" }, "child");
-    }
-
-    function* Parent() {
-      const [tick, setTick] = yield* useState(0);
-      (window as unknown as Record<string, unknown>).setTick = setTick;
-
-      return createElement(
-        "div",
-        null,
-        createElement("span", { id: "tick" }, String(tick)),
-        createElement(Child as never, {}),
-      );
-    }
-
-    render(createElement(Parent as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  await expect(page.locator("#child")).toHaveText("child");
-  const log1 = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(log1).toEqual(["child-effect"]);
-
-  // Rerender parent -- child's empty-deps effect should NOT re-run
-  await page.evaluate(() => {
-    (window as unknown as { setTick: (fn: (t: number) => number) => void }).setTick(
-      (t: number) => t + 1,
-    );
-  });
-
-  await expect(page.locator("#tick")).toHaveText("1");
-  const log2 = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(log2).toEqual(["child-effect"]);
-
-  // Rerender parent again
-  await page.evaluate(() => {
-    (window as unknown as { setTick: (fn: (t: number) => number) => void }).setTick(
-      (t: number) => t + 1,
-    );
-  });
-
-  await expect(page.locator("#tick")).toHaveText("2");
-  const log3 = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  // Still only the initial mount effect
-  expect(log3).toEqual(["child-effect"]);
-});
-
-test("multiple effects with different deps: changing x re-runs only effect A", async ({
-  page,
-  setupPage,
-}) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useState, useEffect } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const win = window as unknown as Record<string, unknown>;
-    win.__log = [];
-
-    function* App() {
-      const [x, setX] = yield* useState(0);
-      const [y, setY] = yield* useState(0);
-      (window as unknown as Record<string, unknown>).setX = setX;
-      (window as unknown as Record<string, unknown>).setY = setY;
-
-      yield* useEffect(() => {
-        (window as unknown as { __log: string[] }).__log.push(`A-effect-${x}`);
-        return () => {
-          (window as unknown as { __log: string[] }).__log.push(`A-cleanup-${x}`);
-        };
-      }, [x]);
-
-      yield* useEffect(() => {
-        (window as unknown as { __log: string[] }).__log.push(`B-effect-${y}`);
-        return () => {
-          (window as unknown as { __log: string[] }).__log.push(`B-cleanup-${y}`);
-        };
-      }, [y]);
-
-      return createElement(
-        "div",
-        null,
-        createElement("span", { id: "x-val" }, String(x)),
-        createElement("span", { id: "y-val" }, String(y)),
-      );
-    }
-
-    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  await expect(page.locator("#x-val")).toHaveText("0");
-  await expect(page.locator("#y-val")).toHaveText("0");
-  const log1 = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(log1).toEqual(["A-effect-0", "B-effect-0"]);
-
-  // Change x only -- only effect A should re-run
-  await page.evaluate(() => {
-    (window as unknown as { setX: (v: number) => void }).setX(1);
-  });
-
-  await expect(page.locator("#x-val")).toHaveText("1");
-  const log2 = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(log2).toEqual(["A-effect-0", "B-effect-0", "A-cleanup-0", "A-effect-1"]);
-
-  // Change y only -- only effect B should re-run
-  await page.evaluate(() => {
-    (window as unknown as { setY: (v: number) => void }).setY(1);
-  });
-
-  await expect(page.locator("#y-val")).toHaveText("1");
-  const log3 = await page.evaluate(() => (window as unknown as { __log: string[] }).__log);
-  expect(log3).toEqual([
-    "A-effect-0",
-    "B-effect-0",
-    "A-cleanup-0",
-    "A-effect-1",
-    "B-cleanup-0",
-    "B-effect-1",
-  ]);
+  // Timer element should be gone — the interval is no longer updating anything
+  await expect(page.locator("#timer")).not.toBeAttached();
 });

@@ -146,8 +146,8 @@ export function unmountSlot(slot: Slot): void {
     unmountSlot(child);
   }
   // Clear $ref on HTML element slots
-  if (typeof slot.type === "string" && slot.props["$ref"]) {
-    clearRef(slot.props["$ref"]);
+  if (typeof slot.type === "string" && slot.props.$ref) {
+    clearRef(slot.props.$ref);
   }
   if (slot.componentInstance) {
     for (const child of slot.componentInstance.slots) {

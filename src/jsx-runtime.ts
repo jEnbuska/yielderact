@@ -17,23 +17,20 @@ export { Fragment };
 /** Used by the JSX transform for single-child expressions. */
 export function jsx(
   type: VNode["type"],
-  props: { children?: Child; $children?: Child | Child[] } & Record<string, unknown>,
+  props: { children?: Child | Child[] } & Record<string, unknown>,
   key?: string | number | null,
 ): VNode {
-  // Extract children from both the transform (`children`) and explicit
-  // `$children` prop. `$children` takes priority when both are present.
-  const { children, $children, ...rest } = props;
+  const { children, ...rest } = props;
   // The automatic JSX transform extracts `key` and passes it as the third
   // argument. Map it to `$key` (string only) for our reconciler.
   if (key != null) rest["$key"] = String(key);
-  const effectiveChildren = $children ?? children;
-  if (effectiveChildren === undefined) {
+  if (children === undefined) {
     return createElement(type, rest);
   }
-  if (Array.isArray(effectiveChildren)) {
-    return createElement(type, rest, ...effectiveChildren);
+  if (Array.isArray(children)) {
+    return createElement(type, rest, ...children);
   }
-  return createElement(type, rest, effectiveChildren as Child);
+  return createElement(type, rest, children as Child);
 }
 
 /** Used by the JSX transform for multi-child expressions (static children). */

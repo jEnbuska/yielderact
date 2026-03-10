@@ -15,11 +15,12 @@
 1.  **Branch Sync:** `git checkout dev && git pull origin dev && git checkout -`
 2.  **Lint & Format:** `npm run lint:fix`
 3.  **Type Check & Build:** `npm run build`
-4.  **Unit Tests:** `npm test`
-5.  **Visual Tests:** `npm run test:visual`
-6.  **Documentation & CLAUDE.md:** \* Update `docs/api.md` if API changed.
+4.  **Type Check Examples:** `npm run typecheck:examples`
+5.  **Unit Tests:** `npm test`
+6.  **Visual Tests:** `npm run test:visual`
+7.  **Documentation & CLAUDE.md:** \* Update `docs/api.md` if API changed.
     - Update `CLAUDE.md` if the workflow, scripts, or project structure changed.
-7.  **Final Verification:** If any step fails, fix and **restart from Step 2.**
+8.  **Final Verification:** If any step fails, fix and **restart from Step 2.**
 
 ---
 
@@ -47,6 +48,7 @@ yielderact is a minimal JSX UI library using JavaScript generator functions.
 
 - `npm run build` — Compile TS to `dist/`
 - `npm run typecheck` — Type-check including test files (no emit)
+- `npm run typecheck:examples` — Type-check example components (catches `$children`/JSX issues)
 - `npm test` — Run Jest unit tests (jsdom)
 - `npm run test:visual` — Run Playwright visual tests
 - `npm run lint` — Check lint & formatting (Biome)

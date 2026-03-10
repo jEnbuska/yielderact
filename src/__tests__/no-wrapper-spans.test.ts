@@ -235,12 +235,12 @@ describe("no wrapper spans in rendered output", () => {
       return createElement("b", null, value);
     }
 
-    function* PlainWrapper({ $children }: { $children: unknown }) {
-      return createElement("div", { className: "plain" }, ...($children as never[]));
+    function* PlainWrapper({ children }: { children: unknown }) {
+      return createElement("div", { className: "plain" }, ...(children as never[]));
     }
 
-    function* Middle({ $children }: { $children: unknown }) {
-      return createElement("article", null, ...($children as never[]));
+    function* Middle({ children }: { children: unknown }) {
+      return createElement("article", null, ...(children as never[]));
     }
 
     render(

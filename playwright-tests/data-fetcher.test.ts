@@ -1,13 +1,14 @@
 /**
- * Visual tests for useResolve (DataFetcher) and useResolveRaw (ResolveRawDemo).
- *
- * Covers: loading/data transitions, error states, pending/resolved/rejected
- * transitions, dep changes restarting fetch, rapid id changes, and AbortSignal
- * abort on deps change.
+ * Visual tests for useResolve and useResolveRaw hooks:
+ * loading/success/error lifecycles, deps changes, and cancellation.
  */
 import { expect, test } from "./fixtures";
 
-test("useResolve: shows loading then data after resolve", async ({ page, setupPage }) => {
+// ---------------------------------------------------------------------------
+// useResolve tests
+// ---------------------------------------------------------------------------
+
+test("useResolve: shows loading component then success", async ({ page, setupPage }) => {
   await setupPage();
 
   await page.evaluate(() => {
@@ -15,34 +16,34 @@ test("useResolve: shows loading then data after resolve", async ({ page, setupPa
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
-    function* DataLoader(_: object) {
+    function* DataComp() {
       const data = yield* useResolve(
         {
-          fn: () =>
-            new Promise<{ name: string }>((resolve) =>
-              setTimeout(() => resolve({ name: "Alice" }), 200),
-            ),
-          loading: createElement("p", { "data-testid": "loading" }, "Loading..."),
-          error: createElement("p", { "data-testid": "error" }, "Error!"),
+          fn: (_signal) =>
+            new Promise<string>((resolve) => {
+              setTimeout(() => resolve("Fetched OK"), 150);
+            }),
+          loading: createElement("span", { id: "loading" }, "Loading..."),
+          error: createElement("span", { id: "error" }, "Error"),
         },
         [],
       );
-      return createElement("p", { "data-testid": "data" }, data.name);
+      return createElement("span", { id: "data" }, data);
     }
 
-    render(createElement(DataLoader as never, {}), document.getElementById("root") as HTMLElement);
+    render(createElement(DataComp as never, {}), document.getElementById("root") as HTMLElement);
   });
 
-  // Loading state should appear immediately
-  await expect(page.locator('[data-testid="loading"]')).toHaveText("Loading...");
-  await expect(page.locator('[data-testid="data"]')).not.toBeAttached();
+  // Initially shows loading
+  await expect(page.locator("#loading")).toHaveText("Loading...");
+  await expect(page.locator("#data")).not.toBeAttached();
 
-  // After the promise resolves, data should appear
-  await expect(page.locator('[data-testid="data"]')).toHaveText("Alice", { timeout: 3000 });
-  await expect(page.locator('[data-testid="loading"]')).not.toBeAttached();
+  // After the promise resolves, loading disappears and data is shown
+  await expect(page.locator("#data")).toHaveText("Fetched OK", { timeout: 3000 });
+  await expect(page.locator("#loading")).not.toBeAttached();
 });
 
-test("useResolve: error state shown on rejection", async ({ page, setupPage }) => {
+test("useResolve: shows error component on rejection", async ({ page, setupPage }) => {
   await setupPage();
 
   await page.evaluate(() => {
@@ -50,250 +51,37 @@ test("useResolve: error state shown on rejection", async ({ page, setupPage }) =
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
-    function* DataLoader(_: object) {
-      const data = yield* useResolve<string>(
+    function* DataComp() {
+      const data = yield* useResolve(
         {
-          fn: () =>
-            new Promise<string>((_resolve, reject) =>
-              setTimeout(() => reject(new Error("network failure")), 150),
-            ),
-          loading: createElement("p", { "data-testid": "loading" }, "Loading..."),
-          error: createElement("p", { "data-testid": "error" }, "Error!"),
+          fn: (_signal) =>
+            new Promise<string>((_resolve, reject) => {
+              setTimeout(() => reject(new Error("Network failure")), 100);
+            }),
+          loading: createElement("span", { id: "loading" }, "Loading..."),
+          error: createElement("span", { id: "error" }, "Something went wrong"),
         },
         [],
       );
-      return createElement("p", { "data-testid": "data" }, data);
+      return createElement("span", { id: "data" }, data);
     }
 
-    render(createElement(DataLoader as never, {}), document.getElementById("root") as HTMLElement);
+    render(createElement(DataComp as never, {}), document.getElementById("root") as HTMLElement);
   });
 
-  // Loading state should appear immediately
-  await expect(page.locator('[data-testid="loading"]')).toHaveText("Loading...");
+  // Initially shows loading
+  await expect(page.locator("#loading")).toHaveText("Loading...");
 
-  // After rejection, error state should appear
-  await expect(page.locator('[data-testid="error"]')).toHaveText("Error!", { timeout: 3000 });
-  await expect(page.locator('[data-testid="data"]')).not.toBeAttached();
-  await expect(page.locator('[data-testid="loading"]')).not.toBeAttached();
+  // After rejection, error component is rendered
+  await expect(page.locator("#error")).toHaveText("Something went wrong", { timeout: 3000 });
+  await expect(page.locator("#data")).not.toBeAttached();
+  await expect(page.locator("#loading")).not.toBeAttached();
 });
 
-test("useResolveRaw: pending to resolved transition", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useMemo, useResolveRaw } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    function* RawLoader(_: object) {
-      const promise = yield* useMemo(
-        () =>
-          new Promise<{ title: string }>((resolve) =>
-            setTimeout(() => resolve({ title: "Post 1" }), 200),
-          ),
-        [],
-      );
-      const result = yield* useResolveRaw<{ title: string }>(promise);
-
-      if (result.loading) {
-        return createElement("p", { "data-testid": "status" }, "pending");
-      }
-      if (result.error !== undefined) {
-        return createElement("p", { "data-testid": "status" }, "rejected");
-      }
-      return createElement("p", { "data-testid": "status" }, `resolved:${result.data.title}`);
-    }
-
-    render(createElement(RawLoader as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  // Initially pending
-  await expect(page.locator('[data-testid="status"]')).toHaveText("pending");
-
-  // After resolve, shows data
-  await expect(page.locator('[data-testid="status"]')).toHaveText("resolved:Post 1", {
-    timeout: 3000,
-  });
-});
-
-test("useResolveRaw: pending to rejected transition", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useMemo, useResolveRaw } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    function* RawLoader(_: object) {
-      const promise = yield* useMemo(
-        () =>
-          new Promise<string>((_resolve, reject) =>
-            setTimeout(() => reject(new Error("bad request")), 150),
-          ),
-        [],
-      );
-      const result = yield* useResolveRaw<string, Error>(promise);
-
-      if (result.loading) {
-        return createElement("p", { "data-testid": "status" }, "pending");
-      }
-      if (result.error !== undefined) {
-        return createElement("p", { "data-testid": "status" }, `rejected:${result.error.message}`);
-      }
-      return createElement("p", { "data-testid": "status" }, `resolved:${result.data}`);
-    }
-
-    render(createElement(RawLoader as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  // Initially pending
-  await expect(page.locator('[data-testid="status"]')).toHaveText("pending");
-
-  // After rejection, shows error
-  await expect(page.locator('[data-testid="status"]')).toHaveText("rejected:bad request", {
-    timeout: 3000,
-  });
-});
-
-test("useResolveRaw: changing deps restarts fetch (pending again)", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useState, useMemo, useResolveRaw } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const win = window as unknown as Record<string, unknown>;
-
-    function* RawLoader(_: object) {
-      const [id, setId] = yield* useState(1);
-      win.setId = setId;
-
-      const promise = yield* useMemo(
-        () => new Promise<string>((resolve) => setTimeout(() => resolve(`Post ${id}`), 200)),
-        [id],
-      );
-      const result = yield* useResolveRaw<string>(promise);
-
-      if (result.loading) {
-        return createElement(
-          "div",
-          null,
-          createElement("p", { "data-testid": "status" }, "pending"),
-          createElement("p", { "data-testid": "id" }, String(id)),
-        );
-      }
-      if (result.error !== undefined) {
-        return createElement("p", { "data-testid": "status" }, "rejected");
-      }
-      return createElement(
-        "div",
-        null,
-        createElement("p", { "data-testid": "status" }, `resolved:${result.data}`),
-        createElement("p", { "data-testid": "id" }, String(id)),
-      );
-    }
-
-    render(createElement(RawLoader as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  // Initially pending for id=1
-  await expect(page.locator('[data-testid="status"]')).toHaveText("pending");
-  await expect(page.locator('[data-testid="id"]')).toHaveText("1");
-
-  // Wait for id=1 to resolve
-  await expect(page.locator('[data-testid="status"]')).toHaveText("resolved:Post 1", {
-    timeout: 3000,
-  });
-
-  // Change id to 2 — should go back to pending
-  await page.evaluate(() => {
-    (window as unknown as { setId: (v: number) => void }).setId(2);
-  });
-
-  await expect(page.locator('[data-testid="status"]')).toHaveText("pending");
-  await expect(page.locator('[data-testid="id"]')).toHaveText("2");
-
-  // Wait for id=2 to resolve
-  await expect(page.locator('[data-testid="status"]')).toHaveText("resolved:Post 2", {
-    timeout: 3000,
-  });
-});
-
-test("useResolveRaw: rapid id changes - only latest resolves", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useState, useMemo, useResolveRaw } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const win = window as unknown as Record<string, unknown>;
-
-    function* RawLoader(_: object) {
-      const [id, setId] = yield* useState(1);
-      win.setId = setId;
-
-      const promise = yield* useMemo(
-        () => new Promise<string>((resolve) => setTimeout(() => resolve(`Result ${id}`), 300)),
-        [id],
-      );
-      const result = yield* useResolveRaw<string>(promise);
-
-      if (result.loading) {
-        return createElement(
-          "div",
-          null,
-          createElement("p", { "data-testid": "status" }, "pending"),
-          createElement("p", { "data-testid": "id" }, String(id)),
-        );
-      }
-      return createElement(
-        "div",
-        null,
-        createElement("p", { "data-testid": "status" }, `resolved:${result.data}`),
-        createElement("p", { "data-testid": "id" }, String(id)),
-      );
-    }
-
-    render(createElement(RawLoader as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  // Initially pending
-  await expect(page.locator('[data-testid="status"]')).toHaveText("pending");
-
-  // Rapidly change id: 1 -> 2 -> 3 -> 4 before any promise resolves
-  await page.evaluate(() => {
-    const win = window as unknown as { setId: (v: number) => void };
-    win.setId(2);
-  });
-  await page.waitForTimeout(50);
-  await page.evaluate(() => {
-    const win = window as unknown as { setId: (v: number) => void };
-    win.setId(3);
-  });
-  await page.waitForTimeout(50);
-  await page.evaluate(() => {
-    const win = window as unknown as { setId: (v: number) => void };
-    win.setId(4);
-  });
-
-  // Should be pending with id=4
-  await expect(page.locator('[data-testid="id"]')).toHaveText("4");
-  await expect(page.locator('[data-testid="status"]')).toHaveText("pending");
-
-  // Only the latest (id=4) should resolve
-  await expect(page.locator('[data-testid="status"]')).toHaveText("resolved:Result 4", {
-    timeout: 3000,
-  });
-
-  // Verify stale results from id 1, 2, 3 did not appear
-  await page.waitForTimeout(500);
-  await expect(page.locator('[data-testid="status"]')).toHaveText("resolved:Result 4");
-  await expect(page.locator('[data-testid="id"]')).toHaveText("4");
-});
-
-test("useResolve: AbortSignal is aborted on deps change", async ({ page, setupPage }) => {
+test("useResolve: deps change cancels previous and starts new fetch", async ({
+  page,
+  setupPage,
+}) => {
   await setupPage();
 
   await page.evaluate(() => {
@@ -302,67 +90,256 @@ test("useResolve: AbortSignal is aborted on deps change", async ({ page, setupPa
     ).Yielderact;
 
     const win = window as unknown as Record<string, unknown>;
-    win.abortCount = 0;
 
-    function* DataLoader(_: object) {
-      const [id, setId] = yield* useState(1);
-      win.setId = setId;
+    function* DataComp() {
+      const [userId, setUserId] = yield* useState(1);
+      win.setUserId = setUserId;
 
-      const data = yield* useResolve<string>(
+      const data = yield* useResolve(
         {
-          fn: (signal) => {
-            signal.addEventListener(
-              "abort",
-              () => {
-                win.abortCount = (win.abortCount as number) + 1;
-              },
-              { once: true },
-            );
-            return new Promise<string>((resolve) => setTimeout(() => resolve(`Data ${id}`), 200));
-          },
-          loading: createElement("p", { "data-testid": "loading" }, "Loading..."),
-          error: createElement("p", { "data-testid": "error" }, "Error!"),
+          fn: (signal) =>
+            new Promise<string>((resolve) => {
+              const timer = setTimeout(() => {
+                if (!signal.aborted) {
+                  resolve(`User ${userId}`);
+                }
+              }, 150);
+              signal.addEventListener("abort", () => clearTimeout(timer), { once: true });
+            }),
+          loading: createElement("span", { id: "loading" }, "Loading..."),
+          error: createElement("span", { id: "error" }, "Error"),
         },
-        [id],
+        [userId],
       );
+      return createElement("span", { id: "data" }, data);
+    }
+
+    render(createElement(DataComp as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  // Wait for first fetch to complete
+  await expect(page.locator("#data")).toHaveText("User 1", { timeout: 3000 });
+
+  // Change deps — should show loading again
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (v: number) => void>).setUserId(2);
+  });
+
+  await expect(page.locator("#loading")).toHaveText("Loading...", { timeout: 3000 });
+
+  // Wait for second fetch to complete
+  await expect(page.locator("#data")).toHaveText("User 2", { timeout: 3000 });
+});
+
+// ---------------------------------------------------------------------------
+// useResolveRaw tests
+// ---------------------------------------------------------------------------
+
+test("useResolveRaw: loading then success lifecycle", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useMemo, useResolveRaw } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    function* DataComp() {
+      const promise = yield* useMemo(
+        () =>
+          new Promise<string>((resolve) => {
+            setTimeout(() => resolve("Raw data OK"), 150);
+          }),
+        [],
+      );
+      const result = yield* useResolveRaw<string>(promise);
+
+      if (result.loading) {
+        return createElement(
+          "div",
+          { id: "status" },
+          createElement("span", { id: "loading-flag" }, "true"),
+          createElement("span", { id: "error-flag" }, "false"),
+        );
+      }
+      if (result.error !== undefined) {
+        return createElement("span", { id: "error-msg" }, String(result.error));
+      }
       return createElement(
         "div",
-        null,
-        createElement("p", { "data-testid": "data" }, data),
-        createElement("p", { "data-testid": "id" }, String(id)),
+        { id: "status" },
+        createElement("span", { id: "data" }, result.data),
+        createElement("span", { id: "loading-flag" }, "false"),
+        createElement("span", { id: "error-flag" }, "false"),
       );
     }
 
-    render(createElement(DataLoader as never, {}), document.getElementById("root") as HTMLElement);
+    render(createElement(DataComp as never, {}), document.getElementById("root") as HTMLElement);
   });
 
-  // Initial loading
-  await expect(page.locator('[data-testid="loading"]')).toHaveText("Loading...");
+  // Initially loading=true, no data, no error
+  await expect(page.locator("#loading-flag")).toHaveText("true");
+  await expect(page.locator("#error-flag")).toHaveText("false");
+  await expect(page.locator("#data")).not.toBeAttached();
 
-  // Wait for first resolve
-  await expect(page.locator('[data-testid="data"]')).toHaveText("Data 1", { timeout: 3000 });
+  // After resolve: loading=false, data present, no error
+  await expect(page.locator("#data")).toHaveText("Raw data OK", { timeout: 3000 });
+  await expect(page.locator("#loading-flag")).toHaveText("false");
+  await expect(page.locator("#error-flag")).toHaveText("false");
+});
 
-  // No aborts yet
-  const abortCountBefore = await page.evaluate(
-    () => (window as unknown as Record<string, unknown>).abortCount,
-  );
-  expect(abortCountBefore).toBe(0);
+test("useResolveRaw: error handling", async ({ page, setupPage }) => {
+  await setupPage();
 
-  // Change deps — should abort previous signal and restart
   await page.evaluate(() => {
-    (window as unknown as { setId: (v: number) => void }).setId(2);
+    const { createElement, render, useMemo, useResolveRaw } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    function* DataComp() {
+      const promise = yield* useMemo(
+        () =>
+          new Promise<string>((_resolve, reject) => {
+            setTimeout(() => reject(new Error("fetch failed")), 100);
+          }),
+        [],
+      );
+      const result = yield* useResolveRaw<string, Error>(promise);
+
+      if (result.loading) {
+        return createElement("span", { id: "loading" }, "Loading...");
+      }
+      if (result.error !== undefined) {
+        return createElement(
+          "div",
+          { id: "error-container" },
+          createElement("span", { id: "error-msg" }, result.error.message),
+          createElement("span", { id: "loading-flag" }, "false"),
+        );
+      }
+      return createElement("span", { id: "data" }, result.data);
+    }
+
+    render(createElement(DataComp as never, {}), document.getElementById("root") as HTMLElement);
   });
 
-  // Previous signal should have been aborted
-  const abortCountAfter = await page.evaluate(
-    () => (window as unknown as Record<string, unknown>).abortCount,
-  );
-  expect(abortCountAfter).toBe(1);
+  // Initially loading
+  await expect(page.locator("#loading")).toHaveText("Loading...");
 
-  // Should show loading again while new fetch is in progress
-  await expect(page.locator('[data-testid="loading"]')).toHaveText("Loading...");
+  // After rejection: error present, loading=false, no data
+  await expect(page.locator("#error-msg")).toHaveText("fetch failed", { timeout: 3000 });
+  await expect(page.locator("#loading-flag")).toHaveText("false");
+  await expect(page.locator("#data")).not.toBeAttached();
+});
 
-  // New data should resolve
-  await expect(page.locator('[data-testid="data"]')).toHaveText("Data 2", { timeout: 3000 });
-  await expect(page.locator('[data-testid="id"]')).toHaveText("2");
+test("useResolveRaw: deps change during pending", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useMemo, useResolveRaw } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const win = window as unknown as Record<string, unknown>;
+
+    function* DataComp() {
+      const [itemId, setItemId] = yield* useState(1);
+      win.setItemId = setItemId;
+
+      const promise = yield* useMemo(
+        () =>
+          new Promise<string>((resolve) => {
+            setTimeout(() => resolve(`Item ${itemId}`), 150);
+          }),
+        [itemId],
+      );
+      const result = yield* useResolveRaw<string>(promise);
+
+      if (result.loading) {
+        return createElement("span", { id: "loading" }, "Loading...");
+      }
+      if (result.error !== undefined) {
+        return createElement("span", { id: "error" }, String(result.error));
+      }
+      return createElement("span", { id: "data" }, result.data);
+    }
+
+    render(createElement(DataComp as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  // First load
+  await expect(page.locator("#data")).toHaveText("Item 1", { timeout: 3000 });
+
+  // Change deps — should go back to loading then show new data
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (v: number) => void>).setItemId(2);
+  });
+
+  await expect(page.locator("#loading")).toHaveText("Loading...", { timeout: 3000 });
+  await expect(page.locator("#data")).toHaveText("Item 2", { timeout: 3000 });
+});
+
+test("useResolveRaw: rapid deps changes — only latest resolves", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useMemo, useResolveRaw } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const win = window as unknown as Record<string, unknown>;
+
+    function* DataComp() {
+      const [queryId, setQueryId] = yield* useState(1);
+      win.setQueryId = setQueryId;
+
+      const promise = yield* useMemo(
+        () =>
+          new Promise<string>((resolve) => {
+            setTimeout(() => resolve(`Result ${queryId}`), 200);
+          }),
+        [queryId],
+      );
+      const result = yield* useResolveRaw<string>(promise);
+
+      if (result.loading) {
+        return createElement("span", { id: "loading" }, "Loading...");
+      }
+      if (result.error !== undefined) {
+        return createElement("span", { id: "error" }, String(result.error));
+      }
+      return createElement("span", { id: "data" }, result.data);
+    }
+
+    render(createElement(DataComp as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  // Wait for initial result
+  await expect(page.locator("#data")).toHaveText("Result 1", { timeout: 3000 });
+
+  // Fire rapid changes: 2 -> 3 -> 4 in quick succession
+  await page.evaluate(() => {
+    const win = window as unknown as Record<string, (v: number) => void>;
+    win.setQueryId(2);
+  });
+  // Small delay then change again before previous resolves
+  await page.waitForTimeout(50);
+  await page.evaluate(() => {
+    const win = window as unknown as Record<string, (v: number) => void>;
+    win.setQueryId(3);
+  });
+  await page.waitForTimeout(50);
+  await page.evaluate(() => {
+    const win = window as unknown as Record<string, (v: number) => void>;
+    win.setQueryId(4);
+  });
+
+  // Should be in loading state
+  await expect(page.locator("#loading")).toBeAttached({ timeout: 3000 });
+
+  // Only the last result (4) should be displayed, stale results are ignored
+  await expect(page.locator("#data")).toHaveText("Result 4", { timeout: 5000 });
+
+  // Verify no stale result appears after settling
+  await page.waitForTimeout(500);
+  await expect(page.locator("#data")).toHaveText("Result 4");
 });

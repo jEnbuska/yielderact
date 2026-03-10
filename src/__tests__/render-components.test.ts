@@ -84,8 +84,8 @@ describe("render – generator components", () => {
   });
 
   it("passes children in props", () => {
-    function* Wrapper({ $children }: { $children: unknown }) {
-      return createElement("section", null, ...($children as never[]));
+    function* Wrapper({ children }: { children: unknown }) {
+      return createElement("section", null, ...(children as never[]));
     }
 
     render(

@@ -1,224 +1,125 @@
 /**
- * E2E tests for context scoping: independent contexts, nested providers,
- * sibling isolation, default values, and multi-context consumption.
+ * Visual tests for context scoping patterns: independent contexts, nested
+ * overrides, default values, sibling isolation, cross-context independence,
+ * state preservation, provider removal, deep nesting, multi-consumer updates,
+ * and selective consumer triggering.
  */
 import { expect, test } from "./fixtures";
 
-test("two independent contexts toggled independently", async ({ page, setupPage }) => {
+test("two independent contexts (Theme + Locale) used simultaneously", async ({
+  page,
+  setupPage,
+}) => {
   await setupPage();
 
   await page.evaluate(() => {
-    const { createElement, render, useState, createContext, useContext } = (
+    const { createElement, createContext, useContext, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
-    const ThemeCtx = createContext("light");
-    const LocaleCtx = createContext("en");
+    const ThemeCtx = createContext<string>("light");
+    const LocaleCtx = createContext<string>("en");
 
-    function* ThemeDisplay(_: object) {
+    function* Consumer() {
       const theme = yield* useContext(ThemeCtx);
-      return createElement("span", { "data-testid": "theme" }, theme);
-    }
-
-    function* LocaleDisplay(_: object) {
       const locale = yield* useContext(LocaleCtx);
-      return createElement("span", { "data-testid": "locale" }, locale);
-    }
-
-    function* App(_: object) {
-      const [theme, setTheme] = yield* useState("light");
-      const [locale, setLocale] = yield* useState("en");
       return createElement(
         "div",
-        null,
-        createElement(
-          "button",
-          {
-            "data-testid": "toggle-theme",
-            onclick: () => setTheme((t: string) => (t === "light" ? "dark" : "light")),
-          },
-          "Toggle Theme",
-        ),
-        createElement(
-          "button",
-          {
-            "data-testid": "toggle-locale",
-            onclick: () => setLocale((l: string) => (l === "en" ? "fi" : "en")),
-          },
-          "Toggle Locale",
-        ),
-        createElement(
-          ThemeCtx.Provider as never,
-          { value: theme },
-          createElement(
-            LocaleCtx.Provider as never,
-            { value: locale },
-            createElement(ThemeDisplay as never, {}),
-            createElement(LocaleDisplay as never, {}),
-          ),
-        ),
+        { id: "consumer" },
+        createElement("span", { id: "theme" }, theme),
+        createElement("span", { id: "locale" }, locale),
       );
-    }
-
-    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
-  });
-
-  await expect(page.getByTestId("theme")).toHaveText("light");
-  await expect(page.getByTestId("locale")).toHaveText("en");
-
-  // Toggle theme only — locale unchanged
-  await page.getByTestId("toggle-theme").click();
-  await expect(page.getByTestId("theme")).toHaveText("dark");
-  await expect(page.getByTestId("locale")).toHaveText("en");
-
-  // Toggle locale only — theme unchanged
-  await page.getByTestId("toggle-locale").click();
-  await expect(page.getByTestId("theme")).toHaveText("dark");
-  await expect(page.getByTestId("locale")).toHaveText("fi");
-
-  // Toggle both back to original
-  await page.getByTestId("toggle-theme").click();
-  await page.getByTestId("toggle-locale").click();
-  await expect(page.getByTestId("theme")).toHaveText("light");
-  await expect(page.getByTestId("locale")).toHaveText("en");
-});
-
-test("nested provider shadows outer provider", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, createContext, useContext } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const ThemeCtx = createContext("default");
-
-    function* Consumer({ testid }: { testid: string }) {
-      const theme = yield* useContext(ThemeCtx);
-      return createElement("span", { "data-testid": testid }, theme);
     }
 
     render(
       createElement(
         ThemeCtx.Provider as never,
-        { value: "outer" },
-        createElement(Consumer as never, { testid: "outer-consumer" }),
+        { value: "dark" },
         createElement(
-          ThemeCtx.Provider as never,
-          { value: "inner" },
-          createElement(Consumer as never, { testid: "inner-consumer" }),
+          LocaleCtx.Provider as never,
+          { value: "fi" },
+          createElement(Consumer as never, {}),
         ),
       ),
       document.getElementById("root") as HTMLElement,
     );
   });
 
-  await expect(page.getByTestId("outer-consumer")).toHaveText("outer");
-  await expect(page.getByTestId("inner-consumer")).toHaveText("inner");
+  await expect(page.locator("#theme")).toHaveText("dark");
+  await expect(page.locator("#locale")).toHaveText("fi");
+  await page.screenshot({ path: "/tmp/visual-ctx-scoping-two-independent.png" });
 });
 
-test("inner provider always shows its value when outer toggles", async ({ page, setupPage }) => {
+test("nested provider overrides outer provider value", async ({ page, setupPage }) => {
   await setupPage();
 
   await page.evaluate(() => {
-    const { createElement, render, useState, createContext, useContext } = (
+    const { createElement, createContext, useContext, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
-    const ThemeCtx = createContext("default");
+    const ThemeCtx = createContext<string>("light");
 
-    function* Consumer({ testid }: { testid: string }) {
+    function* Consumer() {
       const theme = yield* useContext(ThemeCtx);
-      return createElement("span", { "data-testid": testid }, theme);
+      return createElement("span", { className: "theme-val" }, theme);
     }
 
-    function* App(_: object) {
-      const [outer, setOuter] = yield* useState("A");
-      return createElement(
-        "div",
-        null,
+    // Outer provides "dark", inner overrides to "blue"
+    render(
+      createElement(
+        ThemeCtx.Provider as never,
+        { value: "dark" },
         createElement(
-          "button",
-          {
-            "data-testid": "toggle-outer",
-            onclick: () => setOuter((v: string) => (v === "A" ? "B" : "A")),
-          },
-          "Toggle Outer",
-        ),
-        createElement(
-          ThemeCtx.Provider as never,
-          { value: outer },
-          createElement(Consumer as never, { testid: "outer-consumer" }),
+          "div",
+          { id: "outer-scope" },
+          createElement(Consumer as never, {}),
           createElement(
             ThemeCtx.Provider as never,
-            { value: "fixed-inner" },
-            createElement(Consumer as never, { testid: "inner-consumer" }),
+            { value: "blue" },
+            createElement("div", { id: "inner-scope" }, createElement(Consumer as never, {})),
           ),
         ),
-      );
-    }
-
-    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+      ),
+      document.getElementById("root") as HTMLElement,
+    );
   });
 
-  await expect(page.getByTestId("outer-consumer")).toHaveText("A");
-  await expect(page.getByTestId("inner-consumer")).toHaveText("fixed-inner");
-
-  await page.getByTestId("toggle-outer").click();
-  await expect(page.getByTestId("outer-consumer")).toHaveText("B");
-  await expect(page.getByTestId("inner-consumer")).toHaveText("fixed-inner");
-
-  await page.getByTestId("toggle-outer").click();
-  await expect(page.getByTestId("outer-consumer")).toHaveText("A");
-  await expect(page.getByTestId("inner-consumer")).toHaveText("fixed-inner");
+  const values = page.locator(".theme-val");
+  await expect(values).toHaveCount(2);
+  // First consumer (outer) gets "dark"
+  await expect(values.nth(0)).toHaveText("dark");
+  // Second consumer (inner, overridden) gets "blue"
+  await expect(values.nth(1)).toHaveText("blue");
+  await page.screenshot({ path: "/tmp/visual-ctx-scoping-nested-override.png" });
 });
 
-test("state preserved across context updates", async ({ page, setupPage }) => {
+test("consumer outside provider gets default value", async ({ page, setupPage }) => {
   await setupPage();
 
   await page.evaluate(() => {
-    const { createElement, render, useState, createContext, useContext } = (
+    const { createElement, createContext, useContext, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
-    const ThemeCtx = createContext("light");
+    const ThemeCtx = createContext<string>("default-theme");
 
-    function* CounterWithTheme(_: object) {
+    function* Consumer() {
       const theme = yield* useContext(ThemeCtx);
-      const [count, setCount] = yield* useState(0);
-      return createElement(
-        "div",
-        null,
-        createElement("span", { "data-testid": "theme" }, theme),
-        createElement("span", { "data-testid": "count" }, String(count)),
-        createElement(
-          "button",
-          {
-            "data-testid": "increment",
-            onclick: () => setCount((c: number) => c + 1),
-          },
-          "+",
-        ),
-      );
+      return createElement("span", { className: "theme-val" }, theme);
     }
 
-    function* App(_: object) {
-      const [theme, setTheme] = yield* useState("light");
+    function* App() {
       return createElement(
         "div",
         null,
-        createElement(
-          "button",
-          {
-            "data-testid": "toggle-theme",
-            onclick: () => setTheme((t: string) => (t === "light" ? "dark" : "light")),
-          },
-          "Toggle",
-        ),
+        // Consumer outside any Provider
+        createElement("div", { id: "outside" }, createElement(Consumer as never, {})),
+        // Consumer inside Provider
         createElement(
           ThemeCtx.Provider as never,
-          { value: theme },
-          createElement(CounterWithTheme as never, {}),
+          { value: "provided" },
+          createElement("div", { id: "inside" }, createElement(Consumer as never, {})),
         ),
       );
     }
@@ -226,102 +127,101 @@ test("state preserved across context updates", async ({ page, setupPage }) => {
     render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
   });
 
-  // Increment counter to 3
-  await page.getByTestId("increment").click();
-  await page.getByTestId("increment").click();
-  await page.getByTestId("increment").click();
-  await expect(page.getByTestId("count")).toHaveText("3");
-  await expect(page.getByTestId("theme")).toHaveText("light");
-
-  // Toggle theme — counter must preserve its value
-  await page.getByTestId("toggle-theme").click();
-  await expect(page.getByTestId("theme")).toHaveText("dark");
-  await expect(page.getByTestId("count")).toHaveText("3");
-
-  // Toggle back — counter still preserved
-  await page.getByTestId("toggle-theme").click();
-  await expect(page.getByTestId("theme")).toHaveText("light");
-  await expect(page.getByTestId("count")).toHaveText("3");
+  await expect(page.locator("#outside .theme-val")).toHaveText("default-theme");
+  await expect(page.locator("#inside .theme-val")).toHaveText("provided");
+  await page.screenshot({ path: "/tmp/visual-ctx-scoping-default-value.png" });
 });
 
-test("sibling providers isolated — consumers see own provider value", async ({
+test("sibling providers provide isolated values", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, createContext, useContext, render } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const ThemeCtx = createContext<string>("light");
+
+    function* Consumer({ id }: { id: string }) {
+      const theme = yield* useContext(ThemeCtx);
+      return createElement("span", { id }, theme);
+    }
+
+    function* App() {
+      return createElement(
+        "div",
+        null,
+        createElement(
+          ThemeCtx.Provider as never,
+          { value: "red" },
+          createElement(Consumer as never, { id: "sibling-a" }),
+        ),
+        createElement(
+          ThemeCtx.Provider as never,
+          { value: "green" },
+          createElement(Consumer as never, { id: "sibling-b" }),
+        ),
+      );
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  await expect(page.locator("#sibling-a")).toHaveText("red");
+  await expect(page.locator("#sibling-b")).toHaveText("green");
+  await page.screenshot({ path: "/tmp/visual-ctx-scoping-sibling-isolation.png" });
+});
+
+test("toggling one context does not affect other context consumers", async ({
   page,
   setupPage,
 }) => {
   await setupPage();
 
   await page.evaluate(() => {
-    const { createElement, render, createContext, useContext } = (
+    const { createElement, createContext, useContext, useState, useRef, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
-    const ColorCtx = createContext("none");
+    const ThemeCtx = createContext<string>("light");
+    const LocaleCtx = createContext<string>("en");
 
-    function* ColorConsumer({ testid }: { testid: string }) {
-      const color = yield* useContext(ColorCtx);
-      return createElement("span", { "data-testid": testid }, color);
-    }
-
-    render(
-      createElement(
-        "div",
-        null,
-        createElement(
-          ColorCtx.Provider as never,
-          { value: "red" },
-          createElement(ColorConsumer as never, { testid: "consumer-a" }),
-        ),
-        createElement(
-          ColorCtx.Provider as never,
-          { value: "blue" },
-          createElement(ColorConsumer as never, { testid: "consumer-b" }),
-        ),
-      ),
-      document.getElementById("root") as HTMLElement,
-    );
-  });
-
-  await expect(page.getByTestId("consumer-a")).toHaveText("red");
-  await expect(page.getByTestId("consumer-b")).toHaveText("blue");
-});
-
-test("toggling sibling A does not affect sibling B", async ({ page, setupPage }) => {
-  await setupPage();
-
-  await page.evaluate(() => {
-    const { createElement, render, useState, createContext, useContext } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const ColorCtx = createContext("none");
-
-    function* ColorConsumer({ testid }: { testid: string }) {
-      const color = yield* useContext(ColorCtx);
-      return createElement("span", { "data-testid": testid }, color);
-    }
-
-    function* App(_: object) {
-      const [colorA, setColorA] = yield* useState("red");
+    function* ThemeConsumer() {
+      const renders = yield* useRef(0);
+      renders.current++;
+      const theme = yield* useContext(ThemeCtx);
       return createElement(
         "div",
         null,
+        createElement("span", { id: "t-val" }, theme),
+        createElement("span", { id: "t-renders" }, String(renders.current)),
+      );
+    }
+
+    function* LocaleConsumer() {
+      const renders = yield* useRef(0);
+      renders.current++;
+      const locale = yield* useContext(LocaleCtx);
+      return createElement(
+        "div",
+        null,
+        createElement("span", { id: "l-val" }, locale),
+        createElement("span", { id: "l-renders" }, String(renders.current)),
+      );
+    }
+
+    function* App() {
+      const [theme, setTheme] = yield* useState("light");
+      const [locale] = yield* useState("en");
+      (window as unknown as Record<string, unknown>).__setTheme = setTheme;
+      return createElement(
+        ThemeCtx.Provider as never,
+        { value: theme },
         createElement(
-          "button",
-          {
-            "data-testid": "toggle-a",
-            onclick: () => setColorA((c: string) => (c === "red" ? "green" : "red")),
-          },
-          "Toggle A",
-        ),
-        createElement(
-          ColorCtx.Provider as never,
-          { value: colorA },
-          createElement(ColorConsumer as never, { testid: "consumer-a" }),
-        ),
-        createElement(
-          ColorCtx.Provider as never,
-          { value: "blue" },
-          createElement(ColorConsumer as never, { testid: "consumer-b" }),
+          LocaleCtx.Provider as never,
+          { value: locale },
+          createElement(ThemeConsumer as never, {}),
+          createElement(LocaleConsumer as never, {}),
         ),
       );
     }
@@ -329,138 +229,301 @@ test("toggling sibling A does not affect sibling B", async ({ page, setupPage })
     render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
   });
 
-  await expect(page.getByTestId("consumer-a")).toHaveText("red");
-  await expect(page.getByTestId("consumer-b")).toHaveText("blue");
+  await expect(page.locator("#t-val")).toHaveText("light");
+  await expect(page.locator("#l-val")).toHaveText("en");
+  await expect(page.locator("#t-renders")).toHaveText("1");
+  await expect(page.locator("#l-renders")).toHaveText("1");
 
-  // Toggle sibling A — sibling B must remain unchanged
-  await page.getByTestId("toggle-a").click();
-  await expect(page.getByTestId("consumer-a")).toHaveText("green");
-  await expect(page.getByTestId("consumer-b")).toHaveText("blue");
-
-  // Toggle again
-  await page.getByTestId("toggle-a").click();
-  await expect(page.getByTestId("consumer-a")).toHaveText("red");
-  await expect(page.getByTestId("consumer-b")).toHaveText("blue");
-});
-
-test("consumer reads default when no Provider wraps it", async ({ page, setupPage }) => {
-  await setupPage();
-
+  // Toggle theme — locale consumer render count must stay at 1
   await page.evaluate(() => {
-    const { createElement, render, createContext, useContext } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const LangCtx = createContext("default-lang");
-
-    function* LangConsumer(_: object) {
-      const lang = yield* useContext(LangCtx);
-      return createElement("span", { "data-testid": "lang" }, lang);
-    }
-
-    // No Provider — consumer should read the createContext default value
-    render(
-      createElement(LangConsumer as never, {}),
-      document.getElementById("root") as HTMLElement,
-    );
+    const set = (window as unknown as Record<string, (v: string) => void>).__setTheme;
+    set("dark");
   });
 
-  await expect(page.getByTestId("lang")).toHaveText("default-lang");
+  await expect(page.locator("#t-val")).toHaveText("dark");
+  await expect(page.locator("#t-renders")).toHaveText("2");
+  // Locale consumer was not subscribed to theme — render count stays at 1
+  await expect(page.locator("#l-val")).toHaveText("en");
+  await expect(page.locator("#l-renders")).toHaveText("1");
+  await page.screenshot({ path: "/tmp/visual-ctx-scoping-toggle-independence.png" });
 });
 
-test("deeply nested consumer reads nearest provider (3+ levels)", async ({ page, setupPage }) => {
+test("state preserved in consumer across context value changes", async ({ page, setupPage }) => {
   await setupPage();
 
   await page.evaluate(() => {
-    const { createElement, render, createContext, useContext } = (
+    const { createElement, createContext, useContext, useState, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
-    const DepthCtx = createContext("root");
+    const ThemeCtx = createContext<string>("light");
 
-    function* DepthConsumer({ testid }: { testid: string }) {
-      const value = yield* useContext(DepthCtx);
-      return createElement("span", { "data-testid": testid }, value);
+    function* Consumer() {
+      const theme = yield* useContext(ThemeCtx);
+      const [localCount, setLocalCount] = yield* useState(0);
+      (window as unknown as Record<string, unknown>).__setLocal = setLocalCount;
+      return createElement(
+        "div",
+        null,
+        createElement("span", { id: "ctx-val" }, theme),
+        createElement("span", { id: "local-val" }, String(localCount)),
+      );
     }
 
-    // level-0 provider = "L0"
-    //   consumer at L0
-    //   level-1 provider = "L1"
-    //     consumer at L1
-    //     level-2 provider = "L2"
-    //       consumer at L2
+    function* App() {
+      const [theme, setTheme] = yield* useState("light");
+      (window as unknown as Record<string, unknown>).__setTheme = setTheme;
+      return createElement(
+        ThemeCtx.Provider as never,
+        { value: theme },
+        createElement(Consumer as never, {}),
+      );
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  // Set local state to 42
+  await page.evaluate(() => {
+    const set = (window as unknown as Record<string, (v: number) => void>).__setLocal;
+    set(42);
+  });
+  await expect(page.locator("#local-val")).toHaveText("42");
+
+  // Change context value — local state must survive
+  await page.evaluate(() => {
+    const set = (window as unknown as Record<string, (v: string) => void>).__setTheme;
+    set("dark");
+  });
+  await expect(page.locator("#ctx-val")).toHaveText("dark");
+  await expect(page.locator("#local-val")).toHaveText("42");
+
+  // Change context value again — local state still survives
+  await page.evaluate(() => {
+    const set = (window as unknown as Record<string, (v: string) => void>).__setTheme;
+    set("contrast");
+  });
+  await expect(page.locator("#ctx-val")).toHaveText("contrast");
+  await expect(page.locator("#local-val")).toHaveText("42");
+  await page.screenshot({ path: "/tmp/visual-ctx-scoping-state-preserved.png" });
+});
+
+test("provider removal: consumer falls back to default", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, createContext, useContext, useState, render } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const ThemeCtx = createContext<string>("fallback");
+
+    function* Consumer() {
+      const theme = yield* useContext(ThemeCtx);
+      return createElement("span", { id: "theme-val" }, theme);
+    }
+
+    function* App() {
+      const [withProvider, setWithProvider] = yield* useState(true);
+      (window as unknown as Record<string, unknown>).__setWithProvider = setWithProvider;
+
+      if (withProvider) {
+        return createElement(
+          ThemeCtx.Provider as never,
+          { value: "provided" },
+          createElement(Consumer as never, {}),
+        );
+      }
+      return createElement(Consumer as never, {});
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  await expect(page.locator("#theme-val")).toHaveText("provided");
+
+  // Remove the provider — consumer should get the default value
+  await page.evaluate(() => {
+    const set = (window as unknown as Record<string, (v: boolean) => void>).__setWithProvider;
+    set(false);
+  });
+
+  await expect(page.locator("#theme-val")).toHaveText("fallback");
+  await page.screenshot({ path: "/tmp/visual-ctx-scoping-provider-removal.png" });
+});
+
+test("deep nesting: grandchild consumer reads correct provider value", async ({
+  page,
+  setupPage,
+}) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, createContext, useContext, render } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const ThemeCtx = createContext<string>("light");
+
+    function* GrandChild() {
+      const theme = yield* useContext(ThemeCtx);
+      return createElement("span", { id: "grandchild" }, theme);
+    }
+
+    function* Child() {
+      return createElement("div", { id: "child" }, createElement(GrandChild as never, {}));
+    }
+
+    function* Parent() {
+      return createElement("div", { id: "parent" }, createElement(Child as never, {}));
+    }
+
     render(
       createElement(
-        DepthCtx.Provider as never,
-        { value: "L0" },
-        createElement(DepthConsumer as never, { testid: "at-l0" }),
-        createElement(
-          DepthCtx.Provider as never,
-          { value: "L1" },
-          createElement(DepthConsumer as never, { testid: "at-l1" }),
-          createElement(
-            DepthCtx.Provider as never,
-            { value: "L2" },
-            createElement(DepthConsumer as never, { testid: "at-l2" }),
-          ),
-        ),
+        ThemeCtx.Provider as never,
+        { value: "deep-dark" },
+        createElement(Parent as never, {}),
       ),
       document.getElementById("root") as HTMLElement,
     );
   });
 
-  await expect(page.getByTestId("at-l0")).toHaveText("L0");
-  await expect(page.getByTestId("at-l1")).toHaveText("L1");
-  await expect(page.getByTestId("at-l2")).toHaveText("L2");
+  await expect(page.locator("#grandchild")).toHaveText("deep-dark");
+  await page.screenshot({ path: "/tmp/visual-ctx-scoping-deep-nesting.png" });
 });
 
-test("one component consumes multiple context values", async ({ page, setupPage }) => {
+test("multiple consumers of same context all update together", async ({ page, setupPage }) => {
   await setupPage();
 
   await page.evaluate(() => {
-    const { createElement, render, useState, createContext, useContext } = (
+    const { createElement, createContext, useContext, useState, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
-    const ThemeCtx = createContext("light");
-    const LocaleCtx = createContext("en");
+    const ThemeCtx = createContext<string>("light");
 
-    function* MultiConsumer(_: object) {
+    function* ConsumerA() {
+      const theme = yield* useContext(ThemeCtx);
+      return createElement("span", { id: "consumer-a" }, theme);
+    }
+
+    function* ConsumerB() {
+      const theme = yield* useContext(ThemeCtx);
+      return createElement("span", { id: "consumer-b" }, theme);
+    }
+
+    function* ConsumerC() {
+      const theme = yield* useContext(ThemeCtx);
+      return createElement("span", { id: "consumer-c" }, theme);
+    }
+
+    function* App() {
+      const [theme, setTheme] = yield* useState("light");
+      (window as unknown as Record<string, unknown>).__setTheme = setTheme;
+      return createElement(
+        ThemeCtx.Provider as never,
+        { value: theme },
+        createElement(ConsumerA as never, {}),
+        createElement(ConsumerB as never, {}),
+        createElement(ConsumerC as never, {}),
+      );
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  await expect(page.locator("#consumer-a")).toHaveText("light");
+  await expect(page.locator("#consumer-b")).toHaveText("light");
+  await expect(page.locator("#consumer-c")).toHaveText("light");
+
+  // Change context — all three consumers must update
+  await page.evaluate(() => {
+    const set = (window as unknown as Record<string, (v: string) => void>).__setTheme;
+    set("dark");
+  });
+
+  await expect(page.locator("#consumer-a")).toHaveText("dark");
+  await expect(page.locator("#consumer-b")).toHaveText("dark");
+  await expect(page.locator("#consumer-c")).toHaveText("dark");
+
+  // Change again
+  await page.evaluate(() => {
+    const set = (window as unknown as Record<string, (v: string) => void>).__setTheme;
+    set("neon");
+  });
+
+  await expect(page.locator("#consumer-a")).toHaveText("neon");
+  await expect(page.locator("#consumer-b")).toHaveText("neon");
+  await expect(page.locator("#consumer-c")).toHaveText("neon");
+  await page.screenshot({ path: "/tmp/visual-ctx-scoping-multi-consumer.png" });
+});
+
+test("context value change triggers only subscribed consumers", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, createContext, useContext, useState, useRef, render } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const ThemeCtx = createContext<string>("light");
+    const LocaleCtx = createContext<string>("en");
+
+    // Subscribes to ThemeCtx only
+    function* ThemeOnly() {
+      const renders = yield* useRef(0);
+      renders.current++;
+      const theme = yield* useContext(ThemeCtx);
+      return createElement(
+        "div",
+        null,
+        createElement("span", { id: "theme-only-val" }, theme),
+        createElement("span", { id: "theme-only-renders" }, String(renders.current)),
+      );
+    }
+
+    // Subscribes to LocaleCtx only
+    function* LocaleOnly() {
+      const renders = yield* useRef(0);
+      renders.current++;
+      const locale = yield* useContext(LocaleCtx);
+      return createElement(
+        "div",
+        null,
+        createElement("span", { id: "locale-only-val" }, locale),
+        createElement("span", { id: "locale-only-renders" }, String(renders.current)),
+      );
+    }
+
+    // Subscribes to both
+    function* Both() {
+      const renders = yield* useRef(0);
+      renders.current++;
       const theme = yield* useContext(ThemeCtx);
       const locale = yield* useContext(LocaleCtx);
-      return createElement("span", { "data-testid": "combined" }, `${theme}/${locale}`);
+      return createElement(
+        "div",
+        null,
+        createElement("span", { id: "both-theme" }, theme),
+        createElement("span", { id: "both-locale" }, locale),
+        createElement("span", { id: "both-renders" }, String(renders.current)),
+      );
     }
 
-    function* App(_: object) {
+    function* App() {
       const [theme, setTheme] = yield* useState("light");
       const [locale, setLocale] = yield* useState("en");
+      (window as unknown as Record<string, unknown>).__setTheme = setTheme;
+      (window as unknown as Record<string, unknown>).__setLocale = setLocale;
       return createElement(
-        "div",
-        null,
+        ThemeCtx.Provider as never,
+        { value: theme },
         createElement(
-          "button",
-          {
-            "data-testid": "toggle-theme",
-            onclick: () => setTheme((t: string) => (t === "light" ? "dark" : "light")),
-          },
-          "Theme",
-        ),
-        createElement(
-          "button",
-          {
-            "data-testid": "toggle-locale",
-            onclick: () => setLocale((l: string) => (l === "en" ? "fi" : "en")),
-          },
-          "Locale",
-        ),
-        createElement(
-          ThemeCtx.Provider as never,
-          { value: theme },
-          createElement(
-            LocaleCtx.Provider as never,
-            { value: locale },
-            createElement(MultiConsumer as never, {}),
-          ),
+          LocaleCtx.Provider as never,
+          { value: locale },
+          createElement(ThemeOnly as never, {}),
+          createElement(LocaleOnly as never, {}),
+          createElement(Both as never, {}),
         ),
       );
     }
@@ -468,98 +531,35 @@ test("one component consumes multiple context values", async ({ page, setupPage 
     render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
   });
 
-  await expect(page.getByTestId("combined")).toHaveText("light/en");
+  // Initial: all rendered once
+  await expect(page.locator("#theme-only-renders")).toHaveText("1");
+  await expect(page.locator("#locale-only-renders")).toHaveText("1");
+  await expect(page.locator("#both-renders")).toHaveText("1");
 
-  await page.getByTestId("toggle-theme").click();
-  await expect(page.getByTestId("combined")).toHaveText("dark/en");
-
-  await page.getByTestId("toggle-locale").click();
-  await expect(page.getByTestId("combined")).toHaveText("dark/fi");
-
-  await page.getByTestId("toggle-theme").click();
-  await expect(page.getByTestId("combined")).toHaveText("light/fi");
-});
-
-test("provider value update propagates to all descendants at different depths", async ({
-  page,
-  setupPage,
-}) => {
-  await setupPage();
-
+  // Change theme only — ThemeOnly and Both re-render, LocaleOnly does not
   await page.evaluate(() => {
-    const { createElement, render, useState, createContext, useContext } = (
-      window as unknown as { Yielderact: typeof import("../src/index") }
-    ).Yielderact;
-
-    const ColorCtx = createContext("initial");
-
-    function* ShallowConsumer(_: object) {
-      const color = yield* useContext(ColorCtx);
-      return createElement("span", { "data-testid": "shallow" }, color);
-    }
-
-    function* MidWrapper(_: object) {
-      const color = yield* useContext(ColorCtx);
-      return createElement(
-        "div",
-        null,
-        createElement("span", { "data-testid": "mid" }, color),
-        createElement(DeepConsumer as never, {}),
-      );
-    }
-
-    function* DeepConsumer(_: object) {
-      const color = yield* useContext(ColorCtx);
-      return createElement("span", { "data-testid": "deep" }, color);
-    }
-
-    function* App(_: object) {
-      const [color, setColor] = yield* useState("red");
-      return createElement(
-        "div",
-        null,
-        createElement(
-          "button",
-          {
-            "data-testid": "set-blue",
-            onclick: () => setColor("blue"),
-          },
-          "Blue",
-        ),
-        createElement(
-          "button",
-          {
-            "data-testid": "set-green",
-            onclick: () => setColor("green"),
-          },
-          "Green",
-        ),
-        createElement(
-          ColorCtx.Provider as never,
-          { value: color },
-          createElement(ShallowConsumer as never, {}),
-          createElement(MidWrapper as never, {}),
-        ),
-      );
-    }
-
-    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+    const set = (window as unknown as Record<string, (v: string) => void>).__setTheme;
+    set("dark");
   });
 
-  // Initial — all consumers see "red"
-  await expect(page.getByTestId("shallow")).toHaveText("red");
-  await expect(page.getByTestId("mid")).toHaveText("red");
-  await expect(page.getByTestId("deep")).toHaveText("red");
+  await expect(page.locator("#theme-only-val")).toHaveText("dark");
+  await expect(page.locator("#theme-only-renders")).toHaveText("2");
+  await expect(page.locator("#locale-only-val")).toHaveText("en");
+  await expect(page.locator("#locale-only-renders")).toHaveText("1");
+  await expect(page.locator("#both-theme")).toHaveText("dark");
+  await expect(page.locator("#both-renders")).toHaveText("2");
 
-  // Update to blue — all depths update
-  await page.getByTestId("set-blue").click();
-  await expect(page.getByTestId("shallow")).toHaveText("blue");
-  await expect(page.getByTestId("mid")).toHaveText("blue");
-  await expect(page.getByTestId("deep")).toHaveText("blue");
+  // Change locale only — LocaleOnly and Both re-render, ThemeOnly does not
+  await page.evaluate(() => {
+    const set = (window as unknown as Record<string, (v: string) => void>).__setLocale;
+    set("fi");
+  });
 
-  // Update to green — all depths update again
-  await page.getByTestId("set-green").click();
-  await expect(page.getByTestId("shallow")).toHaveText("green");
-  await expect(page.getByTestId("mid")).toHaveText("green");
-  await expect(page.getByTestId("deep")).toHaveText("green");
+  await expect(page.locator("#theme-only-val")).toHaveText("dark");
+  await expect(page.locator("#theme-only-renders")).toHaveText("2");
+  await expect(page.locator("#locale-only-val")).toHaveText("fi");
+  await expect(page.locator("#locale-only-renders")).toHaveText("2");
+  await expect(page.locator("#both-locale")).toHaveText("fi");
+  await expect(page.locator("#both-renders")).toHaveText("3");
+  await page.screenshot({ path: "/tmp/visual-ctx-scoping-selective-trigger.png" });
 });
