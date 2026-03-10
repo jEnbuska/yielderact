@@ -12,13 +12,13 @@ import { _requireActiveCtx } from "./state";
 // ── Ref helpers ─────────────────────────────────────────────────────────────
 
 /** Attach a $ref object to a DOM element. */
-export function setRef(ref: unknown, el: Element): void {
-  if (ref) (ref as { current: unknown }).current = el;
+export function setRef(ref: { current: unknown } | undefined, el: Element): void {
+  if (ref) ref.current = el;
 }
 
 /** Clear a $ref object (set .current to undefined). */
-export function clearRef(ref: unknown): void {
-  if (ref) (ref as { current: unknown }).current = undefined;
+export function clearRef(ref: { current: unknown } | undefined): void {
+  if (ref) ref.current = undefined;
 }
 
 // ── Event registration helpers ─────────────────────────────────────────────
@@ -119,7 +119,7 @@ export function applyProps(el: HTMLElement, props: InternalProps): void {
   }
 
   // Handle $ref on initial mount
-  setRef(props["$ref"], el);
+  setRef(props.$ref, el);
 
   // Default <button> type to "button" to prevent accidental form submission.
   // The HTML default is "submit", which is almost never the intended behaviour.
@@ -222,8 +222,8 @@ export function updateProps(
   }
 
   // 3. Handle $ref changes
-  const prevRef = prevProps["$ref"];
-  const nextRef = nextProps["$ref"];
+  const prevRef = prevProps.$ref;
+  const nextRef = nextProps.$ref;
   if (!Object.is(prevRef, nextRef)) {
     clearRef(prevRef);
     setRef(nextRef, el);
