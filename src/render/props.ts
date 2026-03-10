@@ -1,4 +1,5 @@
 import type { SyntheticEvent } from "../events";
+import type { InternalProps } from "../jsx";
 import {
   NON_DELEGATED_EVENTS,
   registerHandler,
@@ -96,7 +97,7 @@ function _unregisterEvent(el: HTMLElement, propKey: string): void {
  * @param props - The VNode's props object.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: prop type dispatch with many branches
-export function applyProps(el: HTMLElement, props: Record<string, unknown>): void {
+export function applyProps(el: HTMLElement, props: InternalProps): void {
   for (const [key, value] of Object.entries(props)) {
     if (key.startsWith("$")) continue;
     if (key.startsWith("on") && typeof value === "function") {
@@ -170,8 +171,8 @@ export function applyProps(el: HTMLElement, props: Record<string, unknown>): voi
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: prop type dispatch with many branches
 export function updateProps(
   el: HTMLElement,
-  prevProps: Record<string, unknown>,
-  nextProps: Record<string, unknown>,
+  prevProps: InternalProps,
+  nextProps: InternalProps,
 ): void {
   // 1. Remove props that no longer exist in nextProps
   for (const key in prevProps) {

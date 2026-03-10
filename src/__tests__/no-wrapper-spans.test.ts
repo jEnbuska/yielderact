@@ -1,5 +1,5 @@
-import { $context, createContext } from "../context";
-import { $state } from "../hooks";
+import { createContext, useContext } from "../context";
+import { useState } from "../hooks";
 import { createElement, Fragment } from "../jsx";
 import { render } from "../render";
 
@@ -32,10 +32,10 @@ describe("no wrapper spans in rendered output", () => {
     document.body.removeChild(container);
   });
 
-  // ── Plain function components ──
+  // ── Generator components (no hooks) ──
 
-  it("plain component returning a single element", () => {
-    function Greeting({ name }: { name: string }) {
+  it("component returning a single element", () => {
+    function* Greeting({ name }: { name: string }) {
       return createElement("h1", null, `Hello, ${name}!`);
     }
     render(createElement(Greeting as never, { name: "World" }), container);
@@ -43,19 +43,19 @@ describe("no wrapper spans in rendered output", () => {
     expectNoDisplayContentsSpans(container);
   });
 
-  it("plain component returning null", () => {
-    function Empty() {
+  it("component returning null", () => {
+    function* Empty() {
       return null;
     }
     render(createElement(Empty as never, {}), container);
     expectNoDisplayContentsSpans(container);
   });
 
-  it("nested plain components", () => {
-    function Inner() {
+  it("nested components (no hooks)", () => {
+    function* Inner() {
       return createElement("span", null, "inner");
     }
-    function Outer() {
+    function* Outer() {
       return createElement("div", null, createElement(Inner as never, {}));
     }
     render(createElement(Outer as never, {}), container);
@@ -74,11 +74,11 @@ describe("no wrapper spans in rendered output", () => {
     expectNoDisplayContentsSpans(container);
   });
 
-  it("generator component with $state", () => {
+  it("generator component with useState", () => {
     let setCount: (v: number) => void = () => {};
 
     function* Counter() {
-      const [count, sc] = yield* $state(0);
+      const [count, sc] = yield* useState(0);
       setCount = sc;
       return createElement("button", {}, String(count));
     }
@@ -136,11 +136,11 @@ describe("no wrapper spans in rendered output", () => {
     expectNoDisplayContentsSpans(container);
   });
 
-  it("mixed children: elements, text, generator and plain components", () => {
+  it("mixed children: elements, text, and generator components", () => {
     function* GenChild() {
       return createElement("em", null, "gen");
     }
-    function PlainChild() {
+    function* PlainChild() {
       return createElement("strong", null, "plain");
     }
     render(
@@ -185,7 +185,7 @@ describe("no wrapper spans in rendered output", () => {
     const Ctx = createContext("default");
 
     function* Consumer() {
-      const value = yield* $context(Ctx);
+      const value = yield* useContext(Ctx);
       return createElement("span", null, value);
     }
 
@@ -205,7 +205,7 @@ describe("no wrapper spans in rendered output", () => {
     const Ctx = createContext("default");
 
     function* Consumer() {
-      const value = yield* $context(Ctx);
+      const value = yield* useContext(Ctx);
       return createElement("span", null, value);
     }
 
@@ -227,15 +227,15 @@ describe("no wrapper spans in rendered output", () => {
 
   // ── Deep nesting ──
 
-  it("deeply nested: Provider > generator > HTML > plain > generator", () => {
+  it("deeply nested: Provider > generator > HTML > generator > generator", () => {
     const Ctx = createContext("ctx");
 
     function* Leaf() {
-      const value = yield* $context(Ctx);
+      const value = yield* useContext(Ctx);
       return createElement("b", null, value);
     }
 
-    function PlainWrapper({ $children }: { $children: unknown }) {
+    function* PlainWrapper({ $children }: { $children: unknown }) {
       return createElement("div", { className: "plain" }, ...($children as never[]));
     }
 
@@ -269,7 +269,7 @@ describe("no wrapper spans in rendered output", () => {
     }
 
     function* Parent() {
-      const [on, setOn] = yield* $state(true);
+      const [on, setOn] = yield* useState(true);
       toggle = () => setOn(!on);
       return on
         ? createElement("div", null, createElement(Child as never, { label: "A" }))

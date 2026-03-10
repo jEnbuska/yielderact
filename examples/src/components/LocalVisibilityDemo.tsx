@@ -1,13 +1,13 @@
-import { $ref, $state, $uiPatch } from "yielderact";
+import { useRef, useState, useUIPatch } from "yielderact";
 import { VisibilityTarget } from "./VisibilityTarget";
 
 export function* LocalVisibilityDemo() {
-  const startLocalPatch = yield* $uiPatch();
-  const [showDefault, setShowDefault] = yield* $state(true);
-  const [showLive, setShowLive] = yield* $state(true);
-  // $ref persists the commit fn across rerenders without triggering a rerender
+  const startLocalPatch = yield* useUIPatch();
+  const [showDefault, setShowDefault] = yield* useState(true);
+  const [showLive, setShowLive] = yield* useState(true);
+  // useRef persists the commit fn across rerenders without triggering a rerender
   // (avoids the component freezing its own "start patch" button update).
-  const commitRef = yield* $ref<(() => void) | null>(null);
+  const commitRef = yield* useRef<(() => void) | null>(null);
 
   const beginPatch = () => {
     if (commitRef.current) return; // already active

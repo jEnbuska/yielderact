@@ -3,7 +3,7 @@
  *
  * Provides a simple tab-based navigation between the five example demos.
  */
-import { $state, createRoot } from "yielderact";
+import { createRoot, useState } from "yielderact";
 import { AbortSignalEffectDemo } from "./components/AbortSignalEffectDemo";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ContextDemo } from "./components/ContextDemo";
@@ -39,11 +39,11 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "todos", label: "Todo List" },
   { id: "theme", label: "Context / Theme" },
   { id: "data", label: "Data Fetcher" },
-  { id: "raw", label: "$resolveRaw" },
+  { id: "raw", label: "useResolveRaw" },
   { id: "hooks", label: "Hooks Showcase" },
   { id: "shown", label: "$shown prop" },
-  { id: "confirm", label: "$render" },
-  { id: "effect", label: "$effect" },
+  { id: "confirm", label: "useRender" },
+  { id: "effect", label: "useEffect" },
   { id: "transition", label: "UI Patch" },
   { id: "context", label: "Context Scoping" },
   { id: "lazy-ctx", label: "Lazy Context" },
@@ -52,7 +52,7 @@ const tabs: { id: Tab; label: string }[] = [
 ];
 
 function* App() {
-  const [activeTab, setActiveTab] = yield* $state<Tab>("counter");
+  const [activeTab, setActiveTab] = yield* useState<Tab>("counter");
 
   return (
     <div style={{ maxWidth: "640px", margin: "0 auto" }}>
@@ -63,7 +63,7 @@ function* App() {
         Generator-powered JSX components — no magic, just plain JavaScript.
       </p>
 
-      {/* Tab bar — ids derived from data so $id() is not applicable here */}
+      {/* Tab bar — ids derived from data so useId() is not applicable here */}
       <nav
         data-testid="app-tablist"
         style={{ display: "flex", gap: "0.5rem", marginBottom: "1.5rem", flexWrap: "wrap" }}

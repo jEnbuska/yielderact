@@ -1,4 +1,4 @@
-import { $state } from "../hooks";
+import { useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
@@ -227,8 +227,8 @@ describe("event delegation", () => {
     let renderCount = 0;
 
     function* Multi() {
-      const [a, setA] = yield* $state(0);
-      const [b, setB] = yield* $state(0);
+      const [a, setA] = yield* useState(0);
+      const [b, setB] = yield* useState(0);
       renderCount++;
       return createElement(
         "button",
@@ -341,7 +341,7 @@ describe("event delegation", () => {
 
   it("works with generator components that rerender on click", () => {
     function* Counter() {
-      const [count, setCount] = yield* $state(0);
+      const [count, setCount] = yield* useState(0);
       return createElement("button", { onClick: () => setCount(count + 1) }, String(count));
     }
 
@@ -359,7 +359,7 @@ describe("event delegation", () => {
     const handlers: Array<() => void> = [];
 
     function* HandlerChanger() {
-      const [count, setCount] = yield* $state(0);
+      const [count, setCount] = yield* useState(0);
       const handler = () => {
         handlers.push(handler);
         setCount(count + 1);

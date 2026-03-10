@@ -1,9 +1,9 @@
-import { $context, $state } from "yielderact";
+import { useContext, useState } from "yielderact";
 import { ThemeCtx } from "./ContextDemo.shared";
 
 export function* StatefulConsumer() {
-  const theme = yield* $context(ThemeCtx);
-  const [count, setCount] = yield* $state(0);
+  const theme = yield* useContext(ThemeCtx);
+  const [count, setCount] = yield* useState(0);
   return (
     <div data-testid="stateful-consumer" style={{ display: "flex", gap: "0.5rem" }}>
       <span data-testid="stateful-theme">{theme}</span>

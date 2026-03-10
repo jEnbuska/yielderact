@@ -1,12 +1,12 @@
-import { $context, $ref } from "yielderact";
+import { useContext, useRef } from "yielderact";
 import { AppCtx } from "./LazyContextDemo.shared";
 import { RenderBadge } from "./RenderBadge";
 
 export function* TransformConsumer() {
-  const renderCount = yield* $ref(0);
+  const renderCount = yield* useRef(0);
   renderCount.current++;
 
-  const upperName = yield* $context(
+  const upperName = yield* useContext(
     AppCtx,
     (c) => [c.user.name] as [string],
     (name) => name.toUpperCase(),

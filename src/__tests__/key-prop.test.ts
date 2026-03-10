@@ -1,4 +1,4 @@
-import { $state } from "../hooks";
+import { useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
@@ -24,17 +24,17 @@ describe("$key prop – keyed reconciliation", () => {
 
     function* ItemA() {
       renderCountA++;
-      const [count] = yield* $state(10);
+      const [count] = yield* useState(10);
       return createElement("div", { className: "a" }, `A:${count}`);
     }
     function* ItemB() {
       renderCountB++;
-      const [count] = yield* $state(20);
+      const [count] = yield* useState(20);
       return createElement("div", { className: "b" }, `B:${count}`);
     }
     function* ItemC() {
       renderCountC++;
-      const [count] = yield* $state(30);
+      const [count] = yield* useState(30);
       return createElement("div", { className: "c" }, `C:${count}`);
     }
 
@@ -45,7 +45,7 @@ describe("$key prop – keyed reconciliation", () => {
     };
 
     function* Parent() {
-      const [order, so] = yield* $state(["a", "b", "c"]);
+      const [order, so] = yield* useState(["a", "b", "c"]);
       setOrder = so;
       return createElement(
         "div",
@@ -98,7 +98,7 @@ describe("$key prop – keyed reconciliation", () => {
     }
 
     function* Parent() {
-      const [items, si] = yield* $state<(string | null)[]>(["a", null, "b", null, "c"]);
+      const [items, si] = yield* useState<(string | null)[]>(["a", null, "b", null, "c"]);
       setItems = si;
       return createElement(
         "div",
@@ -136,15 +136,15 @@ describe("$key prop – keyed reconciliation", () => {
     expect(newSpans[2]).toBe(spanB);
   });
 
-  // ─── Plain function components mixed with falsy values ───
+  // ─── Generator components mixed with falsy values (non-stateful) ───
 
-  it("reorders plain function components by key without recreating DOM", () => {
+  it("reorders generator components by key without recreating DOM", () => {
     let setOrder: (v: string[]) => void = () => {};
 
-    function ItemX() {
+    function* ItemX() {
       return createElement("li", null, "X");
     }
-    function ItemY() {
+    function* ItemY() {
       return createElement("li", null, "Y");
     }
 
@@ -154,7 +154,7 @@ describe("$key prop – keyed reconciliation", () => {
     };
 
     function* Parent() {
-      const [order, so] = yield* $state(["x", "y"]);
+      const [order, so] = yield* useState(["x", "y"]);
       setOrder = so;
       return createElement(
         "ul",
@@ -180,15 +180,15 @@ describe("$key prop – keyed reconciliation", () => {
     expect(ul.children[1]).toBe(nodeX);
   });
 
-  it("plain function components with keys mixed with falsy values", () => {
+  it("generator components with keys mixed with falsy values", () => {
     let setItems: (v: (string | null)[]) => void = () => {};
 
-    function Tag({ label }: { label: string }) {
+    function* Tag({ label }: { label: string }) {
       return createElement("b", null, label);
     }
 
     function* Parent() {
-      const [items, si] = yield* $state<(string | null)[]>(["p", null, "q"]);
+      const [items, si] = yield* useState<(string | null)[]>(["p", null, "q"]);
       setItems = si;
       return createElement(
         "div",
@@ -219,7 +219,7 @@ describe("$key prop – keyed reconciliation", () => {
     let setOrder: (v: string[]) => void = () => {};
 
     function* Parent() {
-      const [order, so] = yield* $state(["first", "second", "third"]);
+      const [order, so] = yield* useState(["first", "second", "third"]);
       setOrder = so;
       return createElement(
         "ul",
@@ -251,7 +251,7 @@ describe("$key prop – keyed reconciliation", () => {
     let setItems: (v: (string | null)[]) => void = () => {};
 
     function* Parent() {
-      const [items, si] = yield* $state<(string | null)[]>(["a", null, "b"]);
+      const [items, si] = yield* useState<(string | null)[]>(["a", null, "b"]);
       setItems = si;
       return createElement(
         "div",
@@ -280,13 +280,13 @@ describe("$key prop – keyed reconciliation", () => {
     const setters: Record<string, (v: number) => void> = {};
 
     function* Counter({ id }: { id: string }) {
-      const [count, setCount] = yield* $state(0);
+      const [count, setCount] = yield* useState(0);
       setters[id] = setCount;
       return createElement("div", { "data-id": id }, `${id}:${count}`);
     }
 
     function* Parent() {
-      const [order, so] = yield* $state(["x", "y", "z"]);
+      const [order, so] = yield* useState(["x", "y", "z"]);
       setOrder = so;
       return createElement(
         "div",
@@ -334,8 +334,8 @@ describe("$key prop – keyed reconciliation", () => {
     }
 
     function* Parent() {
-      const [key, sk] = yield* $state("key-1");
-      const [label, sl] = yield* $state("hello");
+      const [key, sk] = yield* useState("key-1");
+      const [label, sl] = yield* useState("hello");
       setKey = sk;
       setLabel = sl;
       return createElement("div", null, createElement(Child as never, { $key: key, label }));
@@ -372,13 +372,13 @@ describe("$key prop – keyed reconciliation", () => {
     const setters: Record<string, (v: number) => void> = {};
 
     function* Counter({ id }: { id: string }) {
-      const [count, setCount] = yield* $state(0);
+      const [count, setCount] = yield* useState(0);
       setters[id] = setCount;
       return createElement("div", { "data-id": id }, `${id}:${count}`);
     }
 
     function* Parent() {
-      const [order, so] = yield* $state(["x", "y"]);
+      const [order, so] = yield* useState(["x", "y"]);
       setOrder = so;
       return createElement(
         "div",
@@ -438,8 +438,8 @@ describe("$key prop – keyed reconciliation", () => {
     }
 
     function* Parent() {
-      const [order, so] = yield* $state(["a", "b"]);
-      const [labels, setLabels] = yield* $state<Record<string, string>>({
+      const [order, so] = yield* useState(["a", "b"]);
+      const [labels, setLabels] = yield* useState<Record<string, string>>({
         a: "Alpha",
         b: "Beta",
       });

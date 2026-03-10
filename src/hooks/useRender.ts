@@ -1,26 +1,29 @@
-import { $context, createContext } from "../context";
+import { createContext, useContext } from "../context";
 import { type Child, createElement } from "../jsx";
-import { $RENDER, type DependencyList, depsChanged, type HookContext } from "./symbols";
+import type { HookState } from "../render/types";
+import { $USE_RENDER, type RenderDescriptor } from "./descriptors";
+import type { ComponentGenerator, DependencyList } from "./types";
+import { depsChanged } from "./types";
 
 /**
- * Inline render factory passed to `$render` (Variant 2).
+ * Inline render factory passed to `useRender` (Variant 2).
  *
  * Receives `{ resume }` and must return the JSX to render while waiting.
  * Call `resume(value)` when the user has made a choice – this unblocks
- * the parent generator and makes `yield* $render(...)` return `value`.
+ * the parent generator and makes `yield* useRender(...)` return `value`.
  */
 export type UseRenderFn<T> = (props: { resume: (value: T) => void }) => Child;
 
 /**
- * State object for one `$render` hook slot.
+ * State object for one `useRender` hook slot.
  * Stored in the component's `hookStates` array by the renderer.
  * @internal
  */
 export type UseRenderState<T> = {
-  kind: "render";
+  kind: typeof $USE_RENDER;
   status: "waiting" | "resolved";
   deps: DependencyList;
-  value: T | undefined;
+  value?: T;
   /** Stable callback reference – created once per deps change and reused. */
   resumeCallback: (value: T) => void;
 };
@@ -32,18 +35,18 @@ const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
  * Interactive render hook for generator components.
  *
  * Pauses the generator and renders UI until `resume(value)` is called.
- * Whatever is passed to `resume` is returned from `yield* $render(...)`,
+ * Whatever is passed to `resume` is returned from `yield* useRender(...)`,
  * and the generator then continues from where it was paused.
  *
  * Two variants are supported:
  *
  * **Variant 1 – pass JSX directly.**  The rendered child component obtains
- * the `resume` callback via `yield* $resume()`:
+ * the `resume` callback via `yield* useResume()`:
  *
  * @example
- * // Child component – calls $resume to get the parent's resume callback
- * function* ConfirmDialog(_props: object) {
- *   const resume = yield* $resume<'YES' | 'NO'>();
+ * // Child component – calls useResume to get the parent's resume callback
+ * function* ConfirmDialog() {
+ *   const resume = yield* useResume<'YES' | 'NO'>();
  *   return (
  *     <div>
  *       <button onClick={() => resume('YES')}>Yes</button>
@@ -53,10 +56,10 @@ const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
  * }
  *
  * // Parent – passes JSX directly; resumes when the child calls resume()
- * function* Form(_props: object) {
- *   const answer = yield* $ref<'YES' | 'NO' | null>(null);
+ * function* Form() {
+ *   const answer = yield* useRef<'YES' | 'NO' | null>(null);
  *   while (answer.current === null) {
- *     answer.current = yield* $render<'YES' | 'NO'>(<ConfirmDialog />);
+ *     answer.current = yield* useRender<'YES' | 'NO'>(<ConfirmDialog />);
  *   }
  *   return <p>You chose: {answer.current}</p>;
  * }
@@ -67,10 +70,10 @@ const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
  * lifetime, or pass values that, when changed, should reset the interaction:
  *
  * @example
- * function* Form(_props: object) {
- *   const answer = yield* $ref<'YES' | 'NO' | null>(null);
+ * function* Form() {
+ *   const answer = yield* useRef<'YES' | 'NO' | null>(null);
  *   while (answer.current === null) {
- *     answer.current = yield* $render<'YES' | 'NO'>(
+ *     answer.current = yield* useRender<'YES' | 'NO'>(
  *       ({ resume }) => (
  *         <div>
  *           <button onClick={() => resume('YES')}>Yes</button>
@@ -85,18 +88,16 @@ const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
  *
  * Must be called with `yield*` inside a generator component.
  */
-export function $render<T>(child: Child): Generator<unknown, T, unknown>;
-export function $render<T>(
-  fn: UseRenderFn<T>,
-  deps: DependencyList,
-): Generator<unknown, T, unknown>;
-export function* $render<T>(
+export function useRender<T>(child: Child): ComponentGenerator<T>;
+export function useRender<T>(fn: UseRenderFn<T>, deps: DependencyList): ComponentGenerator<T>;
+export function* useRender<T>(
   fnOrChild: Child | UseRenderFn<T>,
   deps?: DependencyList,
-): Generator<unknown, T, unknown> {
+): ComponentGenerator<T> {
   // Request a persistent slot + stable resumeCallback from the renderer.
   const effectiveDeps = deps ?? [];
-  const caps = yield { type: $RENDER, deps: effectiveDeps };
+  const desc: RenderDescriptor = { type: $USE_RENDER, deps: effectiveDeps };
+  const caps = yield desc;
   const { slot, resumeCallback } = caps as {
     slot: UseRenderState<T>;
     resumeCallback: (value: T) => void;
@@ -108,7 +109,7 @@ export function* $render<T>(
     const rawChild = isInline
       ? (fnOrChild as UseRenderFn<T>)({ resume: resumeCallback })
       : (fnOrChild as Child);
-    // Wrap in the internal resume context so nested components can access `resume` via $resume().
+    // Wrap in the internal resume context so nested components can access `resume` via useResume().
     yield createElement(
       _resumeCtx.Provider,
       { value: resumeCallback as (value: unknown) => void },
@@ -120,21 +121,21 @@ export function* $render<T>(
 }
 
 /**
- * Returns the `resume` callback injected by the nearest parent `$render` call.
+ * Returns the `resume` callback injected by the nearest parent `useRender` call.
  *
  * Calling `resume(value)` unblocks the parent generator, unmounts this
- * component, and makes `yield* $render(...)` return `value`.  The component
+ * component, and makes `yield* useRender(...)` return `value`.  The component
  * itself does not need to do anything further after calling `resume` – the
  * parent takes over from that point.
  *
  * Must be called with `yield*` inside a generator component that is rendered
- * by a parent via `$render` (Variant 1).  Throws if called outside that
+ * by a parent via `useRender` (Variant 1).  Throws if called outside that
  * context.
  *
  * @example
- * // Child – receives resume from the parent's $render context
- * function* ConfirmDialog(_props: object) {
- *   const resume = yield* $resume<'YES' | 'NO'>();
+ * // Child – receives resume from the parent's useRender context
+ * function* ConfirmDialog() {
+ *   const resume = yield* useResume<'YES' | 'NO'>();
  *   return (
  *     <div>
  *       <button onClick={() => resume('YES')}>Yes</button>
@@ -144,51 +145,47 @@ export function* $render<T>(
  * }
  *
  * // Parent – passes the child via JSX; resumes when the child calls resume()
- * function* Form(_props: object) {
- *   const answer = yield* $ref<'YES' | 'NO' | null>(null);
+ * function* Form() {
+ *   const answer = yield* useRef<'YES' | 'NO' | null>(null);
  *   while (answer.current === null) {
- *     answer.current = yield* $render<'YES' | 'NO'>(<ConfirmDialog />);
+ *     answer.current = yield* useRender<'YES' | 'NO'>(<ConfirmDialog />);
  *   }
  *   return <p>You chose: {answer.current}</p>;
  * }
  */
-export function* $resume<T>(): Generator<unknown, (value: T) => void, unknown> {
-  const fn = yield* $context(_resumeCtx);
+export function* useResume<T>(): ComponentGenerator<(value: T) => void> {
+  const fn = yield* useContext(_resumeCtx);
   if (fn === null) {
-    throw new Error("$resume must be called inside a component rendered by $render");
+    throw new Error("useResume must be called inside a component rendered by useRender");
   }
   return fn as (value: T) => void;
 }
 
 /** @internal */
-export function _processRender(descriptor: { [key: string]: unknown }, ctx: HookContext): unknown {
-  const { hookIndex, hookStates, resume } = ctx;
-  const deps = descriptor["deps"] as DependencyList;
-  const existing = hookStates[hookIndex];
-  let slot: UseRenderState<unknown>;
-
-  if (existing === undefined || existing.kind !== "render" || depsChanged(existing.deps, deps)) {
-    const newSlot: UseRenderState<unknown> = {
-      kind: "render",
-      status: "waiting",
-      deps,
-      value: undefined,
-      resumeCallback: null as unknown as (value: unknown) => void,
-    };
-    hookStates[hookIndex] = newSlot;
-    newSlot.resumeCallback = (value: unknown): void => {
-      const s = hookStates[hookIndex];
-      if (s !== undefined && s.kind === "render" && s.status === "waiting") {
-        s.status = "resolved";
-        s.value = value;
-        resume();
-      }
-    };
-    slot = newSlot;
-  } else {
-    existing.status = "waiting";
-    slot = existing;
+export function _processRender(
+  descriptor: RenderDescriptor,
+  prev: UseRenderState<unknown> | undefined,
+  hookStates: HookState[],
+  hookIndex: number,
+  resume: () => void,
+): UseRenderState<unknown> {
+  if (prev !== undefined && !depsChanged(prev.deps, descriptor.deps)) {
+    prev.status = "waiting";
+    return prev;
   }
 
-  return { slot, resumeCallback: slot.resumeCallback };
+  const resumeCallback = (value: unknown): void => {
+    const s = hookStates[hookIndex] as UseRenderState<unknown> | undefined;
+    if (s !== undefined && s.kind === $USE_RENDER && s.status === "waiting") {
+      s.status = "resolved";
+      s.value = value;
+      resume();
+    }
+  };
+  return {
+    kind: $USE_RENDER,
+    status: "waiting",
+    deps: descriptor.deps,
+    resumeCallback,
+  };
 }

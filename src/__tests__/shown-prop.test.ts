@@ -1,4 +1,4 @@
-import { $state } from "../hooks";
+import { useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
@@ -38,8 +38,8 @@ describe("shown prop", () => {
     expect(el.hasAttribute("$shown")).toBe(false);
   });
 
-  it("renders a plain function component when shown is true", () => {
-    function Greeting() {
+  it("renders a generator component when shown is true (no hooks)", () => {
+    function* Greeting() {
       return createElement("p", null, "hello");
     }
     render(
@@ -49,8 +49,8 @@ describe("shown prop", () => {
     expect(container.querySelector("p")).not.toBeNull();
   });
 
-  it("does not render a plain function component when shown is false", () => {
-    function Greeting() {
+  it("does not render a generator component when shown is false (no hooks)", () => {
+    function* Greeting() {
       return createElement("p", null, "hello");
     }
     render(
@@ -86,7 +86,7 @@ describe("shown prop", () => {
     let setShown: (v: boolean) => void = () => {};
 
     function* Wrapper() {
-      const [$shown, setS] = yield* $state(true);
+      const [$shown, setS] = yield* useState(true);
       setShown = setS;
       return createElement("div", { $shown }, "content");
     }
@@ -102,7 +102,7 @@ describe("shown prop", () => {
     let setShown: (v: boolean) => void = () => {};
 
     function* Wrapper() {
-      const [$shown, setS] = yield* $state(false);
+      const [$shown, setS] = yield* useState(false);
       setShown = setS;
       return createElement("div", { $shown }, "content");
     }
@@ -123,7 +123,7 @@ describe("shown prop", () => {
     }
 
     function* Wrapper() {
-      const [$shown, setS] = yield* $state(true);
+      const [$shown, setS] = yield* useState(true);
       setShown = setS;
       return createElement(Inner as never, { $shown });
     }
@@ -143,7 +143,7 @@ describe("shown prop", () => {
     }
 
     function* Wrapper() {
-      const [$shown, setS] = yield* $state(false);
+      const [$shown, setS] = yield* useState(false);
       setShown = setS;
       return createElement(Inner as never, { $shown });
     }

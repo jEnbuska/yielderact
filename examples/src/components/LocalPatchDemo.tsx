@@ -1,4 +1,4 @@
-import { $state, $uiPatch } from "yielderact";
+import { useState, useUIPatch } from "yielderact";
 import type { Page } from "../types";
 import { sleep } from "../utils";
 import { Clocks } from "./Clocks";
@@ -6,10 +6,10 @@ import { Navigation } from "./Navigation";
 import { AboutPage, ContactPage, HomePage } from "./PageStubs";
 
 export function* LocalPatchDemo() {
-  const startPatch = yield* $uiPatch();
-  const [page, setPage] = yield* $state<Page>("home");
-  const [isPending, setIsPending] = yield* $state(false);
-  const [log, setLog] = yield* $state<string[]>([]);
+  const startPatch = yield* useUIPatch();
+  const [page, setPage] = yield* useState<Page>("home");
+  const [isPending, setIsPending] = yield* useState(false);
+  const [log, setLog] = yield* useState<string[]>([]);
 
   const navigate = async (next: Page) => {
     setIsPending(true);

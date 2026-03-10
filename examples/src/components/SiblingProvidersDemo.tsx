@@ -1,8 +1,8 @@
-import { $context, $state } from "yielderact";
+import { useContext, useState } from "yielderact";
 import { type Theme, ThemeCtx, themeStyles } from "./ContextDemo.shared";
 
 function* SiblingConsumerA() {
-  const theme = yield* $context(ThemeCtx);
+  const theme = yield* useContext(ThemeCtx);
   return (
     <span data-testid="sibling-a" style={{ ...themeStyles[theme] }}>
       {theme}
@@ -11,7 +11,7 @@ function* SiblingConsumerA() {
 }
 
 function* SiblingConsumerB() {
-  const theme = yield* $context(ThemeCtx);
+  const theme = yield* useContext(ThemeCtx);
   return (
     <span data-testid="sibling-b" style={{ ...themeStyles[theme] }}>
       {theme}
@@ -20,8 +20,8 @@ function* SiblingConsumerB() {
 }
 
 export function* SiblingProvidersDemo() {
-  const [valA, setValA] = yield* $state<Theme>("light");
-  const [valB, setValB] = yield* $state<Theme>("dark");
+  const [valA, setValA] = yield* useState<Theme>("light");
+  const [valB, setValB] = yield* useState<Theme>("dark");
 
   return (
     <div>

@@ -101,12 +101,12 @@ test("generator counter increments on click", async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render, $state } = (
+    const { createElement, render, useState } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
     function* Counter(_: object) {
-      const [count, setCount] = yield* $state(0);
+      const [count, setCount] = yield* useState(0);
       return createElement(
         "button",
         {
@@ -134,10 +134,10 @@ test("generator counter increments on click", async ({ page }) => {
 });
 
 // ---------------------------------------------------------------------------
-// Plain function component
+// Stateless generator component
 // ---------------------------------------------------------------------------
 
-test("plain function component renders correctly", async ({ page }) => {
+test("stateless generator component renders correctly", async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
@@ -145,18 +145,18 @@ test("plain function component renders correctly", async ({ page }) => {
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
-    function Greeting({ name }: { name: string }) {
+    function* Greeting({ name }: { name: string }) {
       return createElement("p", { id: "greeting" }, `Hello, ${name}!`);
     }
 
     render(
-      createElement(Greeting as never, { name: "Playwright" }),
+      createElement(Greeting, { name: "Playwright" }),
       document.getElementById("root") as HTMLElement,
     );
   });
 
   await expect(page.locator("#greeting")).toHaveText("Hello, Playwright!");
-  await page.screenshot({ path: "/tmp/visual-plain-component.png" });
+  await page.screenshot({ path: "/tmp/visual-generator-component.png" });
 });
 
 // ---------------------------------------------------------------------------
@@ -196,19 +196,19 @@ test("parent re-render preserves child generator state (memoization)", async ({ 
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render, $state } = (
+    const { createElement, render, useState } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
     function* Child(_: object) {
-      const [count, setCount] = yield* $state(0);
+      const [count, setCount] = yield* useState(0);
       (window as unknown as Record<string, () => void>).rerenderChild = () =>
         setCount((c: number) => c + 1);
       return createElement("span", { id: "child-count" }, String(count));
     }
 
     function* Parent(_: object) {
-      const [, setTick] = yield* $state(0);
+      const [, setTick] = yield* useState(0);
       (window as unknown as Record<string, () => void>).rerenderParent = () =>
         setTick((t: number) => t + 1);
       // Child props never change → should be memoized
@@ -239,14 +239,14 @@ test("context Provider supplies value to deeply nested consumer", async ({ page 
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, createContext, $context, render } = (
+    const { createElement, createContext, useContext, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
     const ThemeCtx = createContext<string>("light");
 
     function* ThemeDisplay() {
-      const theme = yield* $context(ThemeCtx);
+      const theme = yield* useContext(ThemeCtx);
       return createElement("p", { id: "theme" }, theme);
     }
 
@@ -298,16 +298,16 @@ test("Fragment renders multiple children without a wrapper", async ({ page }) =>
 });
 
 // ---------------------------------------------------------------------------
-// $context — selector and transform overloads
+// useContext — selector and transform overloads
 // ---------------------------------------------------------------------------
 
-test("$context selector: consumer skips rerender when selected dep is unchanged", async ({
+test("useContext selector: consumer skips rerender when selected dep is unchanged", async ({
   page,
 }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, createContext, $context, $ref, $state, render } = (
+    const { createElement, createContext, useContext, useRef, useState, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
@@ -318,10 +318,10 @@ test("$context selector: consumer skips rerender when selected dep is unchanged"
 
     // Consumer uses selector that tracks only `name`.
     function* Consumer() {
-      const renders = yield* $ref(0);
+      const renders = yield* useRef(0);
       renders.current++;
       // Overload 2: selector only — rerender only when name changes
-      const ctx = yield* $context(Ctx, (c) => [c.name]);
+      const ctx = yield* useContext(Ctx, (c) => [c.name]);
       return createElement("div", { id: "consumer" }, [
         createElement("span", { id: "name" }, ctx.name),
         createElement("span", { id: "renders" }, String(renders.current)),
@@ -329,7 +329,7 @@ test("$context selector: consumer skips rerender when selected dep is unchanged"
     }
 
     function* App() {
-      const [st, set] = yield* $state<State>({ name: "Alice", count: 0 });
+      const [st, set] = yield* useState<State>({ name: "Alice", count: 0 });
       setSt = set;
       return createElement(
         Ctx.Provider as never,
@@ -361,13 +361,13 @@ test("$context selector: consumer skips rerender when selected dep is unchanged"
   await page.screenshot({ path: "/tmp/visual-ctx-selector-stable.png" });
 });
 
-test("$context selector: consumer rerenders in-place ($ref preserved) when selected dep changes", async ({
+test("useContext selector: consumer rerenders in-place (useRef preserved) when selected dep changes", async ({
   page,
 }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, createContext, $context, $ref, $state, render } = (
+    const { createElement, createContext, useContext, useRef, useState, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
@@ -377,10 +377,10 @@ test("$context selector: consumer rerenders in-place ($ref preserved) when selec
     let setSt: ((v: State) => void) | null = null;
 
     function* Consumer() {
-      const renders = yield* $ref(0);
+      const renders = yield* useRef(0);
       renders.current++;
-      // Selector tracks `name`. Rerender is in-place so $ref survives.
-      const ctx = yield* $context(Ctx, (c) => [c.name]);
+      // Selector tracks `name`. Rerender is in-place so useRef survives.
+      const ctx = yield* useContext(Ctx, (c) => [c.name]);
       return createElement("div", { id: "consumer" }, [
         createElement("span", { id: "name" }, ctx.name),
         createElement("span", { id: "renders" }, String(renders.current)),
@@ -388,7 +388,7 @@ test("$context selector: consumer rerenders in-place ($ref preserved) when selec
     }
 
     function* App() {
-      const [st, set] = yield* $state<State>({ name: "Alice", count: 0 });
+      const [st, set] = yield* useState<State>({ name: "Alice", count: 0 });
       setSt = set;
       return createElement(
         Ctx.Provider as never,
@@ -412,7 +412,7 @@ test("$context selector: consumer rerenders in-place ($ref preserved) when selec
   });
   await expect(page.locator("#renders")).toHaveText("1");
 
-  // Change `name` — dep changed → in-place rerender → $ref increments to 2.
+  // Change `name` — dep changed → in-place rerender → useRef increments to 2.
   await page.evaluate(() => {
     type State = { name: string; count: number };
     const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
@@ -424,13 +424,13 @@ test("$context selector: consumer rerenders in-place ($ref preserved) when selec
   await page.screenshot({ path: "/tmp/visual-ctx-selector-changed.png" });
 });
 
-test("$context transform: suppresses rerender when dep stable; updates transform when dep changes", async ({
+test("useContext transform: suppresses rerender when dep stable; updates transform when dep changes", async ({
   page,
 }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, createContext, $context, $ref, $state, render } = (
+    const { createElement, createContext, useContext, useRef, useState, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
@@ -440,10 +440,10 @@ test("$context transform: suppresses rerender when dep stable; updates transform
     let setSt: ((v: State) => void) | null = null;
 
     function* Consumer() {
-      const renders = yield* $ref(0);
+      const renders = yield* useRef(0);
       renders.current++;
       // Overload 3: selector + transform — returns uppercased name
-      const upper = yield* $context(
+      const upper = yield* useContext(
         Ctx,
         (c) => [c.name] as [string],
         (name) => name.toUpperCase(),
@@ -455,7 +455,7 @@ test("$context transform: suppresses rerender when dep stable; updates transform
     }
 
     function* App() {
-      const [st, set] = yield* $state<State>({ name: "Alice", count: 0 });
+      const [st, set] = yield* useState<State>({ name: "Alice", count: 0 });
       setSt = set;
       return createElement(
         Ctx.Provider as never,
@@ -482,7 +482,7 @@ test("$context transform: suppresses rerender when dep stable; updates transform
   await expect(page.locator("#renders")).toHaveText("1");
   await expect(page.locator("#upper")).toHaveText("ALICE");
 
-  // Change name — dep changed → in-place rerender → $ref increments to 2, transform produces BOB.
+  // Change name — dep changed → in-place rerender → useRef increments to 2, transform produces BOB.
   await page.evaluate(() => {
     type State = { name: string; count: number };
     const set = (window as unknown as Record<string, (v: State) => void>).__setSt;
@@ -494,13 +494,13 @@ test("$context transform: suppresses rerender when dep stable; updates transform
   await page.screenshot({ path: "/tmp/visual-ctx-transform.png" });
 });
 
-test("$context no-selector vs selector: no-selector updates on any field change, selector does not", async ({
+test("useContext no-selector vs selector: no-selector updates on any field change, selector does not", async ({
   page,
 }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, createContext, $context, $ref, $state, render } = (
+    const { createElement, createContext, useContext, useRef, useState, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
@@ -510,11 +510,11 @@ test("$context no-selector vs selector: no-selector updates on any field change,
     let setSt: ((v: State) => void) | null = null;
 
     // Overload 1: no selector — in-place rerender on every Provider value change.
-    // $ref persists across rerenders so the count increments correctly.
+    // useRef persists across rerenders so the count increments correctly.
     function* NoSelectorConsumer() {
-      const renders = yield* $ref(0);
+      const renders = yield* useRef(0);
       renders.current++;
-      const ctx = yield* $context(Ctx);
+      const ctx = yield* useContext(Ctx);
       return createElement("div", null, [
         createElement("span", { id: "no-sel-count" }, String(ctx.count)),
         createElement("span", { id: "no-sel-renders" }, String(renders.current)),
@@ -523,14 +523,14 @@ test("$context no-selector vs selector: no-selector updates on any field change,
 
     // Overload 2: selector tracking `name` — stable when only count changes.
     function* SelectorConsumer() {
-      const renders = yield* $ref(0);
+      const renders = yield* useRef(0);
       renders.current++;
-      yield* $context(Ctx, (c) => [c.name]);
+      yield* useContext(Ctx, (c) => [c.name]);
       return createElement("span", { id: "sel-renders" }, String(renders.current));
     }
 
     function* App() {
-      const [st, set] = yield* $state<State>({ name: "Alice", count: 0 });
+      const [st, set] = yield* useState<State>({ name: "Alice", count: 0 });
       setSt = set;
       return createElement(Ctx.Provider as never, { value: st }, [
         createElement(NoSelectorConsumer as never, {}),
@@ -561,11 +561,11 @@ test("$context no-selector vs selector: no-selector updates on any field change,
   await page.screenshot({ path: "/tmp/visual-ctx-no-selector.png" });
 });
 
-test("$context selector: hook state preserved when rerender suppressed", async ({ page }) => {
+test("useContext selector: hook state preserved when rerender suppressed", async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, createContext, $context, $state, render } = (
+    const { createElement, createContext, useContext, useState, render } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
@@ -576,14 +576,14 @@ test("$context selector: hook state preserved when rerender suppressed", async (
     let setLocal: ((v: number) => void) | null = null;
 
     function* Consumer() {
-      yield* $context(Ctx, (c) => [c.name]);
-      const [local, sl] = yield* $state(42);
+      yield* useContext(Ctx, (c) => [c.name]);
+      const [local, sl] = yield* useState(42);
       setLocal = sl;
       return createElement("span", { id: "local" }, String(local));
     }
 
     function* App() {
-      const [st, set] = yield* $state<State>({ name: "Alice", count: 0 });
+      const [st, set] = yield* useState<State>({ name: "Alice", count: 0 });
       setCtx = set;
       return createElement(
         Ctx.Provider as never,
@@ -662,7 +662,7 @@ test("global patch: child prop change before patch survives to commit (disabled 
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render, $state, startUIPatch, commitUIPatch } = (
+    const { createElement, render, useState, startUIPatch, commitUIPatch } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
@@ -675,7 +675,7 @@ test("global patch: child prop change before patch survives to commit (disabled 
     }
 
     function* App() {
-      const [isPending, setP] = yield* $state(false);
+      const [isPending, setP] = yield* useState(false);
       setPending = setP as never;
       return createElement("div", null, createElement(Nav as never, { isPending }));
     }
@@ -715,7 +715,7 @@ test("local patch: child prop change before patch survives to commit (disabled b
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render, $state, $uiPatch } = (
+    const { createElement, render, useState, useUIPatch } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
@@ -727,9 +727,9 @@ test("local patch: child prop change before patch survives to commit (disabled b
     }
 
     function* App() {
-      const startPatch = yield* $uiPatch();
+      const startPatch = yield* useUIPatch();
       capturedStartPatch = startPatch;
-      const [isPending, setP] = yield* $state(false);
+      const [isPending, setP] = yield* useState(false);
       setPending = setP as never;
       return createElement("div", null, createElement(Nav as never, { isPending }));
     }
@@ -763,24 +763,24 @@ test("local patch: child prop change before patch survives to commit (disabled b
 });
 
 // ---------------------------------------------------------------------------
-// $effect AbortSignal tests
+// useEffect AbortSignal tests
 // ---------------------------------------------------------------------------
 
-test("$effect: AbortSignal abort count increments when deps change", async ({ page }) => {
+test("useEffect: AbortSignal abort count increments when deps change", async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render, $state, $effect } = (
+    const { createElement, render, useState, useEffect } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
     const win = window as unknown as Record<string, unknown>;
 
     function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) {
-      const [status, setStatus] = yield* $state("idle");
-      const [abortCount, setAbortCount] = yield* $state(0);
+      const [status, setStatus] = yield* useState("idle");
+      const [abortCount, setAbortCount] = yield* useState(0);
 
-      yield* $effect(
+      yield* useEffect(
         (signal: AbortSignal) => {
           if (activeId !== userId) {
             setStatus("inactive");
@@ -808,7 +808,7 @@ test("$effect: AbortSignal abort count increments when deps change", async ({ pa
     }
 
     function* App() {
-      const [activeId, setActiveId] = yield* $state(1);
+      const [activeId, setActiveId] = yield* useState(1);
       win.setActiveId = setActiveId;
 
       return createElement(
@@ -860,19 +860,19 @@ test("$effect: AbortSignal abort count increments when deps change", async ({ pa
   await page.screenshot({ path: "/tmp/visual-abort-signal-deps-change.png" });
 });
 
-test("$effect: AbortSignal is aborted on component unmount", async ({ page }) => {
+test("useEffect: AbortSignal is aborted on component unmount", async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render, $state, $effect, $ref } = (
+    const { createElement, render, useState, useEffect, useRef } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
     function* Ticker() {
-      const [count, setCount] = yield* $state(0);
-      const abortedRef = yield* $ref(false);
+      const [count, setCount] = yield* useState(0);
+      const abortedRef = yield* useRef(false);
 
-      yield* $effect((signal: AbortSignal) => {
+      yield* useEffect((signal: AbortSignal) => {
         let n = 0;
         const id = setInterval(() => {
           if (signal.aborted) return;
@@ -901,7 +901,7 @@ test("$effect: AbortSignal is aborted on component unmount", async ({ page }) =>
     }
 
     function* App() {
-      const [show, setShow] = yield* $state(true);
+      const [show, setShow] = yield* useState(true);
       (window as unknown as Record<string, unknown>).setShow = setShow;
 
       return createElement(
@@ -935,18 +935,18 @@ test("$effect: AbortSignal is aborted on component unmount", async ({ page }) =>
   await page.screenshot({ path: "/tmp/visual-abort-signal-unmount.png" });
 });
 
-test("$effect: AbortSignal aborts async work (fetch-like) on deps change", async ({ page }) => {
+test("useEffect: AbortSignal aborts async work (fetch-like) on deps change", async ({ page }) => {
   await setupPage(page);
 
   await page.evaluate(() => {
-    const { createElement, render, $state, $effect } = (
+    const { createElement, render, useState, useEffect } = (
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
 
     function* AsyncWorker({ taskId }: { taskId: number }) {
-      const [result, setResult] = yield* $state("pending");
+      const [result, setResult] = yield* useState("pending");
 
-      yield* $effect(
+      yield* useEffect(
         (signal: AbortSignal) => {
           setResult("pending");
           // Simulate async work that respects the signal
@@ -972,7 +972,7 @@ test("$effect: AbortSignal aborts async work (fetch-like) on deps change", async
     }
 
     function* App() {
-      const [taskId, setTaskId] = yield* $state(1);
+      const [taskId, setTaskId] = yield* useState(1);
       (window as unknown as Record<string, unknown>).setTaskId = setTaskId;
 
       return createElement(

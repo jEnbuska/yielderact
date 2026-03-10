@@ -1,7 +1,17 @@
 import type { Context, UseContextState } from "../context";
-import type { UseRenderState } from "../hooks/$render";
-import type { DependencyList } from "../hooks/symbols";
-import type { Child, GeneratorComponentFn, VNode } from "../jsx";
+import type {
+  $USE_EFFECT,
+  $USE_ID,
+  $USE_MEMO,
+  $USE_REF,
+  $USE_RESOLVE,
+  $USE_RESOLVE_RAW,
+  $USE_STATE,
+  $USE_UI_PATCH,
+} from "../hooks/descriptors";
+import type { ComponentGenerator, DependencyList } from "../hooks/types";
+import type { UseRenderState } from "../hooks/useRender";
+import type { Child, Component, InternalProps, VNode } from "../jsx";
 import type { DelegationRoot } from "./delegation";
 
 // ── Render context ─────────────────────────────────────────────────────────
@@ -14,7 +24,7 @@ import type { DelegationRoot } from "./delegation";
  * Per-root render state.
  *
  * Replaces the previous module-level singletons (`renderState`, `_ctxMap`,
- * `_ops`, scheduler variables). Stored on each `GenInstance.renderCtx` so
+ * `_ops`, scheduler variables). Stored on each `ComponentInstance.renderCtx` so
  * that closures and hook handlers can reach it without global lookups.
  *
  * **Created by:** `createRenderContext()` in `state.ts`, called from
@@ -23,91 +33,95 @@ import type { DelegationRoot } from "./delegation";
 export interface RenderContext {
   // ── From state.ts (persistent per-root) ──
   patchDepth: number;
-  dirtyInstances: Set<GenInstance>;
+  dirtyInstances: Set<ComponentInstance>;
   isInitialMount: boolean;
 
   // ── From state.ts (rendering-phase temporary) ──
   liveOnlyMode: boolean;
-  renderingPriority: number | null;
+  renderingPriority?: number;
 
   // ── From context.ts ──
   ctxMap: ReadonlyMap<Context<unknown>, unknown>;
 
   // ── From patch-queue.ts ──
-  ops: (() => void)[] | null;
+  ops?: (() => void)[];
 
   // ── From scheduler.ts ──
-  pendingUpdates: Map<number, Set<GenInstance>>;
+  pendingUpdates: Map<number, Set<ComponentInstance>>;
   isProcessing: boolean;
-  activePriority: number | null;
+  activePriority?: number;
   syncMode: boolean;
 
   // ── From delegation.ts ──
   /**
-   * The delegation root for this render context, or `null` before the
-   * root has been mounted. Created by `render()` / `createRoot()` and
-   * used by `applyProps` / `updateProps` to register handlers and
-   * lazily attach root listeners.
+   * The delegation root for this render context, created by `render()` /
+   * `createRoot()` and used by `applyProps` / `updateProps` to register
+   * handlers and lazily attach root listeners.
    */
-  delegationRoot: DelegationRoot | null;
+  delegationRoot?: DelegationRoot;
 }
 
 // ── Hook state discriminated union ──────────────────────────────────────────
 //
-// Each hook stores a tagged object in `GenInstance.hookStates`. The `kind`
+// Each hook stores a tagged object in `ComponentInstance.hookStates`. The `kind`
 // discriminant allows type-safe narrowing without `as` casts, especially in
 // cross-cutting code like `flushEffects` and `_hasStableSelectors`.
 
-/** Persistent state for a `$state` hook. */
+/** Persistent state for a `useState` hook. */
 export interface StateHookState {
-  kind: "state";
+  kind: typeof $USE_STATE;
   value: unknown;
 }
 
-/** Persistent state for a `$ref` hook. Holds the mutable ref object. */
+/** Persistent state for a `useRef` hook. Holds the mutable ref object. */
 export interface RefHookState {
-  kind: "ref";
+  kind: typeof $USE_REF;
   current: unknown;
 }
 
-/** Persistent state for a `$id` hook. Holds the stable unique ID string. */
+/** Persistent state for a `useId` hook. Holds the stable unique ID string. */
 export interface IdHookState {
-  kind: "id";
+  kind: typeof $USE_ID;
   id: string;
 }
 
-/** Persistent state for a `$memo` hook. */
+/** Persistent state for a `useMemo` hook. */
 export interface MemoHookState {
-  kind: "memo";
+  kind: typeof $USE_MEMO;
   value: unknown;
   deps: DependencyList;
 }
 
-/** Persistent state for a `$effect` hook. */
+/** Persistent state for a `useEffect` hook. */
 export interface EffectHookState {
-  kind: "effect";
+  kind: typeof $USE_EFFECT;
   deps: DependencyList;
-  cleanup: (() => void) | undefined;
+  cleanup?: () => void;
   controller: AbortController;
 }
 
-/** Persistent state for a `$resolveRaw` hook. */
+/** Persistent state for a `useResolveRaw` hook. */
 export type ResolveRawHookState =
-  | { kind: "resolve-raw"; promise: Promise<unknown>; status: "pending" }
-  | { kind: "resolve-raw"; promise: Promise<unknown>; status: "resolved"; data: unknown }
-  | { kind: "resolve-raw"; promise: Promise<unknown>; status: "rejected"; error: unknown };
+  | { kind: typeof $USE_RESOLVE_RAW; promise: Promise<unknown>; status: "pending" }
+  | { kind: typeof $USE_RESOLVE_RAW; promise: Promise<unknown>; status: "resolved"; data: unknown }
+  | {
+      kind: typeof $USE_RESOLVE_RAW;
+      promise: Promise<unknown>;
+      status: "rejected";
+      error: unknown;
+    };
 
-/** Persistent state for a `$resolve` hook. */
+/** Persistent state for a `useResolve` hook. */
 export interface ResolveHookState {
-  kind: "resolve";
+  kind: typeof $USE_RESOLVE;
   deps: DependencyList;
   promise: Promise<unknown>;
   controller: AbortController;
 }
 
-/** Persistent state for a `$uiPatch` hook. */
+/** Persistent state for a `useUIPatch` hook. */
 export interface UIPatchHookState {
-  kind: "ui-patch";
+  kind: typeof $USE_UI_PATCH;
   startPatch: () => () => void;
 }
 
@@ -115,7 +129,7 @@ export interface UIPatchHookState {
  * Discriminated union of all possible hook state values.
  *
  * Each variant is tagged with a `kind` field that allows type-safe narrowing
- * when iterating `GenInstance.hookStates` (e.g. in `flushEffects` or
+ * when iterating `ComponentInstance.hookStates` (e.g. in `flushEffects` or
  * `_hasStableSelectors`).
  */
 export type HookState =
@@ -159,7 +173,7 @@ export interface Slot {
    * - `Text` node for `'text'` and `'empty'` slots.
    * - `HTMLElement` for HTML element slots.
    * - `<span style="display:contents">` host for generator component and Provider slots.
-   * - The rendered DOM node directly for plain (non-generator) component slots.
+   * - The rendered DOM node directly for non-generator slots (text, empty).
    *
    * Inserted into / removed from the parent element by `reconcileSlots`.
    */
@@ -174,15 +188,15 @@ export interface Slot {
    *
    * Updated in place when the reconciler commits a prop change.
    */
-  props: Record<string, unknown>;
+  props: InternalProps;
 
   /**
    * Child slots for HTML elements and context Providers.
    *
    * For HTML element slots this contains one Slot per direct child node.
    * For Provider slots it holds the Provider's rendered children.
-   * For generator/plain component slots this is always `[]` — child
-   * tracking lives inside `genInstance.slots` instead.
+   * For generator component slots this is always `[]` — child
+   * tracking lives inside `componentInstance.slots` instead.
    *
    * Recursed into by `reconcileSlots`, `unmountSlot`, and `propagateContextUpdate`.
    */
@@ -190,22 +204,22 @@ export interface Slot {
 
   /**
    * The running generator instance, present only for generator-function
-   * component slots. `null` for all other slot types (HTML elements,
-   * text, empty, plain components, Providers).
+   * component slots. Absent for all other slot types (HTML elements,
+   * text, empty, Providers).
    *
    * Lets the reconciler call `inst.rerender()` when props or context change,
    * read `inst.consumedContexts` for selective context updates, and access
    * `inst.slots` for subtree walks.
    */
-  genInstance: GenInstance | null;
+  componentInstance?: ComponentInstance;
 }
 
 /**
  * Persistent state for one mounted generator component instance.
  *
- * **Created by:** `mountGeneratorComponent` in `mount.ts` — once per
- * component mount. Referenced by the component's `Slot.genInstance` (keyed by host
- * element) and referenced by the component's `Slot.genInstance`.
+ * **Created by:** `mountComponent` in `mount.ts` — once per
+ * component mount. Referenced by the component's `Slot.componentInstance` (keyed by host
+ * element) and referenced by the component's `Slot.componentInstance`.
  *
  * **Survives across re-renders** — props, capturedCtx, and hookStates are
  * mutated in place so that useState values, useRef handles, and useEffect
@@ -214,14 +228,14 @@ export interface Slot {
  * **Destroyed by:** `unmountSlot` in `hooks-runtime.ts` — calls all
  * `cleanupFns`, removes from `renderCtx.dirtyInstances`.
  */
-export interface GenInstance {
+export interface ComponentInstance {
   /**
    * The per-root render context this instance belongs to.
    *
    * All rendering state (patch depth, dirty instances, context map,
    * scheduler queues, etc.) lives here instead of in module-level globals.
    *
-   * **Set by:** `mountGeneratorComponent` — from the active render context
+   * **Set by:** `mountComponent` — from the active render context
    * at the time the component is first mounted.
    * **Read by:** closures (`rerender`, `executeRerender`, `resume`), hook
    * handlers, the scheduler, and `unmountSlot`.
@@ -229,25 +243,25 @@ export interface GenInstance {
   renderCtx: RenderContext;
 
   /**
-   * The generator-function component that produced this instance.
+   * The component function that produced this instance.
    * Called by `executeRerender` to create a fresh generator on each render:
-   *   `const gen = instance.fn(instance.props, rerender);`
+   *   `const gen = instance.component(instance.props, rerender);`
    */
-  fn: GeneratorComponentFn;
+  component: Component;
 
   /**
    * The active (paused) generator, or `null` if the generator has returned.
    *
-   * - **Non-null:** the generator yielded a real VNode (e.g. `useResolve`
+   * - **Present:** the generator yielded a real VNode (e.g. `useResolve`
    *   showing a loading spinner). `resume()` calls `gen.next()` to continue.
-   * - **`null`:** the generator returned its final JSX. `executeRerender`
+   * - **Absent:** the generator returned its final JSX. `executeRerender`
    *   creates a fresh generator on the next render cycle.
    *
    * Set by `runHooks` (after processing hooks) and `resume` (after gen.next).
    * Read by `resume` (to check if resumable) and `flushEffects` (effects
    * only fire when `gen === null`, i.e. the component is not mid-interaction).
    */
-  gen: Generator<unknown, Child, unknown> | null;
+  gen?: ComponentGenerator<Child>;
 
   /**
    * The component's current props.
@@ -258,11 +272,11 @@ export interface GenInstance {
    * - The live-only skip path (forwards `$patch` for shouldDefer).
    *
    * **Read by:**
-   * - `executeRerender` — passed to `instance.fn(instance.props, …)`.
+   * - `executeRerender` — passed to `instance.component(instance.props, …)`.
    * - `resume` / `executeRerender` — reads `props['$patch']` to compute
    *   the effective batch for `shouldDefer`.
    */
-  props: Record<string, unknown>;
+  props: InternalProps;
 
   /**
    * Comment node marker placed after this component's output in the parent DOM.
@@ -274,7 +288,7 @@ export interface GenInstance {
    *    that the component's output nodes are inserted before this marker
    *    (and thus stay within the component's region of the parent DOM).
    *
-   * Created by `mountGeneratorComponent`. Used by `executeRerender`, `resume`,
+   * Created by `mountComponent`. Used by `executeRerender`, `resume`,
    * and `_flushPendingVNodes` via `endMarker.parentNode` to find the actual
    * parent element for reconciliation.
    */
@@ -291,7 +305,7 @@ export interface GenInstance {
    * (inherited + own $patch) batch during their render.
    *
    * **Written by:**
-   * - `mountGeneratorComponent` — set to `_getCtxMap()` at mount time.
+   * - `mountComponent` — set to `_getCtxMap()` at mount time.
    * - `reconcileOne` — synced to current inherited batch via `_withBatch`.
    * - `propagateContextUpdate` — updated when an ancestor Provider value changes.
    *
@@ -306,7 +320,7 @@ export interface GenInstance {
   /**
    * Set of contexts consumed via `useContext` during the last render pass.
    *
-   * **Written by:** `processOneDescriptor($CONTEXT)` — calls
+   * **Written by:** `processOneDescriptor($USE_CONTEXT)` — calls
    *   `instance.consumedContexts.add(ctx)` for each `useContext` call.
    * **Cleared by:** `executeRerender` at the start of each render cycle
    *   so it reflects only the current render's context subscriptions.
@@ -362,7 +376,7 @@ export interface GenInstance {
    * Each entry holds the hook index, the effect function, and an `AbortController`
    * so the effect receives a signal it can check for cancellation.
    *
-   * **Written by:** `processOneDescriptor($EFFECT)` — pushes an entry
+   * **Written by:** `processOneDescriptor($USE_EFFECT)` — pushes an entry
    *   when deps change.
    * **Cleared by:** `executeRerender` at the start of each render
    *   (`pendingEffects.length = 0`) and by `flushEffects` after execution.
@@ -386,7 +400,7 @@ export interface GenInstance {
    *   by `executeRerender` when `shouldDefer` is false (immediate commit).
    * **Read by:** `_flushPendingVNodes` — skips instances with `undefined`.
    */
-  pendingVNode: Child | undefined;
+  pendingVNode?: Child;
 
   /**
    * Number of active local patches (`useUIPatch`) whose snapshot includes
@@ -454,7 +468,7 @@ export interface GenInstance {
    * `$deferred={true}` increments the priority by 1. Lower numbers are
    * processed first.
    *
-   * **Written by:** `mountGeneratorComponent` — set from `_getCurrentPriority()`.
+   * **Written by:** `mountComponent` — set from `_getCurrentPriority()`.
    * **Read by:**
    * - The scheduler — to determine which priority pass the component belongs to.
    * - `rerender()` — to tag setState calls with the owner's priority when
@@ -462,6 +476,16 @@ export interface GenInstance {
    * - The reconciler — updated when `$deferred` context changes.
    */
   priority: number;
+
+  /**
+   * Total hook count from the first completed (done=true) generator run.
+   *
+   * `undefined` until the generator has fully returned at least once
+   * (it may have been halted by `useRender`/`useResolve` on previous renders).
+   * Once set, subsequent complete renders must yield the same count —
+   * a mismatch indicates conditional hook usage.
+   */
+  finalHookCount?: number;
 
   /**
    * Execute a rerender directly, bypassing the scheduling logic.
@@ -487,7 +511,7 @@ export interface GenInstance {
    * - `propagateContextUpdate` — when an ancestor Provider value changes
    *   and this instance consumes the affected context.
    *
-   * **Implementation:** defined as a closure in `mountGeneratorComponent`
+   * **Implementation:** defined as a closure in `mountComponent`
    * that calls `executeRerender(true)` if not currently rendering, or sets
    * `pendingRerender = true` if a render is already in progress.
    */

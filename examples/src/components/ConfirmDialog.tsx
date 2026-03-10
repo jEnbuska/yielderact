@@ -1,20 +1,20 @@
 /**
- * ConfirmDialog – demonstrates the $render / $resume hooks.
+ * ConfirmDialog – demonstrates the useRender / useResume hooks.
  *
  * Two variants are shown side-by-side:
- *  • Variant 1: JSX passed directly to $render; the child uses $resume.
+ *  • Variant 1: JSX passed directly to useRender; the child uses useResume.
  *  • Variant 2: Inline render function receives resume as a prop.
  */
-import { $ref, $render, $resume, $state } from "yielderact";
+import { useRef, useRender, useResume, useState } from "yielderact";
 
 // ---------------------------------------------------------------------------
-// Variant 1 – child component uses $resume
+// Variant 1 – child component uses useResume
 // ---------------------------------------------------------------------------
 
 type Answer = "ACCEPTED" | "REJECTED" | "NONE";
 
 function* ProceedDialog({ acceptText, rejectText }: { acceptText: string; rejectText: string }) {
-  const resume = yield* $resume<Answer>();
+  const resume = yield* useResume<Answer>();
   return (
     <div style={{ display: "flex", gap: "0.5rem" }}>
       <button
@@ -48,11 +48,11 @@ function* ProceedDialog({ acceptText, rejectText }: { acceptText: string; reject
 }
 
 function* Variant1() {
-  const answer = yield* $ref<Answer>("NONE");
-  const [, rerender] = yield* $state(0);
+  const answer = yield* useRef<Answer>("NONE");
+  const [, rerender] = yield* useState(0);
 
   while (answer.current === "NONE") {
-    answer.current = yield* $render<Answer>(
+    answer.current = yield* useRender<Answer>(
       <ProceedDialog acceptText="Accept" rejectText="Reject" />,
     );
   }
@@ -78,11 +78,11 @@ function* Variant1() {
 // ---------------------------------------------------------------------------
 
 function* Variant2() {
-  const answer = yield* $ref<Answer>("NONE");
-  const [, rerender] = yield* $state(0);
+  const answer = yield* useRef<Answer>("NONE");
+  const [, rerender] = yield* useState(0);
 
   while (answer.current === "NONE") {
-    answer.current = yield* $render<Answer>(
+    answer.current = yield* useRender<Answer>(
       ({ resume }) => (
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button
@@ -140,14 +140,14 @@ function* Variant2() {
 export function* ConfirmDialog() {
   return (
     <div>
-      <h2>$render / $resume</h2>
+      <h2>useRender / useResume</h2>
       <p style={{ color: "#555", marginBottom: "1rem" }}>
-        Generator components can pause and wait for user interaction using <code>$render</code>. The
-        resume callback unblocks the generator and returns the value to the caller.
+        Generator components can pause and wait for user interaction using <code>useRender</code>.
+        The resume callback unblocks the generator and returns the value to the caller.
       </p>
 
       <h3>
-        Variant 1 – child uses <code>$resume</code>
+        Variant 1 – child uses <code>useResume</code>
       </h3>
       <Variant1 />
 

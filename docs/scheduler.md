@@ -202,7 +202,7 @@ which would cause visual artifacts.
 
 ## setState priority rules
 
-When `setState` (via a `$state` setter) triggers a rerender, the priority
+When `setState` (via a `useState` setter) triggers a rerender, the priority
 assigned to the update depends on **when** it was called:
 
 | Context                       | Priority used                         | Rationale                                               |

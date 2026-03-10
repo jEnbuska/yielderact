@@ -1,4 +1,4 @@
-import { $ref, $state } from "../hooks";
+import { useRef, useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
@@ -20,7 +20,7 @@ describe("$ref", () => {
     let capturedRef: { current: number } = { current: 0 };
 
     function* Comp() {
-      const ref = yield* $ref(42);
+      const ref = yield* useRef(42);
       capturedRef = ref;
       return createElement("div", null);
     }
@@ -34,9 +34,9 @@ describe("$ref", () => {
     let setValue: (v: number) => void = () => {};
 
     function* Comp() {
-      const [, sv] = yield* $state(0);
+      const [, sv] = yield* useState(0);
       setValue = sv;
-      const ref = yield* $ref(0);
+      const ref = yield* useRef(0);
       refInstances.push(ref);
       return createElement("div", null);
     }
@@ -54,7 +54,7 @@ describe("$ref", () => {
 
     function* Comp() {
       renderCount++;
-      const ref = yield* $ref(0);
+      const ref = yield* useRef(0);
       capturedRef = ref;
       return createElement("div", null);
     }

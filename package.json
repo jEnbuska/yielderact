@@ -24,6 +24,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "typecheck": "tsc --noEmit -p tsconfig.typecheck.json",
     "test": "jest",
     "test:visual": "playwright test",
     "lint": "biome check --error-on-warnings .",

@@ -1,10 +1,10 @@
-import { $state, commitUIPatch, startUIPatch } from "yielderact";
+import { commitUIPatch, startUIPatch, useState } from "yielderact";
 import { VisibilityTarget } from "./VisibilityTarget";
 
 export function* GlobalVisibilityDemo() {
-  const [showDefault, setShowDefault] = yield* $state(true);
-  const [showLive, setShowLive] = yield* $state(true);
-  const [patchActive, setPatchActive] = yield* $state(false);
+  const [showDefault, setShowDefault] = yield* useState(true);
+  const [showLive, setShowLive] = yield* useState(true);
+  const [patchActive, setPatchActive] = yield* useState(false);
 
   const beginPatch = () => {
     setPatchActive(true);
