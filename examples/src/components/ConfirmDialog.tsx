@@ -140,6 +140,165 @@ function* Variant2() {
 }
 
 // ---------------------------------------------------------------------------
+// Variant 3 – wizard: multiple sequential useRender calls (useResume)
+// ---------------------------------------------------------------------------
+
+function* NameStep() {
+  const resume = yield* useResume<string>();
+  const [name, setName] = yield* useState("");
+  return (
+    <div data-testid="v3-step-name" style={{ display: "flex", gap: "0.5rem" }}>
+      <input
+        data-testid="v3-name-input"
+        value={name}
+        onInput={(e) => setName((e.target as HTMLInputElement).value)}
+        placeholder="Enter your name"
+        style={{ padding: "0.4rem" }}
+      />
+      <button
+        data-testid="v3-name-next"
+        onClick={() => resume(name)}
+        style={{
+          padding: "0.4rem 1rem",
+          background: "#0070f3",
+          color: "#fff",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+        }}
+      >
+        Next
+      </button>
+    </div>
+  );
+}
+
+function* ColorStep() {
+  const resume = yield* useResume<string>();
+  return (
+    <div data-testid="v3-step-color" style={{ display: "flex", gap: "0.5rem" }}>
+      {["Red", "Green", "Blue"].map((color) => (
+        <button
+          key={color}
+          data-testid={`v3-color-${color.toLowerCase()}`}
+          onClick={() => resume(color)}
+          style={{
+            padding: "0.4rem 1rem",
+            border: "1px solid #ccc",
+            borderRadius: "4px",
+            cursor: "pointer",
+          }}
+        >
+          {color}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function* Variant3() {
+  const result = yield* useRef<{ name: string; color: string } | null>(null);
+  const [, rerender] = yield* useState(0);
+
+  while (result.current === null) {
+    const name = yield* useRender<string>(<NameStep />);
+    const color = yield* useRender<string>(<ColorStep />);
+    result.current = { name, color };
+  }
+
+  return (
+    <p data-testid="v3-result">
+      Wizard result: <strong data-testid="v3-answer">{result.current.name}</strong> chose{" "}
+      <strong data-testid="v3-color">{result.current.color}</strong>{" "}
+      <button
+        data-testid="v3-reset"
+        onClick={() => {
+          result.current = null;
+          rerender((n) => n + 1);
+        }}
+        style={{ marginLeft: "0.5rem", cursor: "pointer" }}
+      >
+        Reset
+      </button>
+    </p>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Variant 4 – wizard: multiple sequential useRender calls (inline)
+// ---------------------------------------------------------------------------
+
+function* Variant4() {
+  const result = yield* useRef<{ a: number; b: number } | null>(null);
+  const [, rerender] = yield* useState(0);
+
+  while (result.current === null) {
+    const a = yield* useRender<number>(
+      ({ resume }) => (
+        <div data-testid="v4-step-a" style={{ display: "flex", gap: "0.5rem" }}>
+          {[1, 2, 3].map((n) => (
+            <button
+              key={String(n)}
+              data-testid={`v4-a-${n}`}
+              onClick={() => resume(n)}
+              style={{
+                padding: "0.4rem 1rem",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      ),
+      [],
+    );
+    const b = yield* useRender<number>(
+      ({ resume }) => (
+        <div data-testid="v4-step-b" style={{ display: "flex", gap: "0.5rem" }}>
+          {[10, 20, 30].map((n) => (
+            <button
+              key={String(n)}
+              data-testid={`v4-b-${n}`}
+              onClick={() => resume(n)}
+              style={{
+                padding: "0.4rem 1rem",
+                border: "1px solid #ccc",
+                borderRadius: "4px",
+                cursor: "pointer",
+              }}
+            >
+              {n}
+            </button>
+          ))}
+        </div>
+      ),
+      [],
+    );
+    result.current = { a, b };
+  }
+
+  return (
+    <p data-testid="v4-result">
+      Result: <strong data-testid="v4-answer">{result.current.a + result.current.b}</strong> (
+      {result.current.a} + {result.current.b}){" "}
+      <button
+        data-testid="v4-reset"
+        onClick={() => {
+          result.current = null;
+          rerender((n) => n + 1);
+        }}
+        style={{ marginLeft: "0.5rem", cursor: "pointer" }}
+      >
+        Reset
+      </button>
+    </p>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Top-level export
 // ---------------------------------------------------------------------------
 
@@ -159,6 +318,12 @@ export function* ConfirmDialog() {
 
       <h3>Variant 2 – inline render function</h3>
       <Variant2 />
+
+      <h3>Variant 3 – wizard (multiple useRender with useResume)</h3>
+      <Variant3 />
+
+      <h3>Variant 4 – wizard (multiple useRender inline)</h3>
+      <Variant4 />
     </div>
   );
 }

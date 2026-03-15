@@ -75,4 +75,73 @@ test.describe("useRender / ConfirmDialog example", () => {
     await expect(page.getByTestId("v2-result")).not.toBeAttached();
     await page.screenshot({ path: "test-results/confirm-v2-reset.png" });
   });
+
+  // ── Variant 3: wizard with multiple useRender (useResume) ──
+
+  test("variant 3: starts on name step", async ({ page }) => {
+    await expect(page.getByTestId("v3-step-name")).toBeVisible();
+    await expect(page.getByTestId("v3-step-color")).not.toBeAttached();
+    await expect(page.getByTestId("v3-result")).not.toBeAttached();
+  });
+
+  test("variant 3: completing name step advances to color step", async ({ page }) => {
+    await page.getByTestId("v3-name-input").fill("Alice");
+    await page.getByTestId("v3-name-next").click();
+
+    await expect(page.getByTestId("v3-step-name")).not.toBeAttached();
+    await expect(page.getByTestId("v3-step-color")).toBeVisible();
+  });
+
+  test("variant 3: completing both steps shows result", async ({ page }) => {
+    await page.getByTestId("v3-name-input").fill("Bob");
+    await page.getByTestId("v3-name-next").click();
+    await page.getByTestId("v3-color-green").click();
+
+    await expect(page.getByTestId("v3-step-color")).not.toBeAttached();
+    await expect(page.getByTestId("v3-answer")).toHaveText("Bob");
+    await expect(page.getByTestId("v3-color")).toHaveText("Green");
+  });
+
+  test("variant 3: reset returns to name step", async ({ page }) => {
+    await page.getByTestId("v3-name-input").fill("Eve");
+    await page.getByTestId("v3-name-next").click();
+    await page.getByTestId("v3-color-red").click();
+    await expect(page.getByTestId("v3-answer")).toHaveText("Eve");
+
+    await page.getByTestId("v3-reset").click();
+    await expect(page.getByTestId("v3-step-name")).toBeVisible();
+    await expect(page.getByTestId("v3-result")).not.toBeAttached();
+  });
+
+  // ── Variant 4: wizard with multiple useRender (inline) ──
+
+  test("variant 4: starts on step A", async ({ page }) => {
+    await expect(page.getByTestId("v4-step-a")).toBeVisible();
+    await expect(page.getByTestId("v4-step-b")).not.toBeAttached();
+    await expect(page.getByTestId("v4-result")).not.toBeAttached();
+  });
+
+  test("variant 4: selecting A advances to step B", async ({ page }) => {
+    await page.getByTestId("v4-a-2").click();
+
+    await expect(page.getByTestId("v4-step-a")).not.toBeAttached();
+    await expect(page.getByTestId("v4-step-b")).toBeVisible();
+  });
+
+  test("variant 4: completing both steps shows sum", async ({ page }) => {
+    await page.getByTestId("v4-a-3").click();
+    await page.getByTestId("v4-b-20").click();
+
+    await expect(page.getByTestId("v4-answer")).toHaveText("23");
+  });
+
+  test("variant 4: reset returns to step A", async ({ page }) => {
+    await page.getByTestId("v4-a-1").click();
+    await page.getByTestId("v4-b-10").click();
+    await expect(page.getByTestId("v4-answer")).toHaveText("11");
+
+    await page.getByTestId("v4-reset").click();
+    await expect(page.getByTestId("v4-step-a")).toBeVisible();
+    await expect(page.getByTestId("v4-result")).not.toBeAttached();
+  });
 });
