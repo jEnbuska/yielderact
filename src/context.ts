@@ -38,7 +38,7 @@ export interface Context<T> {
  *
  * @internal
  */
-export type ProviderFunction = (props: InternalProps) => VNode | null | undefined;
+type ProviderFunction = (props: InternalProps) => VNode | null | undefined;
 
 // ---------------------------------------------------------------------------
 // Internal symbols used to tag Provider functions
@@ -51,7 +51,7 @@ const PROVIDER_CTX = Symbol("providerCtx");
 // ---------------------------------------------------------------------------
 
 /** @internal */
-export interface UseContextDescriptor {
+interface UseContextDescriptor {
   type: typeof $USE_CONTEXT;
   ctx: Context<unknown>;
   selector?: (ctx: unknown) => unknown[];
@@ -333,7 +333,7 @@ export function _withBatch(
  *
  * @internal
  */
-export const _priorityCtx: Context<number> = {
+const _priorityCtx: Context<number> = {
   _defaultValue: 0,
   Provider: undefined as never,
 };

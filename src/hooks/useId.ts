@@ -13,10 +13,10 @@ import type { ComponentGenerator } from "./types";
  * Incremented by `_processId`. Each `useId()` call gets
  * `":r<N>:"` where N is the counter value at first mount.
  */
-export let idCounter = 0;
+let idCounter = 0;
 
 /** Allocate the next unique ID string. @internal */
-export function nextId(): string {
+function nextId(): string {
   return `:r${idCounter++}:`;
 }
 

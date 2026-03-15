@@ -18,21 +18,7 @@
  * }
  */
 
-export {
-  $USE_CONTEXT,
-  $USE_EFFECT,
-  $USE_ID,
-  $USE_MEMO,
-  $USE_REF,
-  $USE_RENDER,
-  $USE_RESOLVE,
-  $USE_RESOLVE_RAW,
-  $USE_STATE,
-  $USE_UI_PATCH,
-  HOOK_TYPES,
-  type HookDescriptor,
-  type HookType,
-} from "./descriptors";
+export type { HookDescriptor } from "./descriptors";
 export {
   type ComponentGenerator,
   type DependencyList,
@@ -42,7 +28,7 @@ export { useEffect } from "./useEffect";
 export { useId } from "./useId";
 export { useMemo } from "./useMemo";
 export { type RefObject, useRef } from "./useRef";
-export { type UseRenderFn, type UseRenderState, useRender, useResume } from "./useRender";
+export { type UseRenderFn, useRender, useResume } from "./useRender";
 export {
   type Renderable,
   type ResolveRawResult,

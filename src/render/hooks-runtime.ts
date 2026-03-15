@@ -46,6 +46,7 @@ import { _processResolve, _processResolveRaw } from "../hooks/useResolve";
 import { _createStateSetter, _processState } from "../hooks/useState";
 import { _processUIPatch } from "../hooks/useUIPatch";
 import type { Child } from "../jsx";
+import { releasePortalDelegation } from "./delegation";
 import { _flushPendingVNodes } from "./patch";
 import { clearRef } from "./props";
 import type { ComponentInstance, HookState, Slot } from "./types";
@@ -84,7 +85,7 @@ function getTypedPrev<K extends HookState["kind"]>(
  *
  * @param value - The value yielded by the component generator.
  */
-export function isHookDescriptor(value: unknown): boolean {
+function isHookDescriptor(value: unknown): boolean {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -161,6 +162,10 @@ export function unmountSlot(slot: Slot): void {
     // checks pendingVNode === undefined and skips accordingly.
     slot.componentInstance.renderCtx.dirtyInstances.delete(slot.componentInstance);
   }
+  // Portal cleanup: release the ref-counted delegation root.
+  if (slot.portalContainer) {
+    releasePortalDelegation(slot.portalContainer);
+  }
 }
 
 /**
@@ -174,7 +179,7 @@ export function unmountSlot(slot: Slot): void {
  * @returns A flat array of all descendant `ComponentInstance`s (not including
  *   the root itself).
  */
-export function collectDescendants(instance: ComponentInstance): ComponentInstance[] {
+function collectDescendants(instance: ComponentInstance): ComponentInstance[] {
   const result: ComponentInstance[] = [];
   function walk(slots: Slot[]): void {
     for (const slot of slots) {
@@ -211,7 +216,7 @@ function _deriveResolveRawResult(s: HookState | undefined): ResolveRawResult<unk
  * **Called by:** `runHooks` below — once for each hook descriptor yielded
  * during the component's generator body.
  */
-export function processOneDescriptor(
+function processOneDescriptor(
   descriptor: HookDescriptor,
   hookIndex: number,
   hookStates: HookState[],

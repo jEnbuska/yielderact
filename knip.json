@@ -1,0 +1,19 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "exclude": ["duplicates"],
+  "workspaces": {
+    ".": {
+      "entry": ["playwright-tests/fixtures.ts"],
+      "project": ["src/**/*.ts", "src/**/*.tsx"],
+      "ignore": ["src/__tests__/**"]
+    },
+    "examples": {
+      "entry": ["src/main.tsx"],
+      "project": ["src/**/*.ts", "src/**/*.tsx"],
+      "playwright": false,
+      "vite": false,
+      "ignoreDependencies": ["yielderact", "vite"],
+      "ignoreBinaries": ["vite"]
+    }
+  }
+}

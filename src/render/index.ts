@@ -7,7 +7,7 @@ import { _setActiveCtx, createRenderContext } from "./state";
 
 export { buildNode } from "./mount";
 export { commitUIPatch, startUIPatch } from "./patch";
-export { flushSync, scheduleUpdate } from "./scheduler";
+export { flushSync } from "./scheduler";
 
 /**
  * Render a VNode tree into a DOM container (simple one-shot mount).

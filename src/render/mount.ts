@@ -28,7 +28,7 @@ import {
   type Context,
 } from "../context";
 import { $USE_EFFECT } from "../hooks/descriptors";
-import { type Child, type Component, Fragment, type InternalProps } from "../jsx";
+import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
 import { getPatchMode, isComponentNode, isShown, mergedProps, stripDeferred } from "./helpers";
 import { flushEffects, runHooks } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
@@ -76,6 +76,14 @@ export function buildNode(child: Child): Node {
       frag.appendChild(buildNode(c));
     }
     return frag;
+  }
+
+  if (child.type === Portal) {
+    const portalContainer = child.props["$portalContainer"] as Element;
+    for (const c of child.children) {
+      portalContainer.appendChild(buildNode(c));
+    }
+    return document.createComment("portal");
   }
 
   if (isComponentNode(child)) {

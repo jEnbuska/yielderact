@@ -13,14 +13,15 @@
 **Before pushing code or opening a PR, you MUST execute this sequence in order:**
 
 1.  **Branch Sync:** `git checkout dev && git pull origin dev && git checkout -`
-2.  **Lint & Format:** `npm run lint:fix`
-3.  **Type Check & Build:** `npm run build`
-4.  **Type Check Examples:** `npm run typecheck:examples`
-5.  **Unit Tests:** `npm test`
-6.  **Visual Tests:** `npm run test:visual`
-7.  **Documentation & CLAUDE.md:** \* Update `docs/api.md` if API changed.
+2.  **Dead Code Check:** `npm run knip`
+3.  **Lint & Format:** `npm run lint:fix`
+4.  **Type Check & Build:** `npm run build`
+5.  **Type Check Examples:** `npm run typecheck:examples`
+6.  **Unit Tests:** `npm test`
+7.  **Visual Tests:** `npm run test:visual`
+8.  **Documentation & CLAUDE.md:** \* Update `docs/api.md` if API changed.
     - Update `CLAUDE.md` if the workflow, scripts, or project structure changed.
-8.  **Final Verification:** If any step fails, fix and **restart from Step 2.**
+9.  **Final Verification:** If any step fails, fix and **restart from Step 2.**
 
 ---
 
@@ -51,6 +52,7 @@ yielderact is a minimal JSX UI library using JavaScript generator functions.
 - `npm run typecheck:examples` — Type-check example components (catches `$children`/JSX issues)
 - `npm test` — Run Jest unit tests (jsdom)
 - `npm run test:visual` — Run Playwright visual tests
+- `npm run knip` — Detect dead code, unused exports, and unused dependencies (Knip)
 - `npm run lint` — Check lint & formatting (Biome)
 - `npm run lint:fix` — Auto-fix lint & formatting issues
 - `npm run format` — Auto-fix formatting only (Biome)
@@ -86,7 +88,7 @@ function* Counter(_props: object) {
 
 | File                      | Responsibility                                                          |
 | :------------------------ | :---------------------------------------------------------------------- |
-| `jsx.ts`                  | VNode types, `createElement`, `FrameworkProps`, `SpecialProps`, `Component` |
+| `jsx.ts`                  | VNode types, `createElement`, `createPortal`, `Portal`, `FrameworkProps`, `SpecialProps`, `Component` |
 | `jsx-types.ts`            | Intrinsic element type definitions (HTML/SVG attribute types)           |
 | `jsx-runtime.ts`          | Automatic JSX transform (`jsx`, `jsxs`, `jsxDEV`)                      |
 | `events.ts`               | `SyntheticEvent` type and proxy-based event wrapper                     |
@@ -125,12 +127,17 @@ function* Counter(_props: object) {
 - **Guard Clauses:** Always prefer guard clauses (early returns) over nested conditionals. Return early when a condition short-circuits the rest of the logic.
 - **Lint Strictness:** Never weaken linting or tsconfig rules. Fix lint issues by improving code, not by adding `biome-ignore` or `@ts-ignore` comments. The only accepted exceptions are `biome-ignore lint/complexity/noExcessiveCognitiveComplexity` on architectural dispatch functions (reconciler, props, mount, dispatch) that inherently require many branches.
 - **Type Safety Tests:** Compile-time type tests live in `src/__tests__/*.typetest.tsx` and are checked by `npm run typecheck`.
+- **New Feature Checklist:** Every new public API feature must include:
+  1. An example demo component in `examples/src/components/` wired into `main.tsx` as a tab.
+  2. Playwright visual tests in `playwright-tests/` covering the demo.
+  3. Documentation in `docs/api.md`.
+- **Bug Fix Workflow:** When a bug is discovered, always write unit tests and/or Playwright visual tests that reproduce the bug **before** writing the fix. Verify the tests fail, then fix the bug, then verify the tests pass.
 
 ### Examples Structure
 
 Example components live in `examples/src/components/`. The app entry point is `examples/src/main.tsx`, which renders a tabbed view of all demos.
 
-**Top-level demos** (each a tab in main.tsx): `Counter`, `TodoList`, `ThemeDemo`, `DataFetcher`/`ResolveRawDemo`, `HooksShowcase`, `ShownDemo`, `ConfirmDialog`, `EffectDemo`, `TransitionDemo`, `ContextDemo`, `LazyContextDemo`, `AbortSignalEffectDemo`, `KeyShuffleDemo`.
+**Top-level demos** (each a tab in main.tsx): `Counter`, `TodoList`, `ThemeDemo`, `DataFetcher`/`ResolveRawDemo`, `HooksShowcase`, `ShownDemo`, `ConfirmDialog`, `EffectDemo`, `TransitionDemo`, `ContextDemo`, `LazyContextDemo`, `AbortSignalEffectDemo`, `KeyShuffleDemo`, `PortalDemo`.
 
 **Multi-file demos** split one-component-per-file:
 
