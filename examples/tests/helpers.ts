@@ -24,6 +24,7 @@ const tabIds: Record<string, string> = {
   "Key Shuffle": "tab-key-shuffle",
   "$deps prop": "tab-deps",
   createPortal: "tab-portal",
+  "Slot API": "tab-slot",
 };
 
 /** Click the tab with the given label. */

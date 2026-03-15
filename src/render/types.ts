@@ -6,6 +6,7 @@ import type {
   $USE_REF,
   $USE_RESOLVE,
   $USE_RESOLVE_RAW,
+  $USE_SLOT_CONTENT,
   $USE_STATE,
   $USE_UI_PATCH,
 } from "../hooks/descriptors";
@@ -125,6 +126,12 @@ export interface UIPatchHookState {
   startPatch: () => () => void;
 }
 
+/** Persistent state for a `useSlotContent` hook. */
+export interface SlotContentHookState {
+  kind: typeof $USE_SLOT_CONTENT;
+  content: Child | null;
+}
+
 /**
  * Discriminated union of all possible hook state values.
  *
@@ -142,7 +149,8 @@ export type HookState =
   | ResolveRawHookState
   | ResolveHookState
   | UseRenderState<unknown>
-  | UIPatchHookState;
+  | UIPatchHookState
+  | SlotContentHookState;
 
 /**
  * A **Slot** tracks one reconciled position in the rendered DOM tree.

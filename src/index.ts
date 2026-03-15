@@ -104,3 +104,5 @@ export type {
 } from "./jsx-types";
 export type { Root } from "./render";
 export { commitUIPatch, createRoot, flushSync, render, startUIPatch } from "./render";
+export type { Slot } from "./slot";
+export { createSlot, useSlotContent } from "./slot";

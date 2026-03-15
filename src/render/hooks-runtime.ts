@@ -28,6 +28,7 @@ import {
   $USE_RENDER,
   $USE_RESOLVE,
   $USE_RESOLVE_RAW,
+  $USE_SLOT_CONTENT,
   $USE_STATE,
   $USE_UI_PATCH,
   HOOK_TYPES,
@@ -46,10 +47,11 @@ import { _processResolve, _processResolveRaw } from "../hooks/useResolve";
 import { _createStateSetter, _processState } from "../hooks/useState";
 import { _processUIPatch } from "../hooks/useUIPatch";
 import type { Child } from "../jsx";
+import type { SlotRegistry, UseSlotContentResult } from "../slot";
 import { releasePortalDelegation } from "./delegation";
 import { _flushPendingVNodes } from "./patch";
 import { clearRef } from "./props";
-import type { ComponentInstance, HookState, Slot } from "./types";
+import type { ComponentInstance, HookState, Slot, SlotContentHookState } from "./types";
 
 /**
  * Extract and validate the previous hook state at `hookIndex`.
@@ -333,6 +335,24 @@ function processOneDescriptor(
       const state = _processUIPatch(prev, instance, collectDescendants, _flushPendingVNodes);
       hookStates[hookIndex] = state;
       return state.startPatch;
+    }
+    case $USE_SLOT_CONTENT: {
+      getTypedPrev(hookStates, hookIndex, $USE_SLOT_CONTENT, instance);
+      const registry = _resolveCtxValue(
+        _getCtxMap(),
+        descriptor.registryCtx,
+      ) as SlotRegistry | null;
+      const contentFromCtx = _resolveCtxValue(_getCtxMap(), descriptor.contentCtx) as Child | null;
+      const content = registry?.content ?? contentFromCtx;
+      const slotState: SlotContentHookState = { kind: $USE_SLOT_CONTENT, content };
+      hookStates[hookIndex] = slotState;
+      if (content == null && registry) {
+        registry.waitingRerenders.push(() => {
+          void rerender();
+        });
+      }
+      const slotResult: UseSlotContentResult = { content };
+      return slotResult;
     }
     default:
       throw new Error(

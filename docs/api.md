@@ -28,11 +28,14 @@
    - [useContext](#usecontext)
 7. [Portals](#portals)
    - [createPortal](#createportal)
-8. [UI patches](#ui-patches)
+8. [Slots](#slots)
+   - [createSlot](#createslot)
+   - [useSlotContent](#useslotcontent)
+9. [UI patches](#ui-patches)
    - [startUIPatch / commitUIPatch](#startuipatch--commituipatch)
-9. [Special props](#special-props)
-10. [Events](#events)
-11. [Design decisions](#design-decisions)
+10. [Special props](#special-props)
+11. [Events](#events)
+12. [Design decisions](#design-decisions)
 
 ---
 
@@ -715,6 +718,118 @@ function* App() {
 > - A comment node placeholder is inserted in the original DOM position for reconciliation tracking.
 > - Event delegation works inside portals — `onClick` and other delegated events fire normally.
 > - `$patch`, `$deferred`, and `$shown` props work on portal children as expected.
+
+---
+
+## Slots
+
+Slots let you define named content placeholders that are filled from elsewhere in the component tree. Unlike prop-drilling, slots decouple the layout from the content — a layout component can declare "a header goes here" without knowing what the header will be.
+
+### `createSlot`
+
+```ts
+const HeaderSlot = createSlot();
+```
+
+Creates a Slot with `Provider` and `Fill` components. The returned object is also a valid `Context<Child | null>`, so `useContext(slot)` works for non-pausing consumption.
+
+**Returns** `Slot` — `{ Provider, Fill, _defaultValue }`
+
+#### Provider
+
+Wraps a subtree to enable `Fill` and `useSlotContent` within it.
+
+```tsx
+function* App() {
+  return (
+    <HeaderSlot.Provider>
+      <Layout />
+      <HeaderFill />
+    </HeaderSlot.Provider>
+  );
+}
+```
+
+#### Fill
+
+Provides content to the nearest ancestor `Provider`. Can be used two ways:
+
+**As a literal JSX child** of Provider (content extracted at render time):
+
+```tsx
+<HeaderSlot.Provider>
+  <HeaderSlot.Fill><h1>Title</h1></HeaderSlot.Fill>
+  <Layout />
+</HeaderSlot.Provider>
+```
+
+**As a component** anywhere in the Provider subtree:
+
+```tsx
+function* MyHeader() {
+  return <HeaderSlot.Fill><h1>Dynamic Title</h1></HeaderSlot.Fill>;
+}
+
+// MyHeader can be nested arbitrarily deep inside Provider
+<HeaderSlot.Provider>
+  <Layout />
+  <MyHeader />
+</HeaderSlot.Provider>
+```
+
+---
+
+### `useSlotContent`
+
+```ts
+const content = yield* useSlotContent(slot);
+```
+
+Consumes slot content. Returns `Child | null` — `null` when no `Fill` has provided content yet. When a `Fill` component provides or updates content, consumers rerender automatically.
+
+No special hook ordering restrictions — `useSlotContent` can be called anywhere in the hook sequence, and other hooks can follow it.
+
+| Parameter | Type   | Description                      |
+| --------- | ------ | -------------------------------- |
+| `slot`    | `Slot` | The slot to consume content from |
+
+**Returns** `Child | null`
+
+```tsx
+function* PageLayout() {
+  const [expanded, setExpanded] = yield* useState(false);
+  const header = yield* useSlotContent(HeaderSlot);
+  yield* useEffect(() => { console.log('header changed'); }, [header]);
+  return (
+    <div>
+      <header>{header ?? 'No header'}</header>
+      <main>...</main>
+    </div>
+  );
+}
+```
+
+#### Using `useContext(slot)` instead
+
+Since a Slot is also a Context, you can use `useContext(slot)` directly. This returns `Child | null` with the same behavior — it just doesn't go through the slot-specific descriptor. This is useful for backward compatibility or when you want the standard context semantics.
+
+```tsx
+const header = yield* useContext(HeaderSlot); // Child | null
+```
+
+#### Nested providers
+
+Inner providers shadow outer providers for the same slot:
+
+```tsx
+<HeaderSlot.Provider>
+  <HeaderSlot.Fill>Outer</HeaderSlot.Fill>
+  <HeaderSlot.Provider>
+    <HeaderSlot.Fill>Inner</HeaderSlot.Fill>
+    <Consumer /> {/* sees "Inner" */}
+  </HeaderSlot.Provider>
+</HeaderSlot.Provider>
+```
 
 ---
 
