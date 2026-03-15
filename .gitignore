@@ -1,4 +1,4 @@
-.branches/
+.worktrees/
 node_modules/
 dist/
 examples/dist/
