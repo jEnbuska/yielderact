@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 256 256">
+  <!-- yract square icon: ?* on purple rounded square -->
+  <rect width="256" height="256" rx="56" fill="#534AB7"/>
+  <text x="80" y="178" font-family="ui-monospace, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace" font-size="152" font-weight="600" fill="#EEEDFE">?</text>
+  <text x="170" y="140" font-family="ui-monospace, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace" font-size="72" font-weight="600" fill="#EF9F27">*</text>
+</svg>

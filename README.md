@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/wordmark.svg" alt="Y'ract" height="80" />
+</p>
+
 # Y'ract
 
 > JSX UI library focused on ease of use and easy to understanding the internals of the library itself
