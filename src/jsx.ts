@@ -1,4 +1,4 @@
-import type { ComponentGenerator } from "./hooks/types";
+import type { ComponentGenerator, DependencyList } from "./hooks/types";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
 
 export type VNodeType = string | symbol | Component;
@@ -25,7 +25,7 @@ export type Child = VNode | string | number | boolean | null | undefined;
  */
 export interface FrameworkProps {
   /** Reconciliation key — not rendered to the DOM. Must be a string. */
-  $key?: string;
+  key?: string;
   /** When false, the element/component is removed from the DOM. */
   $shown?: boolean;
   /**
@@ -47,6 +47,17 @@ export interface FrameworkProps {
    * see `$deferred` in their props object.
    */
   $deferred?: boolean;
+  /**
+   * Dependency array for reconciliation memoization.
+   *
+   * When present, replaces the default `shallowEqual` props check with a
+   * `depsChanged()` comparison — the same mechanism used by hooks. The
+   * component or element only rerenders/updates when the deps change.
+   *
+   * Useful when a parent passes new object references but the component
+   * only cares about a subset of values.
+   */
+  $deps?: DependencyList;
 }
 
 /**
@@ -154,7 +165,7 @@ export const Portal: unique symbol = Symbol("Portal");
 export function createPortal(children: Child | Child[], container: Element, key?: string): VNode {
   const childArray = Array.isArray(children) ? children : [children];
   const props: InternalProps = { $portalContainer: container } as InternalProps;
-  if (key != null) props.$key = String(key);
+  if (key != null) props.key = String(key);
   return { type: Portal, props, children: childArray };
 }
 
@@ -232,9 +243,9 @@ declare global {
      * elements and custom components — without needing to be
      * declared in the component's own props type.
      *
-     * Only framework-level props (`$key`, `$shown`, `$patch`, `$deferred`)
-     * are universally available. `children` and `$ref` must be explicitly
-     * declared in a component's props type to be accepted.
+     * Only framework-level props (`key`, `$shown`, `$patch`, `$deferred`,
+     * `$deps`) are universally available. `children` and `$ref` must be
+     * explicitly declared in a component's props type to be accepted.
      */
     interface IntrinsicAttributes extends FrameworkProps {}
   }

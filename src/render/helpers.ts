@@ -163,20 +163,36 @@ export function isShown(props: SpecialProps): boolean {
 }
 
 /**
- * Strip `$deferred` from a props object, returning props without it.
+ * Strip framework-level directives (`$deferred`, `$deps`) from a props
+ * object, returning props without them.
  *
- * `$deferred` is a framework-level directive that controls priority
- * scheduling. It is **not** passed to the component — the component
- * should never see it in its props.
+ * These directives are consumed by the reconciler/scheduler and are
+ * **not** passed to the component — the component should never see them
+ * in its props.
  *
- * If `$deferred` is not present, returns the original object (no allocation).
+ * If neither directive is present, returns the original object (no allocation).
  *
  * **Called by:**
- * - `reconcileOneGen` in `reconciler.ts` — before passing props to components.
+ * - `reconcileComponent` in `reconciler.ts` — before passing props to components.
  * - `buildNode` / `buildVNodeList` in `mount.ts` — same.
  *
- * @param props - The (merged) props that may contain `$deferred`.
- * @returns Props without `$deferred`.
+ * @param props - The (merged) props that may contain `$deferred` / `$deps`.
+ * @returns Props without `$deferred` or `$deps`.
+ */
+export function stripFrameworkDirectives(props: InternalProps): InternalProps {
+  if (!("$deferred" in props) && !("$deps" in props)) return props;
+  const { $deferred: _d, $deps: _p, ...rest } = props;
+  return rest as InternalProps;
+}
+
+/**
+ * Strip `$deferred` from a props object, keeping `$deps` intact.
+ *
+ * Used to produce the "slot props" stored in `Slot.props` — `$deps`
+ * is retained so the reconciler can compare it on the next update,
+ * while `$deferred` is propagated via context and not needed on the slot.
+ *
+ * If `$deferred` is not present, returns the original object (no allocation).
  */
 export function stripDeferred(props: InternalProps): InternalProps {
   if (!("$deferred" in props)) return props;

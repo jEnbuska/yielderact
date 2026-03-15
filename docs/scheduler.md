@@ -345,4 +345,4 @@ regardless of active patches.
 | `src/render/mount.ts`       | `commitOrDefer`, `executeRerender`, `rerender` closures    |
 | `src/render/state.ts`       | Shared mutable state (`patchDepth`, `liveOnlyMode`, etc.)  |
 | `src/context.ts`            | `_priorityCtx`, `_withPriority`, `_getCurrentPriority`     |
-| `src/render/helpers.ts`     | `stripDeferred` — removes `$deferred` from component props |
+| `src/render/helpers.ts`     | `stripFrameworkDirectives` — removes `$deferred` / `$deps` from component props |

@@ -29,7 +29,13 @@ import {
 } from "../context";
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
-import { getPatchMode, isComponentNode, isShown, mergedProps, stripDeferred } from "./helpers";
+import {
+  getPatchMode,
+  isComponentNode,
+  isShown,
+  mergedProps,
+  stripFrameworkDirectives,
+} from "./helpers";
 import { flushEffects, runHooks } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
@@ -92,8 +98,8 @@ export function buildNode(child: Child): Node {
     if (!isShown(allPropsRaw)) {
       return document.createTextNode("");
     }
-    // Strip $deferred from component props; propagate via context.
-    const allProps = stripDeferred(allPropsRaw);
+    // Strip $deferred and $deps from component props; propagate $deferred via context.
+    const allProps = stripFrameworkDirectives(allPropsRaw);
     const compDeferred = allPropsRaw.$deferred;
     const prevCtx = _getCtxMap();
     if (compDeferred) _setCtxMap(_withPriority(prevCtx, _getCurrentPriority() + 1));
