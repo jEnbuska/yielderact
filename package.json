@@ -2,6 +2,9 @@
   "name": "yract",
   "version": "0.1.0",
   "description": "JSX UI library focused on ease of use and easy to understanding the internals of the library it self",
+  "files": [
+    "dist"
+  ],
   "main": "dist/index.js",
   "module": "dist/index.esm.js",
   "types": "dist/index.d.ts",
