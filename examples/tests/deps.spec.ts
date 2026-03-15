@@ -86,17 +86,17 @@ test.describe("$deps prop example", () => {
   // ── Component with element children ───────────────────────────────────
 
   test("component with element children: child frozen on irrelevant click", async ({ page }) => {
-    await expect(page.getByTestId("deps-nested-elem-child")).toHaveText("irrelevant=0");
+    await expect(page.getByTestId("deps-nested-elem-child")).toHaveText("relevant=0 irrelevant=0");
     await page.getByTestId("deps-inc-irrelevant").click();
     // Parent skipped → element child not updated
     await expect(page.getByTestId("deps-comp-with-elem-children-renders")).toHaveText("1");
-    await expect(page.getByTestId("deps-nested-elem-child")).toHaveText("irrelevant=0");
+    await expect(page.getByTestId("deps-nested-elem-child")).toHaveText("relevant=0 irrelevant=0");
   });
 
   test("component with element children: child updated on relevant click", async ({ page }) => {
     await page.getByTestId("deps-inc-relevant").click();
     await expect(page.getByTestId("deps-comp-with-elem-children-renders")).toHaveText("2");
     // Element child gets new content from parent's rerender
-    await expect(page.getByTestId("deps-nested-elem-child")).toHaveText("irrelevant=0");
+    await expect(page.getByTestId("deps-nested-elem-child")).toHaveText("relevant=1 irrelevant=0");
   });
 });

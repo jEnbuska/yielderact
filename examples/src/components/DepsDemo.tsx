@@ -163,7 +163,9 @@ export function* DepsDemo() {
         data={{ relevant, irrelevant }}
         $deps={[relevant]}
       >
-        <span data-testid="deps-nested-elem-child">irrelevant={irrelevant}</span>
+        <span data-testid="deps-nested-elem-child">
+          relevant={relevant} irrelevant={irrelevant}
+        </span>
       </RenderCounter>
     </section>
   );
