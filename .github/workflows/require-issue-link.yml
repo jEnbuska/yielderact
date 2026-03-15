@@ -1,0 +1,24 @@
+name: Require issue link
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize]
+    branches: [dev, main]
+
+jobs:
+  check-issue-link:
+    name: PR links an issue
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check PR body for issue reference
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          if echo "$PR_BODY" | grep -iqP '(close[sd]?|fix(e[sd])?|resolve[sd]?)\s+#\d+'; then
+            echo "PR #$PR_NUMBER links to an issue"
+          else
+            echo "::error::PR #$PR_NUMBER does not contain a 'Closes #N', 'Fixes #N', or 'Resolves #N' reference. Every PR must link to a GitHub issue."
+            exit 1
+          fi

@@ -1,0 +1,35 @@
+name: Close linked issues on PR merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches: [dev, main]
+
+permissions:
+  issues: write
+
+jobs:
+  close-issues:
+    name: Close linked issues
+    runs-on: ubuntu-latest
+    if: github.event.pull_request.merged == true
+
+    steps:
+      - name: Close referenced issues
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          # Extract issue numbers from Closes #N, Fixes #N, Resolves #N (case-insensitive)
+          issues=$(echo "$PR_BODY" | grep -ioP '(close[sd]?|fix(e[sd])?|resolve[sd]?)\s+#\K\d+' | sort -u)
+
+          if [ -z "$issues" ]; then
+            echo "No linked issues found in PR #$PR_NUMBER body"
+            exit 0
+          fi
+
+          for issue in $issues; do
+            echo "Closing issue #$issue (linked from PR #$PR_NUMBER)"
+            gh issue close "$issue" --repo "$GITHUB_REPOSITORY" --comment "Closed by PR #$PR_NUMBER" || echo "Warning: could not close issue #$issue"
+          done
