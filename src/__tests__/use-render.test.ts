@@ -198,6 +198,136 @@ describe("useRender (Variant 1 – JSX child with useResume)", () => {
   });
 });
 
+describe("useRender – multiple sequential calls", () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+  });
+
+  it("two sequential useRender calls (inline variant)", () => {
+    let resumeFirst: (v: string) => void = () => {};
+    let resumeSecond: (v: number) => void = () => {};
+
+    function* Wizard() {
+      const name = yield* useRender<string>(({ resume }) => {
+        resumeFirst = resume;
+        return createElement("span", null, "step-1");
+      }, []);
+      const age = yield* useRender<number>(({ resume }) => {
+        resumeSecond = resume;
+        return createElement("span", null, "step-2");
+      }, []);
+      return createElement("p", null, `${name}:${age}`);
+    }
+
+    render(createElement(Wizard as never, {}), container);
+    expect(container.querySelector("span")?.textContent).toBe("step-1");
+
+    resumeFirst("Alice");
+    expect(container.querySelector("span")?.textContent).toBe("step-2");
+
+    resumeSecond(30);
+    expect(container.querySelector("p")?.textContent).toBe("Alice:30");
+  });
+
+  it("two sequential useRender calls (JSX child variant)", () => {
+    let resumeFirst: (v: string) => void = () => {};
+    let resumeSecond: (v: string) => void = () => {};
+
+    function* StepOne() {
+      const resume = yield* useResume<string>();
+      resumeFirst = resume;
+      return createElement("span", null, "step-1");
+    }
+
+    function* StepTwo() {
+      const resume = yield* useResume<string>();
+      resumeSecond = resume;
+      return createElement("span", null, "step-2");
+    }
+
+    function* Wizard() {
+      const a = yield* useRender<string>(createElement(StepOne as never, {}));
+      const b = yield* useRender<string>(createElement(StepTwo as never, {}));
+      return createElement("p", null, `${a}+${b}`);
+    }
+
+    render(createElement(Wizard as never, {}), container);
+    expect(container.querySelector("span")?.textContent).toBe("step-1");
+
+    resumeFirst("X");
+    expect(container.querySelector("span")?.textContent).toBe("step-2");
+
+    resumeSecond("Y");
+    expect(container.querySelector("p")?.textContent).toBe("X+Y");
+  });
+
+  it("three sequential useRender calls", () => {
+    const resumes: Array<(v: number) => void> = [];
+
+    function* Multi() {
+      const a = yield* useRender<number>(({ resume }) => {
+        resumes[0] = resume;
+        return createElement("span", null, "s1");
+      }, []);
+      const b = yield* useRender<number>(({ resume }) => {
+        resumes[1] = resume;
+        return createElement("span", null, "s2");
+      }, []);
+      const c = yield* useRender<number>(({ resume }) => {
+        resumes[2] = resume;
+        return createElement("span", null, "s3");
+      }, []);
+      return createElement("p", null, `${a}+${b}+${c}`);
+    }
+
+    render(createElement(Multi as never, {}), container);
+    expect(container.querySelector("span")?.textContent).toBe("s1");
+
+    resumes[0]?.(1);
+    expect(container.querySelector("span")?.textContent).toBe("s2");
+
+    resumes[1]?.(2);
+    expect(container.querySelector("span")?.textContent).toBe("s3");
+
+    resumes[2]?.(3);
+    expect(container.querySelector("p")?.textContent).toBe("1+2+3");
+  });
+
+  it("useRender after useState works correctly", () => {
+    let resumeFirst: (v: string) => void = () => {};
+    let resumeSecond: (v: string) => void = () => {};
+
+    function* Comp() {
+      const [count] = yield* useState(0);
+      const a = yield* useRender<string>(({ resume }) => {
+        resumeFirst = resume;
+        return createElement("span", null, `waiting-1:${count}`);
+      }, []);
+      const b = yield* useRender<string>(({ resume }) => {
+        resumeSecond = resume;
+        return createElement("span", null, `waiting-2:${count}`);
+      }, []);
+      return createElement("p", null, `${a}-${b}-${count}`);
+    }
+
+    render(createElement(Comp as never, {}), container);
+    expect(container.querySelector("span")?.textContent).toBe("waiting-1:0");
+
+    resumeFirst("A");
+    expect(container.querySelector("span")?.textContent).toBe("waiting-2:0");
+
+    resumeSecond("B");
+    expect(container.querySelector("p")?.textContent).toBe("A-B-0");
+  });
+});
+
 describe("useResume", () => {
   let container: HTMLElement;
 

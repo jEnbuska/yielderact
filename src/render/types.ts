@@ -486,6 +486,16 @@ export interface ComponentInstance {
   priority: number;
 
   /**
+   * Hook index at which the generator last paused (yielded a non-descriptor,
+   * e.g. inside `useRender`). Used by `resume()` to continue processing
+   * hook descriptors from the correct index when the generator advances
+   * past a `useRender` to the next hook.
+   *
+   * Reset to 0 by `runHooks` at the start of each full render cycle.
+   */
+  resumeHookIndex: number;
+
+  /**
    * Total hook count from the first completed (done=true) generator run.
    *
    * `undefined` until the generator has fully returned at least once
