@@ -339,7 +339,7 @@ describe("event delegation", () => {
 
   // ── Delegation with nested components ─────────────────────────────────
 
-  it("works with generator components that rerender on click", () => {
+  it("works with components that rerender on click", () => {
     function* Counter() {
       const [count, setCount] = yield* useState(0);
       return createElement("button", { onClick: () => setCount(count + 1) }, String(count));

@@ -1,5 +1,5 @@
 /**
- * Counter – a generator component demonstrating stateful rendering with
+ * Counter – a component demonstrating stateful rendering with
  * `yield* useState` and returning JSX.
  */
 import { useId, useState } from "yielderact";
@@ -16,8 +16,8 @@ export function* Counter() {
     <section aria-label="Counter example">
       <h2>Counter</h2>
       <p>
-        A generator component keeps state via <code>yield* useState</code>. Each call to the setter
-        re-runs the component body and reconciles the DOM.
+        A component keeps state via <code>yield* useState</code>. Each call to the setter re-runs
+        the component body and reconciles the DOM.
       </p>
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
         <button id={decrementId} data-testid="decrement-btn" onClick={() => setCount(count - 1)}>

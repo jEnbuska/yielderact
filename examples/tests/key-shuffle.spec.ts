@@ -7,9 +7,9 @@ test.describe("Key Shuffle example", () => {
     await clickTab(page, "Key Shuffle");
   });
 
-  // ── Generator components (stateful) ──
+  // ── Components (stateful) ──
 
-  test("renders initial generator component list A, B, C", async ({ page }) => {
+  test("renders initial component list A, B, C", async ({ page }) => {
     await expect(page.getByTestId("generator-order")).toHaveText("Order: A, B, C");
     await expect(page.getByTestId("item-A")).toBeVisible();
     await expect(page.getByTestId("item-B")).toBeVisible();
@@ -17,7 +17,7 @@ test.describe("Key Shuffle example", () => {
     await page.screenshot({ path: "test-results/key-shuffle-initial.png" });
   });
 
-  test("reverse preserves generator component state", async ({ page }) => {
+  test("reverse preserves component state", async ({ page }) => {
     // Increment A twice and B once to give them recognizable state
     await page.getByTestId("inc-A").click();
     await page.getByTestId("inc-A").click();
@@ -103,7 +103,7 @@ test.describe("Key Shuffle example", () => {
     await page.screenshot({ path: "test-results/key-shuffle-shuffle-reverse.png" });
   });
 
-  // ── Generator function components ──
+  // ── Tag components ──
 
   test("renders initial tag list", async ({ page }) => {
     await expect(page.getByTestId("tag-order")).toHaveText("Order: red, green, blue");

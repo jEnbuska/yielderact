@@ -159,7 +159,7 @@ export type HookState =
 export interface Slot {
   /**
    * The VNode type that produced this slot.
-   * - A function reference (component) for function components.
+   * - A function reference for components.
    * - A tag string (`'div'`, `'span'`, …) for HTML elements.
    * - `'text'` for string/number primitives.
    * - `'empty'` for null/false/hidden (`$shown=false`) placeholders.
@@ -172,7 +172,7 @@ export interface Slot {
    * The real DOM node for this position.
    * - `Text` node for `'text'` and `'empty'` slots.
    * - `HTMLElement` for HTML element slots.
-   * - `<span style="display:contents">` host for generator component and Provider slots.
+   * - `<span style="display:contents">` host for component and Provider slots.
    * - The rendered DOM node directly for non-generator slots (text, empty).
    *
    * Inserted into / removed from the parent element by `reconcileSlots`.
@@ -195,7 +195,7 @@ export interface Slot {
    *
    * For HTML element slots this contains one Slot per direct child node.
    * For Provider slots it holds the Provider's rendered children.
-   * For generator component slots this is always `[]` — child
+   * For component slots this is always `[]` — child
    * tracking lives inside `componentInstance.slots` instead.
    *
    * Recursed into by `reconcileSlots`, `unmountSlot`, and `propagateContextUpdate`.
@@ -203,9 +203,8 @@ export interface Slot {
   childSlots: Slot[];
 
   /**
-   * The running generator instance, present only for generator-function
-   * component slots. Absent for all other slot types (HTML elements,
-   * text, empty, Providers).
+   * The running instance, present only for component slots. Absent for
+   * all other slot types (HTML elements, text, empty, Providers).
    *
    * Lets the reconciler call `inst.rerender()` when props or context change,
    * read `inst.consumedContexts` for selective context updates, and access
@@ -224,7 +223,7 @@ export interface Slot {
 }
 
 /**
- * Persistent state for one mounted generator component instance.
+ * Persistent state for one mounted component instance.
  *
  * **Created by:** `mountComponent` in `mount.ts` — once per
  * component mount. Referenced by the component's `Slot.componentInstance` (keyed by host
@@ -515,7 +514,7 @@ export interface ComponentInstance {
    *
    * **Called by:**
    * - `useState` setters (via `processOneDescriptor` → `rerender()`).
-   * - `reconcileOne` — when parent passes new props to a generator component.
+   * - `reconcileOne` — when parent passes new props to a component.
    * - `reconcileOne` — when a consumed context value changed.
    * - `propagateContextUpdate` — when an ancestor Provider value changes
    *   and this instance consumes the affected context.

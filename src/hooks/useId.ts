@@ -21,12 +21,12 @@ function nextId(): string {
 }
 
 /**
- * Stable unique ID hook for generator components.
+ * Stable unique ID hook for components.
  *
  * Returns a string ID that is stable across re-renders and unique per hook
  * call site within the application.
  *
- * Must be called with `yield*` inside a generator component or hook.
+ * Must be called with `yield*` inside a component or hook.
  *
  * @example
  * function* LabelledInput() {

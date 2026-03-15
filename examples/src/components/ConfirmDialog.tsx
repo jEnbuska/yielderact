@@ -16,8 +16,9 @@ type Answer = "ACCEPTED" | "REJECTED" | "NONE";
 function* ProceedDialog({ acceptText, rejectText }: { acceptText: string; rejectText: string }) {
   const resume = yield* useResume<Answer>();
   return (
-    <div style={{ display: "flex", gap: "0.5rem" }}>
+    <div data-testid="v1-dialog" style={{ display: "flex", gap: "0.5rem" }}>
       <button
+        data-testid="v1-accept"
         onClick={() => resume("ACCEPTED")}
         style={{
           padding: "0.4rem 1rem",
@@ -31,6 +32,7 @@ function* ProceedDialog({ acceptText, rejectText }: { acceptText: string; reject
         {acceptText}
       </button>
       <button
+        data-testid="v1-reject"
         onClick={() => resume("REJECTED")}
         style={{
           padding: "0.4rem 1rem",
@@ -58,9 +60,10 @@ function* Variant1() {
   }
 
   return (
-    <p>
-      Variant 1 result: <strong>{answer.current}</strong>{" "}
+    <p data-testid="v1-result">
+      Variant 1 result: <strong data-testid="v1-answer">{answer.current}</strong>{" "}
       <button
+        data-testid="v1-reset"
         onClick={() => {
           answer.current = "NONE";
           rerender((n) => n + 1);
@@ -84,8 +87,9 @@ function* Variant2() {
   while (answer.current === "NONE") {
     answer.current = yield* useRender<Answer>(
       ({ resume }) => (
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div data-testid="v2-dialog" style={{ display: "flex", gap: "0.5rem" }}>
           <button
+            data-testid="v2-accept"
             onClick={() => resume("ACCEPTED")}
             style={{
               padding: "0.4rem 1rem",
@@ -99,6 +103,7 @@ function* Variant2() {
             Accept (inline)
           </button>
           <button
+            data-testid="v2-reject"
             onClick={() => resume("REJECTED")}
             style={{
               padding: "0.4rem 1rem",
@@ -118,9 +123,10 @@ function* Variant2() {
   }
 
   return (
-    <p>
-      Variant 2 result: <strong>{answer.current}</strong>{" "}
+    <p data-testid="v2-result">
+      Variant 2 result: <strong data-testid="v2-answer">{answer.current}</strong>{" "}
       <button
+        data-testid="v2-reset"
         onClick={() => {
           answer.current = "NONE";
           rerender((n) => n + 1);
@@ -142,8 +148,8 @@ export function* ConfirmDialog() {
     <div>
       <h2>useRender / useResume</h2>
       <p style={{ color: "#555", marginBottom: "1rem" }}>
-        Generator components can pause and wait for user interaction using <code>useRender</code>.
-        The resume callback unblocks the generator and returns the value to the caller.
+        Components can pause and wait for user interaction using <code>useRender</code>. The resume
+        callback unblocks the generator and returns the value to the caller.
       </p>
 
       <h3>

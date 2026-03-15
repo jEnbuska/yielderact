@@ -89,7 +89,7 @@ describe("component renders component", () => {
     document.body.removeChild(container);
   });
 
-  it("generator renders a component child", () => {
+  it("renders a component child", () => {
     function* Greeting({ name }: { name: string }) {
       return createElement("h1", null, `Hello, ${name}!`);
     }
@@ -102,7 +102,7 @@ describe("component renders component", () => {
     expect(container.querySelector("h1")?.textContent).toBe("Hello, World!");
   });
 
-  it("generator renders a generator component child", () => {
+  it("renders a component child with yield*", () => {
     function* Label({ text }: { text: string }) {
       return createElement("em", null, text);
     }
@@ -115,7 +115,7 @@ describe("component renders component", () => {
     expect(container.querySelector("em")?.textContent).toBe("from-child");
   });
 
-  it("child generator component maintains its own state across parent re-renders", () => {
+  it("child component maintains its own state across parent re-renders", () => {
     let incrementCounter: () => void = () => {};
     let parentRerender: () => void = () => {};
 
@@ -195,7 +195,7 @@ describe("component renders component", () => {
     expect(p.textContent).toBe("world");
   });
 
-  it("generator renders Fragment with multiple component children", () => {
+  it("renders Fragment with multiple component children", () => {
     function* A() {
       return createElement("span", { id: "a" }, "A");
     }

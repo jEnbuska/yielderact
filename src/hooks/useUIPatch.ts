@@ -18,7 +18,7 @@ import type { ComponentGenerator } from "./types";
  *
  * For a tree-wide patch use `startUIPatch` / `commitUIPatch` instead.
  *
- * Must be called with `yield*` inside a generator component.
+ * Must be called with `yield*` inside a component.
  *
  * @example
  * function* PageComponent() {

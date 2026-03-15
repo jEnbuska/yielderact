@@ -3,7 +3,6 @@
   "exclude": ["duplicates"],
   "workspaces": {
     ".": {
-      "entry": ["playwright-tests/fixtures.ts"],
       "project": ["src/**/*.ts", "src/**/*.tsx"],
       "ignore": ["src/__tests__/**"]
     },

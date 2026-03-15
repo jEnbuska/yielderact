@@ -4,7 +4,7 @@ import type { ComponentGenerator, DependencyList } from "./types";
 import { depsChanged } from "./types";
 
 /**
- * Side-effect hook for generator components.
+ * Side-effect hook for components.
  *
  * Schedules `fn` to run **after** the component's DOM has been updated.
  * `fn` is called on the first render and again whenever any value in `deps`
@@ -20,7 +20,7 @@ import { depsChanged } from "./types";
  * `useRender` interaction) – only once the generator has returned its final
  * JSX and the resulting DOM is in place.
  *
- * Must be called with `yield*` inside a generator component.
+ * Must be called with `yield*` inside a component.
  *
  * @example
  * function* Timer() {

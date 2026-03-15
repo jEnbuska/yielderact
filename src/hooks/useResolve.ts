@@ -49,7 +49,7 @@ function toChild(renderable: Renderable): Child {
 }
 
 /**
- * Low-level async state hook for generator components.
+ * Low-level async state hook for components.
  *
  * Takes a `Promise<T>` and returns the current state as a snapshot.
  * When the promise settles the component is re-rendered and the hook
@@ -77,7 +77,7 @@ export function* useResolveRaw<T, E = unknown>(
 }
 
 /**
- * Async data hook for generator components.
+ * Async data hook for components.
  *
  * Pauses rendering (yields a loading VNode) until the promise resolves.
  * If the promise rejects, the error VNode is shown indefinitely.
@@ -87,7 +87,7 @@ export function* useResolveRaw<T, E = unknown>(
  * value changes (useful for re-fetching when an ID or search term changes).
  * Pass an empty array `[]` to run the promise exactly once per component instance.
  *
- * Must be called with `yield*` inside a generator component.
+ * Must be called with `yield*` inside a component.
  *
  * @example
  * function* UserProfile({ userId }: { userId: number }) {
