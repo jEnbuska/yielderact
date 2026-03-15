@@ -48,6 +48,8 @@ import type { Child, Component, InternalProps, VNode } from "../jsx";
 import { Portal } from "../jsx";
 import { acquirePortalDelegation } from "./delegation";
 import {
+  childrenShallowEqual,
+  findChildrenPosition,
   flattenChildren,
   getPatchMode,
   isComponentNode,
@@ -56,7 +58,10 @@ import {
   isVNode,
   mergedProps,
   onlyPatchChanged,
+  onlyPatchChangedExcludingChildren,
+  patchOutputVNode,
   shallowEqual,
+  shallowEqualExcludingChildren,
   stripDeferred,
   stripFrameworkDirectives,
 } from "./helpers";
@@ -588,10 +593,20 @@ function* reconcileComponent(
     // ── Same component type at same position ──
     if (prevSlot?.type === vnode.type) {
       // $deps replaces the shallowEqual check when present on the new VNode.
+      // For regular components, exclude children from the comparison — they
+      // are reconciled separately below. Providers don't have a generator to
+      // skip, so use the standard shallowEqual that includes children.
       const propsUnchanged = newDeps
         ? !depsChanged(prevSlot.props.$deps, newDeps)
-        : shallowEqual(prevSlot.props, allProps);
-      const patchOnly = !propsUnchanged && !newDeps && onlyPatchChanged(prevSlot.props, allProps);
+        : providerCtx
+          ? shallowEqual(prevSlot.props, allProps)
+          : shallowEqualExcludingChildren(prevSlot.props, allProps);
+      const patchOnly =
+        !propsUnchanged &&
+        !newDeps &&
+        (providerCtx
+          ? onlyPatchChanged(prevSlot.props, allProps)
+          : onlyPatchChangedExcludingChildren(prevSlot.props, allProps));
       if (propsUnchanged || patchOnly) {
         const inst = prevSlot.componentInstance;
         // When $deps says "unchanged", still update prevSlot.props so next
@@ -610,6 +625,52 @@ function* reconcileComponent(
         if (patchOnly) {
           prevSlot.props = slotProps;
         }
+
+        // Children-only reconciliation: when non-children props are stable
+        // but children differ, skip the generator and reconcile only the
+        // children within the stored output VNode. Guarded by !newDeps —
+        // $deps takes full control when present.
+        if (!newDeps && inst) {
+          const prevChildren = (prevSlot.props as { children?: Child[] }).children;
+          const newChildren = (allProps as { children?: Child[] }).children;
+          if (!childrenShallowEqual(prevChildren, newChildren)) {
+            if (inst.childrenPosition != null && inst.lastOutputVNode != null) {
+              // Patch stored VNode with new children, reconcile output
+              const patchedVNode = patchOutputVNode(
+                inst.lastOutputVNode as VNode,
+                inst.childrenPosition,
+                newChildren ?? [],
+              );
+              inst.lastOutputVNode = patchedVNode;
+              inst.childrenPosition = findChildrenPosition(patchedVNode, newChildren ?? [], []);
+              inst.props = allProps;
+              prevSlot.props = slotProps;
+              const parent = inst.endMarker.parentNode as HTMLElement;
+              inst.slots = yield* reconcileSlotsGen(
+                parent,
+                inst.slots,
+                [patchedVNode],
+                inst.endMarker,
+              );
+              // No flushEffects — generator didn't run, no new effects queued
+            } else if (inst.lastOutputVNode == null || inst.gen) {
+              // Component returned null (children aren't visible) or generator
+              // is paused (useResolve/useRender). Don't rerender — just update
+              // props so the next render/resume sees the new children.
+              inst.props = allProps;
+              prevSlot.props = slotProps;
+            } else {
+              // Children position truly untrackable and generator is idle →
+              // fall back to full rerender
+              inst.props = allProps;
+              inst.capturedCtx = _withBatch(inst.capturedCtx, _getCurrentBatch());
+              inst.rerender();
+              prevSlot.props = slotProps;
+              return { slot: prevSlot, node: prevSlot.node, replaced: false };
+            }
+          }
+        }
+
         if (inst) {
           // Check if any consumed context value differs from capturedCtx.
           const currentCtxMap = _getCtxMap();

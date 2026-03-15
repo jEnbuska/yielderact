@@ -874,6 +874,40 @@ function* App() {
 
 ---
 
+### Children reconciliation optimization
+
+When a parent rerenders and a child component receives new `children` via JSX but its own props are unchanged, the renderer **skips the component's generator** and reconciles only the children within its stored output VNode tree.
+
+This avoids unnecessary generator re-execution for "wrapper" or "layout" components whose job is simply to render their children inside some markup.
+
+```tsx
+function* Card({ title, children }: { title: string; children?: Child | Child[] }) {
+  return (
+    <div class="card">
+      <h2>{title}</h2>
+      <div class="body">{children}</div>
+    </div>
+  );
+}
+
+function* App() {
+  const [count, setCount] = yield* useState(0);
+  return (
+    <Card title="Counter">
+      {/* Card's generator won't re-run — only children are reconciled */}
+      <span>{count}</span>
+      <button onClick={() => setCount(c => c + 1)}>+</button>
+    </Card>
+  );
+}
+```
+
+**Fallback conditions** — the optimization falls back to a full rerender when:
+- The component transforms or filters children (no contiguous reference match)
+- The component ignores children entirely
+- All passed children are primitives (no VNode references to track)
+- `$deps` is set (takes full control of the skip decision)
+
 ### `key`
 
 ```tsx

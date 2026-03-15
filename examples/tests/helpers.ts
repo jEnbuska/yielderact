@@ -23,6 +23,7 @@ const tabIds: Record<string, string> = {
   "AbortSignal Effect": "tab-abort-signal",
   "Key Shuffle": "tab-key-shuffle",
   "$deps prop": "tab-deps",
+  "Children Opt": "tab-children-opt",
   createPortal: "tab-portal",
 };
 

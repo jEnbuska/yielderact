@@ -89,6 +89,176 @@ export function onlyPatchChanged(a: InternalProps, b: InternalProps): boolean {
 }
 
 /**
+ * Shallow equality check excluding the `children` key.
+ *
+ * Used as the primary memoization gate in the children-only reconciliation
+ * optimization. When all non-children props are unchanged, the component
+ * generator can be skipped and only the children subtree is reconciled.
+ *
+ * @param a - Previous props (from `Slot.props`).
+ * @param b - Next props (from the new VNode).
+ */
+export function shallowEqualExcludingChildren(a: InternalProps, b: InternalProps): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  let aCount = 0;
+  let bCount = 0;
+  for (const k of aKeys) if (k !== "children") aCount++;
+  for (const k of bKeys) if (k !== "children") bCount++;
+  if (aCount !== bCount) return false;
+  for (const k of aKeys) {
+    if (k === "children") continue;
+    if (!Object.is(a[k], b[k])) return false;
+  }
+  return true;
+}
+
+/**
+ * Returns true when `a` and `b` differ **only** in the `$patch` prop
+ * (and possibly `children`) and all other content props are identical.
+ *
+ * Like `onlyPatchChanged` but also skips the `children` key.
+ *
+ * @param a - Previous props.
+ * @param b - Next props.
+ */
+export function onlyPatchChangedExcludingChildren(a: InternalProps, b: InternalProps): boolean {
+  const aKeys = Object.keys(a);
+  const bKeys = Object.keys(b);
+  let aCount = 0;
+  let bCount = 0;
+  for (const k of aKeys) if (k !== "children") aCount++;
+  for (const k of bKeys) if (k !== "children") bCount++;
+  if (aCount !== bCount) return false;
+  let patchDiffers = false;
+  for (const k of aKeys) {
+    if (k === "children") continue;
+    if (Object.is(a[k], b[k])) continue;
+    if (k === "$patch") {
+      patchDiffers = true;
+      continue;
+    }
+    return false;
+  }
+  return patchDiffers;
+}
+
+/**
+ * Compare two `children` arrays element-wise via `Object.is`.
+ *
+ * Returns `true` when the arrays have the same length and every element
+ * is identical. `undefined` is treated as an empty array.
+ */
+export function childrenShallowEqual(a: Child[] | undefined, b: Child[] | undefined): boolean {
+  const aLen = a?.length ?? 0;
+  const bLen = b?.length ?? 0;
+  if (aLen !== bLen) return false;
+  if (aLen === 0) return true;
+  for (let i = 0; i < aLen; i++) {
+    if (!Object.is((a as Child[])[i], (b as Child[])[i])) return false;
+  }
+  return true;
+}
+
+/**
+ * Walk an output VNode tree to find where `passedChildren` appear as a
+ * contiguous run of children (matched by reference, VNode objects only).
+ *
+ * Returns `{ path, startIdx, count }` or `null` if no contiguous match
+ * is found. Only VNode objects are matched by reference — primitives are
+ * skipped to avoid ambiguity.
+ *
+ * @param vnode - The output VNode tree to search.
+ * @param passedChildren - The children array from props.
+ * @param path - Current path (array of child indices) for recursion.
+ */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode tree walk with contiguous reference matching
+export function findChildrenPosition(
+  vnode: VNode,
+  passedChildren: Child[],
+  path: number[],
+): { path: number[]; startIdx: number; count: number } | null {
+  // Filter to only VNode references for matching (skip primitives)
+  const vnodeRefs = passedChildren.filter(isVNode);
+  if (vnodeRefs.length === 0) return null;
+
+  const children = vnode.children;
+  // Try to find a contiguous run of vnodeRefs in this node's children
+  const firstRef = vnodeRefs[0] as VNode;
+  for (let startIdx = 0; startIdx < children.length; startIdx++) {
+    if (children[startIdx] === firstRef) {
+      // Check if all vnodeRefs appear contiguously starting here
+      let matched = true;
+      let childIdx = startIdx;
+      let refIdx = 0;
+      while (refIdx < vnodeRefs.length && childIdx < children.length) {
+        const child = children[childIdx];
+        if (isVNode(child)) {
+          if (child !== vnodeRefs[refIdx]) {
+            matched = false;
+            break;
+          }
+          refIdx++;
+        }
+        childIdx++;
+      }
+      if (matched && refIdx === vnodeRefs.length) {
+        return { path, startIdx, count: childIdx - startIdx };
+      }
+    }
+  }
+
+  // Recurse into VNode children
+  for (let i = 0; i < children.length; i++) {
+    const child = children[i];
+    if (isVNode(child) && child.children.length > 0) {
+      const result = findChildrenPosition(child, passedChildren, [...path, i]);
+      if (result) return result;
+    }
+  }
+  return null;
+}
+
+/**
+ * Navigate the stored VNode tree via `path`, shallow-clone nodes on the
+ * path, and splice `newChildren` at the tracked position.
+ *
+ * Only O(path.length) clones are made — the rest of the tree is shared.
+ *
+ * @param vnode - The stored output VNode.
+ * @param position - The tracked children position.
+ * @param newChildren - The new children to splice in.
+ */
+export function patchOutputVNode(
+  vnode: VNode,
+  position: { path: number[]; startIdx: number; count: number },
+  newChildren: Child[],
+): VNode {
+  if (position.path.length === 0) {
+    // Replace at this level
+    const newChildArray = [...vnode.children];
+    newChildArray.splice(position.startIdx, position.count, ...newChildren);
+    return { type: vnode.type, props: vnode.props, children: newChildArray };
+  }
+
+  // Navigate deeper: clone this node and the child at path[0]
+  const idx = position.path[0] as number;
+  const newChildArray = [...vnode.children];
+  const childAtIdx = newChildArray[idx];
+  if (!isVNode(childAtIdx)) return vnode; // safety
+  newChildArray[idx] = patchOutputVNode(
+    childAtIdx,
+    {
+      path: position.path.slice(1),
+      startIdx: position.startIdx,
+      count: position.count,
+    },
+    newChildren,
+  );
+  return { type: vnode.type, props: vnode.props, children: newChildArray };
+}
+
+/**
  * Recursively flatten Fragment VNodes into a flat list of non-Fragment children.
  *
  * Fragments (`<>…</>`) are virtual grouping nodes that produce no DOM element.

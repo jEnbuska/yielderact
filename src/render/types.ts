@@ -496,6 +496,31 @@ export interface ComponentInstance {
   resumeHookIndex: number;
 
   /**
+   * The VNode returned by the generator on the last completed render.
+   *
+   * Used by the children-only reconciliation optimization: when a parent
+   * rerenders but only `children` changed, the stored output VNode is
+   * patched with the new children and reconciled without re-executing the
+   * generator.
+   *
+   * **Written by:** `executeRerender` and `resume` in `mount.ts`.
+   * **Read by:** `reconcileComponent` in `reconciler.ts`.
+   */
+  lastOutputVNode?: Child;
+
+  /**
+   * Where `props.children` elements appear in the output VNode tree.
+   *
+   * - `undefined` — not yet computed (initial state).
+   * - `null` — children are not trackable (transformed, all primitives, etc.).
+   * - `{ path, startIdx, count }` — contiguous position of children elements.
+   *
+   * **Written by:** `executeRerender` and `resume` in `mount.ts`.
+   * **Read by:** `reconcileComponent` in `reconciler.ts`.
+   */
+  childrenPosition?: { path: number[]; startIdx: number; count: number } | null;
+
+  /**
    * Total hook count from the first completed (done=true) generator run.
    *
    * `undefined` until the generator has fully returned at least once

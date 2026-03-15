@@ -30,9 +30,11 @@ import {
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
 import {
+  findChildrenPosition,
   getPatchMode,
   isComponentNode,
   isShown,
+  isVNode,
   mergedProps,
   stripFrameworkDirectives,
 } from "./helpers";
@@ -268,6 +270,9 @@ export function mountComponent(
       _setCtxMap(prevCtx);
     }
 
+    // Track output VNode and children position for children-only optimization.
+    _trackChildrenPosition(instance, vnode);
+
     commitOrDefer(instance, vnode);
   }
 
@@ -350,6 +355,9 @@ export function mountComponent(
         instance.pendingRerender = false;
         continue;
       }
+
+      // Track output VNode and children position for children-only optimization.
+      _trackChildrenPosition(instance, vnode);
 
       // ── Commit ──
       if (!mounted) {
@@ -513,4 +521,20 @@ export function mountContextProvider(
     _setCtxMap(prevCtxMap);
   }
   return { fragment, endMarker, childSlots };
+}
+
+/**
+ * Store the output VNode and compute the children position on a component
+ * instance for the children-only reconciliation optimization.
+ *
+ * @internal
+ */
+function _trackChildrenPosition(instance: ComponentInstance, vnode: Child): void {
+  instance.lastOutputVNode = vnode;
+  const passedChildren = (instance.props as { children?: Child[] }).children;
+  if (passedChildren && passedChildren.length > 0 && vnode != null && isVNode(vnode)) {
+    instance.childrenPosition = findChildrenPosition(vnode, passedChildren, []);
+  } else {
+    instance.childrenPosition = passedChildren?.length ? null : undefined;
+  }
 }

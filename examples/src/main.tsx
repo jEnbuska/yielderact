@@ -5,6 +5,7 @@
  */
 import { createRoot, useState } from "yract";
 import { AbortSignalEffectDemo } from "./components/AbortSignalEffectDemo";
+import { ChildrenOptDemo } from "./components/ChildrenOptDemo";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ContextDemo } from "./components/ContextDemo";
 import { Counter } from "./components/Counter";
@@ -36,6 +37,7 @@ type Tab =
   | "abort-signal"
   | "key-shuffle"
   | "deps"
+  | "children-opt"
   | "portal";
 
 const tabs: { id: Tab; label: string }[] = [
@@ -54,6 +56,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "abort-signal", label: "AbortSignal Effect" },
   { id: "key-shuffle", label: "Key Shuffle" },
   { id: "deps", label: "$deps prop" },
+  { id: "children-opt", label: "Children Opt" },
   { id: "portal", label: "createPortal" },
 ];
 
@@ -113,6 +116,7 @@ function* App() {
         <AbortSignalEffectDemo $shown={activeTab === "abort-signal"} />
         <KeyShuffleDemo $shown={activeTab === "key-shuffle"} />
         <DepsDemo $shown={activeTab === "deps"} />
+        <ChildrenOptDemo $shown={activeTab === "children-opt"} />
         <PortalDemo $shown={activeTab === "portal"} />
       </div>
     </div>
