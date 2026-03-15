@@ -1,4 +1,4 @@
-# yielderact — Priority Scheduler & Batched Commits
+# yract — Priority Scheduler & Batched Commits
 
 > Internal documentation for the cooperative rendering scheduler, batched DOM
 > commits, and the `$deferred` priority system.
@@ -32,7 +32,7 @@
 
 ## Overview
 
-yielderact uses a **priority-aware cooperative scheduler** for rendering updates.
+yract uses a **priority-aware cooperative scheduler** for rendering updates.
 Instead of applying DOM mutations as they occur during reconciliation, all
 mutations are collected into a **patch queue** and committed atomically after
 each priority level completes. This gives two guarantees:
@@ -282,7 +282,7 @@ Processing priority 2
 ## Generator abandonment
 
 When `setState` is called **during** a component's render (while the generator
-body is executing), yielderact does not complete the current render. Instead:
+body is executing), yract does not complete the current render. Instead:
 
 1. `rerender()` sees `isRendering === true` and sets `pendingRerender = true`.
 2. `runHooks` checks `instance.pendingRerender` after each hook descriptor. If

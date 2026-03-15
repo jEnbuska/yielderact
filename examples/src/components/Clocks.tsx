@@ -1,4 +1,4 @@
-import { useEffect, useState } from "yielderact";
+import { useEffect, useState } from "yract";
 import { LiveClock } from "./LiveClock";
 
 export function* Clocks() {

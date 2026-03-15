@@ -1,4 +1,4 @@
-import { useContext, useRef } from "yielderact";
+import { useContext, useRef } from "yract";
 import { AppCtx } from "./LazyContextDemo.shared";
 import { RenderBadge } from "./RenderBadge";
 

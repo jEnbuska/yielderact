@@ -113,7 +113,7 @@ describe("render – useEffect", () => {
       const answer = yield* (function* (): Generator<unknown, string, unknown> {
         // Inline useRender-like pause: yield a VNode to pause the generator
         const caps = (yield {
-          type: Symbol.for("yielderact.useRender.test"),
+          type: Symbol.for("yract.useRender.test"),
         }) as null;
         return caps as unknown as string;
       })();

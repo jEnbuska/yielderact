@@ -1,14 +1,14 @@
 /**
- * JSX automatic runtime – used when `jsxImportSource` is set to `"yielderact"`.
+ * JSX automatic runtime – used when `jsxImportSource` is set to `"yract"`.
  *
  * With this runtime you can write JSX without an explicit import of
  * `createElement` in every file. Instead, add to your tsconfig / babel config:
  *
- *   { "jsxImportSource": "yielderact" }
+ *   { "jsxImportSource": "yract" }
  *
  * or at the top of a file:
  *
- *   /\*\* \@jsxImportSource yielderact \*\/
+ *   /\*\* \@jsxImportSource yract \*\/
  */
 import { type Child, createElement, Fragment, Portal, type VNode } from "./jsx";
 

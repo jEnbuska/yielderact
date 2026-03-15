@@ -1,17 +1,17 @@
 import path from "path";
 import { defineConfig } from "vite";
-import { yielderactPlugin } from "../vite-plugin-yielderact";
+import { yractPlugin } from "../vite-plugin-yract";
 
 export default defineConfig({
-  plugins: [yielderactPlugin()],
+  plugins: [yractPlugin()],
   resolve: {
-    // Resolve yielderact to source files so you don't need a separate build step.
-    // jsx-dev-runtime is an alias for jsx-runtime because yielderact exports
+    // Resolve yract to source files so you don't need a separate build step.
+    // jsx-dev-runtime is an alias for jsx-runtime because yract exports
     // jsxDEV from the same module (Vite's dev mode requests the dev runtime path).
     alias: {
-      "yielderact/jsx-dev-runtime": path.resolve(__dirname, "../src/jsx-runtime.ts"),
-      "yielderact/jsx-runtime": path.resolve(__dirname, "../src/jsx-runtime.ts"),
-      yielderact: path.resolve(__dirname, "../src/index.ts"),
+      "yract/jsx-dev-runtime": path.resolve(__dirname, "../src/jsx-runtime.ts"),
+      "yract/jsx-runtime": path.resolve(__dirname, "../src/jsx-runtime.ts"),
+      yract: path.resolve(__dirname, "../src/index.ts"),
     },
   },
 });

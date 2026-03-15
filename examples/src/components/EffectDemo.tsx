@@ -6,7 +6,7 @@
  *   2. A log of effect / cleanup calls to make the lifecycle visible.
  *   3. Toggling the component on/off to observe cleanup on unmount.
  */
-import { useEffect, useState } from "yielderact";
+import { useEffect, useState } from "yract";
 
 function* Timer() {
   const [tick, setTick] = yield* useState(0);

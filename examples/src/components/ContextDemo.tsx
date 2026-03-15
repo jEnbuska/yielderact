@@ -8,7 +8,7 @@
  *  4. Cross-subtree isolation: two sibling Providers for the same context
  *     must not interfere with each other.
  */
-import { useState } from "yielderact";
+import { useState } from "yract";
 import { BothBadge } from "./BothBadge";
 import { type Locale, LocaleCtx, type Theme, ThemeCtx, themeStyles } from "./ContextDemo.shared";
 import { LocaleBadge } from "./LocaleBadge";

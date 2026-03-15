@@ -1,4 +1,4 @@
-import { useContext, useState } from "yielderact";
+import { useContext, useState } from "yract";
 import { type Theme, ThemeCtx, themeStyles } from "./ContextDemo.shared";
 
 function* SiblingConsumerA() {

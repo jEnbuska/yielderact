@@ -1,8 +1,8 @@
-# yielderact
+# yract
 
 > JSX UI library focused on ease of use and easy to understanding the internals of the library itself
 
-**yielderact** is a tiny, transparent JSX UI library that uses plain JavaScript
+**yract** is a tiny, transparent JSX UI library that uses plain JavaScript
 [generator functions](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function*)
 as components. Each `yield` statement produces the JSX for the current render.
 State lives in ordinary local variables — no magic, no hidden framework machinery.
@@ -22,7 +22,7 @@ The whole library consists of three small modules:
 ### Components
 
 ```tsx
-import { createElement, render } from 'yielderact';
+import { createElement, render } from 'yract';
 
 // A generator function IS a component.
 // `rerender` – passed as the second argument – repaints the component
@@ -61,7 +61,7 @@ render(<Counter />, document.getElementById('root')!);
 ### Fragments
 
 ```tsx
-import { createElement, Fragment, render } from 'yielderact';
+import { createElement, Fragment, render } from 'yract';
 
 function* List() {
   yield (
@@ -78,7 +78,7 @@ function* List() {
 ## Installation
 
 ```bash
-npm install yielderact
+npm install yract
 ```
 
 ## TypeScript / JSX setup
@@ -98,7 +98,7 @@ Add to your `tsconfig.json`:
 …and import at the top of every JSX file:
 
 ```ts
-import { createElement, Fragment } from 'yielderact';
+import { createElement, Fragment } from 'yract';
 ```
 
 Or use the automatic JSX transform:
@@ -107,7 +107,7 @@ Or use the automatic JSX transform:
 {
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "yielderact"
+    "jsxImportSource": "yract"
   }
 }
 ```
@@ -118,9 +118,9 @@ No additional `/// <reference>` directives or manual type imports are needed.
 
 > **Local / monorepo usage (pre-publish)**
 >
-> If you are running yielderact directly from source (e.g. inside the
+> If you are running yract directly from source (e.g. inside the
 > `examples/` folder of this repo) and your editor shows
-> _"Cannot find module 'yielderact'"_, add the following to your
+> _"Cannot find module 'yract'"_, add the following to your
 > project's `tsconfig.json` so the TypeScript language server resolves
 > the package from source:
 >
@@ -129,9 +129,9 @@ No additional `/// <reference>` directives or manual type imports are needed.
 >   "compilerOptions": {
 >     "baseUrl": ".",
 >     "paths": {
->       "yielderact": ["../src/index.ts"],
->       "yielderact/jsx-runtime": ["../src/jsx-runtime.ts"],
->       "yielderact/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
+>       "yract": ["../src/index.ts"],
+>       "yract/jsx-runtime": ["../src/jsx-runtime.ts"],
+>       "yract/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
 >     }
 >   }
 > }

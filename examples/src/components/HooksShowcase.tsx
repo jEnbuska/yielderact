@@ -6,7 +6,7 @@
  *  • useRef  – tracks how many times the component has rendered without
  *            triggering a re-render on mutation.
  */
-import { useId, useMemo, useRef, useState } from "yielderact";
+import { useId, useMemo, useRef, useState } from "yract";
 
 const FRUITS = [
   "Apple",
@@ -35,7 +35,7 @@ export function* HooksShowcase() {
 
   // useMemo: deps are forwarded as arguments to the factory — `searchQuery`
   // receives the current value of `query` and the list only recomputes when
-  // the query changes (yielderact's unique dep-forwarding behaviour).
+  // the query changes (yract's unique dep-forwarding behaviour).
   const filtered = yield* useMemo(
     (searchQuery: string) =>
       FRUITS.filter((fruit) => fruit.toLowerCase().includes(searchQuery.toLowerCase())),

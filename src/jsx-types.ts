@@ -1,5 +1,5 @@
 /**
- * JSX type definitions for yielderact.
+ * JSX type definitions for yract.
  *
  * Provides strongly-typed props for every standard HTML and SVG element,
  * keeping the developer experience close to TypeScript + React while
@@ -325,7 +325,7 @@ export interface CSSProperties {
  * `HTMLElementEventMap`.
  *
  * Props follow the `on${Capitalize<eventName>}` naming convention used
- * throughout yielderact – for example:
+ * throughout yract – for example:
  *  - `click`       → `onClick`
  *  - `keydown`     → `onKeydown`
  *  - `input`       → `onInput`

@@ -1,4 +1,4 @@
-# CLAUDE.md - Yielderact Development Guide
+# CLAUDE.md - Y'ract Development Guide
 
 ## MANDATORY: READ FIRST
 
@@ -27,7 +27,7 @@
 
 ## Project Overview
 
-yielderact is a minimal JSX UI library using JavaScript generator functions.
+yract is a minimal JSX UI library using JavaScript generator functions.
 
 - **Components:** Generators using `yield*` for hooks and `return` for JSX.
 - **State:** Local variables managed by hooks.
@@ -129,7 +129,7 @@ function* Counter(_props: object) {
 - **TypeScript:** Strictly typed; `any` is forbidden. `noUncheckedIndexedAccess` and `noPropertyAccessFromIndexSignature` are enabled.
 - **Special Props:** Always support the `$shown={boolean}` prop.
 - **Dependencies:** Zero-dependency goal.
-- **JSX Config:** The library build uses the classic `react` transform (`jsxFactory: "createElement"`). Consumers (including `examples/`) use `react-jsx` with `jsxImportSource: "yielderact"`, backed by `src/jsx-runtime.ts`.
+- **JSX Config:** The library build uses the classic `react` transform (`jsxFactory: "createElement"`). Consumers (including `examples/`) use `react-jsx` with `jsxImportSource: "yract"`, backed by `src/jsx-runtime.ts`.
 - **Multi-root:** Each `render()`/`createRoot()` creates an independent `RenderContext` with its own state (patch depth, dirty instances, scheduler queue, context map, DOM ops queue). The global `idCounter` is the only shared state (IDs must be globally unique).
 - **Guard Clauses:** Always prefer guard clauses (early returns) over nested conditionals. Return early when a condition short-circuits the rest of the logic.
 - **Lint Strictness:** Never weaken linting or tsconfig rules. Fix lint issues by improving code, not by adding `biome-ignore` or `@ts-ignore` comments. The only accepted exceptions are `biome-ignore lint/complexity/noExcessiveCognitiveComplexity` on architectural dispatch functions (reconciler, props, mount, dispatch) that inherently require many branches.

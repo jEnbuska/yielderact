@@ -7,7 +7,7 @@
  *  2. Component – a stateful counter toggled via `$shown`; the
  *     counter resets to zero each time it is re-mounted.
  */
-import { useState } from "yielderact";
+import { useState } from "yract";
 
 // ---------------------------------------------------------------------------
 // Sub-components used in the demo

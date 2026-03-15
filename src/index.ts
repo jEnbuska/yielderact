@@ -1,5 +1,5 @@
 /**
- * yielderact – JSX UI library powered by JavaScript generators.
+ * yract – JSX UI library powered by JavaScript generators.
  *
  * Components are generator functions that **return** their JSX.
  * Hooks are called with `yield*` and may pause rendering until async
@@ -8,7 +8,7 @@
  * Quick-start:
  *
  * ```tsx
- * import { render, useState } from 'yielderact';
+ * import { render, useState } from 'yract';
  *
  * function* Counter(_props: object) {
  *   const [count, setCount] = yield* useState(0);
