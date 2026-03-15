@@ -299,6 +299,78 @@ function* Variant4() {
 }
 
 // ---------------------------------------------------------------------------
+// Variant 5 – parent state reflected in useRender dialog
+// ---------------------------------------------------------------------------
+
+function* QuantityDialog({
+  quantity,
+  setQuantity,
+}: {
+  quantity: number;
+  setQuantity: (fn: (prev: number) => number) => void;
+}) {
+  const resume = yield* useResume<number>();
+  return (
+    <div data-testid="v5-dialog" style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+      <button
+        data-testid="v5-decrement"
+        onClick={() => setQuantity((n) => Math.max(0, n - 1))}
+        style={{
+          padding: "0.4rem 0.8rem",
+          border: "1px solid #ccc",
+          borderRadius: "4px",
+          cursor: "pointer",
+        }}
+      >
+        −
+      </button>
+      <span data-testid="v5-quantity" style={{ minWidth: "2rem", textAlign: "center" }}>
+        {quantity}
+      </span>
+      <button
+        data-testid="v5-increment"
+        onClick={() => setQuantity((n) => n + 1)}
+        style={{
+          padding: "0.4rem 0.8rem",
+          border: "1px solid #ccc",
+          borderRadius: "4px",
+          cursor: "pointer",
+        }}
+      >
+        +
+      </button>
+      <button
+        data-testid="v5-confirm"
+        onClick={() => resume(quantity)}
+        style={{
+          padding: "0.4rem 1rem",
+          marginLeft: "0.5rem",
+          background: "#0070f3",
+          color: "#fff",
+          border: "none",
+          borderRadius: "4px",
+          cursor: "pointer",
+        }}
+      >
+        Confirm
+      </button>
+    </div>
+  );
+}
+
+function* Variant5() {
+  const [quantity, setQuantity] = yield* useState(1);
+  const confirmed = yield* useRender<number>(
+    <QuantityDialog quantity={quantity} setQuantity={setQuantity} />,
+  );
+  return (
+    <p data-testid="v5-result">
+      Confirmed quantity: <strong data-testid="v5-answer">{confirmed}</strong>
+    </p>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Top-level export
 // ---------------------------------------------------------------------------
 
@@ -324,6 +396,9 @@ export function* ConfirmDialog() {
 
       <h3>Variant 4 – wizard (multiple useRender inline)</h3>
       <Variant4 />
+
+      <h3>Variant 5 – parent state reflected in dialog</h3>
+      <Variant5 />
     </div>
   );
 }

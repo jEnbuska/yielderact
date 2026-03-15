@@ -144,4 +144,40 @@ test.describe("useRender / ConfirmDialog example", () => {
     await expect(page.getByTestId("v4-step-a")).toBeVisible();
     await expect(page.getByTestId("v4-result")).not.toBeAttached();
   });
+
+  // ── Variant 5: parent state reflected in useRender dialog ──
+
+  test("variant 5: dialog shows initial quantity", async ({ page }) => {
+    await expect(page.getByTestId("v5-dialog")).toBeVisible();
+    await expect(page.getByTestId("v5-quantity")).toHaveText("1");
+    await expect(page.getByTestId("v5-result")).not.toBeAttached();
+  });
+
+  test("variant 5: incrementing updates quantity in dialog", async ({ page }) => {
+    await page.getByTestId("v5-increment").click();
+    await expect(page.getByTestId("v5-quantity")).toHaveText("2");
+
+    await page.getByTestId("v5-increment").click();
+    await expect(page.getByTestId("v5-quantity")).toHaveText("3");
+  });
+
+  test("variant 5: decrementing updates quantity in dialog", async ({ page }) => {
+    await page.getByTestId("v5-increment").click();
+    await page.getByTestId("v5-increment").click();
+    await expect(page.getByTestId("v5-quantity")).toHaveText("3");
+
+    await page.getByTestId("v5-decrement").click();
+    await expect(page.getByTestId("v5-quantity")).toHaveText("2");
+  });
+
+  test("variant 5: confirming shows the current quantity", async ({ page }) => {
+    await page.getByTestId("v5-increment").click();
+    await page.getByTestId("v5-increment").click();
+    await page.getByTestId("v5-increment").click();
+    await expect(page.getByTestId("v5-quantity")).toHaveText("4");
+
+    await page.getByTestId("v5-confirm").click();
+    await expect(page.getByTestId("v5-dialog")).not.toBeAttached();
+    await expect(page.getByTestId("v5-answer")).toHaveText("4");
+  });
 });
