@@ -39,15 +39,15 @@ yract is a minimal JSX UI library using JavaScript generator functions.
 
 ### 1. Starting a Task (Worktree Workflow)
 
-Each branch gets its own worktree under `.branches/yract/` so multiple Claude Code sessions can work in parallel without conflicts. The main repo folder stays on `dev`.
+Each branch gets its own worktree under `.worktrees/` so multiple Claude Code sessions can work in parallel without conflicts. The main repo folder stays on `dev`.
 
 1. Check merged PRs: `gh pr list --state merged` — close resolved issues: `gh issue close <number>`
 2. Ensure main repo `dev` is up to date: `git checkout dev && git pull origin dev` (from main repo root)
-3. Create branch + worktree: `git worktree add .branches/yract/<branch_name> -b <branch_name>`
-4. Install deps in worktree: `cd .branches/yract/<branch_name> && npm ci && npm ci --prefix examples`
+3. Create branch + worktree: `git worktree add .worktrees/<branch_name> -b <branch_name>`
+4. Install deps in worktree: `cd .worktrees/<branch_name> && npm ci && npm ci --prefix examples`
 5. Copy Claude Code settings: `mkdir -p .claude && cp <main-repo-root>/.claude/settings.local.json .claude/`
 6. Work exclusively within the worktree directory
-7. Cleanup after merge: `git worktree remove .branches/yract/<branch_name> && git branch -d <branch_name>`
+7. Cleanup after merge: `git worktree remove .worktrees/<branch_name> && git branch -d <branch_name>`
 
 ### 2. Development Commands
 
