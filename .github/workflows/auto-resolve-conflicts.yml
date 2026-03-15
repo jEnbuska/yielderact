@@ -12,6 +12,7 @@ jobs:
   resolve-conflicts:
     name: Resolve PR conflicts
     runs-on: ubuntu-latest
+    if: github.event.sender.login == 'jEnbuska'
 
     steps:
       - name: Checkout repository
