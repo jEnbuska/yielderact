@@ -2,7 +2,7 @@ import { useMemo, useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
-// jsdom is provided by jest-environment-jsdom (see jest.config.js)
+// jsdom is provided by vitest (see vitest.config.ts)
 
 describe("useMemo", () => {
   let container: HTMLElement;
@@ -17,7 +17,7 @@ describe("useMemo", () => {
   });
 
   it("computes the initial value by calling fn with deps", () => {
-    const factory = jest.fn((a: number, b: number) => a + b);
+    const factory = vi.fn((a: number, b: number) => a + b);
     let capturedValue: number | null = null;
 
     function* Comp() {
@@ -32,7 +32,7 @@ describe("useMemo", () => {
   });
 
   it("does not recompute when deps are the same", () => {
-    const factory = jest.fn((a: number) => a * 2);
+    const factory = vi.fn((a: number) => a * 2);
     let setValue: (v: number) => void = () => {};
 
     function* Comp() {
@@ -49,7 +49,7 @@ describe("useMemo", () => {
   });
 
   it("recomputes when deps change", () => {
-    const factory = jest.fn((a: number) => a * 2);
+    const factory = vi.fn((a: number) => a * 2);
     let setValue: (v: number) => void = () => {};
     let capturedValue: number | null = null;
 
@@ -71,7 +71,7 @@ describe("useMemo", () => {
   });
 
   it("works with empty deps (zero-arg factory)", () => {
-    const factory = jest.fn(() => 42);
+    const factory = vi.fn(() => 42);
     let setValue: (v: number) => void = () => {};
     let capturedValue: number | null = null;
 

@@ -17,7 +17,7 @@ describe("event delegation", () => {
   // ── Basic delegation ──────────────────────────────────────────────────────
 
   it("only one native listener per event type on root", () => {
-    const addSpy = jest.spyOn(container, "addEventListener");
+    const addSpy = vi.spyOn(container, "addEventListener");
 
     render(
       createElement(
@@ -38,14 +38,14 @@ describe("event delegation", () => {
   });
 
   it("dispatches click events through delegation", () => {
-    const onClick = jest.fn();
+    const onClick = vi.fn();
     render(createElement("button", { onClick }, "click me"), container);
     container.querySelector("button")?.click();
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it("wraps events in SyntheticEvent with correct properties", () => {
-    const onClick = jest.fn();
+    const onClick = vi.fn();
     render(createElement("button", { onClick }, "click me"), container);
     container.querySelector("button")?.click();
 
@@ -91,8 +91,8 @@ describe("event delegation", () => {
   // ── stopPropagation ──────────────────────────────────────────────────────
 
   it("stopPropagation halts synthetic bubble dispatch", () => {
-    const outerClick = jest.fn();
-    const innerClick = jest.fn((e: { stopPropagation(): void }) => {
+    const outerClick = vi.fn();
+    const innerClick = vi.fn((e: { stopPropagation(): void }) => {
       e.stopPropagation();
     });
 
@@ -112,12 +112,12 @@ describe("event delegation", () => {
   });
 
   it("stopPropagation in capture phase stops bubble phase", () => {
-    const outerCapture = jest.fn((e: { stopPropagation(): void }) => {
+    const outerCapture = vi.fn((e: { stopPropagation(): void }) => {
       e.stopPropagation();
     });
-    const innerCapture = jest.fn();
-    const innerBubble = jest.fn();
-    const outerBubble = jest.fn();
+    const innerCapture = vi.fn();
+    const innerBubble = vi.fn();
+    const outerBubble = vi.fn();
 
     render(
       createElement(
@@ -256,19 +256,19 @@ describe("event delegation", () => {
   // ── Non-delegated events ──────────────────────────────────────────────
 
   it("scroll event is attached per-element (non-delegated)", () => {
-    const onScroll = jest.fn();
+    const onScroll = vi.fn();
     render(createElement("div", { onScroll }, "content"), container);
 
     const div = container.querySelector("div") as HTMLElement;
-    const addSpy = jest.spyOn(div, "addEventListener");
+    const addSpy = vi.spyOn(div, "addEventListener");
 
     // The scroll listener should have been added directly to the element,
     // NOT to the root container. We can verify by checking the container
     // doesn't have a scroll listener.
-    const containerAddSpy = jest.spyOn(container, "addEventListener");
+    const containerAddSpy = vi.spyOn(container, "addEventListener");
 
     // Re-render to check that additional scroll elements don't add root listeners
-    render(createElement("div", { onScroll: jest.fn() }, "content2"), container);
+    render(createElement("div", { onScroll: vi.fn() }, "content2"), container);
 
     // Container should not get a "scroll" listener
     const scrollOnContainer = containerAddSpy.mock.calls.filter(([type]) => type === "scroll");
@@ -308,7 +308,7 @@ describe("event delegation", () => {
   // ── Event prop mapping ────────────────────────────────────────────────
 
   it("onDoubleClick maps to dblclick DOM event", () => {
-    const onDoubleClick = jest.fn();
+    const onDoubleClick = vi.fn();
     render(createElement("button", { onDoubleClick }, "dblclick me"), container);
 
     const btn = container.querySelector("button") as HTMLButtonElement;
@@ -318,7 +318,7 @@ describe("event delegation", () => {
   });
 
   it("onFocus maps to focusin DOM event (delegated)", () => {
-    const onFocus = jest.fn();
+    const onFocus = vi.fn();
     render(createElement("input", { onFocus }), container);
 
     const input = container.querySelector("input") as HTMLInputElement;
@@ -328,7 +328,7 @@ describe("event delegation", () => {
   });
 
   it("onBlur maps to focusout DOM event (delegated)", () => {
-    const onBlur = jest.fn();
+    const onBlur = vi.fn();
     render(createElement("input", { onBlur }), container);
 
     const input = container.querySelector("input") as HTMLInputElement;

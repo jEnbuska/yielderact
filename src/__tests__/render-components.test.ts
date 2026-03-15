@@ -2,7 +2,7 @@ import { useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
-// jsdom is provided by jest-environment-jsdom (see jest.config.js)
+// jsdom is provided by vitest (see vitest.config.ts)
 
 describe("render – components", () => {
   let container: HTMLElement;

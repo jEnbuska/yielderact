@@ -5,7 +5,7 @@ import { render } from "../render";
 
 // useContext is now a generator – components must call it with yield*
 
-// jsdom is provided by jest-environment-jsdom (see jest.config.js)
+// jsdom is provided by vitest (see vitest.config.ts)
 
 describe("createContext / useContext", () => {
   let container: HTMLElement;
