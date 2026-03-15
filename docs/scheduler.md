@@ -183,7 +183,7 @@ _priorityCtx default = 0
 </App>
 ```
 
-When a generator component mounts, it captures its priority from
+When a component mounts, it captures its priority from
 `_getCurrentPriority()` and stores it in `instance.priority`. This value is
 used by the scheduler to place the instance in the correct priority queue.
 

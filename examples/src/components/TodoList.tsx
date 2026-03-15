@@ -1,5 +1,5 @@
 /**
- * TodoList – a generator component demonstrating array state management
+ * TodoList – a component demonstrating array state management
  * with `yield* useState`.
  */
 import { useId, useState } from "yract";

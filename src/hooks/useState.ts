@@ -3,13 +3,13 @@ import { $USE_STATE, type StateDescriptor } from "./descriptors";
 import type { ComponentGenerator } from "./types";
 
 /**
- * Persistent state hook for generator components.
+ * Persistent state hook for components.
  *
  * Returns `[currentValue, setter]`. Calling the setter stores the new value
  * and triggers a re-render. The value persists across re-renders even though
  * the generator function body is re-executed from the top each time.
  *
- * Must be called with `yield*` inside a generator component or hook.
+ * Must be called with `yield*` inside a component or hook.
  *
  * @example
  * function* Counter() {

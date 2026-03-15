@@ -18,7 +18,7 @@ export type Child = VNode | string | number | boolean | null | undefined;
 
 /**
  * Framework props valid on **every** JSX element — both intrinsic HTML/SVG
- * elements and custom generator components — without needing to be declared
+ * elements and custom components — without needing to be declared
  * in the component's own props type.
  *
  * These are consumed by the framework and **never** rendered as DOM attributes.
@@ -78,7 +78,7 @@ export interface SpecialProps<TRef = unknown> extends FrameworkProps {
 export type InternalProps = SpecialProps & Record<string, unknown>;
 
 /**
- * A generator-function component.
+ * A component.
  *
  * The component body runs from top to bottom on each render and **returns**
  * its JSX (not `yield`s it).  Hooks are invoked with `yield*` and may
@@ -178,7 +178,7 @@ export function createElement<T extends keyof JSX.IntrinsicElements>(
   ...children: Child[]
 ): VNode;
 
-// Overload 2: generator component function
+// Overload 2: component function
 export function createElement<P extends InternalProps>(
   type: Component<P>,
   props: P | null,
@@ -220,8 +220,8 @@ export function createElement(
  *
  * `JSX.Element` is intentionally omitted so TypeScript falls back to the
  * return type of the `jsx()` factory (i.e. `VNode`), which means generator
- * components that return `ComponentGenerator<Child>` are accepted
- * without a type error.
+ * components that return `ComponentGenerator<Child>` are accepted without
+ * a type error.
  */
 declare global {
   // eslint-disable-next-line @typescript-eslint/no-namespace
@@ -229,8 +229,8 @@ declare global {
     interface IntrinsicElements extends IntrinsicElementsDef {}
     /**
      * Props that are valid on every JSX element — both intrinsic HTML/SVG
-     * elements and custom generator components — without
-     * needing to be declared in the component's own props type.
+     * elements and custom components — without needing to be
+     * declared in the component's own props type.
      *
      * Only framework-level props (`$key`, `$shown`, `$patch`, `$deferred`)
      * are universally available. `children` and `$ref` must be explicitly

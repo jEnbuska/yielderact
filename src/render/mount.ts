@@ -1,17 +1,17 @@
 /**
- * mount.ts — Initial DOM construction and generator component lifecycle.
+ * mount.ts — Initial DOM construction and component lifecycle.
  *
  * This module handles:
  * 1. **Building** DOM nodes from VNode trees (`buildNode`).
- * 2. **Mounting** generator components (`mountComponent`) — creates
+ * 2. **Mounting** components (`mountComponent`) — creates
  *    an end-marker Comment node, the `ComponentInstance`, and defines `resume`,
  *    `executeRerender`, and `rerender` closures that drive the component's
  *    lifecycle.
  * 3. **Mounting** context Providers (`mountContextProvider`).
  *
  * **No wrapper spans.** Components do not create wrapper `<span>` elements.
- * Instead, output nodes are placed directly in the parent DOM. Each generator
- * component and Provider uses an end-marker Comment node (`<!---->`) as an
+ * Instead, output nodes are placed directly in the parent DOM. Each component
+ * and Provider uses an end-marker Comment node (`<!---->`) as an
  * insertion anchor and slot reference. The end-marker is always the last DOM
  * node belonging to the component within its parent.
  */
@@ -53,12 +53,12 @@ import type { ComponentInstance, HookState, RenderContext, Slot } from "./types"
  * 1. `null` / `undefined` / `false` → empty TextNode.
  * 2. `string` / `number` → TextNode.
  * 3. `Fragment` → `DocumentFragment` containing children.
- * 4. Function component → dispatches to `mountComponent`
+ * 4. Component → dispatches to `mountComponent`
  *    or `mountContextProvider`.
  * 5. HTML tag string → `HTMLElement` with props and children.
  *
  * @param child - The VNode or primitive to build.
- * @returns The real DOM node. For generator components and Providers, returns
+ * @returns The real DOM node. For components and Providers, returns
  *   a `DocumentFragment` containing the output nodes + endMarker.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode type dispatch with many branches
@@ -161,7 +161,7 @@ function commitOrDefer(instance: ComponentInstance, vnode: Child): void {
 }
 
 /**
- * Mount a generator-function component using an end-marker Comment node.
+ * Mount a component using an end-marker Comment node.
  *
  * This is the heart of the component lifecycle. It:
  * 1. Creates an end-marker Comment node (`<!---->`) that serves as the
@@ -176,8 +176,8 @@ function commitOrDefer(instance: ComponentInstance, vnode: Child): void {
  *
  * **Called by:**
  * - `buildVNodeList` and `buildNode` — during initial mount.
- * - `reconcileOne` in `reconciler.ts` — when a new generator component
- *   appears at a position where a different type was before.
+ * - `reconcileOne` in `reconciler.ts` — when a new component appears
+ *   at a position where a different type was before.
  *
  * @param component - The component function.
  * @param props     - The component's initial props.

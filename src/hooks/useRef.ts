@@ -10,12 +10,12 @@ export interface RefObject<T> {
 }
 
 /**
- * Persistent mutable ref hook for generator components.
+ * Persistent mutable ref hook for components.
  *
  * Returns a stable `{ current }` object whose value persists across re-renders
  * without triggering a re-render when mutated.
  *
- * Must be called with `yield*` inside a generator component or hook.
+ * Must be called with `yield*` inside a component or hook.
  *
  * **Overload 1 — no argument:** `.current` is `T | undefined`, initially `undefined`.
  * Useful for DOM refs that are set after mount.

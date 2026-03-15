@@ -32,7 +32,7 @@ describe("no wrapper spans in rendered output", () => {
     document.body.removeChild(container);
   });
 
-  // ── Generator components (no hooks) ──
+  // ── Components (no hooks) ──
 
   it("component returning a single element", () => {
     function* Greeting({ name }: { name: string }) {
@@ -63,9 +63,9 @@ describe("no wrapper spans in rendered output", () => {
     expectNoDisplayContentsSpans(container);
   });
 
-  // ── Generator components ──
+  // ── Components ──
 
-  it("generator component returning a single element", () => {
+  it("component returning a single element", () => {
     function* Card() {
       return createElement("div", { className: "card" }, "content");
     }
@@ -74,7 +74,7 @@ describe("no wrapper spans in rendered output", () => {
     expectNoDisplayContentsSpans(container);
   });
 
-  it("generator component with useState", () => {
+  it("component with useState", () => {
     let setCount: (v: number) => void = () => {};
 
     function* Counter() {
@@ -92,7 +92,7 @@ describe("no wrapper spans in rendered output", () => {
     expectNoDisplayContentsSpans(container);
   });
 
-  it("nested generator components", () => {
+  it("nested components", () => {
     function* Inner() {
       return createElement("span", null, "hello");
     }
@@ -104,7 +104,7 @@ describe("no wrapper spans in rendered output", () => {
     expectNoDisplayContentsSpans(container);
   });
 
-  it("generator component inside HTML element", () => {
+  it("component inside HTML element", () => {
     function* Label({ text }: { text: string }) {
       return createElement("span", null, text);
     }
@@ -118,7 +118,7 @@ describe("no wrapper spans in rendered output", () => {
 
   // ── Multiple children / siblings ──
 
-  it("multiple generator components as siblings", () => {
+  it("multiple components as siblings", () => {
     function* A() {
       return createElement("p", null, "A");
     }
@@ -136,7 +136,7 @@ describe("no wrapper spans in rendered output", () => {
     expectNoDisplayContentsSpans(container);
   });
 
-  it("mixed children: elements, text, and generator components", () => {
+  it("mixed children: elements, text, and components", () => {
     function* GenChild() {
       return createElement("em", null, "gen");
     }
@@ -227,7 +227,7 @@ describe("no wrapper spans in rendered output", () => {
 
   // ── Deep nesting ──
 
-  it("deeply nested: Provider > generator > HTML > generator > generator", () => {
+  it("deeply nested: Provider > component > HTML > component > component", () => {
     const Ctx = createContext("ctx");
 
     function* Leaf() {

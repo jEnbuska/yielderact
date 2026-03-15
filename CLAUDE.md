@@ -104,7 +104,7 @@ function* Counter(_props: object) {
 | `render/types.ts`         | `RenderContext`, `ComponentInstance`, `Slot`, `HookState`               |
 | `render/state.ts`         | `createRenderContext()`, active context pointer                         |
 | `render/index.ts`         | `render()`, `createRoot()` entry points                                 |
-| `render/mount.ts`         | DOM construction & generator component lifecycle                        |
+| `render/mount.ts`         | DOM construction & component lifecycle                                  |
 | `render/reconciler.ts`    | Positional reconciliation (diff + patch)                                |
 | `render/hooks-runtime.ts` | Hook descriptor dispatch, effect flushing, unmount                      |
 | `render/helpers.ts`       | Type guards, shallow equality, props merging, `flattenChildren`         |
@@ -136,7 +136,7 @@ function* Counter(_props: object) {
 - **Type Safety Tests:** Compile-time type tests live in `src/__tests__/*.typetest.tsx` and are checked by `npm run typecheck`.
 - **New Feature Checklist:** Every new public API feature must include:
   1. An example demo component in `examples/src/components/` wired into `main.tsx` as a tab.
-  2. Playwright visual tests in `playwright-tests/` covering the demo.
+  2. Playwright visual tests in `examples/tests/` covering the demo.
   3. Documentation in `docs/api.md`.
 - **Bug Fix Workflow:** When a bug is discovered, always write unit tests and/or Playwright visual tests that reproduce the bug **before** writing the fix. Verify the tests fail, then fix the bug, then verify the tests pass.
 

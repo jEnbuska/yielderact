@@ -14,9 +14,9 @@ describe("$key prop – keyed reconciliation", () => {
     document.body.removeChild(container);
   });
 
-  // ─── Generator components mixed with falsy values ───
+  // ─── Components mixed with falsy values ───
 
-  it("reorders generator components by key without remounting", () => {
+  it("reorders components by key without remounting", () => {
     let renderCountA = 0;
     let renderCountB = 0;
     let renderCountC = 0;
@@ -90,7 +90,7 @@ describe("$key prop – keyed reconciliation", () => {
     expect(renderCountC).toBe(0);
   });
 
-  it("generator components with keys mixed with falsy values", () => {
+  it("components with keys mixed with falsy values", () => {
     let setItems: (v: (string | null)[]) => void = () => {};
 
     function* Item({ label }: { label: string }) {
@@ -136,9 +136,9 @@ describe("$key prop – keyed reconciliation", () => {
     expect(newSpans[2]).toBe(spanB);
   });
 
-  // ─── Generator components mixed with falsy values (non-stateful) ───
+  // ─── Components mixed with falsy values (non-stateful) ───
 
-  it("reorders generator components by key without recreating DOM", () => {
+  it("reorders components by key without recreating DOM", () => {
     let setOrder: (v: string[]) => void = () => {};
 
     function* ItemX() {
@@ -180,7 +180,7 @@ describe("$key prop – keyed reconciliation", () => {
     expect(ul.children[1]).toBe(nodeX);
   });
 
-  it("generator components with keys mixed with falsy values", () => {
+  it("components with keys mixed with falsy values", () => {
     let setItems: (v: (string | null)[]) => void = () => {};
 
     function* Tag({ label }: { label: string }) {
@@ -275,7 +275,7 @@ describe("$key prop – keyed reconciliation", () => {
 
   // ─── Component keeps working after key-based reorder ───
 
-  it("generator component preserves state and continues working after reorder", () => {
+  it("component preserves state and continues working after reorder", () => {
     let setOrder: (v: string[]) => void = () => {};
     const setters: Record<string, (v: number) => void> = {};
 
@@ -323,7 +323,7 @@ describe("$key prop – keyed reconciliation", () => {
 
   // ─── Key change alone does NOT cause rerender ───
 
-  it("does not rerender generator component when only key changes", () => {
+  it("does not rerender component when only key changes", () => {
     let renderCount = 0;
     let setKey: (v: string) => void = () => {};
     let setLabel: (v: string) => void = () => {};
@@ -429,7 +429,7 @@ describe("$key prop – keyed reconciliation", () => {
 
   // ─── Props update after reorder causes rerender ───
 
-  it("props update on keyed generator component triggers rerender after reorder", () => {
+  it("props update on keyed component triggers rerender after reorder", () => {
     let setOrder: (v: string[]) => void = () => {};
     let setLabelFor: (id: string, label: string) => void = () => {};
 

@@ -16,10 +16,10 @@ The whole library consists of three small modules:
 | File                                       | What it does                                                  |
 | ------------------------------------------ | ------------------------------------------------------------- |
 | [`src/jsx.ts`](src/jsx.ts)                 | Defines the `VNode` type and the `createElement` JSX factory  |
-| [`src/render.ts`](src/render.ts)           | Turns VNodes into real DOM nodes; mounts generator components |
+| [`src/render.ts`](src/render.ts)           | Turns VNodes into real DOM nodes; mounts components          |
 | [`src/jsx-runtime.ts`](src/jsx-runtime.ts) | Automatic JSX transform support (`jsxImportSource`)           |
 
-### Generator components
+### Components
 
 ```tsx
 import { createElement, render } from 'yract';

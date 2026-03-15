@@ -32,7 +32,7 @@ export type UseRenderState<T> = {
 const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
 
 /**
- * Interactive render hook for generator components.
+ * Interactive render hook for components.
  *
  * Pauses the generator and renders UI until `resume(value)` is called.
  * Whatever is passed to `resume` is returned from `yield* useRender(...)`,
@@ -86,7 +86,7 @@ const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
  *   return <p>You chose: {answer.current}</p>;
  * }
  *
- * Must be called with `yield*` inside a generator component.
+ * Must be called with `yield*` inside a component.
  */
 export function useRender<T>(child: Child): ComponentGenerator<T>;
 export function useRender<T>(fn: UseRenderFn<T>, deps: DependencyList): ComponentGenerator<T>;
@@ -128,7 +128,7 @@ export function* useRender<T>(
  * itself does not need to do anything further after calling `resume` – the
  * parent takes over from that point.
  *
- * Must be called with `yield*` inside a generator component that is rendered
+ * Must be called with `yield*` inside a component that is rendered
  * by a parent via `useRender` (Variant 1).  Throws if called outside that
  * context.
  *

@@ -1,18 +1,21 @@
-import { commitUIPatch, startUIPatch, useState } from "yract";
+import { commitUIPatch, startUIPatch, useRef, useState } from "yract";
 import { VisibilityTarget } from "./VisibilityTarget";
 
 export function* GlobalVisibilityDemo() {
   const [showDefault, setShowDefault] = yield* useState(true);
   const [showLive, setShowLive] = yield* useState(true);
-  const [patchActive, setPatchActive] = yield* useState(false);
+  // useRef instead of useState: the component that controls its own patch
+  // cannot use state for button UI — state changes are deferred by the patch.
+  const patchActive = yield* useRef(false);
 
   const beginPatch = () => {
-    setPatchActive(true);
+    if (patchActive.current) return;
+    patchActive.current = true;
     startUIPatch();
   };
 
   const commitPatch = () => {
-    setPatchActive(false);
+    patchActive.current = false;
     commitUIPatch();
   };
 
@@ -25,7 +28,6 @@ export function* GlobalVisibilityDemo() {
       <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginBottom: "0.75rem" }}>
         <button
           data-testid="gv-start-patch"
-          disabled={patchActive}
           onClick={beginPatch}
           style={{ padding: "0.3rem 0.6rem" }}
         >
@@ -33,7 +35,6 @@ export function* GlobalVisibilityDemo() {
         </button>
         <button
           data-testid="gv-commit-patch"
-          disabled={!patchActive}
           onClick={commitPatch}
           style={{ padding: "0.3rem 0.6rem" }}
         >

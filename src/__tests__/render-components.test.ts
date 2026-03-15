@@ -4,7 +4,7 @@ import { render } from "../render";
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe("render – generator components", () => {
+describe("render – components", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -16,7 +16,7 @@ describe("render – generator components", () => {
     document.body.removeChild(container);
   });
 
-  it("renders a generator component that returns JSX", () => {
+  it("renders a component that returns JSX", () => {
     function* Greeting({ name }: { name: string }) {
       return createElement("h2", null, `Hi, ${name}!`);
     }
@@ -66,7 +66,7 @@ describe("render – generator components", () => {
     expect(container.querySelector("button")?.textContent).toBe("2");
   });
 
-  it("renders generator components nested inside HTML elements", () => {
+  it("renders components nested inside HTML elements", () => {
     function* Label({ text }: { text: string }) {
       return createElement("span", null, text);
     }
@@ -97,7 +97,7 @@ describe("render – generator components", () => {
   });
 });
 
-describe("render – generator components with useState", () => {
+describe("render – components with useState", () => {
   let container: HTMLElement;
 
   beforeEach(() => {

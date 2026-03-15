@@ -2,12 +2,12 @@
  * KeyShuffleDemo – demonstrates keyed reconciliation.
  *
  * Shows that reordering keyed children moves DOM nodes instead of
- * recreating them, and that generator component state is preserved
+ * recreating them, and that component state is preserved
  * across reorders.
  */
 import { useRef, useState } from "yract";
 
-/* ── Stateful counter item (generator component) ── */
+/* ── Stateful counter item ── */
 
 function* CounterItem({ id, color }: { id: string; color: string }) {
   const [count, setCount] = yield* useState(0);
@@ -38,7 +38,7 @@ function* CounterItem({ id, color }: { id: string; color: string }) {
   );
 }
 
-/* ── Tag item (generator component) ── */
+/* ── Tag item ── */
 
 function* PlainTag({ label }: { label: string }) {
   return (
@@ -91,12 +91,12 @@ export function* KeyShuffleDemo() {
     <section aria-label="Key shuffle example">
       <h2>Key Shuffle</h2>
       <p>
-        Keyed reconciliation moves DOM nodes instead of recreating them. Generator component state
-        (counters below) is preserved across reorders.
+        Keyed reconciliation moves DOM nodes instead of recreating them. Component state (counters
+        below) is preserved across reorders.
       </p>
 
-      {/* ── Generator component list ── */}
-      <h3>Generator components (stateful)</h3>
+      {/* ── Stateful component list ── */}
+      <h3>Components (stateful)</h3>
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem", flexWrap: "wrap" }}>
         <button data-testid="shuffle-btn" onClick={() => setOrder(shuffle(order))}>
           Shuffle
