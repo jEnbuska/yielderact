@@ -2,10 +2,9 @@
  * ShownDemo – demonstrates the `$shown` prop, which conditionally mounts and
  * unmounts elements and components without any conditional-expression syntax.
  *
- * Three scenarios are shown:
+ * Two scenarios are shown:
  *  1. HTML element  – a <div> panel toggled via `$shown`.
- *  2. Generator component – a stateless component toggled via `$shown`.
- *  3. Generator component – a stateful counter toggled via `$shown`; the
+ *  2. Component – a stateful counter toggled via `$shown`; the
  *     counter resets to zero each time it is re-mounted.
  */
 import { useState } from "yielderact";
@@ -13,23 +12,6 @@ import { useState } from "yielderact";
 // ---------------------------------------------------------------------------
 // Sub-components used in the demo
 // ---------------------------------------------------------------------------
-
-function* InfoPanel() {
-  return (
-    <div
-      data-testid="info-panel"
-      style={{
-        padding: "0.75rem 1rem",
-        background: "#f0f4ff",
-        border: "1px solid #c0cff8",
-        borderRadius: "6px",
-      }}
-    >
-      I am a <strong>generator component</strong> – I mount and unmount based on the{" "}
-      <code>$shown</code> prop.
-    </div>
-  );
-}
 
 function* StatefulCounter() {
   const [count, setCount] = yield* useState(0);
@@ -65,7 +47,6 @@ function* StatefulCounter() {
 
 export function* ShownDemo() {
   const [showElement, setShowElement] = yield* useState(true);
-  const [showFunction, setShowFunction] = yield* useState(true);
   const [showGenerator, setShowGenerator] = yield* useState(true);
 
   return (
@@ -108,23 +89,7 @@ export function* ShownDemo() {
         </div>
       </div>
 
-      {/* ── Row 2: function component ── */}
-      <div style={{ marginBottom: "1rem" }}>
-        <label
-          style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}
-        >
-          <input
-            type="checkbox"
-            data-testid="toggle-function"
-            checked={showFunction}
-            onChange={() => setShowFunction(!showFunction)}
-          />
-          Show function component
-        </label>
-        <InfoPanel $shown={showFunction} />
-      </div>
-
-      {/* ── Row 3: generator component ── */}
+      {/* ── Row 2: component ── */}
       <div>
         <label
           style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.4rem" }}
@@ -135,7 +100,7 @@ export function* ShownDemo() {
             checked={showGenerator}
             onChange={() => setShowGenerator(!showGenerator)}
           />
-          Show generator component
+          Show component
         </label>
         <StatefulCounter $shown={showGenerator} />
       </div>

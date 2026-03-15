@@ -5,7 +5,7 @@ import { render } from "../render";
 
 // jsdom is provided by jest-environment-jsdom (see jest.config.js)
 
-describe("render – generator components with useResolve", () => {
+describe("render – components with useResolve", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -300,7 +300,7 @@ describe("render – generator components with useResolve", () => {
   });
 });
 
-describe("render – generator components with useResolveRaw", () => {
+describe("render – components with useResolveRaw", () => {
   let container: HTMLElement;
 
   beforeEach(() => {

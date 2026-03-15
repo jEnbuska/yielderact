@@ -103,7 +103,7 @@ describe("createContext / useContext", () => {
     expect(consumerSpan).toBeTruthy();
   });
 
-  it("generator component reads context on every re-render", () => {
+  it("component reads context on every re-render", () => {
     const Ctx = createContext(0);
     let setTheme: (v: number) => void = () => {};
 

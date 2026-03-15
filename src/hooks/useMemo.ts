@@ -4,7 +4,7 @@ import type { ComponentGenerator, DependencyList } from "./types";
 import { depsChanged } from "./types";
 
 /**
- * Memoized value hook for generator components.
+ * Memoized value hook for components.
  *
  * Calls `fn(...deps)` on the first render and re-calls it only when the
  * dependency values change (shallow `Object.is` comparison).  The previous
@@ -13,7 +13,7 @@ import { depsChanged } from "./types";
  * Unlike React's `useMemo`, the dependency values are forwarded as arguments
  * to the factory function.
  *
- * Must be called with `yield*` inside a generator component or hook.
+ * Must be called with `yield*` inside a component or hook.
  *
  * @example
  * function* Expensive({ a, b }: { a: number; b: number }) {

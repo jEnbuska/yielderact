@@ -38,7 +38,7 @@ describe("shown prop", () => {
     expect(el.hasAttribute("$shown")).toBe(false);
   });
 
-  it("renders a generator component when shown is true (no hooks)", () => {
+  it("renders a component when shown is true (no hooks)", () => {
     function* Greeting() {
       return createElement("p", null, "hello");
     }
@@ -49,7 +49,7 @@ describe("shown prop", () => {
     expect(container.querySelector("p")).not.toBeNull();
   });
 
-  it("does not render a generator component when shown is false (no hooks)", () => {
+  it("does not render a component when shown is false (no hooks)", () => {
     function* Greeting() {
       return createElement("p", null, "hello");
     }
@@ -60,7 +60,7 @@ describe("shown prop", () => {
     expect(container.querySelector("p")).toBeNull();
   });
 
-  it("renders a generator component when shown is true", () => {
+  it("renders a component when shown is true", () => {
     function* Counter() {
       return createElement("p", null, "counter");
     }
@@ -71,7 +71,7 @@ describe("shown prop", () => {
     expect(container.querySelector("p")).not.toBeNull();
   });
 
-  it("does not render a generator component when shown is false", () => {
+  it("does not render a component when shown is false", () => {
     function* Counter() {
       return createElement("p", null, "counter");
     }

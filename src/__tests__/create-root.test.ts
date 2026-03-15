@@ -26,7 +26,7 @@ describe("createRoot", () => {
     expect(container.querySelector("h1")?.textContent).toBe("Hello, World!");
   });
 
-  it("renders a generator component into the container", () => {
+  it("renders a component into the container", () => {
     function* Counter() {
       const [count] = yield* useState(0);
       return createElement("span", null, String(count));

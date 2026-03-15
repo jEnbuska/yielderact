@@ -15,7 +15,7 @@
  * - `$shown` — conditional mount/unmount.
  * - `onlyPatchChanged` — skip rerender when only `$patch` prop changed.
  *
- * **No wrapper spans.** Generator components and Providers use end-marker
+ * **No wrapper spans.** Components and Providers use end-marker
  * Comment nodes instead of wrapper `<span>` elements. The `beforeAnchor`
  * parameter on `reconcileSlots` controls where new nodes are inserted
  * when reconciling a component's output within a shared parent element.
@@ -94,7 +94,7 @@ function isLiveOnlyDefault(): boolean {
 /**
  * Recursively remove all DOM nodes owned by a slot from the given parent.
  *
- * For generator component slots, this removes all output nodes (tracked in
+ * For component slots, this removes all output nodes (tracked in
  * `componentInstance.slots`) and the slot's own node (the endMarker Comment).
  * For Provider slots, this removes all child nodes (tracked in `childSlots`)
  * and the slot's own node (the endMarker Comment).
@@ -153,7 +153,7 @@ function hasKeyedChildren(children: Child[]): boolean {
 /**
  * Collect all top-level DOM nodes owned by a slot within its parent.
  *
- * For generator components: all output slot nodes (recursively) + endMarker.
+ * For components: all output slot nodes (recursively) + endMarker.
  * For Providers: all child slot nodes (recursively) + endMarker.
  * For HTML elements, text, empty: just the single node.
  */
@@ -364,7 +364,7 @@ function* reconcileSlotsGen(
  * immediately, preserving the current synchronous rendering behavior.
  *
  * **Called by:**
- * - `executeRerender` in `mount.ts` — reconciles the generator component's
+ * - `executeRerender` in `mount.ts` — reconciles the component's
  *   output against its previous slots.
  * - `resume` in `mount.ts` — same, after resuming a paused generator.
  * - `_flushPendingVNodes` in `patch.ts` — when committing deferred updates.
@@ -374,7 +374,7 @@ function* reconcileSlotsGen(
  * @param nextVNodes    - The new VNode children to reconcile against.
  * @param beforeAnchor  - Optional anchor node. When provided, new nodes that
  *   don't have a previous slot are inserted before this anchor instead of
- *   using `parent.childNodes[i]`. Used by generator components and Providers
+ *   using `parent.childNodes[i]`. Used by components and Providers
  *   whose output nodes share a parent with sibling slots.
  * @returns The updated Slot array (replaces `prevSlots`).
  */
@@ -405,14 +405,14 @@ export function reconcileSlots(
  * nextChild.$shown === false?
  *   └─ replace with empty placeholder
  *
- * nextChild is function component?
+ * nextChild is component?
  *   └─ same type at same position?
  *     └─ props unchanged (or only $patch changed)?
  *       └─ check consumed contexts → rerender if changed
  *       └─ $patch-only → forward $patch, rerender only if usePatchContext consumed
  *     └─ liveOnlyMode → skip non-live components
  *     └─ Context Provider → reconcile children in place
- *     └─ Generator component → rerender in place (preserve hook state)
+ *     └─ Component → rerender in place (preserve hook state)
  *   └─ different type → mount fresh component
  *
  * nextChild is HTML element?
@@ -429,7 +429,7 @@ export function reconcileSlots(
  * @returns `{ slot, node, replaced }`:
  *   - `slot` — the updated (or new) Slot object.
  *   - `node` — the real DOM node for this slot (or a DocumentFragment for
- *     freshly-mounted generator components / Providers).
+ *     freshly-mounted components / Providers).
  *   - `replaced` — true if the DOM node changed and needs to be swapped in by the caller.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode type dispatch with many match/replace branches
@@ -530,7 +530,7 @@ function* reconcileOneGen(
   }
 
   // ════════════════════════════════════════════════════════════════════════
-  // SECTION: Function component
+  // SECTION: Component
   // ════════════════════════════════════════════════════════════════════════
   if (isComponentNode(vnode)) {
     return yield* reconcileComponent(prevSlot, vnode, allPropsForShown);
@@ -558,12 +558,12 @@ function* reconcileOneGen(
 // ── Extracted reconciliation handlers ─────────────────────────────────────
 
 /**
- * Reconcile a function component (generator or context Provider).
+ * Reconcile a component (or context Provider).
  *
  * Handles same-type updates (props diff, context propagation, live-only skip),
  * Provider in-place reconciliation, generator rerenders, and fresh mounts.
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: component reconciliation with provider/generator paths
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: component reconciliation with provider and rerender paths
 function* reconcileComponent(
   prevSlot: Slot | undefined,
   vnode: VNode<Component>,
@@ -671,7 +671,7 @@ function* reconcileComponent(
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
 
-      // Generator component with changed props → rerender in place
+      // Component with changed props → rerender in place
       if (prevSlot.componentInstance) {
         prevSlot.componentInstance.props = allProps;
         prevSlot.componentInstance.capturedCtx = _withBatch(

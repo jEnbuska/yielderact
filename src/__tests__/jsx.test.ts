@@ -31,7 +31,7 @@ describe("createElement", () => {
     expect(vnode.children).toEqual(["a", "b"]);
   });
 
-  it("stores a function component as the type", () => {
+  it("stores a component as the type", () => {
     function* MyComponent() {
       yield createElement("div", null);
     }

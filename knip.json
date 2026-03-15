@@ -3,7 +3,6 @@
   "exclude": ["duplicates"],
   "workspaces": {
     ".": {
-      "entry": ["playwright-tests/fixtures.ts"],
       "project": ["src/**/*.ts", "src/**/*.tsx"],
       "ignore": ["src/__tests__/**"]
     },
@@ -12,8 +11,7 @@
       "project": ["src/**/*.ts", "src/**/*.tsx"],
       "playwright": false,
       "vite": false,
-      "ignoreDependencies": ["yielderact", "vite"],
-      "ignoreBinaries": ["vite"]
+      "ignoreDependencies": ["yielderact"]
     }
   }
 }

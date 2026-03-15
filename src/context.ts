@@ -110,8 +110,8 @@ export function createContext<T>(defaultValue: T): Context<T> {
 }
 
 /**
- * Consume a context value inside a generator component.
- * Must be called with `yield*` inside a generator component or hook.
+ * Consume a context value inside a component.
+ * Must be called with `yield*` inside a component or hook.
  *
  * The renderer intercepts the yielded descriptor, looks up the current context
  * value, and sends it back — the hook then returns it to the component.

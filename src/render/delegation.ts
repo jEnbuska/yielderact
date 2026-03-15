@@ -186,10 +186,16 @@ export class DelegationRoot {
   private _registeredTypes = new Set<string>();
   private _listeners = new Map<string, EventListener>();
   private _dispatch: (nativeEvent: Event, domEvent: string) => void;
+  private _stopNative: boolean;
 
-  constructor(root: Element, dispatch: (nativeEvent: Event, domEvent: string) => void) {
+  constructor(
+    root: Element,
+    dispatch: (nativeEvent: Event, domEvent: string) => void,
+    stopNative = false,
+  ) {
     this._root = root;
     this._dispatch = dispatch;
+    this._stopNative = stopNative;
   }
 
   /** Lazily attach a root listener for the given DOM event type. */
@@ -198,6 +204,9 @@ export class DelegationRoot {
     this._registeredTypes.add(domEvent);
 
     const listener: EventListener = (nativeEvent: Event) => {
+      // Portal roots stop native propagation so parent delegation roots
+      // do not re-dispatch the same event (avoids double-firing).
+      if (this._stopNative) nativeEvent.stopPropagation();
       this._dispatch(nativeEvent, domEvent);
     };
     this._listeners.set(domEvent, listener);
@@ -231,8 +240,10 @@ export function acquirePortalDelegation(container: Element, rctx: RenderContext)
     existing.refCount++;
     return existing.root;
   }
-  const root = new DelegationRoot(container, (nativeEvent, domEvent) =>
-    dispatchDelegatedEvent(nativeEvent, container, domEvent, rctx),
+  const root = new DelegationRoot(
+    container,
+    (nativeEvent, domEvent) => dispatchDelegatedEvent(nativeEvent, container, domEvent, rctx),
+    true, // stop native propagation at portal boundary
   );
   _portalDelegationRoots.set(container, { root, refCount: 1 });
   return root;

@@ -38,7 +38,7 @@
 
 ## Core concepts
 
-yielderact components are **generator functions**. Instead of returning JSX on every call (like React), a generator component:
+yielderact components are **generator functions**. Instead of returning JSX on every call (like React), a component:
 
 - Calls hooks with `yield*` to read/write persistent state
 - **Returns** JSX for the current render at the end of the function body
@@ -56,7 +56,7 @@ function* Counter(_props: object) {
 
 ## Component model
 
-### Generator components
+### Components
 
 ```ts
 function* MyComponent(props: MyProps): Generator<unknown, Child, unknown> {
@@ -160,7 +160,7 @@ render(<App />, document.getElementById('root')!);
 
 ## Hooks
 
-All hooks are generator functions and must be called with `yield*` inside a generator component or another hook.
+All hooks are generator functions and must be called with `yield*` inside a component or another hook.
 
 ---
 
@@ -891,7 +891,7 @@ Both can be overridden by explicitly setting the prop.
 
 ## Design decisions
 
-### Generators as components
+### Generator functions as components
 
 React components are plain functions that return the current UI. Re-renders mean re-calling the function, which requires hooks to maintain identity via call-order rules.
 
@@ -954,7 +954,7 @@ Abort cleanup is registered via `cleanupFns[hookIndex]` on the `GenInstance`. `u
 When `reconcileSlots` replaces or removes a slot, it calls `unmountSlot(slot)` which:
 
 1. Recursively unmounts all `childSlots`
-2. For generator components, recursively unmounts `genInstance.slots`
+2. For components, recursively unmounts `genInstance.slots`
 3. Calls all `cleanupFns` entries on the `GenInstance`
 
 This covers `useEffect` cleanup, `useResolve` abort controllers, and any future hooks that register cleanup.
