@@ -16,10 +16,10 @@ The whole library consists of three small modules:
 | File                                       | What it does                                                  |
 | ------------------------------------------ | ------------------------------------------------------------- |
 | [`src/jsx.ts`](src/jsx.ts)                 | Defines the `VNode` type and the `createElement` JSX factory  |
-| [`src/render.ts`](src/render.ts)           | Turns VNodes into real DOM nodes; mounts generator components |
+| [`src/render.ts`](src/render.ts)           | Turns VNodes into real DOM nodes; mounts components          |
 | [`src/jsx-runtime.ts`](src/jsx-runtime.ts) | Automatic JSX transform support (`jsxImportSource`)           |
 
-### Generator components
+### Components
 
 ```tsx
 import { createElement, render } from 'yielderact';
@@ -57,17 +57,6 @@ render(<Counter />, document.getElementById('root')!);
    variables, and `yield`s new JSX.
 4. The host element is cleared and repopulated with the new DOM nodes.
 5. When the generator returns (`done: true`) it stops rerendering.
-
-### Stateless components
-
-Plain (non-generator) functions are also supported — they are called once and
-render their return value:
-
-```tsx
-function Greeting({ name }: { name: string }) {
-  return <h1>Hello, {name}!</h1>;
-}
-```
 
 ### Fragments
 

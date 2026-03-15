@@ -16,5 +16,5 @@
       "yielderact/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
     }
   },
-  "include": ["src", "vite.config.ts", "playwright.config.ts", "tests"]
+  "include": ["src", "playwright.config.ts", "tests"]
 }

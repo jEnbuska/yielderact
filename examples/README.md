@@ -7,7 +7,7 @@ Three interactive demos are included:
 
 | Demo                | What it shows                                                        |
 | ------------------- | -------------------------------------------------------------------- |
-| **Counter**         | Generator component with local `let` state and `rerender()`          |
+| **Counter**         | Component with local `let` state and `rerender()`                    |
 | **Todo List**       | Array state, keyboard events, and conditional rendering              |
 | **Context / Theme** | `createContext` / `useContext` — value passing without prop-drilling |
 

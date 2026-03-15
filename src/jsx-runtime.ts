@@ -10,16 +10,20 @@
  *
  *   /\*\* \@jsxImportSource yielderact \*\/
  */
-import { createElement, Fragment, VNode, Child } from './jsx';
+import { type Child, createElement, Fragment, Portal, type VNode } from "./jsx";
 
-export { Fragment };
+export { Fragment, Portal };
 
 /** Used by the JSX transform for single-child expressions. */
 export function jsx(
-  type: VNode['type'],
-  props: { children?: Child } & Record<string, unknown>,
+  type: VNode["type"],
+  props: { children?: Child | Child[] } & Record<string, unknown>,
+  key?: string | number | null,
 ): VNode {
   const { children, ...rest } = props;
+  // The automatic JSX transform extracts `key` and passes it as the third
+  // argument. Map it to `$key` (string only) for our reconciler.
+  if (key != null) rest["$key"] = String(key);
   if (children === undefined) {
     return createElement(type, rest);
   }
