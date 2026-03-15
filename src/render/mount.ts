@@ -243,6 +243,7 @@ export function mountComponent(
    */
   function resume(): void {
     if (!instance.gen) return;
+    if (!instance.endMarker.parentNode) return;
     _setActiveCtx(rctx);
 
     // Restore context: inherited context + own $patch applied for children.
@@ -374,6 +375,11 @@ export function mountComponent(
 
       // A follow-up rerender may have been requested (e.g. from an effect or
       // an async callback that fired synchronously after resolve()).
+      // Guard against zombie rerenders: if the component was unmounted during
+      // this render cycle (e.g. by an effect), bail out.
+      if (mounted && !instance.endMarker.parentNode) {
+        return Promise.resolve();
+      }
       if (instance.pendingRerender) {
         instance.pendingRerender = false;
         continue;
@@ -412,6 +418,7 @@ export function mountComponent(
         instance.renderResolvers.push(resolve);
       });
     }
+    if (!instance.endMarker.parentNode) return Promise.resolve();
     _setActiveCtx(rctx);
     if (isPatchActive()) {
       // During an active patch (another component is rendering or a
