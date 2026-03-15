@@ -36,7 +36,7 @@ import {
   mergedProps,
   stripFrameworkDirectives,
 } from "./helpers";
-import { flushEffects, runHooks } from "./hooks-runtime";
+import { flushEffects, resumeGenerator, runHooks } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
 import { reconcileSlots } from "./reconciler";
@@ -263,11 +263,7 @@ export function mountComponent(
 
     let vnode: Child;
     try {
-      const { value, done } = instance.gen.next();
-      if (done) {
-        instance.gen = undefined;
-      }
-      vnode = (value as Child) ?? null;
+      ({ vnode } = resumeGenerator(instance, rerender, resume));
     } finally {
       _setCtxMap(prevCtx);
     }
@@ -454,6 +450,7 @@ export function mountComponent(
     pendingRerender: false,
     renderResolvers: [],
     priority,
+    resumeHookIndex: 0,
     _executeRerender: () => executeRerender(true),
     rerender,
     consumedContexts: new Set(),
