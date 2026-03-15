@@ -71,7 +71,7 @@ export function* HooksShowcase() {
         style={{ listStyle: "disc", paddingLeft: "1.25rem", margin: "0 0 0.5rem" }}
       >
         {filtered.map((fruit) => (
-          <li $key={fruit} data-testid={`fruit-${fruit.toLowerCase()}`}>
+          <li key={fruit} data-testid={`fruit-${fruit.toLowerCase()}`}>
             {fruit}
           </li>
         ))}

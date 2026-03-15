@@ -2,7 +2,7 @@ import { useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
-describe("$key prop – keyed reconciliation", () => {
+describe("key prop – keyed reconciliation", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -50,7 +50,7 @@ describe("$key prop – keyed reconciliation", () => {
       return createElement(
         "div",
         { id: "list" },
-        ...order.map((k) => createElement(components[k] as never, { $key: k })),
+        ...order.map((k) => createElement(components[k] as never, { key: k })),
       );
     }
 
@@ -104,7 +104,7 @@ describe("$key prop – keyed reconciliation", () => {
         "div",
         null,
         ...items.map((item) =>
-          item ? createElement(Item as never, { $key: item, label: item }) : null,
+          item ? createElement(Item as never, { key: item, label: item }) : null,
         ),
       );
     }
@@ -159,7 +159,7 @@ describe("$key prop – keyed reconciliation", () => {
       return createElement(
         "ul",
         null,
-        ...order.map((k) => createElement(components[k] as never, { $key: k })),
+        ...order.map((k) => createElement(components[k] as never, { key: k })),
       );
     }
 
@@ -194,7 +194,7 @@ describe("$key prop – keyed reconciliation", () => {
         "div",
         null,
         ...items.map((item) =>
-          item ? createElement(Tag as never, { $key: item, label: item }) : false,
+          item ? createElement(Tag as never, { key: item, label: item }) : false,
         ),
       );
     }
@@ -224,7 +224,7 @@ describe("$key prop – keyed reconciliation", () => {
       return createElement(
         "ul",
         null,
-        ...order.map((text) => createElement("li", { $key: text }, text)),
+        ...order.map((text) => createElement("li", { key: text }, text)),
       );
     }
 
@@ -256,7 +256,7 @@ describe("$key prop – keyed reconciliation", () => {
       return createElement(
         "div",
         null,
-        ...items.map((item) => (item ? createElement("span", { $key: item }, item) : null)),
+        ...items.map((item) => (item ? createElement("span", { key: item }, item) : null)),
       );
     }
 
@@ -291,7 +291,7 @@ describe("$key prop – keyed reconciliation", () => {
       return createElement(
         "div",
         null,
-        ...order.map((id) => createElement(Counter as never, { $key: id, id })),
+        ...order.map((id) => createElement(Counter as never, { key: id, id })),
       );
     }
 
@@ -338,7 +338,7 @@ describe("$key prop – keyed reconciliation", () => {
       const [label, sl] = yield* useState("hello");
       setKey = sk;
       setLabel = sl;
-      return createElement("div", null, createElement(Child as never, { $key: key, label }));
+      return createElement("div", null, createElement(Child as never, { key: key, label }));
     }
 
     render(createElement(Parent as never, {}), container);
@@ -384,7 +384,7 @@ describe("$key prop – keyed reconciliation", () => {
         "div",
         null,
         createElement(Counter as never, { id: "before" }),
-        ...order.map((id) => createElement(Counter as never, { $key: id, id })),
+        ...order.map((id) => createElement(Counter as never, { key: id, id })),
         createElement(Counter as never, { id: "after" }),
       );
     }
@@ -448,7 +448,7 @@ describe("$key prop – keyed reconciliation", () => {
       return createElement(
         "div",
         null,
-        ...order.map((id) => createElement(Item as never, { $key: id, id, label: labels[id] })),
+        ...order.map((id) => createElement(Item as never, { key: id, id, label: labels[id] })),
       );
     }
 

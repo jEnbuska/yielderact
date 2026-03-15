@@ -171,7 +171,7 @@ describe("createPortal", () => {
 
   // ── 8. Keyed portals ────────────────────────────────────────────────────
 
-  it("portals with $key participate in keyed reconciliation", () => {
+  it("portals with key participate in keyed reconciliation", () => {
     let setter: (v: string[]) => void = () => {};
 
     function* App() {
@@ -312,8 +312,8 @@ describe("createPortal", () => {
     expect(vnode.children).toHaveLength(2);
   });
 
-  it("sets $key when key is provided", () => {
+  it("sets key when key is provided", () => {
     const vnode = createPortal(createElement("span", null, "test"), portalTarget, "my-key");
-    expect(vnode.props.$key).toBe("my-key");
+    expect(vnode.props.key).toBe("my-key");
   });
 });

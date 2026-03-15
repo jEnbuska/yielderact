@@ -137,7 +137,7 @@ function removeSlotNodes(parent: Node, slot: Slot): void {
  */
 function getChildKey(child: Child): string | undefined {
   if (!isVNode(child)) return undefined;
-  return child.props.$key;
+  return child.props.key;
 }
 
 /**
@@ -205,7 +205,7 @@ function* reconcileKeyedSlotsGen(
   const prevKeyMap = new Map<string | number, number>();
   const nonKeyedPrevIndices: number[] = [];
   for (let i = 0; i < prevSlots.length; i++) {
-    const key = prevSlots[i]?.props.$key;
+    const key = prevSlots[i]?.props.key;
     if (key !== undefined) {
       prevKeyMap.set(key, i);
     } else {

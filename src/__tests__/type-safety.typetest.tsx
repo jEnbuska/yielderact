@@ -97,16 +97,16 @@ _sink(<WithBoth $ref={{ current: undefined }} />);
 _sink(<WithBoth />);
 
 // ---------------------------------------------------------------------------
-// 6. Framework props ($key, $shown, $patch, $deferred) are always valid
+// 6. Framework props (key, $shown, $patch, $deferred) are always valid
 //    on ANY component — they are in FrameworkProps / IntrinsicAttributes
 // ---------------------------------------------------------------------------
 
-_sink(<NoProps $key="k" />);
+_sink(<NoProps key="k" />);
 _sink(<NoProps $shown={true} />);
 _sink(<NoProps $patch="live" />);
 _sink(<NoProps $deferred={true} />);
 
-_sink(<WithName name="hello" $key="k" />);
+_sink(<WithName name="hello" key="k" />);
 _sink(<WithName name="hello" $shown={false} />);
 _sink(<WithName name="hello" $patch="default" />);
 _sink(<WithName name="hello" $deferred={false} />);
@@ -137,4 +137,4 @@ _sink(<div children={["text"]} $ref={{ current: undefined as HTMLDivElement | un
 // 10. HTML elements also accept framework props
 // ---------------------------------------------------------------------------
 
-_sink(<div $key="k" $shown={true} $patch="live" $deferred={false} />);
+_sink(<div key="k" $shown={true} $patch="live" $deferred={false} />);

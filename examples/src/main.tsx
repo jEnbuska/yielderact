@@ -73,7 +73,7 @@ function* App() {
       >
         {tabs.map((tab) => (
           <button
-            $key={tab.id}
+            key={tab.id}
             role="tab"
             data-testid={`tab-${tab.id}`}
             id={`tab-${tab.id}`}
