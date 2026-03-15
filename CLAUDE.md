@@ -125,6 +125,10 @@ function* Counter(_props: object) {
 - **Guard Clauses:** Always prefer guard clauses (early returns) over nested conditionals. Return early when a condition short-circuits the rest of the logic.
 - **Lint Strictness:** Never weaken linting or tsconfig rules. Fix lint issues by improving code, not by adding `biome-ignore` or `@ts-ignore` comments. The only accepted exceptions are `biome-ignore lint/complexity/noExcessiveCognitiveComplexity` on architectural dispatch functions (reconciler, props, mount, dispatch) that inherently require many branches.
 - **Type Safety Tests:** Compile-time type tests live in `src/__tests__/*.typetest.tsx` and are checked by `npm run typecheck`.
+- **New Feature Checklist:** Every new public API feature must include:
+  1. An example demo component in `examples/src/components/` wired into `main.tsx` as a tab.
+  2. Playwright visual tests in `playwright-tests/` covering the demo.
+  3. Documentation in `docs/api.md`.
 
 ### Examples Structure
 
