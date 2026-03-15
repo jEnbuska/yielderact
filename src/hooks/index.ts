@@ -1,5 +1,5 @@
 /**
- * Built-in hooks for yielderact generator components.
+ * Built-in hooks for yract generator components.
  *
  * Hooks are generator functions called with `yield*` inside a component body.
  * Each hook yields a descriptor object; the renderer intercepts it, processes

@@ -8,7 +8,7 @@
  *     parent, not the physical DOM position.
  *  3. Event handling – events fire correctly inside portaled content.
  */
-import { createContext, createPortal, useContext, useRef, useState } from "yielderact";
+import { createContext, createPortal, useContext, useRef, useState } from "yract";
 
 const PortalThemeCtx = createContext<"light" | "dark">("light");
 

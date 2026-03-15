@@ -1,11 +1,11 @@
 /**
- * vite-plugin-yielderact
+ * vite-plugin-yract
  *
- * A tiny Vite plugin that wires up the JSX automatic runtime for yielderact.
+ * A tiny Vite plugin that wires up the JSX automatic runtime for yract.
  *
  * Without React in the picture Vite's default esbuild transform does not know
- * which `jsx()` helper to call.  This plugin points esbuild at yielderact's
- * own jsx-runtime (`yielderact/jsx-runtime`) so that every `.tsx` / `.jsx`
+ * which `jsx()` helper to call.  This plugin points esbuild at yract's
+ * own jsx-runtime (`yract/jsx-runtime`) so that every `.tsx` / `.jsx`
  * file is compiled without needing an explicit `createElement` / `Fragment`
  * import at the top of every file.
  *
@@ -13,10 +13,10 @@
  *
  * ```ts
  * import { defineConfig } from 'vite';
- * import { yielderactPlugin } from '../vite-plugin-yielderact';
+ * import { yractPlugin } from '../vite-plugin-yract';
  *
  * export default defineConfig({
- *   plugins: [yielderactPlugin()],
+ *   plugins: [yractPlugin()],
  * });
  * ```
  *
@@ -26,19 +26,19 @@
  * {
  *   "compilerOptions": {
  *     "jsx": "react-jsx",
- *     "jsxImportSource": "yielderact"
+ *     "jsxImportSource": "yract"
  *   }
  * }
  * ```
  *
- * **Note on Vite's development mode:** Vite resolves `yielderact/jsx-dev-runtime`
- * during dev. If yielderact is used from source (i.e. via a `resolve.alias`),
+ * **Note on Vite's development mode:** Vite resolves `yract/jsx-dev-runtime`
+ * during dev. If yract is used from source (i.e. via a `resolve.alias`),
  * add the following extra alias in your `vite.config.ts`:
  *
  * ```ts
  * resolve: {
  *   alias: {
- *     'yielderact/jsx-dev-runtime': '<path-to>/src/jsx-runtime.ts',
+ *     'yract/jsx-dev-runtime': '<path-to>/src/jsx-runtime.ts',
  *   },
  * }
  * ```
@@ -50,16 +50,16 @@ import type { Plugin } from "vite";
 
 /**
  * Returns a Vite plugin that configures the esbuild JSX transform to use
- * yielderact's automatic JSX runtime.
+ * yract's automatic JSX runtime.
  */
-export function yielderactPlugin(): Plugin {
+export function yractPlugin(): Plugin {
   return {
-    name: "vite-plugin-yielderact",
+    name: "vite-plugin-yract",
     config() {
       return {
         esbuild: {
           jsx: "automatic",
-          jsxImportSource: "yielderact",
+          jsxImportSource: "yract",
         },
       };
     },

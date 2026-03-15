@@ -1,4 +1,4 @@
-# yielderact — API Documentation
+# yract — API Documentation
 
 > A minimal JSX UI library that uses JavaScript **generator functions** as components.
 > State lives in local variables managed by hooks. The entire core is ~100 lines.
@@ -38,7 +38,7 @@
 
 ## Core concepts
 
-yielderact components are **generator functions**. Instead of returning JSX on every call (like React), a generator component:
+yract components are **generator functions**. Instead of returning JSX on every call (like React), a generator component:
 
 - Calls hooks with `yield*` to read/write persistent state
 - **Returns** JSX for the current render at the end of the function body
@@ -102,7 +102,7 @@ function* List() {
 ```
 
 ```tsx
-import { createElement, Fragment } from 'yielderact';
+import { createElement, Fragment } from 'yract';
 ```
 
 ### Automatic transform
@@ -111,7 +111,7 @@ import { createElement, Fragment } from 'yielderact';
 {
   "compilerOptions": {
     "jsx": "react-jsx",
-    "jsxImportSource": "yielderact"
+    "jsxImportSource": "yract"
   }
 }
 ```
@@ -127,7 +127,7 @@ No manual imports needed for JSX.
 Creates a root for rendering a component tree into a DOM element. This is the recommended way to bootstrap your application. The root sets `$patch="default"` as the starting context for the entire tree, so every component can always rely on `$patch` being defined.
 
 ```ts
-import { createRoot } from 'yielderact';
+import { createRoot } from 'yract';
 
 const root = createRoot(document.getElementById('root')!);
 root.render(<App />);
@@ -146,7 +146,7 @@ root.render(<App />);
 Mounts a component tree into a DOM element. Call once to bootstrap the application.
 
 ```ts
-import { render } from 'yielderact';
+import { render } from 'yract';
 
 render(<App />, document.getElementById('root')!);
 ```
@@ -734,7 +734,7 @@ Global patch that freezes the **entire component tree**. Any code (event handler
 Calls are reference-counted: nested `startUIPatch()` calls require a matching number of `commitUIPatch()` calls before the DOM is flushed.
 
 ```tsx
-import { startUIPatch, commitUIPatch } from 'yielderact';
+import { startUIPatch, commitUIPatch } from 'yract';
 
 async function navigate(next: string) {
   startUIPatch();
@@ -862,7 +862,7 @@ Assigns the DOM element to `myRef.current` after mount. Use with `useRef`.
 All `onXxx` props receive a `SyntheticEvent` wrapping the native DOM event.
 
 ```tsx
-import type { SyntheticEvent } from 'yielderact';
+import type { SyntheticEvent } from 'yract';
 
 function* TextInput() {
   const [value, setValue] = yield* useState('');
@@ -878,7 +878,7 @@ function* TextInput() {
 
 ## HTML defaults
 
-yielderact applies two opinionated defaults to prevent common HTML footguns:
+yract applies two opinionated defaults to prevent common HTML footguns:
 
 | Element    | Behaviour                                                                                          |
 | ---------- | -------------------------------------------------------------------------------------------------- |
@@ -895,7 +895,7 @@ Both can be overridden by explicitly setting the prop.
 
 React components are plain functions that return the current UI. Re-renders mean re-calling the function, which requires hooks to maintain identity via call-order rules.
 
-yielderact components are generator functions. The generator body **re-runs from the top** on every render, but hook state is persisted in the renderer (keyed by call order), so state is never lost between renders. This gives:
+yract components are generator functions. The generator body **re-runs from the top** on every render, but hook state is persisted in the renderer (keyed by call order), so state is never lost between renders. This gives:
 
 - **No stale closures** — every render sees fresh variables
 - **Linear control flow** — `yield*` hooks read like synchronous calls
@@ -961,6 +961,6 @@ This covers `useEffect` cleanup, `useResolve` abort controllers, and any future 
 
 ### Priority scheduling
 
-yielderact includes a priority-aware cooperative scheduler. Components marked with `$deferred={true}` render at lower priority, allowing critical UI to update first. The scheduler batches DOM operations per priority level and commits them atomically, preventing partial visual updates. Higher-priority work preempts lower-priority work at yield boundaries.
+yract includes a priority-aware cooperative scheduler. Components marked with `$deferred={true}` render at lower priority, allowing critical UI to update first. The scheduler batches DOM operations per priority level and commits them atomically, preventing partial visual updates. Higher-priority work preempts lower-priority work at yield boundaries.
 
 See [Priority Scheduler & Batched Commits](./scheduler.md) for the full specification.

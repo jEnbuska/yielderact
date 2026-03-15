@@ -1,4 +1,4 @@
-import { createContext } from "yielderact";
+import { createContext } from "yract";
 
 export type Theme = "light" | "dark";
 export type Locale = "en" | "fi";

@@ -211,7 +211,7 @@ export function createElement(
 /**
  * Global JSX namespace – required by TypeScript to type-check JSX expressions
  * for both the classic transform (`jsxFactory: "createElement"`) and the
- * automatic transform (`jsxImportSource: "yielderact"`).
+ * automatic transform (`jsxImportSource: "yract"`).
  *
  * `IntrinsicElements` is derived from {@link IntrinsicElementsDef} in
  * `jsx-types.ts`, which provides strongly-typed props for every standard

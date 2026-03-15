@@ -1,5 +1,5 @@
 /**
- * Synthetic event wrapper for yielderact.
+ * Synthetic event wrapper for yract.
  *
  * Every browser DOM event received by an event handler is automatically
  * wrapped in a `SyntheticEvent` before being passed to the JSX handler prop.

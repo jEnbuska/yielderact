@@ -135,7 +135,7 @@ export function applyProps(el: HTMLElement, props: InternalProps): void {
     !el.getAttribute("rel")
   ) {
     console.warn(
-      'yielderact: <a target="_blank"> is missing rel="noopener". ' +
+      'yract: <a target="_blank"> is missing rel="noopener". ' +
         'Add rel="noopener noreferrer" to prevent tab-napping attacks.',
     );
   }

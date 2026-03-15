@@ -351,7 +351,7 @@ describe("$key prop – keyed reconciliation", () => {
 
     // The child should NOT rerender since label didn't change
     // (key change means it's a "new" slot, but same type + same props = skip)
-    // Note: in React, changing key forces remount. In yielderact, if the same
+    // Note: in React, changing key forces remount. In yract, if the same
     // component function + same props appear at the same position with a
     // different key, it may be treated as a new mount or reuse depending on
     // implementation. What matters is the component still works.

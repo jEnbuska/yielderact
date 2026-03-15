@@ -5,7 +5,7 @@
  *   2. Selector only -- rerenders only when the selected deps change; returns full value.
  *   3. Selector + transform -- same rerender guard; returns the transformed value.
  */
-import { useState } from "yielderact";
+import { useState } from "yract";
 import { AppCtx, type AppState } from "./LazyContextDemo.shared";
 import { NoSelectorConsumer } from "./NoSelectorConsumer";
 import { SelectorConsumer } from "./SelectorConsumer";

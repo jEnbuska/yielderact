@@ -1,5 +1,5 @@
 /**
- * Shared Playwright fixtures for yielderact visual tests.
+ * Shared Playwright fixtures for yract visual tests.
  *
  * Bundles the library once per worker via esbuild and provides a
  * `setupPage` helper that injects the bundle into any blank page.

@@ -1,4 +1,4 @@
-import { useContext } from "yielderact";
+import { useContext } from "yract";
 import { LocaleCtx, ThemeCtx } from "./ContextDemo.shared";
 
 export function* BothBadge() {

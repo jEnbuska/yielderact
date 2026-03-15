@@ -1,4 +1,4 @@
-import { useContext, useState } from "yielderact";
+import { useContext, useState } from "yract";
 import { ThemeCtx } from "./ContextDemo.shared";
 
 export function* StatefulConsumer() {

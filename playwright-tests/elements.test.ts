@@ -12,12 +12,12 @@ test("renders a plain HTML element", async ({ page, setupPage }) => {
       window as unknown as { Yielderact: typeof import("../src/index") }
     ).Yielderact;
     render(
-      createElement("h1", { id: "heading", className: "title" }, "Hello yielderact"),
+      createElement("h1", { id: "heading", className: "title" }, "Hello yract"),
       document.getElementById("root") as HTMLElement,
     );
   });
 
-  await expect(page.locator("#heading")).toHaveText("Hello yielderact");
+  await expect(page.locator("#heading")).toHaveText("Hello yract");
   await expect(page.locator("#heading")).toHaveClass("title");
   await page.screenshot({ path: "/tmp/visual-element.png" });
 });
