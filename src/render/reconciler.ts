@@ -58,6 +58,7 @@ import {
   onlyPatchChanged,
   shallowEqual,
   stripDeferred,
+  stripFrameworkDirectives,
 } from "./helpers";
 import { propagateContextUpdate, unmountSlot } from "./hooks-runtime";
 import { buildNode, mountComponent, mountContextProvider } from "./mount";
@@ -570,9 +571,13 @@ function* reconcileComponent(
   allPropsForShown: InternalProps,
 ): Generator<void, { slot: Slot; node: Node; replaced: boolean }, void> {
   const allPropsRaw = allPropsForShown;
-  const allProps = stripDeferred(allPropsRaw);
+  // allProps: what the component sees (no $deferred, no $deps)
+  const allProps = stripFrameworkDirectives(allPropsRaw);
+  // slotProps: what Slot.props stores (keeps $deps for next comparison, strips $deferred)
+  const slotProps = stripDeferred(allPropsRaw);
   const component = vnode.type;
   const providerCtx = _getProviderCtx(component);
+  const newDeps = allPropsRaw.$deps;
 
   // Propagate $deferred to the subtree via context.
   // Save and restore the context map so siblings are unaffected.
@@ -582,23 +587,28 @@ function* reconcileComponent(
   try {
     // ── Same component type at same position ──
     if (prevSlot?.type === vnode.type) {
-      // Props unchanged / only $patch changed → skip rerender
-      const propsUnchanged = shallowEqual(prevSlot.props, allProps);
-      const patchOnly = !propsUnchanged && onlyPatchChanged(prevSlot.props, allProps);
+      // $deps replaces the shallowEqual check when present on the new VNode.
+      const propsUnchanged = newDeps
+        ? !depsChanged(prevSlot.props.$deps, newDeps)
+        : shallowEqual(prevSlot.props, allProps);
+      const patchOnly = !propsUnchanged && !newDeps && onlyPatchChanged(prevSlot.props, allProps);
       if (propsUnchanged || patchOnly) {
         const inst = prevSlot.componentInstance;
+        // When $deps says "unchanged", still update prevSlot.props so next
+        // comparison uses the fresh deps array reference.
+        if (newDeps) prevSlot.props = slotProps;
         if (patchOnly && inst) {
           // Forward the new $patch value so shouldDefer reads it correctly.
           inst.props["$patch"] = allProps["$patch"];
           if (inst.consumedContexts.has(_batchCtx as Context<unknown>)) {
-            prevSlot.props = allProps;
+            prevSlot.props = slotProps;
             inst.capturedCtx = _withBatch(inst.capturedCtx, _getCurrentBatch());
             inst.rerender();
             return { slot: prevSlot, node: prevSlot.node, replaced: false };
           }
         }
         if (patchOnly) {
-          prevSlot.props = allProps;
+          prevSlot.props = slotProps;
         }
         if (inst) {
           // Check if any consumed context value differs from capturedCtx.
@@ -639,7 +649,7 @@ function* reconcileComponent(
             const hasContentChange = Object.keys({ ...prevSlot.props, ...allProps }).some(
               (k) => k !== "$patch" && k !== "$shown" && !Object.is(prevSlot.props[k], allProps[k]),
             );
-            if (!hasContentChange) prevSlot.props = allProps;
+            if (!hasContentChange) prevSlot.props = slotProps;
           }
           return { slot: prevSlot, node: prevSlot.node, replaced: false };
         }
@@ -667,7 +677,7 @@ function* reconcileComponent(
         } finally {
           _setCtxMap(prevCtxMap);
         }
-        prevSlot.props = allProps;
+        prevSlot.props = slotProps;
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
 
@@ -679,7 +689,7 @@ function* reconcileComponent(
           _getCurrentBatch(),
         );
         prevSlot.componentInstance.rerender();
-        prevSlot.props = allProps;
+        prevSlot.props = slotProps;
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
     }
@@ -709,7 +719,7 @@ function* reconcileComponent(
         slot: {
           type: vnode.type,
           node: endMarker,
-          props: allProps,
+          props: slotProps,
           childSlots,
         },
         node: fragment,
@@ -721,7 +731,7 @@ function* reconcileComponent(
       slot: {
         type: vnode.type,
         node: componentInstance.endMarker,
-        props: allProps,
+        props: slotProps,
         childSlots: [],
         componentInstance,
       },
@@ -752,15 +762,18 @@ function* reconcileHTMLElement(
   if (elDeferred) _setCtxMap(_withPriority(_getCtxMap(), _getCurrentPriority() + 1));
   try {
     if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
-      // Same tag → update props in place and reconcile children
-      if (!isLiveOnlyDefault()) {
+      // Same tag → update props in place and reconcile children.
+      // When $deps is present, skip updateProps when deps are unchanged.
+      const elDeps = vnode.props.$deps;
+      const skipProps = elDeps && !depsChanged(prevSlot.props.$deps, elDeps);
+      if (!isLiveOnlyDefault() && !skipProps) {
         const prevProps = prevSlot.props;
         domEnqueue(
           () => updateProps(prevSlot.node as HTMLElement, prevProps, vnode.props),
           prevSlot.node,
         );
-        prevSlot.props = vnode.props;
       }
+      prevSlot.props = vnode.props;
       prevSlot.childSlots = yield* reconcileSlotsGen(
         prevSlot.node,
         prevSlot.childSlots,

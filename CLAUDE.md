@@ -150,7 +150,7 @@ function* Counter(_props: object) {
 
 Example components live in `examples/src/components/`. The app entry point is `examples/src/main.tsx`, which renders a tabbed view of all demos.
 
-**Top-level demos** (each a tab in main.tsx): `Counter`, `TodoList`, `ThemeDemo`, `DataFetcher`/`ResolveRawDemo`, `HooksShowcase`, `ShownDemo`, `ConfirmDialog`, `EffectDemo`, `TransitionDemo`, `ContextDemo`, `LazyContextDemo`, `AbortSignalEffectDemo`, `KeyShuffleDemo`, `PortalDemo`.
+**Top-level demos** (each a tab in main.tsx): `Counter`, `TodoList`, `ThemeDemo`, `DataFetcher`/`ResolveRawDemo`, `HooksShowcase`, `ShownDemo`, `ConfirmDialog`, `EffectDemo`, `TransitionDemo`, `ContextDemo`, `LazyContextDemo`, `AbortSignalEffectDemo`, `KeyShuffleDemo`, `DepsDemo`, `PortalDemo`.
 
 **Multi-file demos** split one-component-per-file:
 

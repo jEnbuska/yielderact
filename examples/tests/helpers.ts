@@ -22,6 +22,7 @@ const tabIds: Record<string, string> = {
   "Lazy Context": "tab-lazy-ctx",
   "AbortSignal Effect": "tab-abort-signal",
   "Key Shuffle": "tab-key-shuffle",
+  "$deps prop": "tab-deps",
   createPortal: "tab-portal",
 };
 

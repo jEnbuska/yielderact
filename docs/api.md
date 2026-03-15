@@ -779,6 +779,43 @@ function* App() {
 
 > Unlike a conditional `{open && <Modal />}`, `$shown` keeps the JSX position stable in the tree, which avoids reconciler position-shift issues.
 
+### `$deps`
+
+```tsx
+<Component $deps={[relevantValue]} otherProp={data} />
+<div $deps={[relevantValue]} className={cls} />
+```
+
+Replaces the default shallow-equal props check with a dependency-array comparison — the same `depsChanged()` mechanism used by hooks. The component or element only rerenders/updates when the deps change.
+
+Useful when a parent passes new object references on every render but the component only cares about a subset of values.
+
+| Parameter | Type         | Description                                     |
+| --------- | ------------ | ----------------------------------------------- |
+| `$deps`   | `unknown[]`  | Dependency array compared via shallow `Object.is` |
+
+```tsx
+function* Parent() {
+  const [relevant, setRelevant] = yield* useState(0);
+  const [irrelevant, setIrrelevant] = yield* useState(0);
+
+  // ExpensiveChild only rerenders when `relevant` changes,
+  // even though `data` is a new object reference every render.
+  return (
+    <ExpensiveChild
+      data={{ relevant, irrelevant }}
+      $deps={[relevant]}
+    />
+  );
+}
+```
+
+**For components:** when `$deps` is present and unchanged, the component's generator body is not re-executed. Context changes still trigger a rerender regardless of `$deps`.
+
+**For HTML elements:** when `$deps` is present and unchanged, prop diffing (`updateProps`) is skipped. Children are still reconciled normally.
+
+`$deps` is never set as a DOM attribute and is not visible in the component's props object.
+
 ### `$patch`
 
 ```tsx
