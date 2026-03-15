@@ -4,9 +4,10 @@
 
 **You are an agent for Enbuska Software Oy. Before performing ANY action, you must read and adhere to the following:**
 
-1.  **STRICT EXECUTION POLICY:** Follow the sequence below for every PR.
-2.  **INSTRUCTION MAINTENANCE:** This file must stay current. If you encounter a process issue, add a new feature, or change a public API, you MUST propose an update to this `CLAUDE.md` file in the same PR.
-3.  **NPM ONLY:** Never use `npx`. Use `npm run <script>`.
+1.  **WORKTREE ONLY — NO EXCEPTIONS:** You must NEVER edit, create, or delete any files in the main repository checkout. ALL work (code, config, docs, tests — everything) MUST happen inside a worktree under `.worktrees/feat/<branch_name>`. The main repo folder must stay on `dev` and remain untouched. If you find yourself about to modify a file outside of `.worktrees/`, STOP and create a worktree first. The only exception is the `.claude/` directory in the main repo root, which may be edited directly (e.g. for settings and memory).
+2.  **STRICT EXECUTION POLICY:** Follow the sequence below for every PR.
+3.  **INSTRUCTION MAINTENANCE:** This file must stay current. If you encounter a process issue, add a new feature, or change a public API, you MUST propose an update to this `CLAUDE.md` file in the same PR.
+4.  **NPM ONLY:** Never use `npx`. Use `npm run <script>`.
 
 ## STRICT EXECUTION POLICY
 
@@ -39,15 +40,15 @@ yract is a minimal JSX UI library using JavaScript generator functions.
 
 ### 1. Starting a Task (Worktree Workflow)
 
-Each branch gets its own worktree under `.branches/yract/` so multiple Claude Code sessions can work in parallel without conflicts. The main repo folder stays on `dev`.
+Each branch gets its own worktree under `.worktrees/feat/` so multiple Claude Code sessions can work in parallel without conflicts. The main repo folder stays on `dev` and must NEVER be modified (except `.claude/`).
 
 1. Check merged PRs: `gh pr list --state merged` — close resolved issues: `gh issue close <number>`
 2. Ensure main repo `dev` is up to date: `git checkout dev && git pull origin dev` (from main repo root)
-3. Create branch + worktree: `git worktree add .branches/yract/<branch_name> -b <branch_name>`
-4. Install deps in worktree: `cd .branches/yract/<branch_name> && npm ci && npm ci --prefix examples`
+3. Create branch + worktree: `git worktree add .worktrees/feat/<branch_name> -b <branch_name>`
+4. Install deps in worktree: `cd .worktrees/feat/<branch_name> && npm ci && npm ci --prefix examples`
 5. Copy Claude Code settings: `mkdir -p .claude && cp <main-repo-root>/.claude/settings.local.json .claude/`
-6. Work exclusively within the worktree directory
-7. Cleanup after merge: `git worktree remove .branches/yract/<branch_name> && git branch -d <branch_name>`
+6. Work exclusively within the worktree directory — never edit files in the main repo root
+7. Cleanup after merge: `git worktree remove .worktrees/feat/<branch_name> && git branch -d <branch_name>`
 
 ### 2. Development Commands
 
