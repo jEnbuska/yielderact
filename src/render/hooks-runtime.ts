@@ -403,6 +403,10 @@ export function runHooks(
     result = gen.next(value);
   }
 
+  // Track where the generator paused so `resume` can continue from
+  // the correct hook index when the generator advances past a useRender.
+  instance.resumeHookIndex = hookIndex;
+
   // Validate hook count on generator completion.
   if (result.done) {
     if (instance.finalHookCount !== undefined && hookIndex !== instance.finalHookCount) {
@@ -422,6 +426,71 @@ export function runHooks(
     vnode: (result.value as Child) ?? null,
     gen: result.done ? undefined : gen,
     cancelled: false,
+  };
+}
+
+/**
+ * Continue a paused generator, processing any hook descriptors it yields.
+ *
+ * When `useRender`'s `resumeCallback` resolves and calls `gen.next()`, the
+ * generator may advance past the resolved `useRender` into another hook
+ * (`useRender`, `useState`, etc.). This function handles that by looping
+ * over yielded descriptors — the same way `runHooks` does — until the
+ * generator yields a non-descriptor (VNode) or returns.
+ *
+ * @param instance - The component instance whose generator to continue.
+ * @param rerender - Function to trigger a rerender.
+ * @param resume   - Function to resume a paused generator (for nested `useRender`).
+ * @returns An object with:
+ *   - `vnode`: the yielded/returned VNode (Child).
+ *   - `done`: true if the generator returned (no more yields).
+ */
+export function resumeGenerator(
+  instance: ComponentInstance,
+  rerender: () => Promise<void>,
+  resume: () => void,
+): { vnode: Child; done: boolean } {
+  const gen = instance.gen;
+  if (!gen) return { vnode: null, done: true };
+
+  let hookIndex = instance.resumeHookIndex;
+  let result = gen.next();
+
+  while (!result.done && isHookDescriptor(result.value)) {
+    const descriptor = result.value as HookDescriptor;
+    const value = processOneDescriptor(
+      descriptor,
+      hookIndex++,
+      instance.hookStates,
+      instance.cleanupFns,
+      instance.pendingEffects,
+      rerender,
+      resume,
+      instance,
+    );
+    result = gen.next(value);
+  }
+
+  instance.resumeHookIndex = hookIndex;
+
+  if (result.done) {
+    instance.gen = undefined;
+    if (instance.finalHookCount !== undefined && hookIndex !== instance.finalHookCount) {
+      const componentName = instance.component.name || "Anonymous";
+      throw new Error(
+        `Hook count mismatch in "${componentName}": ` +
+          `previous render completed with ${instance.finalHookCount} hooks, ` +
+          `but this render completed with ${hookIndex}. ` +
+          `Hooks must be called in the same order and quantity on every render. ` +
+          `Do not call hooks inside conditions, loops, or after early returns.`,
+      );
+    }
+    instance.finalHookCount = hookIndex;
+  }
+
+  return {
+    vnode: (result.value as Child) ?? null,
+    done: result.done === true,
   };
 }
 
