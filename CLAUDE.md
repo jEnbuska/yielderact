@@ -12,7 +12,7 @@
 
 **Before pushing code or opening a PR, you MUST execute this sequence in order:**
 
-1.  **Branch Sync:** `git checkout dev && git pull origin dev && git checkout -`
+1.  **Branch Sync:** `git fetch origin dev && git rebase origin/dev`
 2.  **Dead Code Check:** `npm run knip`
 3.  **Lint & Format:** `npm run lint:fix`
 4.  **Type Check & Build:** `npm run build`
@@ -37,11 +37,17 @@ yract is a minimal JSX UI library using JavaScript generator functions.
 
 ## Project Workflow
 
-### 1. Starting a Task
+### 1. Starting a Task (Worktree Workflow)
 
-- Check merged PRs: `gh pr list --state merged`
-- Close resolved issues: `gh issue close <number>`
-- Create branch: `feature/description` or `fix/description` from `dev`.
+Each branch gets its own worktree under `.branches/yract/` so multiple Claude Code sessions can work in parallel without conflicts. The main repo folder stays on `dev`.
+
+1. Check merged PRs: `gh pr list --state merged` — close resolved issues: `gh issue close <number>`
+2. Ensure main repo `dev` is up to date: `git checkout dev && git pull origin dev` (from main repo root)
+3. Create branch + worktree: `git worktree add .branches/yract/<branch_name> -b <branch_name>`
+4. Install deps in worktree: `cd .branches/yract/<branch_name> && npm ci && npm ci --prefix examples`
+5. Copy Claude Code settings: `mkdir -p .claude && cp <main-repo-root>/.claude/settings.local.json .claude/`
+6. Work exclusively within the worktree directory
+7. Cleanup after merge: `git worktree remove .branches/yract/<branch_name> && git branch -d <branch_name>`
 
 ### 2. Development Commands
 
