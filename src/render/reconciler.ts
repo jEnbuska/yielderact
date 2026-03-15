@@ -763,10 +763,13 @@ function* reconcileHTMLElement(
   try {
     if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
       // Same tag → update props in place and reconcile children.
-      // When $deps is present, skip updateProps when deps are unchanged.
+      // When $deps is present and unchanged, skip the entire subtree.
       const elDeps = vnode.props.$deps;
-      const skipProps = elDeps && !depsChanged(prevSlot.props.$deps, elDeps);
-      if (!isLiveOnlyDefault() && !skipProps) {
+      if (elDeps && !depsChanged(prevSlot.props.$deps, elDeps)) {
+        prevSlot.props = vnode.props;
+        return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      }
+      if (!isLiveOnlyDefault()) {
         const prevProps = prevSlot.props;
         domEnqueue(
           () => updateProps(prevSlot.node as HTMLElement, prevProps, vnode.props),

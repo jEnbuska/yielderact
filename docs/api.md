@@ -812,7 +812,7 @@ function* Parent() {
 
 **For components:** when `$deps` is present and unchanged, the component's generator body is not re-executed. Context changes still trigger a rerender regardless of `$deps`.
 
-**For HTML elements:** when `$deps` is present and unchanged, prop diffing (`updateProps`) is skipped. Children are still reconciled normally.
+**For HTML elements:** when `$deps` is present and unchanged, the entire subtree is frozen — prop diffing (`updateProps`) and child reconciliation are both skipped.
 
 `$deps` is never set as a DOM attribute and is not visible in the component's props object.
 

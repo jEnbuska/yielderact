@@ -219,7 +219,7 @@ describe("$deps prop", () => {
     expect(container.textContent).toContain("dark");
   });
 
-  it("still reconciles children of HTML element when $deps skips props", () => {
+  it("skips entire subtree of HTML element when $deps are unchanged", () => {
     let setChild: (v: string) => void = () => {};
 
     function* Parent() {
@@ -232,7 +232,7 @@ describe("$deps prop", () => {
     expect(container.textContent).toContain("hello");
 
     setChild("world");
-    // Children should still reconcile even though $deps didn't change
-    expect(container.textContent).toContain("world");
+    // Entire subtree should be frozen when $deps didn't change
+    expect(container.textContent).toContain("hello");
   });
 });
