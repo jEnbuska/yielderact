@@ -43,7 +43,7 @@ If any step fails, fix and re-run the full sequence.
 
 - **Target branch:** `dev`
 - **Commit format:** [Conventional Commits](https://www.conventionalcommits.org/) (e.g. `feat:`, `fix:`, `chore:`)
-- **Issue linking:** Every PR must link to a GitHub issue. Include `Closes #<number>` or `Fixes #<number>` in the PR body.
+- **Issue linking:** Every PR must link to a GitHub issue. Include `Closes #<number>` or `Fixes #<number>` in the PR body. If no issue exists for the work being done, create one first. A CI check enforces this — PRs without an issue reference will fail.
 
 ## Project structure
 
