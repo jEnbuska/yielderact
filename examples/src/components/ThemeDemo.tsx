@@ -1,7 +1,7 @@
 /**
  * ThemeDemo – demonstrates createContext / useContext with `yield* useState`.
  */
-import { createContext, useContext, useId, useState } from "yielderact";
+import { createContext, useContext, useId, useState } from "yract";
 
 type Theme = "light" | "dark";
 

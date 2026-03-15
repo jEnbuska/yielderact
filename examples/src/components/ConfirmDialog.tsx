@@ -5,7 +5,7 @@
  *  • Variant 1: JSX passed directly to useRender; the child uses useResume.
  *  • Variant 2: Inline render function receives resume as a prop.
  */
-import { useRef, useRender, useResume, useState } from "yielderact";
+import { useRef, useRender, useResume, useState } from "yract";
 
 // ---------------------------------------------------------------------------
 // Variant 1 – child component uses useResume

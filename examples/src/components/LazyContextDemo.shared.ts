@@ -1,4 +1,4 @@
-import { createContext } from "yielderact";
+import { createContext } from "yract";
 
 export type AppState = {
   user: { name: string; role: string };

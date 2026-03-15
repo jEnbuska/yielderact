@@ -1,5 +1,5 @@
 {
-  "name": "yielderact-examples",
+  "name": "yract-examples",
   "private": true,
   "version": "0.0.1",
   "type": "module",
@@ -13,6 +13,6 @@
     "@playwright/test": "^1.58.2",
     "@types/node": "^25.0.0",
     "typescript": "^5.9.3",
-    "vite": "^7.3.1"
+    "vite": "^8.0.0"
   }
 }

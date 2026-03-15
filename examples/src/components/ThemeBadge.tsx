@@ -1,4 +1,4 @@
-import { useContext } from "yielderact";
+import { useContext } from "yract";
 import { ThemeCtx, themeStyles } from "./ContextDemo.shared";
 
 export function* ThemeBadge(props: { "data-testid"?: string }) {

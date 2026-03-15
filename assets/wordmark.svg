@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 160">
+  <!-- yract wordmark: ?r*act — adaptive light/dark -->
+  <style>
+    .q { fill: #534AB7 }
+    .t { fill: #1a1a1a }
+    .s { fill: #EF9F27 }
+    @media (prefers-color-scheme: dark) {
+      .q { fill: #AFA9EC }
+      .t { fill: #f0f0f0 }
+    }
+  </style>
+  <text x="60" y="105" font-family="ui-monospace, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace" font-size="96" font-weight="600" class="q">?</text>
+  <text x="118" y="105" font-family="ui-monospace, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace" font-size="96" font-weight="600" class="t">r</text>
+  <text x="176" y="105" font-family="ui-monospace, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace" font-size="96" font-weight="600" class="s">*</text>
+  <text x="234" y="105" font-family="ui-monospace, 'Cascadia Code', 'Fira Code', 'JetBrains Mono', 'SF Mono', Menlo, Consolas, monospace" font-size="96" font-weight="600" class="t">act</text>
+</svg>

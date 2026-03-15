@@ -3,7 +3,7 @@
  *
  * Provides a simple tab-based navigation between the five example demos.
  */
-import { createRoot, useState } from "yielderact";
+import { createRoot, useState } from "yract";
 import { AbortSignalEffectDemo } from "./components/AbortSignalEffectDemo";
 import { ConfirmDialog } from "./components/ConfirmDialog";
 import { ContextDemo } from "./components/ContextDemo";
@@ -60,7 +60,7 @@ function* App() {
   return (
     <div style={{ maxWidth: "640px", margin: "0 auto" }}>
       <h1 data-testid="app-heading" style={{ marginBottom: "0.25rem" }}>
-        yielderact examples
+        yract examples
       </h1>
       <p style={{ color: "#555", marginBottom: "1.25rem" }}>
         Generator-powered JSX components — no magic, just plain JavaScript.

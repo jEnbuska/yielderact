@@ -1,4 +1,4 @@
-import { useContext } from "yielderact";
+import { useContext } from "yract";
 import { LocaleCtx } from "./ContextDemo.shared";
 
 export function* LocaleBadge() {

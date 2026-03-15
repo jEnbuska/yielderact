@@ -128,7 +128,7 @@ describe("createPortal", () => {
   // ── 6. Event delegation ─────────────────────────────────────────────────
 
   it("onClick in portal content fires correctly", () => {
-    const onClick = jest.fn();
+    const onClick = vi.fn();
 
     function* App() {
       return createPortal(createElement("button", { onClick }, "click me"), portalTarget);
@@ -230,7 +230,7 @@ describe("createPortal", () => {
   // ── 10. useEffect cleanup ───────────────────────────────────────────────
 
   it("effects in portal children run cleanup on unmount", () => {
-    const cleanup = jest.fn();
+    const cleanup = vi.fn();
 
     function* PortalChild() {
       yield* useEffect(() => {

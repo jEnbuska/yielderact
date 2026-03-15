@@ -1,4 +1,4 @@
-import { useState, useUIPatch } from "yielderact";
+import { useState, useUIPatch } from "yract";
 import type { Page } from "../types";
 import { sleep } from "../utils";
 import { Clocks } from "./Clocks";

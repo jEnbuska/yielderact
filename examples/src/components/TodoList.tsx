@@ -2,7 +2,7 @@
  * TodoList – a component demonstrating array state management
  * with `yield* useState`.
  */
-import { useId, useState } from "yielderact";
+import { useId, useState } from "yract";
 
 interface Todo {
   id: number;
@@ -24,7 +24,7 @@ export function* TodoList() {
 
   const [state, setState] = yield* useState<TodoState>({
     todos: [
-      { id: 1, text: "Learn yielderact", done: false },
+      { id: 1, text: "Learn yract", done: false },
       { id: 2, text: "Build something with generators", done: false },
     ],
     nextId: 3,

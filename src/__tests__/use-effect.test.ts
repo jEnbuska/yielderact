@@ -2,7 +2,7 @@ import { useEffect, useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
-// jsdom is provided by jest-environment-jsdom (see jest.config.js)
+// jsdom is provided by vitest (see vitest.config.ts)
 
 describe("render – useEffect", () => {
   let container: HTMLElement;
@@ -113,7 +113,7 @@ describe("render – useEffect", () => {
       const answer = yield* (function* (): Generator<unknown, string, unknown> {
         // Inline useRender-like pause: yield a VNode to pause the generator
         const caps = (yield {
-          type: Symbol.for("yielderact.useRender.test"),
+          type: Symbol.for("yract.useRender.test"),
         }) as null;
         return caps as unknown as string;
       })();

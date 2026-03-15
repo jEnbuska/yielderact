@@ -6,7 +6,7 @@
  * if it rejects).  Once resolved, execution continues and the component
  * returns its final JSX.
  */
-import { useId, useMemo, useResolve, useResolveRaw, useState } from "yielderact";
+import { useId, useMemo, useResolve, useResolveRaw, useState } from "yract";
 
 interface User {
   id: number;

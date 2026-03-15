@@ -8,7 +8,7 @@
  * increments it directly.
  * Unmounting the panel aborts all signals.
  */
-import { useEffect, useState } from "yielderact";
+import { useEffect, useState } from "yract";
 
 function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) {
   const [status, setStatus] = yield* useState<string>("idle");

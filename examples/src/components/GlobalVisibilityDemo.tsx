@@ -1,4 +1,4 @@
-import { commitUIPatch, startUIPatch, useRef, useState } from "yielderact";
+import { commitUIPatch, startUIPatch, useRef, useState } from "yract";
 import { VisibilityTarget } from "./VisibilityTarget";
 
 export function* GlobalVisibilityDemo() {

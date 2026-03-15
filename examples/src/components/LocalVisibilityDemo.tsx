@@ -1,4 +1,4 @@
-import { useRef, useState, useUIPatch } from "yielderact";
+import { useRef, useState, useUIPatch } from "yract";
 import { VisibilityTarget } from "./VisibilityTarget";
 
 export function* LocalVisibilityDemo() {

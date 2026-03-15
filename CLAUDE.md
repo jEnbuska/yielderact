@@ -1,4 +1,4 @@
-# CLAUDE.md - Yielderact Development Guide
+# CLAUDE.md - Y'ract Development Guide
 
 ## MANDATORY: READ FIRST
 
@@ -12,7 +12,7 @@
 
 **Before pushing code or opening a PR, you MUST execute this sequence in order:**
 
-1.  **Branch Sync:** `git checkout dev && git pull origin dev && git checkout -`
+1.  **Branch Sync:** `git fetch origin dev && git rebase origin/dev`
 2.  **Dead Code Check:** `npm run knip`
 3.  **Lint & Format:** `npm run lint:fix`
 4.  **Type Check & Build:** `npm run build`
@@ -27,7 +27,7 @@
 
 ## Project Overview
 
-yielderact is a minimal JSX UI library using JavaScript generator functions.
+yract is a minimal JSX UI library using JavaScript generator functions.
 
 - **Components:** Generators using `yield*` for hooks and `return` for JSX.
 - **State:** Local variables managed by hooks.
@@ -37,11 +37,17 @@ yielderact is a minimal JSX UI library using JavaScript generator functions.
 
 ## Project Workflow
 
-### 1. Starting a Task
+### 1. Starting a Task (Worktree Workflow)
 
-- Check merged PRs: `gh pr list --state merged`
-- Close resolved issues: `gh issue close <number>`
-- Create branch: `feature/description` or `fix/description` from `dev`.
+Each branch gets its own worktree under `.branches/yract/` so multiple Claude Code sessions can work in parallel without conflicts. The main repo folder stays on `dev`.
+
+1. Check merged PRs: `gh pr list --state merged` — close resolved issues: `gh issue close <number>`
+2. Ensure main repo `dev` is up to date: `git checkout dev && git pull origin dev` (from main repo root)
+3. Create branch + worktree: `git worktree add .branches/yract/<branch_name> -b <branch_name>`
+4. Install deps in worktree: `cd .branches/yract/<branch_name> && npm ci && npm ci --prefix examples`
+5. Copy Claude Code settings: `mkdir -p .claude && cp <main-repo-root>/.claude/settings.local.json .claude/`
+6. Work exclusively within the worktree directory
+7. Cleanup after merge: `git worktree remove .branches/yract/<branch_name> && git branch -d <branch_name>`
 
 ### 2. Development Commands
 
@@ -50,7 +56,7 @@ yielderact is a minimal JSX UI library using JavaScript generator functions.
 - `npm run build` — Compile TS to `dist/`
 - `npm run typecheck` — Type-check including test files (no emit)
 - `npm run typecheck:examples` — Type-check example components (catches `$children`/JSX issues)
-- `npm test` — Run Jest unit tests (jsdom)
+- `npm test` — Run Vitest unit tests (jsdom)
 - `npm run test:visual` — Run Playwright visual tests
 - `npm run knip` — Detect dead code, unused exports, and unused dependencies (Knip)
 - `npm run lint` — Check lint & formatting (Biome)
@@ -129,7 +135,7 @@ function* Counter(_props: object) {
 - **TypeScript:** Strictly typed; `any` is forbidden. `noUncheckedIndexedAccess` and `noPropertyAccessFromIndexSignature` are enabled.
 - **Special Props:** Always support the `$shown={boolean}` prop.
 - **Dependencies:** Zero-dependency goal.
-- **JSX Config:** The library build uses the classic `react` transform (`jsxFactory: "createElement"`). Consumers (including `examples/`) use `react-jsx` with `jsxImportSource: "yielderact"`, backed by `src/jsx-runtime.ts`.
+- **JSX Config:** The library build uses the classic `react` transform (`jsxFactory: "createElement"`). Consumers (including `examples/`) use `react-jsx` with `jsxImportSource: "yract"`, backed by `src/jsx-runtime.ts`.
 - **Multi-root:** Each `render()`/`createRoot()` creates an independent `RenderContext` with its own state (patch depth, dirty instances, scheduler queue, context map, DOM ops queue). The global `idCounter` is the only shared state (IDs must be globally unique).
 - **Guard Clauses:** Always prefer guard clauses (early returns) over nested conditionals. Return early when a condition short-circuits the rest of the logic.
 - **Lint Strictness:** Never weaken linting or tsconfig rules. Fix lint issues by improving code, not by adding `biome-ignore` or `@ts-ignore` comments. The only accepted exceptions are `biome-ignore lint/complexity/noExcessiveCognitiveComplexity` on architectural dispatch functions (reconciler, props, mount, dispatch) that inherently require many branches.

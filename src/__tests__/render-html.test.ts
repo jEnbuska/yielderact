@@ -2,7 +2,7 @@ import { useState } from "../hooks";
 import { createElement, Fragment } from "../jsx";
 import { buildNode, render } from "../render";
 
-// jsdom is provided by jest-environment-jsdom (see jest.config.js)
+// jsdom is provided by vitest (see vitest.config.ts)
 
 describe("render – HTML elements", () => {
   let container: HTMLElement;
@@ -44,7 +44,7 @@ describe("render – HTML elements", () => {
   });
 
   it("applies event listeners and wraps in SyntheticEvent", () => {
-    const onClick = jest.fn();
+    const onClick = vi.fn();
     render(createElement("button", { onClick }, "click me"), container);
     container.querySelector("button")?.click();
     expect(onClick).toHaveBeenCalledTimes(1);
@@ -229,14 +229,14 @@ describe("render – HTML defaults", () => {
   });
 
   it('warns when <a target="_blank"> has no rel', () => {
-    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     buildNode(createElement("a", { href: "https://example.com", target: "_blank" }, "link"));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("noopener"));
     warn.mockRestore();
   });
 
   it('does not warn when <a target="_blank"> has any rel value', () => {
-    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     buildNode(
       createElement(
         "a",
@@ -256,7 +256,7 @@ describe("render – HTML defaults", () => {
   });
 
   it('does not warn for <a> without target="_blank"', () => {
-    const warn = jest.spyOn(console, "warn").mockImplementation(() => {});
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     buildNode(createElement("a", { href: "https://example.com" }, "link"));
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();

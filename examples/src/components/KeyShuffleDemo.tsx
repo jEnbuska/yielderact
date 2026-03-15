@@ -5,7 +5,7 @@
  * recreating them, and that component state is preserved
  * across reorders.
  */
-import { useRef, useState } from "yielderact";
+import { useRef, useState } from "yract";
 
 /* ── Stateful counter item ── */
 

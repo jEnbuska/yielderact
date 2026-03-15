@@ -4,7 +4,7 @@ import { goToApp } from "./helpers";
 test.describe("App shell", () => {
   test("loads and shows the heading", async ({ page }) => {
     await goToApp(page);
-    await expect(page.getByTestId("app-heading")).toHaveText("yielderact examples");
+    await expect(page.getByTestId("app-heading")).toHaveText("yract examples");
     await page.screenshot({ path: "test-results/app-loaded.png" });
   });
 

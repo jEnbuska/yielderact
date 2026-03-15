@@ -1,6 +1,6 @@
 ---
 name: 'Feature or Fix'
-about: 'Standard template for Yielderact development'
+about: 'Standard template for Y'ract development'
 title: '[Scope]: Description'
 labels: ['enhancement']
 assignees: ''
