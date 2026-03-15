@@ -11,8 +11,7 @@
       "project": ["src/**/*.ts", "src/**/*.tsx"],
       "playwright": false,
       "vite": false,
-      "ignoreDependencies": ["yielderact", "vite"],
-      "ignoreBinaries": ["vite"]
+      "ignoreDependencies": ["yielderact"]
     }
   }
 }
