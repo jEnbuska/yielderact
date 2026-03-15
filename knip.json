@@ -10,6 +10,7 @@
     "examples": {
       "project": ["src/**/*.ts", "src/**/*.tsx"],
       "playwright": false,
+      "vite": false,
       "ignoreDependencies": ["yielderact"]
     }
   }
