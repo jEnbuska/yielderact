@@ -25,7 +25,7 @@ export type Child = VNode | string | number | boolean | null | undefined;
  */
 export interface FrameworkProps {
   /** Reconciliation key — not rendered to the DOM. Must be a string. */
-  $key?: string;
+  key?: string;
   /** When false, the element/component is removed from the DOM. */
   $shown?: boolean;
   /**
@@ -154,7 +154,7 @@ export const Portal: unique symbol = Symbol("Portal");
 export function createPortal(children: Child | Child[], container: Element, key?: string): VNode {
   const childArray = Array.isArray(children) ? children : [children];
   const props: InternalProps = { $portalContainer: container } as InternalProps;
-  if (key != null) props.$key = String(key);
+  if (key != null) props.key = String(key);
   return { type: Portal, props, children: childArray };
 }
 
@@ -232,7 +232,7 @@ declare global {
      * elements and custom components — without needing to be
      * declared in the component's own props type.
      *
-     * Only framework-level props (`$key`, `$shown`, `$patch`, `$deferred`)
+     * Only framework-level props (`key`, `$shown`, `$patch`, `$deferred`)
      * are universally available. `children` and `$ref` must be explicitly
      * declared in a component's props type to be accepted.
      */

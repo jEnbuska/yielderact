@@ -22,8 +22,8 @@ export function jsx(
 ): VNode {
   const { children, ...rest } = props;
   // The automatic JSX transform extracts `key` and passes it as the third
-  // argument. Map it to `$key` (string only) for our reconciler.
-  if (key != null) rest["$key"] = String(key);
+  // argument. Map it to `key` (string only) for our reconciler.
+  if (key != null) rest["key"] = String(key);
   if (children === undefined) {
     return createElement(type, rest);
   }

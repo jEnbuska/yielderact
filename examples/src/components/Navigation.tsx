@@ -18,7 +18,7 @@ export function* Navigation({
     >
       {(["home", "about", "contact"] as Page[]).map((p) => (
         <button
-          $key={p}
+          key={p}
           data-testid={`${scope}-nav-${p}`}
           onClick={() => navigate(p)}
           disabled={isPending}
