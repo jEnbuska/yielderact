@@ -86,7 +86,7 @@ function* Counter(_props: object) {
 
 | File                      | Responsibility                                                          |
 | :------------------------ | :---------------------------------------------------------------------- |
-| `jsx.ts`                  | VNode types, `createElement`, `FrameworkProps`, `SpecialProps`, `Component` |
+| `jsx.ts`                  | VNode types, `createElement`, `createPortal`, `Portal`, `FrameworkProps`, `SpecialProps`, `Component` |
 | `jsx-types.ts`            | Intrinsic element type definitions (HTML/SVG attribute types)           |
 | `jsx-runtime.ts`          | Automatic JSX transform (`jsx`, `jsxs`, `jsxDEV`)                      |
 | `events.ts`               | `SyntheticEvent` type and proxy-based event wrapper                     |
@@ -130,7 +130,7 @@ function* Counter(_props: object) {
 
 Example components live in `examples/src/components/`. The app entry point is `examples/src/main.tsx`, which renders a tabbed view of all demos.
 
-**Top-level demos** (each a tab in main.tsx): `Counter`, `TodoList`, `ThemeDemo`, `DataFetcher`/`ResolveRawDemo`, `HooksShowcase`, `ShownDemo`, `ConfirmDialog`, `EffectDemo`, `TransitionDemo`, `ContextDemo`, `LazyContextDemo`, `AbortSignalEffectDemo`, `KeyShuffleDemo`.
+**Top-level demos** (each a tab in main.tsx): `Counter`, `TodoList`, `ThemeDemo`, `DataFetcher`/`ResolveRawDemo`, `HooksShowcase`, `ShownDemo`, `ConfirmDialog`, `EffectDemo`, `TransitionDemo`, `ContextDemo`, `LazyContextDemo`, `AbortSignalEffectDemo`, `KeyShuffleDemo`, `PortalDemo`.
 
 **Multi-file demos** split one-component-per-file:
 

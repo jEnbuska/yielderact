@@ -13,6 +13,7 @@ import { EffectDemo } from "./components/EffectDemo";
 import { HooksShowcase } from "./components/HooksShowcase";
 import { KeyShuffleDemo } from "./components/KeyShuffleDemo";
 import { LazyContextDemo } from "./components/LazyContextDemo";
+import { PortalDemo } from "./components/PortalDemo";
 import { ShownDemo } from "./components/ShownDemo";
 import { ThemeDemo } from "./components/ThemeDemo";
 import { TodoList } from "./components/TodoList";
@@ -32,7 +33,8 @@ type Tab =
   | "context"
   | "lazy-ctx"
   | "abort-signal"
-  | "key-shuffle";
+  | "key-shuffle"
+  | "portal";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "counter", label: "Counter" },
@@ -49,6 +51,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "lazy-ctx", label: "Lazy Context" },
   { id: "abort-signal", label: "AbortSignal Effect" },
   { id: "key-shuffle", label: "Key Shuffle" },
+  { id: "portal", label: "createPortal" },
 ];
 
 function* App() {
@@ -106,6 +109,7 @@ function* App() {
         <LazyContextDemo $shown={activeTab === "lazy-ctx"} />
         <AbortSignalEffectDemo $shown={activeTab === "abort-signal"} />
         <KeyShuffleDemo $shown={activeTab === "key-shuffle"} />
+        <PortalDemo $shown={activeTab === "portal"} />
       </div>
     </div>
   );

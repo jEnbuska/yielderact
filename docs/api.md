@@ -26,11 +26,13 @@
 6. [Context](#context)
    - [createContext](#createcontext)
    - [useContext](#usecontext)
-7. [UI patches](#ui-patches)
+7. [Portals](#portals)
+   - [createPortal](#createportal)
+8. [UI patches](#ui-patches)
    - [startUIPatch / commitUIPatch](#startuipatch--commituipatch)
-8. [Special props](#special-props)
-9. [Events](#events)
-10. [Design decisions](#design-decisions)
+9. [Special props](#special-props)
+10. [Events](#events)
+11. [Design decisions](#design-decisions)
 
 ---
 
@@ -630,6 +632,89 @@ function* GroupHeader() {
   return <h2>{group.name}</h2>;
 }
 ```
+
+---
+
+## Portals
+
+Portals let you render children into a DOM node that exists outside the render root's DOM hierarchy. The portaled content participates in the normal component tree for context, events, and reconciliation — only the physical DOM placement differs.
+
+### `createPortal`
+
+```ts
+createPortal(children, container, key?)
+```
+
+Creates a portal VNode that renders `children` into `container`.
+
+| Parameter   | Type               | Description                                        |
+| ----------- | ------------------ | -------------------------------------------------- |
+| `children`  | `Child \| Child[]` | The children to render into the container          |
+| `container` | `Element`          | The target DOM element (outside the render root)   |
+| `key`       | `string?`          | Optional reconciliation key                        |
+
+**Returns** `VNode` — a portal VNode (type = `Portal` symbol)
+
+#### Basic portal
+
+```tsx
+function* App() {
+  const modalRoot = document.getElementById('modal-root')!;
+  return (
+    <div>
+      <h1>App</h1>
+      {createPortal(<Modal />, modalRoot)}
+    </div>
+  );
+}
+```
+
+#### Portal with context
+
+Context flows through the component tree, not the DOM tree. A portaled child reads context from its logical parent:
+
+```tsx
+const ThemeCtx = createContext<'light' | 'dark'>('light');
+
+function* ThemeReader() {
+  const theme = yield* useContext(ThemeCtx);
+  return <span>{theme}</span>;
+}
+
+function* App() {
+  return (
+    <ThemeCtx.Provider value="dark">
+      {createPortal(
+        <ThemeReader />,  // reads "dark" from context
+        document.getElementById('portal-target')!,
+      )}
+    </ThemeCtx.Provider>
+  );
+}
+```
+
+#### Cleanup
+
+When the portal VNode is removed from the tree (e.g. via `$shown` or conditional rendering), the portaled children are unmounted from the container and all cleanup functions (effects, abort signals) run as usual.
+
+```tsx
+function* App() {
+  const [showModal, setShowModal] = yield* useState(false);
+  return (
+    <>
+      <button onClick={() => setShowModal((v) => !v)}>Toggle</button>
+      {showModal
+        ? createPortal(<Modal />, document.getElementById('modal-root')!)
+        : null}
+    </>
+  );
+}
+```
+
+> **Notes:**
+> - A comment node placeholder is inserted in the original DOM position for reconciliation tracking.
+> - Event delegation works inside portals — `onClick` and other delegated events fire normally.
+> - `$patch`, `$deferred`, and `$shown` props work on portal children as expected.
 
 ---
 
