@@ -30,6 +30,7 @@ import type { ComponentInstance } from "./types";
 export function _flushPendingVNodes(instances: ComponentInstance[]): void {
   for (const inst of instances) {
     if (inst.pendingVNode === undefined) continue;
+    if (!inst.endMarker.parentNode) continue;
     const vnode = inst.pendingVNode;
     inst.pendingVNode = undefined;
     inst.renderCtx.dirtyInstances.delete(inst);

@@ -278,6 +278,73 @@ test("useResolveRaw: deps change during pending", async ({ page, setupPage }) =>
   await expect(page.locator("#data")).toHaveText("Item 2", { timeout: 3000 });
 });
 
+test("switching tabs while useResolve is loading does not freeze", async ({ page, setupPage }) => {
+  await setupPage();
+
+  await page.evaluate(() => {
+    const { createElement, render, useState, useResolve } = (
+      window as unknown as { Yielderact: typeof import("../src/index") }
+    ).Yielderact;
+
+    const win = window as unknown as Record<string, unknown>;
+
+    function* Inner() {
+      const data = yield* useResolve(
+        {
+          fn: (_signal) =>
+            new Promise<string>((resolve) => {
+              setTimeout(() => resolve("Fetched OK"), 200);
+            }),
+          loading: createElement("span", { id: "loading" }, "Loading..."),
+          error: createElement("span", { id: "error" }, "Error"),
+        },
+        [],
+      );
+      return createElement("span", { id: "data" }, data);
+    }
+
+    function* App() {
+      const [tab, setTab] = yield* useState<"data" | "other">("data");
+      win.setTab = setTab;
+      if (tab === "data") {
+        return createElement(
+          "div",
+          {},
+          createElement("span", { id: "tab-label" }, "Data Tab"),
+          createElement(Inner as never, {}),
+        );
+      }
+      return createElement("span", { id: "other-tab" }, "Other Tab");
+    }
+
+    render(createElement(App as never, {}), document.getElementById("root") as HTMLElement);
+  });
+
+  // Verify Inner is mounted and loading
+  await expect(page.locator("#loading")).toHaveText("Loading...");
+
+  // Switch away from the data tab WHILE the fetch is pending
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (v: string) => void>).setTab("other");
+  });
+
+  // Other tab should render — this proves the UI is not frozen
+  await expect(page.locator("#other-tab")).toHaveText("Other Tab", { timeout: 3000 });
+
+  // Wait a bit for the promise to resolve in the background
+  await page.waitForTimeout(500);
+
+  // UI should still be responsive
+  await expect(page.locator("#other-tab")).toHaveText("Other Tab");
+
+  // Switch back — should show fresh data (new mount)
+  await page.evaluate(() => {
+    (window as unknown as Record<string, (v: string) => void>).setTab("data");
+  });
+
+  await expect(page.locator("#data")).toHaveText("Fetched OK", { timeout: 3000 });
+});
+
 test("useResolveRaw: rapid deps changes — only latest resolves", async ({ page, setupPage }) => {
   await setupPage();
 

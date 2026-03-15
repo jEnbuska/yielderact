@@ -161,6 +161,11 @@ export function unmountSlot(slot: Slot): void {
     // localPatchRefCount is intentionally left as-is; the local patch commit()
     // checks pendingVNode === undefined and skips accordingly.
     slot.componentInstance.renderCtx.dirtyInstances.delete(slot.componentInstance);
+    // Remove from scheduler queue so pending async callbacks (useResolveRaw
+    // promise handlers) don't trigger a zombie rerender.
+    for (const [, set] of slot.componentInstance.renderCtx.pendingUpdates) {
+      set.delete(slot.componentInstance);
+    }
   }
   // Portal cleanup: release the ref-counted delegation root.
   if (slot.portalContainer) {

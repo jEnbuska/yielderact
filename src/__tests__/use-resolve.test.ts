@@ -1,4 +1,5 @@
 import { useMemo, useResolve, useResolveRaw, useState } from "../hooks";
+import type { Child } from "../jsx";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
@@ -428,5 +429,140 @@ describe("render – generator components with useResolveRaw", () => {
     await firstPromise;
     // Stale result must not overwrite the current render
     expect(container.querySelector("#result")?.textContent).toBe("2:user2");
+  });
+});
+
+describe("useResolve / useResolveRaw – unmount during pending (zombie rerender)", () => {
+  let container: HTMLElement;
+
+  beforeEach(() => {
+    container = document.createElement("div");
+    document.body.appendChild(container);
+  });
+
+  afterEach(() => {
+    document.body.removeChild(container);
+  });
+
+  it("does not crash when component with useResolve is unmounted while loading", async () => {
+    let resolvePromise!: (data: string) => void;
+    const promise = new Promise<string>((res) => {
+      resolvePromise = res;
+    });
+    let setShow: (v: boolean) => void = () => {};
+
+    function* Inner() {
+      const data = yield* useResolve(
+        {
+          fn: (_signal) => promise,
+          // Use <div> for loading — different tag from the resolved <span>,
+          // so the zombie rerender forces a type-mismatch replace path that
+          // crashes when endMarker.parentNode is null.
+          loading: createElement("div", { id: "loading" }, "Loading…"),
+          error: createElement("div", { id: "error" }, "Error"),
+        },
+        [],
+      );
+      return createElement("span", { id: "data" }, data);
+    }
+
+    function* Outer() {
+      const [show, ss] = yield* useState(true);
+      setShow = ss;
+      return show
+        ? (createElement(Inner as never, {}) as Child)
+        : createElement("span", { id: "empty" }, "gone");
+    }
+
+    render(createElement(Outer as never, {}), container);
+    expect(container.querySelector("#loading")).not.toBeNull();
+
+    // Unmount Inner while the promise is still pending
+    setShow(false);
+    expect(container.querySelector("#empty")).not.toBeNull();
+
+    // Resolve the promise AFTER unmount — must not crash
+    resolvePromise("Hello");
+    await promise;
+
+    // UI should still show "gone", not crash or freeze
+    expect(container.querySelector("#empty")?.textContent).toBe("gone");
+  });
+
+  it("does not crash when useResolveRaw promise rejects after unmount", async () => {
+    let rejectPromise!: (reason: unknown) => void;
+    const promise = new Promise<string>((_res, rej) => {
+      rejectPromise = rej;
+    });
+    let setShow: (v: boolean) => void = () => {};
+
+    function* Inner() {
+      const p = yield* useMemo(() => promise, []);
+      const { data, loading, error } = yield* useResolveRaw<string, Error>(p);
+      // Use <div> for loading/error, <span> for data — different tags
+      // trigger the type-mismatch replace path in the zombie rerender.
+      if (loading) return createElement("div", { id: "loading" }, "Loading…");
+      if (error) return createElement("div", { id: "error" }, error.message);
+      return createElement("span", { id: "data" }, data);
+    }
+
+    function* Outer() {
+      const [show, ss] = yield* useState(true);
+      setShow = ss;
+      return show
+        ? (createElement(Inner as never, {}) as Child)
+        : createElement("span", { id: "empty" }, "gone");
+    }
+
+    render(createElement(Outer as never, {}), container);
+    expect(container.querySelector("#loading")).not.toBeNull();
+
+    // Unmount Inner
+    setShow(false);
+    expect(container.querySelector("#empty")).not.toBeNull();
+
+    // Reject the promise AFTER unmount — must not crash
+    rejectPromise(new Error("network error"));
+    await promise.catch(() => {});
+
+    expect(container.querySelector("#empty")?.textContent).toBe("gone");
+  });
+
+  it("does not crash when component with useResolveRaw is unmounted while loading", async () => {
+    let resolvePromise!: (data: string) => void;
+    const promise = new Promise<string>((res) => {
+      resolvePromise = res;
+    });
+    let setShow: (v: boolean) => void = () => {};
+
+    function* Inner() {
+      const p = yield* useMemo(() => promise, []);
+      const { data, loading } = yield* useResolveRaw<string>(p);
+      // Use <div> for loading, <span> for data — different tags
+      // trigger the type-mismatch replace path in the zombie rerender.
+      if (loading) return createElement("div", { id: "loading" }, "Loading…");
+      return createElement("span", { id: "data" }, data);
+    }
+
+    function* Outer() {
+      const [show, ss] = yield* useState(true);
+      setShow = ss;
+      return show
+        ? (createElement(Inner as never, {}) as Child)
+        : createElement("span", { id: "empty" }, "gone");
+    }
+
+    render(createElement(Outer as never, {}), container);
+    expect(container.querySelector("#loading")).not.toBeNull();
+
+    // Unmount Inner
+    setShow(false);
+    expect(container.querySelector("#empty")).not.toBeNull();
+
+    // Resolve the promise AFTER unmount — must not crash
+    resolvePromise("Hello");
+    await promise;
+
+    expect(container.querySelector("#empty")?.textContent).toBe("gone");
   });
 });
