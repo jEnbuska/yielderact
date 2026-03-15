@@ -12,7 +12,7 @@ import { _requireActiveCtx } from "./state";
 // ── Ref helpers ─────────────────────────────────────────────────────────────
 
 /** Attach a $ref object to a DOM element. */
-export function setRef(ref: { current: unknown } | undefined, el: Element): void {
+function setRef(ref: { current: unknown } | undefined, el: Element): void {
   if (ref) ref.current = el;
 }
 

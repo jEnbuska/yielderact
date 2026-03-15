@@ -23,7 +23,7 @@ import type { RenderContext } from "./types";
 // ---------------------------------------------------------------------------
 
 /** Stores bubble and/or capture handlers for one DOM event on one element. */
-export interface HandlerEntry {
+interface HandlerEntry {
   bubble?: (e: SyntheticEvent) => void;
   capture?: (e: SyntheticEvent) => void;
 }

@@ -4,7 +4,6 @@ import {
   type Component,
   Fragment,
   type InternalProps,
-  Portal,
   type SpecialProps,
   type VNode,
 } from "../jsx";
@@ -30,11 +29,6 @@ export function isComponentNode(vnode: VNode): vnode is VNode<Component> {
 /** Narrows a VNode to an HTML element node (`VNode<string>`). */
 export function isElementNode(vnode: VNode): vnode is VNode<string> {
   return typeof vnode.type === "string";
-}
-
-/** Returns `true` when a Child is a portal VNode. */
-export function isPortalNode(child: Child): boolean {
-  return isVNode(child) && child.type === Portal;
 }
 
 /** Narrow Renderable type down to Component  */

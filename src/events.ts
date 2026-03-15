@@ -103,7 +103,7 @@ export type SEvent<K extends keyof HTMLElementEventMap> = SyntheticEvent<HTMLEle
  *
  * @internal
  */
-export interface _DelegatableEvent<E extends Event = Event> extends SyntheticEvent<E> {
+interface _DelegatableEvent<E extends Event = Event> extends SyntheticEvent<E> {
   /** Set `currentTarget` during the dispatch walk. @internal */
   _setCurrentTarget(el: EventTarget | null): void;
   /** Query whether `stopPropagation()` was called. @internal */

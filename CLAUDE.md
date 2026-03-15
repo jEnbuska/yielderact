@@ -13,14 +13,15 @@
 **Before pushing code or opening a PR, you MUST execute this sequence in order:**
 
 1.  **Branch Sync:** `git checkout dev && git pull origin dev && git checkout -`
-2.  **Lint & Format:** `npm run lint:fix`
-3.  **Type Check & Build:** `npm run build`
-4.  **Type Check Examples:** `npm run typecheck:examples`
-5.  **Unit Tests:** `npm test`
-6.  **Visual Tests:** `npm run test:visual`
-7.  **Documentation & CLAUDE.md:** \* Update `docs/api.md` if API changed.
+2.  **Dead Code Check:** `npm run knip`
+3.  **Lint & Format:** `npm run lint:fix`
+4.  **Type Check & Build:** `npm run build`
+5.  **Type Check Examples:** `npm run typecheck:examples`
+6.  **Unit Tests:** `npm test`
+7.  **Visual Tests:** `npm run test:visual`
+8.  **Documentation & CLAUDE.md:** \* Update `docs/api.md` if API changed.
     - Update `CLAUDE.md` if the workflow, scripts, or project structure changed.
-8.  **Final Verification:** If any step fails, fix and **restart from Step 2.**
+9.  **Final Verification:** If any step fails, fix and **restart from Step 2.**
 
 ---
 
@@ -51,6 +52,7 @@ yielderact is a minimal JSX UI library using JavaScript generator functions.
 - `npm run typecheck:examples` — Type-check example components (catches `$children`/JSX issues)
 - `npm test` — Run Jest unit tests (jsdom)
 - `npm run test:visual` — Run Playwright visual tests
+- `npm run knip` — Detect dead code, unused exports, and unused dependencies (Knip)
 - `npm run lint` — Check lint & formatting (Biome)
 - `npm run lint:fix` — Auto-fix lint & formatting issues
 - `npm run format` — Auto-fix formatting only (Biome)
@@ -129,6 +131,7 @@ function* Counter(_props: object) {
   1. An example demo component in `examples/src/components/` wired into `main.tsx` as a tab.
   2. Playwright visual tests in `playwright-tests/` covering the demo.
   3. Documentation in `docs/api.md`.
+- **Bug Fix Workflow:** When a bug is discovered, always write unit tests and/or Playwright visual tests that reproduce the bug **before** writing the fix. Verify the tests fail, then fix the bug, then verify the tests pass.
 
 ### Examples Structure
 

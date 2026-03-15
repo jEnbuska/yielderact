@@ -298,7 +298,7 @@ function* reconcileKeyedSlotsGen(
  * immediately — identical to the non-generator behavior.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: positional diffing with keyed fallback
-export function* reconcileSlotsGen(
+function* reconcileSlotsGen(
   parent: HTMLElement | Node,
   prevSlots: Slot[],
   nextVNodes: Child[],

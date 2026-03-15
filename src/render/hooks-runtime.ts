@@ -85,7 +85,7 @@ function getTypedPrev<K extends HookState["kind"]>(
  *
  * @param value - The value yielded by the component generator.
  */
-export function isHookDescriptor(value: unknown): boolean {
+function isHookDescriptor(value: unknown): boolean {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -179,7 +179,7 @@ export function unmountSlot(slot: Slot): void {
  * @returns A flat array of all descendant `ComponentInstance`s (not including
  *   the root itself).
  */
-export function collectDescendants(instance: ComponentInstance): ComponentInstance[] {
+function collectDescendants(instance: ComponentInstance): ComponentInstance[] {
   const result: ComponentInstance[] = [];
   function walk(slots: Slot[]): void {
     for (const slot of slots) {
@@ -216,7 +216,7 @@ function _deriveResolveRawResult(s: HookState | undefined): ResolveRawResult<unk
  * **Called by:** `runHooks` below — once for each hook descriptor yielded
  * during the component's generator body.
  */
-export function processOneDescriptor(
+function processOneDescriptor(
   descriptor: HookDescriptor,
   hookIndex: number,
   hookStates: HookState[],
