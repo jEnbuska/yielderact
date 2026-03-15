@@ -71,6 +71,11 @@ yielderact is a minimal JSX UI library using JavaScript generator functions.
   - **Verification:** Confirm all `npm` checks passed.
   - **CLAUDE.md Update:** State if this file was updated to reflect new changes.
 
+### 4. CI Workflows
+
+- **`ci.yml`** — Runs on push to `dev`/`main` and all PRs. Steps: dead code check (`knip`), lint, test, build, then visual tests (Playwright).
+- **`auto-resolve-conflicts.yml`** — Runs on push to `dev`. Finds open PRs targeting `dev` with merge conflicts and uses Claude Code CLI to resolve them automatically. Comments on the PR with the result. Requires `ANTHROPIC_API_KEY` secret.
+
 ---
 
 ## Technical Architecture
