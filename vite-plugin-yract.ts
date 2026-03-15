@@ -3,9 +3,9 @@
  *
  * A tiny Vite plugin that wires up the JSX automatic runtime for yract.
  *
- * Without React in the picture Vite's default esbuild transform does not know
- * which `jsx()` helper to call.  This plugin points esbuild at yract's
- * own jsx-runtime (`yract/jsx-runtime`) so that every `.tsx` / `.jsx`
+ * Without React in the picture Vite's default transform does not know
+ * which `jsx()` helper to call.  This plugin points the JSX transform at
+ * yract's own jsx-runtime (`yract/jsx-runtime`) so that every `.tsx` / `.jsx`
  * file is compiled without needing an explicit `createElement` / `Fragment`
  * import at the top of every file.
  *
@@ -49,7 +49,7 @@
 import type { Plugin } from "vite";
 
 /**
- * Returns a Vite plugin that configures the esbuild JSX transform to use
+ * Returns a Vite plugin that configures the JSX transform to use
  * yract's automatic JSX runtime.
  */
 export function yractPlugin(): Plugin {
@@ -57,8 +57,7 @@ export function yractPlugin(): Plugin {
     name: "vite-plugin-yract",
     config() {
       return {
-        esbuild: {
-          jsx: "automatic",
+        oxc: {
           jsxImportSource: "yract",
         },
       };
