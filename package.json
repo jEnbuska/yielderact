@@ -39,7 +39,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/jEnbuska/yielderact.git"
+    "url": "git+https://github.com/jEnbuska/yract.git"
   },
   "keywords": [
     "jsx",
@@ -51,9 +51,9 @@
   "author": "jEnbuska",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/jEnbuska/yielderact/issues"
+    "url": "https://github.com/jEnbuska/yract/issues"
   },
-  "homepage": "https://github.com/jEnbuska/yielderact#readme",
+  "homepage": "https://github.com/jEnbuska/yract#readme",
   "devDependencies": {
     "@biomejs/biome": "^2.4.6",
     "jsdom": "^26.1.0",
