@@ -56,7 +56,7 @@ Each branch gets its own worktree under `.branches/yract/` so multiple Claude Co
 - `npm run build` — Compile TS to `dist/`
 - `npm run typecheck` — Type-check including test files (no emit)
 - `npm run typecheck:examples` — Type-check example components (catches `$children`/JSX issues)
-- `npm test` — Run Jest unit tests (jsdom)
+- `npm test` — Run Vitest unit tests (jsdom)
 - `npm run test:visual` — Run Playwright visual tests
 - `npm run knip` — Detect dead code, unused exports, and unused dependencies (Knip)
 - `npm run lint` — Check lint & formatting (Biome)

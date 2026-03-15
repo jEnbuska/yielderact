@@ -2,7 +2,7 @@ import { useState } from "../hooks";
 import { createElement } from "../jsx";
 import { render } from "../render";
 
-// jsdom is provided by jest-environment-jsdom (see jest.config.js)
+// jsdom is provided by vitest (see vitest.config.ts)
 
 describe("useState", () => {
   let container: HTMLElement;
@@ -17,7 +17,7 @@ describe("useState", () => {
   });
 
   it("accepts a lazy initializer function called only once", () => {
-    const init = jest.fn(() => 42);
+    const init = vi.fn(() => 42);
     let capturedValue: number | null = null;
     let setValue: (v: number) => void = () => {};
 

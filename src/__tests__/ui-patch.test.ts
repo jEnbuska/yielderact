@@ -2,7 +2,7 @@ import { useState, useUIPatch } from "../hooks";
 import { createElement } from "../jsx";
 import { commitUIPatch, render, startUIPatch } from "../render";
 
-// jsdom is provided by jest-environment-jsdom (see jest.config.js)
+// jsdom is provided by vitest (see vitest.config.ts)
 
 // ---------------------------------------------------------------------------
 // Global UI Patch: startUIPatch / commitUIPatch
