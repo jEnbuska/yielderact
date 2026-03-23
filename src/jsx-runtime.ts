@@ -30,7 +30,7 @@ export function jsx(
   if (Array.isArray(children)) {
     return createElement(type, rest, ...children);
   }
-  return createElement(type, rest, children as Child);
+  return createElement(type, rest, children);
 }
 
 /** Used by the JSX transform for multi-child expressions (static children). */
