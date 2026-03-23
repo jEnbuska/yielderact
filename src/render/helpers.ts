@@ -132,7 +132,7 @@ export function flattenChildren(children: Child[]): Child[] {
 export function mergedProps(vnode: VNode): InternalProps {
   return (
     vnode.children.length > 0 ? { ...vnode.props, children: vnode.children } : vnode.props
-  ) as InternalProps;
+  ) satisfies InternalProps;
 }
 
 /**
@@ -182,7 +182,7 @@ export function isShown(props: SpecialProps): boolean {
 export function stripFrameworkDirectives(props: InternalProps): InternalProps {
   if (!("$deferred" in props) && !("$deps" in props)) return props;
   const { $deferred: _d, $deps: _p, ...rest } = props;
-  return rest as InternalProps;
+  return rest satisfies InternalProps;
 }
 
 /**
@@ -197,5 +197,5 @@ export function stripFrameworkDirectives(props: InternalProps): InternalProps {
 export function stripDeferred(props: InternalProps): InternalProps {
   if (!("$deferred" in props)) return props;
   const { $deferred: _, ...rest } = props;
-  return rest as InternalProps;
+  return rest satisfies InternalProps;
 }

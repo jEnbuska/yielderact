@@ -8,7 +8,7 @@ export function* TransformConsumer() {
 
   const upperName = yield* useContext(
     AppCtx,
-    (c) => [c.user.name] as [string],
+    (c) => [c.user.name] satisfies [string],
     (name) => name.toUpperCase(),
   );
 

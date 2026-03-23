@@ -16,7 +16,7 @@ export function* Navigation({
       data-testid={`${scope}-nav`}
       style={{ display: "flex", gap: "0.5rem", marginBottom: "1rem" }}
     >
-      {(["home", "about", "contact"] as Page[]).map((p) => (
+      {(["home", "about", "contact"] satisfies Page[]).map((p) => (
         <button
           key={p}
           data-testid={`${scope}-nav-${p}`}

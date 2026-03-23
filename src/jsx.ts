@@ -164,7 +164,7 @@ export const Portal: unique symbol = Symbol("Portal");
  */
 export function createPortal(children: Child | Child[], container: Element, key?: string): VNode {
   const childArray = Array.isArray(children) ? children : [children];
-  const props: InternalProps = { $portalContainer: container } as InternalProps;
+  const props: InternalProps = { $portalContainer: container } satisfies InternalProps;
   if (key != null) props.key = String(key);
   return { type: Portal, props, children: childArray };
 }
@@ -214,8 +214,8 @@ export function createElement(
 ): VNode {
   return {
     type,
-    props: (props ?? {}) as InternalProps,
-    children: children.flat() as Child[],
+    props: (props ?? {}) satisfies InternalProps,
+    children: children.flat() satisfies Child[],
   };
 }
 
