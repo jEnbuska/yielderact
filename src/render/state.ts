@@ -5,7 +5,7 @@ import type { RenderContext } from "./types";
 //
 // This is a plain context key (like `BatchContext` / `PriorityContext`)
 // stored in the ctxMap so that generators can access the render context
-// via `yield* getContextMap()` + `_resolveCtxValue(ctxMap, RenderCtx)`
+// via `yield* getContextMap()` + `resolveCtx(ctxMap, RenderCtx)`
 // instead of relying on the module-level `_activeCtx` pointer.
 //
 // It has no Provider component — the render entry points set it directly
@@ -15,7 +15,7 @@ import type { RenderContext } from "./types";
  * Context key for the per-root `RenderContext`.
  *
  * Set by `render()` / `createRoot()` in the initial ctxMap. Read by
- * generator code (mount, reconciler) via `_resolveCtxValue(ctxMap, RenderCtx)`.
+ * generator code (mount, reconciler) via `resolveCtx(ctxMap, RenderCtx)`.
  *
  * @internal
  */
@@ -46,7 +46,7 @@ export function createRenderContext(): RenderContext {
 // ── Active render context pointer (synchronous leaf code only) ───────────
 //
 // Generator code (mount.ts, reconciler.ts) accesses the RenderContext via
-// the ctxMap (`_resolveCtxValue(ctxMap, RenderCtx)`). This module-level
+// the ctxMap (`resolveCtx(ctxMap, RenderCtx)`). This module-level
 // pointer exists solely for synchronous leaf functions (patch-queue.ts,
 // props.ts, patch.ts) that cannot yield into the driver to read the ctxMap.
 //

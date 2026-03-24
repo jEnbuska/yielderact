@@ -14,13 +14,7 @@
  * scope via `runToCompletion(gen, childCtxMap)`.
  */
 
-import {
-  _instanceBatch,
-  _resolveCtxValue,
-  _withBatch,
-  BatchContext,
-  type Context,
-} from "../context";
+import { _instanceBatch, _withBatch, BatchContext, type Context, resolveCtx } from "../context";
 import { depsChanged } from "../hooks";
 import { $USE_CONTEXT } from "../hooks/descriptors";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
@@ -520,7 +514,7 @@ function* reconcileComponent(
 
   const childCtxMap = childContextMap(ctxMap, allPropsRaw);
 
-  const currentBatch = _resolveCtxValue(childCtxMap, BatchContext);
+  const currentBatch = resolveCtx(childCtxMap, BatchContext);
 
   // ── Same component type at same position ──
   if (prevSlot?.type === vnode.type) {
@@ -551,8 +545,8 @@ function* reconcileComponent(
         // Check if any consumed context value differs from capturedCtx.
         let contextChanged = false;
         for (const ctx of inst.consumedContexts) {
-          const currentVal = _resolveCtxValue(childCtxMap, ctx);
-          if (!Object.is(currentVal, _resolveCtxValue(inst.capturedCtx, ctx))) {
+          const currentVal = resolveCtx(childCtxMap, ctx);
+          if (!Object.is(currentVal, resolveCtx(inst.capturedCtx, ctx))) {
             if (!_hasStableContextSelectors(inst, ctx, currentVal)) {
               contextChanged = true;
               break;

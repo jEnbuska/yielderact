@@ -24,7 +24,7 @@
  * effects or context propagation is processed immediately).
  */
 
-import { _resolveCtxValue, PriorityContext } from "../context";
+import { PriorityContext, resolveCtx } from "../context";
 import { beginPatch, commitPatch, restorePatchOps, savePatchOps } from "./patch-queue";
 import { _requireActiveCtx, _setActiveCtx, RenderCtx } from "./state";
 import type { ComponentInstance, RenderContext } from "./types";
@@ -49,9 +49,8 @@ const _timeSlice = 5;
  */
 export function scheduleUpdate(instance: ComponentInstance): void {
   // TODO: should use yield* getContext(RenderCtx) — sync code can't yield
-  const rctx = _resolveCtxValue(instance.capturedCtx, RenderCtx);
-  const priority =
-    rctx.renderingPriority ?? _resolveCtxValue(instance.capturedCtx, PriorityContext);
+  const rctx = resolveCtx(instance.capturedCtx, RenderCtx);
+  const priority = rctx.renderingPriority ?? resolveCtx(instance.capturedCtx, PriorityContext);
 
   let set = rctx.pendingUpdates.get(priority);
   if (!set) {

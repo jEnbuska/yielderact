@@ -204,10 +204,7 @@ export function _processContext(
  * Kept for synchronous code that cannot yield (hooks, helpers, scheduler).
  * @internal
  */
-export function _resolveCtxValue<T>(
-  map: ReadonlyMap<Context<unknown>, unknown>,
-  ctx: Context<T>,
-): T {
+export function resolveCtx<T>(map: ReadonlyMap<Context<unknown>, unknown>, ctx: Context<T>): T {
   return (map.has(ctx) ? map.get(ctx) : ctx._defaultValue) as T;
 }
 
@@ -234,7 +231,7 @@ export const BatchContext: Context<"live" | "default"> = {
 export function _instanceBatch(
   capturedCtx: ReadonlyMap<Context<unknown>, unknown>,
 ): "live" | "default" {
-  return _resolveCtxValue(capturedCtx, BatchContext);
+  return resolveCtx(capturedCtx, BatchContext);
 }
 
 /**
@@ -246,7 +243,7 @@ export function _withBatch(
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
   batch: "live" | "default",
 ): ReadonlyMap<Context<unknown>, unknown> {
-  if (_resolveCtxValue(ctxMap, BatchContext) === batch) return ctxMap;
+  if (resolveCtx(ctxMap, BatchContext) === batch) return ctxMap;
   const newMap = new Map(ctxMap);
   newMap.set(BatchContext, batch);
   return newMap;
@@ -279,7 +276,7 @@ export function _withPriority(
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
   priority: number,
 ): ReadonlyMap<Context<unknown>, unknown> {
-  if (_resolveCtxValue(ctxMap, PriorityContext) === priority) return ctxMap;
+  if (resolveCtx(ctxMap, PriorityContext) === priority) return ctxMap;
   const newMap = new Map(ctxMap);
   newMap.set(PriorityContext, priority);
   return newMap;

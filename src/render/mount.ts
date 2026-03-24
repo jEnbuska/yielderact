@@ -15,11 +15,11 @@
 
 import {
   _instanceBatch,
-  _resolveCtxValue,
   _withBatch,
   BatchContext,
   type Context,
   PriorityContext,
+  resolveCtx,
 } from "../context";
 import type { HookDescriptor } from "../hooks/descriptors";
 import { $USE_EFFECT } from "../hooks/descriptors";
@@ -119,7 +119,7 @@ function effectiveCtxMap(instance: ComponentInstance): ReadonlyMap<Context<unkno
  */
 function* commitOrDefer(instance: ComponentInstance, vnode: Child): RenderGenerator<void> {
   // TODO: should use yield* getContext(RenderCtx)
-  const rctx = _resolveCtxValue(instance.capturedCtx, RenderCtx);
+  const rctx = resolveCtx(instance.capturedCtx, RenderCtx);
   const parent = instance.endMarker.parentNode as HTMLElement;
   const ctxMap = effectiveCtxMap(instance);
   const effectiveBatch = getPatchMode(instance.props) ?? _instanceBatch(instance.capturedCtx);
@@ -150,7 +150,7 @@ function* commitOrDefer(instance: ComponentInstance, vnode: Child): RenderGenera
  * Advances the generator past the resolved hook and reconciles the
  * resulting VNode via `commitOrDefer`.
  */
-function resumeInstance(instance: ComponentInstance): void {
+function* resumeInstance(instance: ComponentInstance): RenderGenerator<void> {
   if (!instance.gen) return;
   if (!instance.endMarker.parentNode) return;
 
@@ -187,7 +187,7 @@ function resumeInstance(instance: ComponentInstance): void {
   }
 
   const vnode: Child = (result.value as Child) ?? null;
-  drive(ctxMap, commitOrDefer(instance, vnode));
+  yield* commitOrDefer(instance, vnode);
 }
 
 /**
@@ -221,7 +221,7 @@ function* executeRerender(
 
     const prevRenderingPriority = rctx.renderingPriority;
     // TODO: should use yield* getContext(PriorityContext) — but this is inside a sync loop
-    rctx.renderingPriority = _resolveCtxValue(instance.capturedCtx, PriorityContext);
+    rctx.renderingPriority = resolveCtx(instance.capturedCtx, PriorityContext);
 
     while (!result.done && isHookDescriptor(result.value)) {
       const hookResult = processOneDescriptor(
@@ -372,7 +372,9 @@ export function* mountComponent(
 
   // Bind lifecycle functions after instance is created so they can close
   // over the instance reference. These are simple one-line wrappers.
-  instance._resume = () => resumeInstance(instance);
+  instance._resume = () => {
+    drive(effectiveCtxMap(instance), resumeInstance(instance));
+  };
   instance._executeRerender = () => {
     drive(effectiveCtxMap(instance), executeRerender(instance, true));
     return Promise.resolve();

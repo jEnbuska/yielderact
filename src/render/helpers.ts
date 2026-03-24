@@ -1,10 +1,4 @@
-import {
-  _resolveCtxValue,
-  _withBatch,
-  _withPriority,
-  type Context,
-  PriorityContext,
-} from "../context";
+import { _withBatch, _withPriority, type Context, PriorityContext, resolveCtx } from "../context";
 import type { Renderable } from "../hooks";
 import {
   type Child,
@@ -106,7 +100,7 @@ export function childContextMap(
   let map = parentMap;
   const batch = props.$patch;
   if (batch !== undefined) map = _withBatch(map, batch);
-  if (props.$deferred) map = _withPriority(map, _resolveCtxValue(map, PriorityContext) + 1);
+  if (props.$deferred) map = _withPriority(map, resolveCtx(map, PriorityContext) + 1);
   return map;
 }
 

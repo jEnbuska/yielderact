@@ -9,7 +9,7 @@
  * and context propagation.
  */
 
-import { _processContext, _resolveCtxValue, type Context } from "../context";
+import { _processContext, type Context, resolveCtx } from "../context";
 import {
   $USE_CONTEXT,
   $USE_EFFECT,
@@ -127,7 +127,7 @@ export function unmountSlot(slot: Slot): void {
     // Remove from dirty set so commitUIPatch skips unmounted instances.
     // localPatchRefCount is intentionally left as-is; the local patch commit()
     // checks pendingVNode === undefined and skips accordingly.
-    const rctx = _resolveCtxValue(slot.componentInstance.capturedCtx, RenderCtx);
+    const rctx = resolveCtx(slot.componentInstance.capturedCtx, RenderCtx);
     rctx.dirtyInstances.delete(slot.componentInstance);
     // Remove from scheduler queue so pending async callbacks (useResolveRaw
     // promise handlers) don't trigger a zombie rerender.
@@ -245,7 +245,7 @@ export function processOneDescriptor(
     case $USE_CONTEXT: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_CONTEXT, instance);
       instance.consumedContexts.add(descriptor.ctx);
-      const rawValue = _resolveCtxValue(ctxMap, descriptor.ctx);
+      const rawValue = resolveCtx(ctxMap, descriptor.ctx);
       const state = _processContext(descriptor, prev, rawValue);
       hookStates[hookIndex] = state;
       return state.lastResult;
@@ -304,7 +304,7 @@ export function processOneDescriptor(
       return state.startPatch;
     }
     case $USE_SET_CONTEXT: {
-      const prevValue = _resolveCtxValue(instance.capturedCtx, descriptor.ctx);
+      const prevValue = resolveCtx(instance.capturedCtx, descriptor.ctx);
       const newCtxMap = new Map(instance.capturedCtx);
       newCtxMap.set(descriptor.ctx, descriptor.value);
       instance.capturedCtx = newCtxMap;
