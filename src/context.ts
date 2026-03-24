@@ -200,6 +200,8 @@ export function _processContext(
  * Resolve the effective value for `ctx` from `map`, falling back to the
  * context's `_defaultValue` when no Provider has supplied a value.
  *
+ * TODO: eliminate in favor of `yield* getContext()` in generator code.
+ * Kept for synchronous code that cannot yield (hooks, helpers, scheduler).
  * @internal
  */
 export function _resolveCtxValue<T>(
