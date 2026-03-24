@@ -51,8 +51,8 @@ import {
   domSetText,
 } from "./patch-queue";
 import { applyProps, updateProps } from "./props";
-import { _requireActiveCtx } from "./state";
-import type { ComponentInstance, Slot } from "./types";
+import { RenderCtx } from "./state";
+import type { ComponentInstance, RenderContext, Slot } from "./types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -74,7 +74,10 @@ function runToCompletion<T>(
  * subtrees are frozen until the patch commits.
  */
 function isLiveOnlyDefault(ctxMap: ReadonlyMap<Context<unknown>, unknown>): boolean {
-  return _requireActiveCtx().liveOnlyMode && _resolveCtxValue(ctxMap, BatchContext) !== "live";
+  return (
+    _resolveCtxValue(ctxMap, RenderCtx).liveOnlyMode &&
+    _resolveCtxValue(ctxMap, BatchContext) !== "live"
+  );
 }
 
 /**
@@ -379,6 +382,7 @@ function* reconcileOneGen(
   nextChild: Child,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
+  const rctx: RenderContext = _resolveCtxValue(ctxMap, RenderCtx);
 
   // ════════════════════════════════════════════════════════════════════════
   // SECTION: Empty / null
@@ -387,7 +391,7 @@ function* reconcileOneGen(
   if (nextChild == null || nextChild === false) {
     // In live-only mode, skip removal unless we're in a live context OR the
     // existing slot is a $patch="live" component (it knows it's live).
-    if (_requireActiveCtx().liveOnlyMode && prevSlot) {
+    if (rctx.liveOnlyMode && prevSlot) {
       const prevIsLive = prevSlot.componentInstance
         ? (getPatchMode(prevSlot.componentInstance.props) ??
             _instanceBatch(prevSlot.componentInstance.capturedCtx)) === "live"
@@ -448,7 +452,7 @@ function* reconcileOneGen(
   const allPropsForShown = mergedProps(vnode);
   if (allPropsForShown.$shown === false) {
     // In live-only mode, only hide when the effective batch is live.
-    if (_requireActiveCtx().liveOnlyMode) {
+    if (rctx.liveOnlyMode) {
       const effectiveBatch =
         getPatchMode(allPropsForShown) ?? _resolveCtxValue(ctxMap, BatchContext);
       if (effectiveBatch !== "live" && prevSlot) {
@@ -514,6 +518,7 @@ function* reconcileComponent(
   allPropsForShown: InternalProps,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
+  const rctx: RenderContext = _resolveCtxValue(ctxMap, RenderCtx);
   const allPropsRaw = allPropsForShown;
   // allProps: what the component sees (no $deferred, no $deps)
   const allProps = stripFrameworkDirectives(allPropsRaw);
@@ -576,7 +581,7 @@ function* reconcileComponent(
     }
 
     // Live-only mode: skip non-live components
-    if (_requireActiveCtx().liveOnlyMode) {
+    if (rctx.liveOnlyMode) {
       const effectiveBatch = getPatchMode(allProps) ?? currentBatch;
       if (effectiveBatch !== "live") {
         if (prevSlot.componentInstance) {
@@ -608,7 +613,7 @@ function* reconcileComponent(
   }
 
   // Live-only mode: structural changes (type mismatch / no prevSlot)
-  if (_requireActiveCtx().liveOnlyMode && prevSlot?.type !== vnode.type) {
+  if (rctx.liveOnlyMode && prevSlot?.type !== vnode.type) {
     const effectiveBatch = getPatchMode(allProps) ?? currentBatch;
     if (effectiveBatch !== "live") {
       if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -648,6 +653,7 @@ function* reconcileHTMLElement(
   vnode: VNode<string>,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
+  const rctx: RenderContext = _resolveCtxValue(ctxMap, RenderCtx);
   const childCtxMap = childContextMap(ctxMap, vnode.props);
 
   if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
@@ -686,8 +692,8 @@ function* reconcileHTMLElement(
   applyProps(el, vnode.props);
   const flatChildren = flattenChildren(vnode.children);
   const childSlots: Slot[] = [];
-  const prevLiveOnly = _requireActiveCtx().liveOnlyMode;
-  _requireActiveCtx().liveOnlyMode = false;
+  const prevLiveOnly = rctx.liveOnlyMode;
+  rctx.liveOnlyMode = false;
   for (const child of flatChildren) {
     const { slot: childSlot, node: childNode } = runToCompletion(
       reconcileOneGen(undefined, child),
@@ -696,7 +702,7 @@ function* reconcileHTMLElement(
     childSlots.push(childSlot);
     el.appendChild(childNode);
   }
-  _requireActiveCtx().liveOnlyMode = prevLiveOnly;
+  rctx.liveOnlyMode = prevLiveOnly;
   return {
     slot: {
       type: vnode.type,
@@ -728,7 +734,7 @@ function* reconcilePortal(
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
   const portalContainer = vnode.props["$portalContainer"] as Element;
-  const rctx = _requireActiveCtx();
+  const rctx: RenderContext = _resolveCtxValue(ctxMap, RenderCtx);
 
   // Same portal at same position, same container → reconcile children in place
   if (

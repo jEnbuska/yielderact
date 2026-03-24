@@ -1,10 +1,15 @@
+import type { Context } from "../context";
 import { useState } from "../hooks";
 import { createElement, Fragment } from "../jsx";
 import { buildNode, render } from "../render";
 import { drive } from "../render/driver";
-import { _setActiveCtx, createRenderContext } from "../render/state";
+import { createRenderContext, RenderCtx } from "../render/state";
 
-const run = (child: Parameters<typeof buildNode>[0]) => drive(new Map(), buildNode(child)).value;
+function run(child: Parameters<typeof buildNode>[0]) {
+  const map: Map<Context<unknown>, unknown> = new Map();
+  map.set(RenderCtx as Context<unknown>, createRenderContext());
+  return drive(map, buildNode(child)).value;
+}
 
 // jsdom is provided by vitest (see vitest.config.ts)
 
@@ -220,14 +225,6 @@ describe("buildNode", () => {
 });
 
 describe("render – HTML defaults", () => {
-  beforeEach(() => {
-    _setActiveCtx(createRenderContext());
-  });
-
-  afterEach(() => {
-    _setActiveCtx(undefined);
-  });
-
   it('sets button type to "button" when not specified', () => {
     const node = run(createElement("button", {}, "Click")) as HTMLButtonElement;
     expect(node.getAttribute("type")).toBe("button");

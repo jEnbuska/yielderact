@@ -31,7 +31,7 @@ import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
 import { reconcileSlotsGen } from "./reconciler";
 import { scheduleUpdate } from "./scheduler";
-import { _requireActiveCtx, _setActiveCtx } from "./state";
+import { RenderCtx } from "./state";
 import type { ComponentInstance, RenderContext } from "./types";
 
 /**
@@ -144,7 +144,6 @@ function* commitOrDefer(instance: ComponentInstance, vnode: Child): RenderGenera
 function resumeInstance(instance: ComponentInstance): void {
   if (!instance.gen) return;
   if (!instance.endMarker.parentNode) return;
-  _setActiveCtx(instance.renderCtx);
 
   const ctxMap = effectiveCtxMap(instance);
   const { vnode } = resumeGenerator(instance, instance.rerender, instance._resume, ctxMap);
@@ -262,7 +261,6 @@ function rerenderInstance(instance: ComponentInstance): Promise<void> {
     });
   }
   if (!instance.endMarker.parentNode) return Promise.resolve();
-  _setActiveCtx(instance.renderCtx);
   if (isPatchActive()) {
     // During an active patch (another component is rendering or a
     // $patch batch is in progress), execute synchronously so the DOM
@@ -291,8 +289,8 @@ export function* mountComponent(
 ): RenderGenerator<{ fragment: DocumentFragment; componentInstance: ComponentInstance }> {
   const ctxMap = yield* getContextMap();
 
-  /** The per-root render context, captured from the active context at mount time. */
-  const rctx: RenderContext = _requireActiveCtx();
+  /** The per-root render context, resolved from the ctxMap at mount time. */
+  const rctx: RenderContext = _resolveCtxValue(ctxMap, RenderCtx);
 
   const instance: ComponentInstance = {
     renderCtx: rctx,
@@ -322,7 +320,6 @@ export function* mountComponent(
   // over the instance reference. These are simple one-line wrappers.
   instance._resume = () => resumeInstance(instance);
   instance._executeRerender = () => {
-    _setActiveCtx(instance.renderCtx);
     drive(effectiveCtxMap(instance), executeRerender(instance, true));
     return Promise.resolve();
   };

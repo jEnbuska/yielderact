@@ -14,6 +14,8 @@
 
 import type { Context } from "../context";
 import { HOOK_TYPES, type HookDescriptor, type HookType } from "../hooks/descriptors";
+import { _setActiveCtx, RenderCtx } from "./state";
+import type { RenderContext } from "./types";
 
 // ── Yield protocol ───────────────────────────────────────────────────────
 
@@ -90,6 +92,11 @@ export function drive<T>(
   gen: RenderGenerator<T>,
   onHook?: (descriptor: HookDescriptor) => unknown,
 ): DriveResult<T> {
+  // Set _activeCtx for synchronous leaf code (patch-queue, props) that
+  // cannot yield and therefore cannot access the ctxMap via the driver.
+  const rctx = initialCtxMap.get(RenderCtx as Context<unknown>) as RenderContext | undefined;
+  if (rctx) _setActiveCtx(rctx);
+
   let ctxMap = initialCtxMap;
   let result = gen.next();
 

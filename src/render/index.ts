@@ -1,9 +1,10 @@
+import type { Context } from "../context";
 import type { VNode } from "../jsx";
 import { DelegationRoot } from "./delegation";
 import { dispatchDelegatedEvent } from "./dispatch";
 import { drive } from "./driver";
 import { buildNode } from "./mount";
-import { _setActiveCtx, createRenderContext } from "./state";
+import { createRenderContext, RenderCtx } from "./state";
 
 export { buildNode } from "./mount";
 export { commitUIPatch, startUIPatch } from "./patch";
@@ -30,10 +31,11 @@ export function render(vnode: VNode, container: Element): void {
   rctx.delegationRoot = new DelegationRoot(container, (nativeEvent, domEvent) =>
     dispatchDelegatedEvent(nativeEvent, container, domEvent, rctx),
   );
-  _setActiveCtx(rctx);
+  const initialMap: Map<Context<unknown>, unknown> = new Map();
+  initialMap.set(RenderCtx as Context<unknown>, rctx);
   rctx.isInitialMount = true;
   try {
-    container.appendChild(drive(new Map(), buildNode(vnode)).value);
+    container.appendChild(drive(initialMap, buildNode(vnode)).value);
   } finally {
     rctx.isInitialMount = false;
   }
@@ -74,10 +76,11 @@ export function createRoot(container: Element): Root {
   );
   return {
     render(vnode: VNode): void {
-      _setActiveCtx(rctx);
+      const initialMap: Map<Context<unknown>, unknown> = new Map();
+      initialMap.set(RenderCtx as Context<unknown>, rctx);
       rctx.isInitialMount = true;
       try {
-        container.appendChild(drive(new Map(), buildNode(vnode)).value);
+        container.appendChild(drive(initialMap, buildNode(vnode)).value);
       } finally {
         rctx.isInitialMount = false;
       }
