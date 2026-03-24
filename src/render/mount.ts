@@ -19,7 +19,6 @@ import {
   BatchContext,
   type Context,
   PriorityContext,
-  resolveCtx,
 } from "../context";
 import type { HookDescriptor } from "../hooks/descriptors";
 import { $USE_EFFECT } from "../hooks/descriptors";
@@ -118,8 +117,7 @@ function effectiveCtxMap(instance: ComponentInstance): ReadonlyMap<Context<unkno
  * Otherwise commits immediately and flushes effects.
  */
 function* commitOrDefer(instance: ComponentInstance, vnode: Child): RenderGenerator<void> {
-  // TODO: should use yield* getContext(RenderCtx)
-  const rctx = resolveCtx(instance.capturedCtx, RenderCtx);
+  const rctx = yield* getContext(RenderCtx);
   const parent = instance.endMarker.parentNode as HTMLElement;
   const ctxMap = effectiveCtxMap(instance);
   const effectiveBatch = getPatchMode(instance.props) ?? _instanceBatch(instance.capturedCtx);
@@ -220,8 +218,7 @@ function* executeRerender(
     let cancelled = false;
 
     const prevRenderingPriority = rctx.renderingPriority;
-    // TODO: should use yield* getContext(PriorityContext) — but this is inside a sync loop
-    rctx.renderingPriority = resolveCtx(instance.capturedCtx, PriorityContext);
+    rctx.renderingPriority = yield* getContext(PriorityContext);
 
     while (!result.done && isHookDescriptor(result.value)) {
       const hookResult = processOneDescriptor(
