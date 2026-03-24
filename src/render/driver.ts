@@ -1,16 +1,15 @@
 /**
  * driver.ts — Unified generator driver for the render pipeline.
  *
- * Every step in rendering is a yield from a generator. The driver loop
- * handles all yield types in one switch:
+ * Every step in rendering is a yield. The driver loop handles all yield
+ * types in one switch:
  *
- * - Context ops: SET_CONTEXT, GET_CONTEXT_MAP
- * - Hook descriptors: USE_STATE, USE_EFFECT, USE_CONTEXT, etc.
- * - void: scheduling pause (no-op in sync mode)
+ * - SET_CONTEXT: update the context map for the current subtree
+ * - GET_CONTEXT_MAP: read the current context map
+ * - Hook descriptors (USE_STATE, USE_EFFECT, etc.): dispatched to onHook
+ * - void/undefined: scheduling pause (no-op in sync mode)
  *
- * The driver is the single point of control. Generators (buildNode,
- * mountComponent, reconciler) yield what they need, and the driver
- * decides how to handle it.
+ * The driver is the single point of control.
  */
 
 import { HOOK_TYPES, type HookDescriptor, type HookType } from "../hooks/descriptors";
@@ -22,7 +21,7 @@ const $GET_CONTEXT_MAP = Symbol("GET_CONTEXT_MAP");
 
 export type CtxMap = ReadonlyMap<{ readonly _defaultValue: unknown }, unknown>;
 
-/** @internal */
+/** Any generator that participates in the render pipeline. */
 export type RenderGenerator<TReturn> = Generator<unknown, TReturn, unknown>;
 
 // ── Yield helpers ────────────────────────────────────────────────────────
@@ -42,19 +41,26 @@ export function* getContextMap(): RenderGenerator<CtxMap> {
 
 // ── Type guards ──────────────────────────────────────────────────────────
 
-function isSetContext(v: unknown): v is { op: typeof $SET_CONTEXT; key: { _defaultValue: unknown }; updater: (c: unknown) => unknown } {
+function isSetContext(
+  v: unknown,
+): v is { op: typeof $SET_CONTEXT; key: { _defaultValue: unknown }; updater: (c: unknown) => unknown } {
   return v !== null && v !== undefined && typeof v === "object" && (v as { op?: unknown }).op === $SET_CONTEXT;
 }
 
-function isGetContextMap(v: unknown): v is { op: typeof $GET_CONTEXT_MAP } {
+function isGetContextMap(v: unknown): boolean {
   return v !== null && v !== undefined && typeof v === "object" && (v as { op?: unknown }).op === $GET_CONTEXT_MAP;
 }
 
-function isHookDescriptor(v: unknown): v is HookDescriptor {
+export function isHookDescriptor(v: unknown): v is HookDescriptor {
   return v !== null && typeof v === "object" && HOOK_TYPES.has((v as { type: HookType }).type);
 }
 
 // ── Driver ───────────────────────────────────────────────────────────────
+
+export interface DriveResult<T> {
+  value: T;
+  ctxMap: CtxMap;
+}
 
 /**
  * Drive a render generator to completion.
@@ -63,15 +69,13 @@ function isHookDescriptor(v: unknown): v is HookDescriptor {
  *
  * @param initialCtxMap - The starting context map.
  * @param gen - The generator to drive.
- * @param onHook - Optional hook handler. If provided, hook descriptors are
- *   dispatched to it. If not provided, hooks cause an error.
- * @returns The generator's return value.
+ * @param onHook - Optional hook handler. Returns the value to send back.
  */
 export function drive<T>(
   initialCtxMap: CtxMap,
   gen: RenderGenerator<T>,
   onHook?: (descriptor: HookDescriptor) => unknown,
-): { value: T; ctxMap: CtxMap } {
+): DriveResult<T> {
   let ctxMap = initialCtxMap;
   let result = gen.next();
 
@@ -79,7 +83,6 @@ export function drive<T>(
     const yielded = result.value;
 
     if (yielded === undefined) {
-      // void — scheduling pause
       result = gen.next(undefined);
     } else if (isSetContext(yielded)) {
       const prev = ctxMap.has(yielded.key) ? ctxMap.get(yielded.key) : yielded.key._defaultValue;
@@ -93,7 +96,6 @@ export function drive<T>(
       if (!onHook) throw new Error(`Unexpected hook yield: ${yielded.type}`);
       result = gen.next(onHook(yielded));
     } else {
-      // Unknown yield — pass through (future extensibility)
       result = gen.next(undefined);
     }
   }
@@ -102,8 +104,7 @@ export function drive<T>(
 }
 
 /**
- * Convenience: drive a generator with context only (no hooks).
- * Same as drive() but returns just the value.
+ * Drive a generator with context only (no hooks). Returns just the value.
  */
 export function driveWithContext<T>(ctxMap: CtxMap, gen: RenderGenerator<T>): T {
   return drive(ctxMap, gen).value;

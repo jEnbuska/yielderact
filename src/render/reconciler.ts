@@ -71,7 +71,8 @@ import {
   domSetText,
 } from "./patch-queue";
 import { applyProps, updateProps } from "./props";
-import { _requireActiveCtx, getContextMap, handleContextYield, runWithContext } from "./state";
+import { type CtxMap, driveWithContext, getContextMap } from "./driver";
+import { _requireActiveCtx } from "./state";
 import type { ComponentInstance, Slot } from "./types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -84,11 +85,7 @@ function runToCompletion<T>(
   gen: Generator<unknown, T, unknown>,
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
 ): T {
-  const ctx = { current: ctxMap };
-  let result = gen.next();
-  while (!result.done) {
-    const handled = handleContextYield(result.value, ctx);
-    result = gen.next(handled.sendBack);
+  return driveWithContext(ctxMap as CtxMap, gen);
   }
   return result.value;
 }
