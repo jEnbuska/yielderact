@@ -22,7 +22,6 @@ import {
   _instanceBatch,
   _resolveCtxValue,
   _withBatch,
-  _withPriority,
   BatchContext,
   type Context,
   PriorityContext,

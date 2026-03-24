@@ -1,4 +1,3 @@
-import { _withBatch } from "../context";
 import type { VNode } from "../jsx";
 import { DelegationRoot } from "./delegation";
 import { dispatchDelegatedEvent } from "./dispatch";
