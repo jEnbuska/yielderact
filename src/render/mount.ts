@@ -21,12 +21,13 @@ import {
   type Context,
   PriorityContext,
 } from "../context";
+import type { HookDescriptor } from "../hooks/descriptors";
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
 import { drive, driveWithContext, getContextMap, type RenderGenerator, setContext } from "./driver";
 import { InvalidChildError } from "./errors";
 import { getPatchMode, isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
-import { flushEffects, resumeGenerator, runHooks } from "./hooks-runtime";
+import { flushEffects, isHookDescriptor, processOneDescriptor } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
 import { reconcileSlotsGen } from "./reconciler";
@@ -146,7 +147,38 @@ function resumeInstance(instance: ComponentInstance): void {
   if (!instance.endMarker.parentNode) return;
 
   const ctxMap = effectiveCtxMap(instance);
-  const { vnode } = resumeGenerator(instance, instance.rerender, instance._resume, ctxMap);
+  const gen = instance.gen;
+  let hookIndex = instance.resumeHookIndex;
+  let result = gen.next();
+
+  while (!result.done && isHookDescriptor(result.value)) {
+    const hookResult = processOneDescriptor(
+      result.value as HookDescriptor,
+      hookIndex++,
+      instance.hookStates,
+      instance.cleanupFns,
+      instance.pendingEffects,
+      instance.rerender,
+      instance._resume,
+      instance,
+      ctxMap,
+    );
+    result = gen.next(hookResult);
+  }
+
+  instance.resumeHookIndex = hookIndex;
+  if (result.done) {
+    instance.gen = undefined;
+    if (instance.finalHookCount !== undefined && hookIndex !== instance.finalHookCount) {
+      const name = instance.component.name || "Anonymous";
+      throw new Error(
+        `Hook count mismatch in "${name}": previous ${instance.finalHookCount}, now ${hookIndex}.`,
+      );
+    }
+    instance.finalHookCount = hookIndex;
+  }
+
+  const vnode: Child = (result.value as Child) ?? null;
   drive(ctxMap, commitOrDefer(instance, vnode));
 }
 
@@ -166,28 +198,57 @@ function* executeRerender(
   let initialFragment = document.createDocumentFragment();
 
   while (true) {
-    // ── Run hooks ──
+    // ── Run component generator through hooks ──
     instance.isRendering = true;
     instance.gen = undefined;
     instance.pendingEffects.length = 0;
     instance.consumedContexts.clear();
     instance.providedContexts.clear();
 
-    let vnode: Child;
+    const ctxMap = effectiveCtxMap(instance);
+    const componentGen = instance.component(instance.props, instance.rerender);
+    let hookIndex = 0;
+    let result = componentGen.next(undefined);
     let cancelled = false;
+
     const prevRenderingPriority = rctx.renderingPriority;
     rctx.renderingPriority = instance.priority;
-    try {
-      const ctxMap = effectiveCtxMap(instance);
-      const gen = instance.component(instance.props, instance.rerender);
-      const result = runHooks(gen, instance, instance.rerender, instance._resume, ctxMap);
-      instance.gen = result.gen;
-      vnode = result.vnode;
-      cancelled = result.cancelled;
-    } finally {
-      instance.isRendering = false;
-      rctx.renderingPriority = prevRenderingPriority;
+
+    while (!result.done && isHookDescriptor(result.value)) {
+      const hookResult = processOneDescriptor(
+        result.value as HookDescriptor,
+        hookIndex++,
+        instance.hookStates,
+        instance.cleanupFns,
+        instance.pendingEffects,
+        instance.rerender,
+        instance._resume,
+        instance,
+        ctxMap,
+      );
+      if (instance.pendingRerender) {
+        cancelled = true;
+        break;
+      }
+      result = componentGen.next(hookResult);
     }
+
+    instance.isRendering = false;
+    rctx.renderingPriority = prevRenderingPriority;
+    instance.resumeHookIndex = hookIndex;
+
+    if (!cancelled && result.done) {
+      if (instance.finalHookCount !== undefined && hookIndex !== instance.finalHookCount) {
+        const name = instance.component.name || "Anonymous";
+        throw new Error(
+          `Hook count mismatch in "${name}": previous ${instance.finalHookCount}, now ${hookIndex}.`,
+        );
+      }
+      instance.finalHookCount = hookIndex;
+    }
+
+    const vnode: Child = cancelled ? null : ((result.value as Child) ?? null);
+    instance.gen = cancelled || result.done ? undefined : componentGen;
 
     // ── Mid-render setState → revert effect deps and retry ──
     if (cancelled) {

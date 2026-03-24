@@ -1,9 +1,9 @@
 /**
  * hooks-runtime.ts — Hook descriptor processing and lifecycle utilities.
  *
- * Components yield hook descriptors from their generator body. `runHooks`
- * drives the generator, dispatching each descriptor to
- * `processOneDescriptor` and sending the result back via `gen.next()`.
+ * Components yield hook descriptors from their generator body.
+ * `executeRerender` in mount.ts drives the generator, dispatching each
+ * descriptor to `processOneDescriptor` and sending the result back.
  *
  * Also contains effect flushing, slot unmounting, descendant collection,
  * and context propagation.
@@ -77,7 +77,7 @@ function getTypedPrev<K extends HookState["kind"]>(
  *
  * @param value - The value yielded by the component generator.
  */
-function isHookDescriptor(value: unknown): boolean {
+export function isHookDescriptor(value: unknown): boolean {
   return (
     value !== null &&
     typeof value === "object" &&
@@ -188,7 +188,7 @@ function _deriveResolveRawResult(s: HookState | undefined): ResolveRawResult<unk
  * Called by `runHooks` — once per hook descriptor yielded during the
  * component's generator body.
  */
-function processOneDescriptor(
+export function processOneDescriptor(
   descriptor: HookDescriptor,
   hookIndex: number,
   hookStates: HookState[],
@@ -318,129 +318,6 @@ function processOneDescriptor(
         `Unknown hook descriptor type: ${String((descriptor as { type: string }).type)}`,
       );
   }
-}
-
-/**
- * Drive the component generator, intercepting hook descriptors.
- *
- * Processes descriptors via `processOneDescriptor` until the generator
- * yields a non-descriptor (VNode) or returns. Returns `cancelled: true`
- * if a mid-render `setState` was detected.
- */
-export function runHooks(
-  gen: ComponentGenerator<Child>,
-  instance: ComponentInstance,
-  rerender: () => Promise<void>,
-  resume: () => void,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): {
-  vnode: Child;
-  gen?: ComponentGenerator<Child>;
-  cancelled: boolean;
-} {
-  let hookIndex = 0;
-  let result = gen.next(undefined);
-
-  while (!result.done && isHookDescriptor(result.value)) {
-    const descriptor = result.value as HookDescriptor;
-    const value = processOneDescriptor(
-      descriptor,
-      hookIndex++,
-      instance.hookStates,
-      instance.cleanupFns,
-      instance.pendingEffects,
-      rerender,
-      resume,
-      instance,
-      ctxMap,
-    );
-    // A mid-render state change was queued — abort this stale render so the
-    // next iteration of executeRerender picks up the accumulated latest state.
-    if (instance.pendingRerender) {
-      return { vnode: null, cancelled: true };
-    }
-    result = gen.next(value);
-  }
-
-  // Track where the generator paused so `resume` can continue from
-  // the correct hook index when the generator advances past a useRender.
-  instance.resumeHookIndex = hookIndex;
-
-  // Validate hook count on generator completion.
-  if (result.done) {
-    if (instance.finalHookCount !== undefined && hookIndex !== instance.finalHookCount) {
-      const componentName = instance.component.name || "Anonymous";
-      throw new Error(
-        `Hook count mismatch in "${componentName}": ` +
-          `previous render completed with ${instance.finalHookCount} hooks, ` +
-          `but this render completed with ${hookIndex}. ` +
-          `Hooks must be called in the same order and quantity on every render. ` +
-          `Do not call hooks inside conditions, loops, or after early returns.`,
-      );
-    }
-    instance.finalHookCount = hookIndex;
-  }
-
-  return {
-    vnode: (result.value as Child) ?? null,
-    gen: result.done ? undefined : gen,
-    cancelled: false,
-  };
-}
-
-/**
- * Continue a paused generator, processing any hook descriptors it yields
- * until the generator yields a non-descriptor (VNode) or returns.
- */
-export function resumeGenerator(
-  instance: ComponentInstance,
-  rerender: () => Promise<void>,
-  resume: () => void,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): { vnode: Child; done: boolean } {
-  const gen = instance.gen;
-  if (!gen) return { vnode: null, done: true };
-
-  let hookIndex = instance.resumeHookIndex;
-  let result = gen.next();
-
-  while (!result.done && isHookDescriptor(result.value)) {
-    const descriptor = result.value as HookDescriptor;
-    const value = processOneDescriptor(
-      descriptor,
-      hookIndex++,
-      instance.hookStates,
-      instance.cleanupFns,
-      instance.pendingEffects,
-      rerender,
-      resume,
-      instance,
-      ctxMap,
-    );
-    result = gen.next(value);
-  }
-
-  instance.resumeHookIndex = hookIndex;
-
-  if (result.done) {
-    instance.gen = undefined;
-    if (instance.finalHookCount !== undefined && hookIndex !== instance.finalHookCount) {
-      const componentName = instance.component.name || "Anonymous";
-      throw new Error(
-        `Hook count mismatch in "${componentName}": ` +
-          `previous render completed with ${instance.finalHookCount} hooks, ` +
-          `but this render completed with ${hookIndex}. ` +
-          `Hooks must be called in the same order and quantity on every render. ` +
-          `Do not call hooks inside conditions, loops, or after early returns.`,
-      );
-    }
-    instance.finalHookCount = hookIndex;
-  }
-
-  return {
-    vnode: (result.value as Child) ?? null,
-    done: result.done === true,
-  };
 }
 
 /**
