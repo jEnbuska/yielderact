@@ -84,24 +84,24 @@ function runToCompletion<T>(
  * @param parent - The DOM element to remove nodes from.
  * @param slot   - The slot whose nodes to remove.
  */
-function removeSlotNodes(parent: Node, slot: Slot): void {
+function removeSlotNodes(parent: Node, slot: Slot, ops: (() => void)[] | undefined): void {
   if (slot.portalContainer) {
     // Remove children from the portal container, not from the source parent.
     for (const child of slot.childSlots) {
       for (const node of collectSlotDOMNodes(child)) {
-        domRemoveChild(slot.portalContainer, node);
+        domRemoveChild(slot.portalContainer, node, ops);
       }
     }
     // Remove the endMarker from portal container.
     if (slot.portalEndMarker) {
-      domRemoveChild(slot.portalContainer, slot.portalEndMarker);
+      domRemoveChild(slot.portalContainer, slot.portalEndMarker, ops);
     }
     // Remove the placeholder from the source tree.
-    domRemoveChild(parent, slot.node);
+    domRemoveChild(parent, slot.node, ops);
     return;
   }
   for (const node of collectSlotDOMNodes(slot)) {
-    domRemoveChild(parent, node);
+    domRemoveChild(parent, node, ops);
   }
 }
 
@@ -175,6 +175,7 @@ function* reconcileKeyedSlotsGen(
   flatNext: Child[],
   beforeAnchor: Node | undefined,
 ): Generator<unknown, Slot[], unknown> {
+  const rctx = yield* getContext(RenderCtx);
   // Build key → prevIndex map for keyed prev slots,
   // and collect non-keyed prev slot indices for positional matching.
   const prevKeyMap = new Map<string | number, number>();
@@ -225,7 +226,7 @@ function* reconcileKeyedSlotsGen(
       if (replaced) {
         // Type changed — unmount old slot, track new node for insertion
         unmountSlot(matchedPrevSlot);
-        removeSlotNodes(parent, matchedPrevSlot);
+        removeSlotNodes(parent, matchedPrevSlot, rctx.ops);
         freshNodes.set(i, node);
       }
     } else {
@@ -243,7 +244,7 @@ function* reconcileKeyedSlotsGen(
     if (!usedPrevIndices.has(i)) {
       // SAFETY: i is bounded by prevSlots.length
       unmountSlot(prevSlots[i] as Slot);
-      removeSlotNodes(parent, prevSlots[i] as Slot);
+      removeSlotNodes(parent, prevSlots[i] as Slot, rctx.ops);
     }
   }
 
@@ -252,10 +253,10 @@ function* reconcileKeyedSlotsGen(
   for (let i = 0; i < nextSlots.length; i++) {
     const freshNode = freshNodes.get(i);
     if (freshNode) {
-      domInsertBefore(parent, freshNode, anchor);
+      domInsertBefore(parent, freshNode, anchor, rctx.ops);
     } else {
       for (const n of collectSlotDOMNodes(nextSlots[i] as Slot)) {
-        domInsertBefore(parent, n, anchor);
+        domInsertBefore(parent, n, anchor, rctx.ops);
       }
     }
   }
@@ -279,6 +280,7 @@ export function* reconcileSlotsGen(
   nextVNodes: Child[],
   beforeAnchor: Node | undefined,
 ): Generator<unknown, Slot[], unknown> {
+  const rctx = yield* getContext(RenderCtx);
   // Flatten fragments before reconciling so each child has a stable index.
   const flatNext = flattenChildren(nextVNodes);
 
@@ -301,19 +303,19 @@ export function* reconcileSlotsGen(
         // is the first node after this component's region.
         const insertRef = prevSlot.node.parentNode === parent ? prevSlot.node.nextSibling : null;
         unmountSlot(prevSlot);
-        removeSlotNodes(parent, prevSlot);
+        removeSlotNodes(parent, prevSlot, rctx.ops);
         // Insert the new node at the old slot's position.
-        domInsertBefore(parent, node, insertRef);
+        domInsertBefore(parent, node, insertRef, rctx.ops);
       } else if (beforeAnchor !== undefined) {
         // No previous slot at this position — insert before the anchor.
-        domInsertBefore(parent, node, beforeAnchor);
+        domInsertBefore(parent, node, beforeAnchor, rctx.ops);
       } else {
         // No previous slot and no anchor — use positional fallback.
         const ref = parent.childNodes[i] ?? null;
         if (ref) {
-          domInsertBefore(parent, node, ref);
+          domInsertBefore(parent, node, ref, rctx.ops);
         } else {
-          domAppendChild(parent, node);
+          domAppendChild(parent, node, rctx.ops);
         }
       }
     }
@@ -326,7 +328,7 @@ export function* reconcileSlotsGen(
     // SAFETY: i is bounded by prevSlots.length
     const old = prevSlots[i] as Slot;
     unmountSlot(old);
-    removeSlotNodes(parent, old);
+    removeSlotNodes(parent, old, rctx.ops);
   }
 
   return nextSlots;
@@ -411,7 +413,7 @@ function* reconcileOneGen(
       const liveOnlyDefault =
         (yield* getContext(RenderCtx)).liveOnlyMode && (yield* getContext(BatchContext)) !== "live";
       if (!liveOnlyDefault && prevSlot.node.textContent !== text) {
-        domSetText(prevSlot.node, text);
+        domSetText(prevSlot.node, text, rctx.ops);
         prevSlot.props = { text };
       }
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -659,6 +661,7 @@ function* reconcileHTMLElement(
       domEnqueue(
         () => updateProps(prevSlot.node as HTMLElement, prevProps, vnode.props),
         prevSlot.node,
+        rctx.ops,
       );
     }
     prevSlot.props = vnode.props;

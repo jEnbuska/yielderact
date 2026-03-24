@@ -81,8 +81,12 @@ export function restorePatchOps(saved: (() => void)[]): void {
  * Wrapper for `parent.insertBefore(node, ref)`.
  * Defers insertion when the parent is in the live DOM and a patch is active.
  */
-export function domInsertBefore(parent: Node, node: Node, ref: Node | null): void {
-  const ops = _requireActiveCtx().ops;
+export function domInsertBefore(
+  parent: Node,
+  node: Node,
+  ref: Node | null,
+  ops: (() => void)[] | undefined,
+): void {
   if (!ops || !parent.isConnected) {
     parent.insertBefore(node, ref);
     return;
@@ -94,8 +98,7 @@ export function domInsertBefore(parent: Node, node: Node, ref: Node | null): voi
  * Wrapper for `parent.appendChild(node)`.
  * Defers when the parent is in the live DOM and a patch is active.
  */
-export function domAppendChild(parent: Node, node: Node): void {
-  const ops = _requireActiveCtx().ops;
+export function domAppendChild(parent: Node, node: Node, ops: (() => void)[] | undefined): void {
   if (!ops || !parent.isConnected) {
     parent.appendChild(node);
     return;
@@ -108,8 +111,7 @@ export function domAppendChild(parent: Node, node: Node): void {
  * Defers when the node is in the live DOM and a patch is active.
  * Includes a safety check at commit time in case the node was already removed.
  */
-export function domRemoveChild(parent: Node, node: Node): void {
-  const ops = _requireActiveCtx().ops;
+export function domRemoveChild(parent: Node, node: Node, ops: (() => void)[] | undefined): void {
   if (!ops || !node.isConnected) {
     if (node.parentNode === parent) parent.removeChild(node);
     return;
@@ -123,8 +125,7 @@ export function domRemoveChild(parent: Node, node: Node): void {
  * Wrapper for setting `textNode.textContent`.
  * Defers when the text node is in the live DOM and a patch is active.
  */
-export function domSetText(node: Text, text: string): void {
-  const ops = _requireActiveCtx().ops;
+export function domSetText(node: Text, text: string, ops: (() => void)[] | undefined): void {
   if (!ops || !node.isConnected) {
     node.textContent = text;
     return;
@@ -144,9 +145,13 @@ export function domSetText(node: Text, text: string): void {
  * @param op       - The DOM operation to enqueue.
  * @param liveNode - A node used to check connectivity. If connected, the op
  *                   is deferred. If not connected (or omitted), the op runs now.
+ * @param ops      - The current patch ops queue, or `undefined` if no patch is active.
  */
-export function domEnqueue(op: () => void, liveNode?: Node): void {
-  const ops = _requireActiveCtx().ops;
+export function domEnqueue(
+  op: () => void,
+  liveNode: Node | undefined,
+  ops: (() => void)[] | undefined,
+): void {
   if (!ops || !liveNode?.isConnected) {
     op();
     return;
