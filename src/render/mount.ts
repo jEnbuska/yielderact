@@ -39,7 +39,6 @@ import {
   _requireActiveCtx,
   _setActiveCtx,
   type ContextGenerator,
-  getContext,
   getContextMap,
   runWithContext,
   setContext,
@@ -80,23 +79,22 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
   if (!child.type) {
     throw new InvalidChildError(child);
   }
-  if (child.props.$shown === false) return document.createTextNode("");
+  const { $shown, $patch, $deferred } = child.props;
+  if ($shown === false) return document.createTextNode("");
+  if ($patch) yield* setContext(BatchContext, () => $patch);
+  if ($deferred) yield* setContext(PriorityContext, (current) => current + 1);
 
   const effectiveProps = isComponentNode(child) ? mergedProps(child) : child.props;
 
-  if (child.type === Fragment || child.type === Portal) {
-    const elBatch = getPatchMode(child.props);
-    if (elBatch !== undefined) yield* setContext(BatchContext, elBatch);
-    if (child.props.$deferred)
-      yield* setContext(PriorityContext, (yield* getContext(PriorityContext)) + 1);
-    const map = yield* getContextMap();
-    if (child.type === Fragment) {
-      const frag = document.createDocumentFragment();
-      for (const c of child.children) {
-        frag.appendChild(runWithContext(map, buildNode(c)));
-      }
-      return frag;
+  const map = yield* getContextMap();
+  if (child.type === Fragment) {
+    const frag = document.createDocumentFragment();
+    for (const c of child.children) {
+      frag.appendChild(runWithContext(map, buildNode(c)));
     }
+    return frag;
+  }
+  if (child.type === Portal) {
     const portalContainer = child.props["$portalContainer"] as Element;
     for (const c of child.children) {
       portalContainer.appendChild(runWithContext(map, buildNode(c)));
@@ -106,10 +104,6 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
 
   if (isComponentNode(child)) {
     const allProps = stripFrameworkDirectives(effectiveProps);
-    if (effectiveProps.$deferred) {
-      yield* setContext(PriorityContext, (yield* getContext(PriorityContext)) + 1);
-    }
-    const map = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
     const providerCtx = _getProviderCtx(child.type);
     if (providerCtx) {
       return mountContextProvider(child.type, allProps, providerCtx, map).fragment;
@@ -120,11 +114,6 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
   // HTML element — propagate $patch and $deferred to children via context.
   const el = document.createElement(child.type as string);
   applyProps(el, child.props);
-  const elBatch = getPatchMode(child.props);
-  if (elBatch !== undefined) yield* setContext(BatchContext, elBatch);
-  if (child.props.$deferred)
-    yield* setContext(PriorityContext, (yield* getContext(PriorityContext)) + 1);
-  const map = yield* getContextMap();
   for (const c of child.children) {
     el.appendChild(runWithContext(map, buildNode(c)));
   }

@@ -59,16 +59,14 @@ export function _setActiveCtx(ctx: RenderContext | undefined): void {
 
 // ── Generator-based context system ────────────────────────────────────────
 
-const $GET_CONTEXT = Symbol("GET_CONTEXT");
 const $SET_CONTEXT = Symbol("SET_CONTEXT");
 const $GET_CONTEXT_MAP = Symbol("GET_CONTEXT_MAP");
 
-type ContextDescriptor =
-  | { readonly op: typeof $GET_CONTEXT; readonly key: { readonly _defaultValue: unknown } }
+type ContextDescriptor<T = unknown> =
   | {
       readonly op: typeof $SET_CONTEXT;
-      readonly key: { readonly _defaultValue: unknown };
-      readonly value: unknown;
+      readonly key: { readonly _defaultValue: T };
+      readonly updater: (current: T) => T;
     }
   | { readonly op: typeof $GET_CONTEXT_MAP };
 
@@ -80,30 +78,27 @@ type ContextDescriptor =
 export type ContextGenerator<TReturn> = Generator<ContextDescriptor, TReturn, unknown>;
 
 /**
- * Yield from a generator to read the current value of a context.
- * @internal
- */
-export function* getContext<T>(ctx: { readonly _defaultValue: T }): ContextGenerator<T> {
-  return (yield { op: $GET_CONTEXT, key: ctx }) as T;
-}
-
-/**
  * Yield from a generator to set a context value for the current subtree.
  * @internal
  */
 export function* setContext<T>(
   ctx: { readonly _defaultValue: T },
-  value: T,
+  updater: (current: T) => T,
 ): ContextGenerator<void> {
-  yield { op: $SET_CONTEXT, key: ctx, value };
+  yield { op: $SET_CONTEXT, key: ctx, updater: updater as (current: unknown) => unknown };
 }
 
 /**
  * Yield from a generator to get the full current context map.
  * @internal
  */
-export function* getContextMap(): ContextGenerator<ReadonlyMap<object, unknown>> {
-  return (yield { op: $GET_CONTEXT_MAP }) as ReadonlyMap<object, unknown>;
+export function* getContextMap(): ContextGenerator<
+  ReadonlyMap<{ readonly _defaultValue: unknown }, unknown>
+> {
+  return (yield { op: $GET_CONTEXT_MAP }) as ReadonlyMap<
+    { readonly _defaultValue: unknown },
+    unknown
+  >;
 }
 
 /**
@@ -111,19 +106,17 @@ export function* getContextMap(): ContextGenerator<ReadonlyMap<object, unknown>>
  * @internal
  */
 export function runWithContext<T>(
-  ctxMap: ReadonlyMap<object, unknown>,
+  ctxMap: ReadonlyMap<{ readonly _defaultValue: unknown }, unknown>,
   gen: ContextGenerator<T>,
 ): T {
   let currentMap = ctxMap;
   let result = gen.next();
   while (!result.done) {
     const desc = result.value;
-    if (desc.op === $GET_CONTEXT) {
-      const value = currentMap.has(desc.key) ? currentMap.get(desc.key) : desc.key._defaultValue;
-      result = gen.next(value);
-    } else if (desc.op === $SET_CONTEXT) {
+    if (desc.op === $SET_CONTEXT) {
+      const current = currentMap.has(desc.key) ? currentMap.get(desc.key) : desc.key._defaultValue;
       const newMap = new Map(currentMap);
-      newMap.set(desc.key, desc.value);
+      newMap.set(desc.key, desc.updater(current));
       currentMap = newMap;
       result = gen.next(undefined);
     } else {

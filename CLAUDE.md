@@ -144,6 +144,7 @@ function* Counter(_props: object) {
 - **JSX Config:** The library build uses the classic `react` transform (`jsxFactory: "createElement"`). Consumers (including `examples/`) use `react-jsx` with `jsxImportSource: "yract"`, backed by `src/jsx-runtime.ts`.
 - **Multi-root:** Each `render()`/`createRoot()` creates an independent `RenderContext` with its own state (patch depth, dirty instances, scheduler queue, context map, DOM ops queue). The global `idCounter` is the only shared state (IDs must be globally unique).
 - **Guard Clauses:** Always prefer guard clauses (early returns) over nested conditionals. Return early when a condition short-circuits the rest of the logic.
+- **Flat Code:** Avoid deeply nested blocks (`if` inside `if`, `try` inside `if`, etc.). Extract nested logic into separate functions, use early returns, or restructure to keep indentation shallow. Flat code is easier to read and maintain.
 - **Lint Strictness:** Never weaken linting or tsconfig rules. Fix lint issues by improving code, not by adding `biome-ignore` or `@ts-ignore` comments. The only accepted exceptions are `biome-ignore lint/complexity/noExcessiveCognitiveComplexity` on architectural dispatch functions (reconciler, props, mount, dispatch) that inherently require many branches.
 - **Type Safety Tests:** Compile-time type tests live in `src/__tests__/*.typetest.tsx` and are checked by `npm run typecheck`.
 - **New Feature Checklist:** Every new public API feature must include:
