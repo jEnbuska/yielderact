@@ -13,13 +13,7 @@
  * `<span>` elements.
  */
 
-import {
-  _instanceBatch,
-  _withBatch,
-  BatchContext,
-  type Context,
-  PriorityContext,
-} from "../context";
+import { _withBatch, BatchContext, type Context, PriorityContext, resolveCtx } from "../context";
 import type { HookDescriptor } from "../hooks/descriptors";
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
@@ -32,7 +26,7 @@ import {
   setContext,
 } from "./driver";
 import { InvalidChildError } from "./errors";
-import { getPatchMode, isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
+import { isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
 import { flushEffects, isHookDescriptor, processOneDescriptor } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
@@ -103,8 +97,8 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
 
 /** Compute the effective context map for a component's children. */
 function effectiveCtxMap(instance: ComponentInstance): ReadonlyMap<Context<unknown>, unknown> {
-  const ownPatch = getPatchMode(instance.props);
-  return ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx;
+  const { $patch } = instance.props;
+  return $patch ? _withBatch(instance.capturedCtx, $patch) : instance.capturedCtx;
 }
 
 // ── Standalone lifecycle functions ────────────────────────────────────────
@@ -119,10 +113,11 @@ function effectiveCtxMap(instance: ComponentInstance): ReadonlyMap<Context<unkno
 function* commitOrDefer(instance: ComponentInstance, vnode: Child): RenderGenerator<void> {
   const rctx = yield* getContext(RenderCtx);
   const parent = instance.endMarker.parentNode as HTMLElement;
+  // Use instance.capturedCtx (not the driver's map) because useSetContext
+  // may have updated capturedCtx during hooks after the driver was seeded.
   const ctxMap = effectiveCtxMap(instance);
-  const effectiveBatch = getPatchMode(instance.props) ?? _instanceBatch(instance.capturedCtx);
-  const shouldDefer =
-    (rctx.patchDepth > 0 || instance.localPatchRefCount > 0) && effectiveBatch !== "live";
+  const batch = instance.props.$patch ?? resolveCtx(instance.capturedCtx, BatchContext);
+  const shouldDefer = (rctx.patchDepth > 0 || instance.localPatchRefCount > 0) && batch !== "live";
 
   if (shouldDefer) {
     instance.pendingVNode = vnode;
