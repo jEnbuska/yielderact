@@ -17,13 +17,13 @@
  *   after reconciliation completes for that priority level.
  */
 
-import { _requireActiveCtx } from "./state";
+import { requireActiveCtx } from "./state";
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /** Begin collecting DOM operations for a new priority pass. */
 export function beginPatch(): void {
-  _requireActiveCtx().ops = [];
+  requireActiveCtx().ops = [];
 }
 
 /**
@@ -35,7 +35,7 @@ export function beginPatch(): void {
  * Resets the queue to `undefined` (no active patch) after committing.
  */
 export function commitPatch(): void {
-  const ctx = _requireActiveCtx();
+  const ctx = requireActiveCtx();
   if (!ctx.ops) return;
   const ops = ctx.ops;
   ctx.ops = undefined;
@@ -44,7 +44,7 @@ export function commitPatch(): void {
 
 /** Returns `true` while a patch is being collected. */
 export function isPatchActive(): boolean {
-  return _requireActiveCtx().ops !== undefined;
+  return requireActiveCtx().ops !== undefined;
 }
 
 /**
@@ -52,7 +52,7 @@ export function isPatchActive(): boolean {
  * Returns the ops array and resets the queue to empty (ready for higher-priority work).
  */
 export function savePatchOps(): (() => void)[] {
-  const ctx = _requireActiveCtx();
+  const ctx = requireActiveCtx();
   const ops = ctx.ops ?? [];
   ctx.ops = [];
   return ops;
@@ -63,7 +63,7 @@ export function savePatchOps(): (() => void)[] {
  * The saved ops come first since they were collected before the preemption.
  */
 export function restorePatchOps(saved: (() => void)[]): void {
-  const ctx = _requireActiveCtx();
+  const ctx = requireActiveCtx();
   if (!ctx.ops) {
     ctx.ops = saved;
     return;

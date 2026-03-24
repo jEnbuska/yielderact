@@ -26,7 +26,7 @@
 
 import { PriorityContext, resolveCtx } from "../context";
 import { beginPatch, commitPatch, restorePatchOps, savePatchOps } from "./patch-queue";
-import { _requireActiveCtx, _setActiveCtx, RenderCtx } from "./state";
+import { RenderCtx, requireActiveCtx, setActiveCtx } from "./state";
 import type { ComponentInstance, RenderContext } from "./types";
 
 /** Time budget per work chunk in milliseconds. */
@@ -61,7 +61,7 @@ export function scheduleUpdate(instance: ComponentInstance): void {
 
   if (!rctx.isProcessing) {
     rctx.isProcessing = true;
-    _setActiveCtx(rctx);
+    setActiveCtx(rctx);
     _runLoop(rctx);
   }
 }
@@ -77,7 +77,7 @@ export function scheduleUpdate(instance: ComponentInstance): void {
  * are batched into a single processing pass.
  */
 export function flushSync(fn?: () => void): void {
-  const rctx = _requireActiveCtx();
+  const rctx = requireActiveCtx();
   const prevSync = rctx.syncMode;
   rctx.syncMode = true;
 
@@ -113,7 +113,7 @@ export function flushSync(fn?: () => void): void {
  */
 export function _flushPendingWork(rctx: RenderContext): void {
   if (_hasPendingWork(rctx)) {
-    _setActiveCtx(rctx);
+    setActiveCtx(rctx);
     rctx.isProcessing = true;
     _runLoop(rctx);
   }
@@ -270,7 +270,7 @@ function _yieldToBrowser(rctx: RenderContext): void {
   if (typeof MessageChannel !== "undefined") {
     const mc = new MessageChannel();
     mc.port1.onmessage = () => {
-      _setActiveCtx(rctx);
+      setActiveCtx(rctx);
       rctx.liveOnlyMode = savedLiveOnlyMode;
       _runLoop(rctx);
     };
@@ -278,7 +278,7 @@ function _yieldToBrowser(rctx: RenderContext): void {
   } else {
     // Fallback for environments without MessageChannel.
     setTimeout(() => {
-      _setActiveCtx(rctx);
+      setActiveCtx(rctx);
       rctx.liveOnlyMode = savedLiveOnlyMode;
       _runLoop(rctx);
     }, 0);

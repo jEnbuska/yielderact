@@ -317,7 +317,7 @@ export interface ComponentInstance {
   /**
    * The VNode produced by the last render that hasn't been committed to the
    * DOM yet. Set when inside an active UI patch and `shouldDefer` is true.
-   * Cleared by `_flushPendingVNodes` on commit or by `commitOrDefer` on
+   * Cleared by `flushPendingVNodes` on commit or by `commitOrDefer` on
    * immediate commit.
    */
   pendingVNode?: Child;

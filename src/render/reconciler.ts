@@ -14,7 +14,7 @@
  * scope via `runToCompletion(gen, childCtxMap)`.
  */
 
-import { _instanceBatch, _withBatch, BatchContext, type Context, resolveCtx } from "../context";
+import { BatchContext, type Context, resolveCtx, withBatch } from "../context";
 import { depsChanged } from "../hooks";
 import { $USE_CONTEXT } from "../hooks/descriptors";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
@@ -24,7 +24,6 @@ import { drive, getContext, getContextMap } from "./driver";
 import {
   childContextMap,
   flattenChildren,
-  getPatchMode,
   isComponentNode,
   isElementNode,
   isVNode,
@@ -331,7 +330,7 @@ export function* reconcileSlotsGen(
 /**
  * Synchronous wrapper around `reconcileSlotsGen`.
  *
- * Used by `_flushPendingVNodes` in `patch.ts` when committing deferred
+ * Used by `flushPendingVNodes` in `patch.ts` when committing deferred
  * updates. The generator-based `reconcileSlotsGen` is used directly
  * by `mount.ts` via `driveWithContext`.
  */
@@ -375,8 +374,8 @@ function* reconcileOneGen(
     // existing slot is a $patch="live" component (it knows it's live).
     if (rctx.liveOnlyMode && prevSlot) {
       const prevIsLive = prevSlot.componentInstance
-        ? (getPatchMode(prevSlot.componentInstance.props) ??
-            _instanceBatch(prevSlot.componentInstance.capturedCtx)) === "live"
+        ? (prevSlot.componentInstance.props.$patch ??
+            resolveCtx(prevSlot.componentInstance.capturedCtx, BatchContext)) === "live"
         : false;
       if ((yield* getContext(BatchContext)) !== "live" && !prevIsLive) {
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -439,7 +438,7 @@ function* reconcileOneGen(
   if (allPropsForShown.$shown === false) {
     // In live-only mode, only hide when the effective batch is live.
     if (rctx.liveOnlyMode) {
-      const effectiveBatch = getPatchMode(allPropsForShown) ?? (yield* getContext(BatchContext));
+      const effectiveBatch = allPropsForShown.$patch ?? (yield* getContext(BatchContext));
       if (effectiveBatch !== "live" && prevSlot) {
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
@@ -533,7 +532,7 @@ function* reconcileComponent(
         inst.props["$patch"] = allProps["$patch"];
         if (inst.consumedContexts.has(BatchContext)) {
           prevSlot.props = slotProps;
-          inst.capturedCtx = _withBatch(inst.capturedCtx, currentBatch);
+          inst.capturedCtx = withBatch(inst.capturedCtx, currentBatch);
           void inst.rerender();
           return { slot: prevSlot, node: prevSlot.node, replaced: false };
         }
@@ -558,7 +557,7 @@ function* reconcileComponent(
           inst.capturedCtx = childCtxMap;
           void inst.rerender();
         } else {
-          inst.capturedCtx = _withBatch(inst.capturedCtx, currentBatch);
+          inst.capturedCtx = withBatch(inst.capturedCtx, currentBatch);
         }
       }
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -566,10 +565,10 @@ function* reconcileComponent(
 
     // Live-only mode: skip non-live components
     if (rctx.liveOnlyMode) {
-      const effectiveBatch = getPatchMode(allProps) ?? currentBatch;
+      const effectiveBatch = allProps.$patch ?? currentBatch;
       if (effectiveBatch !== "live") {
         if (prevSlot.componentInstance) {
-          prevSlot.componentInstance.capturedCtx = _withBatch(
+          prevSlot.componentInstance.capturedCtx = withBatch(
             prevSlot.componentInstance.capturedCtx,
             currentBatch,
           );
@@ -586,7 +585,7 @@ function* reconcileComponent(
     // Component with changed props → rerender in place
     if (prevSlot.componentInstance) {
       prevSlot.componentInstance.props = allProps;
-      prevSlot.componentInstance.capturedCtx = _withBatch(
+      prevSlot.componentInstance.capturedCtx = withBatch(
         prevSlot.componentInstance.capturedCtx,
         currentBatch,
       );
@@ -598,7 +597,7 @@ function* reconcileComponent(
 
   // Live-only mode: structural changes (type mismatch / no prevSlot)
   if (rctx.liveOnlyMode && prevSlot?.type !== vnode.type) {
-    const effectiveBatch = getPatchMode(allProps) ?? currentBatch;
+    const effectiveBatch = allProps.$patch ?? currentBatch;
     if (effectiveBatch !== "live") {
       if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
       const node = document.createTextNode("");

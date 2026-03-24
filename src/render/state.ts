@@ -59,12 +59,12 @@ let _activeCtx: RenderContext | undefined;
  * Return the currently active render context.
  *
  * **Precondition:** Must only be called while a rendering operation is in
- * progress (i.e. `_setActiveCtx` was called with a defined context).
+ * progress (i.e. `setActiveCtx` was called with a defined context).
  * @internal
  */
-export function _requireActiveCtx(): RenderContext {
+export function requireActiveCtx(): RenderContext {
   if (!_activeCtx) {
-    throw new Error("No active render context — _requireActiveCtx called outside a render pass");
+    throw new Error("No active render context — requireActiveCtx called outside a render pass");
   }
   return _activeCtx;
 }
@@ -83,6 +83,6 @@ export function _requireActiveCtx(): RenderContext {
  * - `dispatchDelegatedEvent` in `dispatch.ts` — before dispatching events.
  * @internal
  */
-export function _setActiveCtx(ctx: RenderContext | undefined): void {
+export function setActiveCtx(ctx: RenderContext | undefined): void {
   _activeCtx = ctx;
 }

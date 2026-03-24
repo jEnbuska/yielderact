@@ -7,7 +7,7 @@ import {
   unregisterHandler,
 } from "./delegation";
 import { addNonDelegatedListener, removeNonDelegatedListener } from "./events";
-import { _requireActiveCtx } from "./state";
+import { requireActiveCtx } from "./state";
 
 // ── Ref helpers ─────────────────────────────────────────────────────────────
 
@@ -37,7 +37,7 @@ function _registerEvent(
     addNonDelegatedListener(el, domEvent, handler);
   } else {
     registerHandler(el, domEvent, handler, isCapture);
-    _requireActiveCtx().delegationRoot?.ensureListening(domEvent);
+    requireActiveCtx().delegationRoot?.ensureListening(domEvent);
   }
 }
 

@@ -164,7 +164,7 @@ export type UseContextState = {
 };
 
 /** @internal */
-export function _processContext(
+export function processContext(
   descriptor: ContextDescriptor,
   prev: UseContextState | undefined,
   rawValue: unknown,
@@ -224,22 +224,11 @@ export const BatchContext: Context<"live" | "default"> = {
 };
 
 /**
- * Read the effective `$patch` batch behaviour from a captured context map
- * (typically `inst.capturedCtx`).
- * @internal
- */
-export function _instanceBatch(
-  capturedCtx: ReadonlyMap<Context<unknown>, unknown>,
-): "live" | "default" {
-  return resolveCtx(capturedCtx, BatchContext);
-}
-
-/**
  * Return a context map with the batch behaviour set to `batch`.
  * If the existing batch already matches, returns the same map (no allocation).
  * @internal
  */
-export function _withBatch(
+export function withBatch(
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
   batch: "live" | "default",
 ): ReadonlyMap<Context<unknown>, unknown> {
@@ -272,7 +261,7 @@ export const PriorityContext: Context<number> = {
  * If the existing priority already matches, returns the same map (no allocation).
  * @internal
  */
-export function _withPriority(
+export function withPriority(
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
   priority: number,
 ): ReadonlyMap<Context<unknown>, unknown> {

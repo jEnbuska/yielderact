@@ -1,8 +1,7 @@
-import { _withBatch, resolveCtx } from "../context";
-import { getPatchMode } from "./helpers";
+import { resolveCtx, withBatch } from "../context";
 import { flushEffects } from "./hooks-runtime";
 import { reconcileSlots } from "./reconciler";
-import { _requireActiveCtx, RenderCtx } from "./state";
+import { RenderCtx, requireActiveCtx } from "./state";
 import type { ComponentInstance } from "./types";
 
 /**
@@ -11,7 +10,7 @@ import type { ComponentInstance } from "./types";
  * Each instance with a `pendingVNode` gets its DOM reconciled and effects
  * flushed. Instances without a pending update are skipped.
  */
-export function _flushPendingVNodes(instances: ComponentInstance[]): void {
+export function flushPendingVNodes(instances: ComponentInstance[]): void {
   for (const inst of instances) {
     if (inst.pendingVNode === undefined) continue;
     if (!inst.endMarker.parentNode) continue;
@@ -20,9 +19,9 @@ export function _flushPendingVNodes(instances: ComponentInstance[]): void {
     resolveCtx(inst.capturedCtx, RenderCtx).dirtyInstances.delete(inst);
 
     // Compute effective context: inherited context + own $patch for children.
-    const ownPatch = getPatchMode(inst.props);
+    const ownPatch = inst.props.$patch;
     const ctxMap =
-      ownPatch !== undefined ? _withBatch(inst.capturedCtx, ownPatch) : inst.capturedCtx;
+      ownPatch !== undefined ? withBatch(inst.capturedCtx, ownPatch) : inst.capturedCtx;
     const parent = inst.endMarker.parentNode as HTMLElement;
     inst.slots = reconcileSlots(parent, inst.slots, [vnode], inst.endMarker, ctxMap);
     flushEffects(inst);
@@ -51,14 +50,14 @@ export function _flushPendingVNodes(instances: ComponentInstance[]): void {
  * commitUIPatch();      // both updates applied at once
  */
 export function startUIPatch(): void {
-  _requireActiveCtx().patchDepth++;
+  requireActiveCtx().patchDepth++;
 }
 
 /**
  * Commit the global UI patch, applying all deferred DOM updates at once.
  *
  * Decrements the reference count. When it reaches 0 (outermost patch),
- * drains `renderCtx.dirtyInstances` and calls `_flushPendingVNodes`
+ * drains `renderCtx.dirtyInstances` and calls `flushPendingVNodes`
  * to reconcile every pending VNode.
  *
  * Must be called exactly once for each matching `startUIPatch` call.
@@ -67,12 +66,12 @@ export function startUIPatch(): void {
  * have been triggered.
  */
 export function commitUIPatch(): void {
-  const rctx = _requireActiveCtx();
+  const rctx = requireActiveCtx();
   if (rctx.patchDepth === 0) return;
   rctx.patchDepth--;
   if (rctx.patchDepth > 0) return; // nested patch still active
 
   const pending = [...rctx.dirtyInstances];
   rctx.dirtyInstances.clear();
-  _flushPendingVNodes(pending);
+  flushPendingVNodes(pending);
 }

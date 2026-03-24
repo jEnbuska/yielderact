@@ -9,7 +9,7 @@
  * and context propagation.
  */
 
-import { _processContext, type Context, resolveCtx } from "../context";
+import { type Context, processContext, resolveCtx } from "../context";
 import {
   $USE_CONTEXT,
   $USE_EFFECT,
@@ -38,7 +38,7 @@ import { _createStateSetter, _processState } from "../hooks/useState";
 import { _processUIPatch } from "../hooks/useUIPatch";
 
 import { releasePortalDelegation } from "./delegation";
-import { _flushPendingVNodes } from "./patch";
+import { flushPendingVNodes } from "./patch";
 import { clearRef } from "./props";
 import { RenderCtx } from "./state";
 import type { ComponentInstance, HookState, Slot } from "./types";
@@ -246,7 +246,7 @@ export function processOneDescriptor(
       const prev = getTypedPrev(hookStates, hookIndex, $USE_CONTEXT, instance);
       instance.consumedContexts.add(descriptor.ctx);
       const rawValue = resolveCtx(ctxMap, descriptor.ctx);
-      const state = _processContext(descriptor, prev, rawValue);
+      const state = processContext(descriptor, prev, rawValue);
       hookStates[hookIndex] = state;
       return state.lastResult;
     }
@@ -299,7 +299,7 @@ export function processOneDescriptor(
     }
     case $USE_UI_PATCH: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_UI_PATCH, instance);
-      const state = _processUIPatch(prev, instance, collectDescendants, _flushPendingVNodes);
+      const state = _processUIPatch(prev, instance, collectDescendants, flushPendingVNodes);
       hookStates[hookIndex] = state;
       return state.startPatch;
     }

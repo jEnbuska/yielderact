@@ -13,7 +13,7 @@
  * `<span>` elements.
  */
 
-import { _withBatch, BatchContext, type Context, PriorityContext } from "../context";
+import { BatchContext, type Context, PriorityContext, withBatch } from "../context";
 import type { HookDescriptor } from "../hooks/descriptors";
 import { $USE_EFFECT, $USE_SET_CONTEXT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
@@ -29,6 +29,7 @@ import { InvalidChildError } from "./errors";
 import { isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
 import { flushEffects, isHookDescriptor, processOneDescriptor } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
+import { createResolvable } from "./promise";
 import { applyProps } from "./props";
 import { reconcileSlotsGen } from "./reconciler";
 import { scheduleUpdate } from "./scheduler";
@@ -98,7 +99,7 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
 /** Compute the effective context map for a component's children. */
 function effectiveCtxMap(instance: ComponentInstance): ReadonlyMap<Context<unknown>, unknown> {
   const { $patch } = instance.props;
-  return $patch ? _withBatch(instance.capturedCtx, $patch) : instance.capturedCtx;
+  return $patch ? withBatch(instance.capturedCtx, $patch) : instance.capturedCtx;
 }
 
 // ── Standalone lifecycle functions ────────────────────────────────────────
@@ -311,9 +312,9 @@ function* executeRerender(
 function rerenderInstance(instance: ComponentInstance): Promise<void> {
   if (instance.isRendering) {
     instance.pendingRerender = true;
-    return new Promise<void>((resolve) => {
-      instance.renderResolvers.push(resolve);
-    });
+    const { promise, resolve } = createResolvable<void>();
+    instance.renderResolvers.push(resolve);
+    return promise;
   }
   if (!instance.endMarker.parentNode) return Promise.resolve();
   if (isPatchActive()) {
