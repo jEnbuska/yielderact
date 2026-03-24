@@ -67,7 +67,7 @@ import {
   domSetText,
 } from "./patch-queue";
 import { applyProps, updateProps } from "./props";
-import { _requireActiveCtx } from "./state";
+import { _requireActiveCtx, runWithContext } from "./state";
 import type { ComponentInstance, Slot } from "./types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -550,7 +550,7 @@ function* reconcileOneGen(
   // SECTION: Fallback (Fragment or unknown)
   // Full rebuild via buildNode.
   // ════════════════════════════════════════════════════════════════════════
-  const node = buildNode(nextChild, ctxMap);
+  const node = runWithContext(ctxMap, buildNode(nextChild));
   return {
     slot: { type: (vnode as VNode).type, node, props: {}, childSlots: [] },
     node,
@@ -630,6 +630,7 @@ function* reconcileComponent(
 
         if (contextChanged) {
           inst.capturedCtx = childCtxMap;
+          inst.priority = _resolveCtxValue(childCtxMap, PriorityContext);
           inst.rerender();
         } else {
           inst.capturedCtx = _withBatch(inst.capturedCtx, currentBatch);

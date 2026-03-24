@@ -23,11 +23,13 @@ import {
   _resolveCtxValue,
   _withBatch,
   _withPriority,
+  BatchContext,
   type Context,
   PriorityContext,
 } from "../context";
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
+import { InvalidChildError } from "./errors";
 import {
   getPatchMode,
   isComponentNode,
@@ -40,7 +42,15 @@ import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
 import { reconcileSlots } from "./reconciler";
 import { scheduleUpdate } from "./scheduler";
-import { _requireActiveCtx, _setActiveCtx } from "./state";
+import {
+  _requireActiveCtx,
+  _setActiveCtx,
+  type ContextGenerator,
+  getContext,
+  getContextMap,
+  runWithContext,
+  setContext,
+} from "./state";
 import type { ComponentInstance, HookState, RenderContext, Slot } from "./types";
 
 /**
@@ -67,26 +77,30 @@ import type { ComponentInstance, HookState, RenderContext, Slot } from "./types"
  *   a `DocumentFragment` containing the output nodes + endMarker.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode type dispatch with many branches
-export function buildNode(child: Child, ctxMap: ReadonlyMap<Context<unknown>, unknown>): Node {
+export function* buildNode(child: Child): ContextGenerator<Node> {
   if (child == null || typeof child === "boolean") {
     return document.createTextNode("");
   }
   if (typeof child === "string" || typeof child === "number") {
     return document.createTextNode(String(child));
   }
-
+  if (!child.type) {
+    throw new InvalidChildError(child);
+  }
   if (child.type === Fragment) {
     const frag = document.createDocumentFragment();
+    const map = yield* getContextMap();
     for (const c of child.children) {
-      frag.appendChild(buildNode(c, ctxMap));
+      frag.appendChild(runWithContext(map, buildNode(c)));
     }
     return frag;
   }
 
   if (child.type === Portal) {
     const portalContainer = child.props["$portalContainer"] as Element;
+    const map = yield* getContextMap();
     for (const c of child.children) {
-      portalContainer.appendChild(buildNode(c, ctxMap));
+      portalContainer.appendChild(runWithContext(map, buildNode(c)));
     }
     return document.createComment("portal");
   }
@@ -99,15 +113,15 @@ export function buildNode(child: Child, ctxMap: ReadonlyMap<Context<unknown>, un
     }
     // Strip $deferred and $deps from component props; propagate $deferred via context.
     const allProps = stripFrameworkDirectives(allPropsRaw);
-    const compDeferred = allPropsRaw.$deferred;
-    const childCtxMap = compDeferred
-      ? _withPriority(ctxMap, _resolveCtxValue(ctxMap, PriorityContext) + 1)
-      : ctxMap;
+    if (allPropsRaw.$deferred) {
+      yield* setContext(PriorityContext, (yield* getContext(PriorityContext)) + 1);
+    }
+    const ctxMap = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
     const providerCtx = _getProviderCtx(component);
     if (providerCtx) {
-      return mountContextProvider(component, allProps, providerCtx, childCtxMap).fragment;
+      return mountContextProvider(component, allProps, providerCtx, ctxMap).fragment;
     }
-    return mountComponent(component, allProps, childCtxMap).fragment;
+    return mountComponent(component, allProps, ctxMap).fragment;
   }
 
   if (!isShown(child.props)) {
@@ -118,13 +132,15 @@ export function buildNode(child: Child, ctxMap: ReadonlyMap<Context<unknown>, un
   const el = document.createElement(child.type as string);
   applyProps(el, child.props);
   const elBatch = getPatchMode(child.props);
-  const elDeferred = child.props.$deferred;
-  let childCtxMap = ctxMap;
-  if (elBatch !== undefined) childCtxMap = _withBatch(childCtxMap, elBatch);
-  if (elDeferred)
-    childCtxMap = _withPriority(childCtxMap, _resolveCtxValue(childCtxMap, PriorityContext) + 1);
+  if (elBatch !== undefined) {
+    yield* setContext(BatchContext, elBatch);
+  }
+  if (child.props.$deferred) {
+    yield* setContext(PriorityContext, (yield* getContext(PriorityContext)) + 1);
+  }
+  const childMap = yield* getContextMap();
   for (const c of child.children) {
-    el.appendChild(buildNode(c, childCtxMap));
+    el.appendChild(runWithContext(childMap, buildNode(c)));
   }
   return el;
 }

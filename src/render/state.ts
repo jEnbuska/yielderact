@@ -56,3 +56,79 @@ export function _requireActiveCtx(): RenderContext {
 export function _setActiveCtx(ctx: RenderContext | undefined): void {
   _activeCtx = ctx;
 }
+
+// ── Generator-based context system ────────────────────────────────────────
+
+const $GET_CONTEXT = Symbol("GET_CONTEXT");
+const $SET_CONTEXT = Symbol("SET_CONTEXT");
+const $GET_CONTEXT_MAP = Symbol("GET_CONTEXT_MAP");
+
+type ContextDescriptor =
+  | { readonly op: typeof $GET_CONTEXT; readonly key: { readonly _defaultValue: unknown } }
+  | {
+      readonly op: typeof $SET_CONTEXT;
+      readonly key: { readonly _defaultValue: unknown };
+      readonly value: unknown;
+    }
+  | { readonly op: typeof $GET_CONTEXT_MAP };
+
+/**
+ * A generator that participates in the context system.
+ * Yields context descriptors and ultimately returns `TReturn`.
+ * @internal
+ */
+export type ContextGenerator<TReturn> = Generator<ContextDescriptor, TReturn, unknown>;
+
+/**
+ * Yield from a generator to read the current value of a context.
+ * @internal
+ */
+export function* getContext<T>(ctx: { readonly _defaultValue: T }): ContextGenerator<T> {
+  return (yield { op: $GET_CONTEXT, key: ctx }) as T;
+}
+
+/**
+ * Yield from a generator to set a context value for the current subtree.
+ * @internal
+ */
+export function* setContext<T>(
+  ctx: { readonly _defaultValue: T },
+  value: T,
+): ContextGenerator<void> {
+  yield { op: $SET_CONTEXT, key: ctx, value };
+}
+
+/**
+ * Yield from a generator to get the full current context map.
+ * @internal
+ */
+export function* getContextMap(): ContextGenerator<ReadonlyMap<object, unknown>> {
+  return (yield { op: $GET_CONTEXT_MAP }) as ReadonlyMap<object, unknown>;
+}
+
+/**
+ * Drive a context generator, resolving get/set/getMap descriptors.
+ * @internal
+ */
+export function runWithContext<T>(
+  ctxMap: ReadonlyMap<object, unknown>,
+  gen: ContextGenerator<T>,
+): T {
+  let currentMap = ctxMap;
+  let result = gen.next();
+  while (!result.done) {
+    const desc = result.value;
+    if (desc.op === $GET_CONTEXT) {
+      const value = currentMap.has(desc.key) ? currentMap.get(desc.key) : desc.key._defaultValue;
+      result = gen.next(value);
+    } else if (desc.op === $SET_CONTEXT) {
+      const newMap = new Map(currentMap);
+      newMap.set(desc.key, desc.value);
+      currentMap = newMap;
+      result = gen.next(undefined);
+    } else {
+      result = gen.next(currentMap);
+    }
+  }
+  return result.value;
+}
