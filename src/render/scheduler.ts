@@ -26,7 +26,7 @@
 
 import { _resolveCtxValue, PriorityContext } from "../context";
 import { beginPatch, commitPatch, restorePatchOps, savePatchOps } from "./patch-queue";
-import { _requireActiveCtx, _setActiveCtx } from "./state";
+import { _requireActiveCtx, _setActiveCtx, RenderCtx } from "./state";
 import type { ComponentInstance, RenderContext } from "./types";
 
 /** Time budget per work chunk in milliseconds. */
@@ -48,7 +48,8 @@ const _timeSlice = 5;
  * @param instance - The ComponentInstance to rerender.
  */
 export function scheduleUpdate(instance: ComponentInstance): void {
-  const rctx = instance.renderCtx;
+  // TODO: should use yield* getContext(RenderCtx) — sync code can't yield
+  const rctx = _resolveCtxValue(instance.capturedCtx, RenderCtx);
   const priority =
     rctx.renderingPriority ?? _resolveCtxValue(instance.capturedCtx, PriorityContext);
 

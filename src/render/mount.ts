@@ -40,7 +40,7 @@ import { applyProps } from "./props";
 import { reconcileSlotsGen } from "./reconciler";
 import { scheduleUpdate } from "./scheduler";
 import { RenderCtx } from "./state";
-import type { ComponentInstance, RenderContext } from "./types";
+import type { ComponentInstance } from "./types";
 
 /**
  * Build a single real DOM node from a VNode (or primitive).
@@ -118,7 +118,8 @@ function effectiveCtxMap(instance: ComponentInstance): ReadonlyMap<Context<unkno
  * Otherwise commits immediately and flushes effects.
  */
 function* commitOrDefer(instance: ComponentInstance, vnode: Child): RenderGenerator<void> {
-  const rctx = instance.renderCtx;
+  // TODO: should use yield* getContext(RenderCtx)
+  const rctx = _resolveCtxValue(instance.capturedCtx, RenderCtx);
   const parent = instance.endMarker.parentNode as HTMLElement;
   const ctxMap = effectiveCtxMap(instance);
   const effectiveBatch = getPatchMode(instance.props) ?? _instanceBatch(instance.capturedCtx);
@@ -346,10 +347,8 @@ export function* mountComponent(
   props: InternalProps,
 ): RenderGenerator<{ fragment: DocumentFragment; componentInstance: ComponentInstance }> {
   const ctxMap = yield* getContextMap();
-  const rctx = yield* getContext(RenderCtx);
 
   const instance: ComponentInstance = {
-    renderCtx: rctx,
     component,
     props,
     endMarker: document.createComment(""),

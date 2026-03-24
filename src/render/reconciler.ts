@@ -20,7 +20,6 @@ import {
   _withBatch,
   BatchContext,
   type Context,
-  PriorityContext,
 } from "../context";
 import { depsChanged } from "../hooks";
 import { $USE_CONTEXT } from "../hooks/descriptors";

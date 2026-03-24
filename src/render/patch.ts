@@ -1,8 +1,8 @@
-import { _withBatch } from "../context";
+import { _resolveCtxValue, _withBatch } from "../context";
 import { getPatchMode } from "./helpers";
 import { flushEffects } from "./hooks-runtime";
 import { reconcileSlots } from "./reconciler";
-import { _requireActiveCtx } from "./state";
+import { _requireActiveCtx, RenderCtx } from "./state";
 import type { ComponentInstance } from "./types";
 
 /**
@@ -17,7 +17,7 @@ export function _flushPendingVNodes(instances: ComponentInstance[]): void {
     if (!inst.endMarker.parentNode) continue;
     const vnode = inst.pendingVNode;
     inst.pendingVNode = undefined;
-    inst.renderCtx.dirtyInstances.delete(inst);
+    _resolveCtxValue(inst.capturedCtx, RenderCtx).dirtyInstances.delete(inst);
 
     // Compute effective context: inherited context + own $patch for children.
     const ownPatch = getPatchMode(inst.props);

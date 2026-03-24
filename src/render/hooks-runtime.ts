@@ -26,7 +26,6 @@ import {
   type HookDescriptor,
   type HookType,
 } from "../hooks/descriptors";
-import type { ComponentGenerator } from "../hooks/types";
 import { depsChanged } from "../hooks/types";
 import { _processEffect } from "../hooks/useEffect";
 import { _processId } from "../hooks/useId";
@@ -37,10 +36,11 @@ import type { ResolveRawResult } from "../hooks/useResolve";
 import { _processResolve, _processResolveRaw } from "../hooks/useResolve";
 import { _createStateSetter, _processState } from "../hooks/useState";
 import { _processUIPatch } from "../hooks/useUIPatch";
-import type { Child } from "../jsx";
+
 import { releasePortalDelegation } from "./delegation";
 import { _flushPendingVNodes } from "./patch";
 import { clearRef } from "./props";
+import { RenderCtx } from "./state";
 import type { ComponentInstance, HookState, Slot } from "./types";
 
 /**
@@ -127,10 +127,11 @@ export function unmountSlot(slot: Slot): void {
     // Remove from dirty set so commitUIPatch skips unmounted instances.
     // localPatchRefCount is intentionally left as-is; the local patch commit()
     // checks pendingVNode === undefined and skips accordingly.
-    slot.componentInstance.renderCtx.dirtyInstances.delete(slot.componentInstance);
+    const rctx = _resolveCtxValue(slot.componentInstance.capturedCtx, RenderCtx);
+    rctx.dirtyInstances.delete(slot.componentInstance);
     // Remove from scheduler queue so pending async callbacks (useResolveRaw
     // promise handlers) don't trigger a zombie rerender.
-    for (const [, set] of slot.componentInstance.renderCtx.pendingUpdates) {
+    for (const [, set] of rctx.pendingUpdates) {
       set.delete(slot.componentInstance);
     }
   }

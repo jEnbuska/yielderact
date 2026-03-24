@@ -219,19 +219,6 @@ export interface Slot {
  */
 export interface ComponentInstance {
   /**
-   * The per-root render context this instance belongs to.
-   *
-   * All rendering state (patch depth, dirty instances, context map,
-   * scheduler queues, etc.) lives here instead of in module-level globals.
-   *
-   * **Set by:** `mountComponent` — from the active render context
-   * at the time the component is first mounted.
-   * **Read by:** lifecycle closures, hook handlers, the scheduler, and
-   * `unmountSlot`.
-   */
-  renderCtx: RenderContext;
-
-  /**
    * The component function that produced this instance.
    * Called by `executeRerender` to create a fresh generator on each render:
    *   `const gen = instance.component(instance.props, rerender);`
