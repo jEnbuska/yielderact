@@ -28,13 +28,20 @@ import {
 } from "../context";
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
-import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "./driver";
+import {
+  type CtxMap,
+  drive,
+  driveWithContext,
+  getContextMap,
+  type RenderGenerator,
+  setContext,
+} from "./driver";
 import { InvalidChildError } from "./errors";
 import { getPatchMode, isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
 import { flushEffects, resumeGenerator, runHooks } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
-import { reconcileSlots } from "./reconciler";
+import { reconcileSlots, reconcileSlotsGen } from "./reconciler";
 import { scheduleUpdate } from "./scheduler";
 import { _requireActiveCtx, _setActiveCtx } from "./state";
 import type { ComponentInstance, RenderContext } from "./types";
@@ -130,7 +137,7 @@ function effectiveCtxMap(instance: ComponentInstance): ReadonlyMap<Context<unkno
  *
  * **Called by:** `resumeInstance` and `executeRerender`.
  */
-function commitOrDefer(instance: ComponentInstance, vnode: Child): void {
+function* commitOrDeferGen(instance: ComponentInstance, vnode: Child): RenderGenerator<void> {
   const rctx = instance.renderCtx;
   const parent = instance.endMarker.parentNode as HTMLElement;
   const ctxMap = effectiveCtxMap(instance);
@@ -142,14 +149,17 @@ function commitOrDefer(instance: ComponentInstance, vnode: Child): void {
     rctx.dirtyInstances.add(instance);
     const prevLiveOnly = rctx.liveOnlyMode;
     rctx.liveOnlyMode = true;
-    try {
-      instance.slots = reconcileSlots(parent, instance.slots, [vnode], instance.endMarker, ctxMap);
-    } finally {
-      rctx.liveOnlyMode = prevLiveOnly;
-    }
+    instance.slots = yield* driveWithContext(
+      ctxMap as CtxMap,
+      reconcileSlotsGen(parent, instance.slots, [vnode], instance.endMarker),
+    );
+    rctx.liveOnlyMode = prevLiveOnly;
   } else {
     instance.pendingVNode = undefined;
-    instance.slots = reconcileSlots(parent, instance.slots, [vnode], instance.endMarker, ctxMap);
+    instance.slots = yield* driveWithContext(
+      ctxMap as CtxMap,
+      reconcileSlotsGen(parent, instance.slots, [vnode], instance.endMarker),
+    );
     flushEffects(instance);
   }
 }
@@ -175,13 +185,9 @@ function resumeInstance(instance: ComponentInstance): void {
   if (!instance.endMarker.parentNode) return;
   _setActiveCtx(instance.renderCtx);
 
-  const { vnode } = resumeGenerator(
-    instance,
-    instance.rerender,
-    instance._resume,
-    effectiveCtxMap(instance),
-  );
-  commitOrDefer(instance, vnode);
+  const ctxMap = effectiveCtxMap(instance);
+  const { vnode } = resumeGenerator(instance, instance.rerender, instance._resume, ctxMap);
+  drive(ctxMap as CtxMap, commitOrDeferGen(instance, vnode));
 }
 
 /**
@@ -270,13 +276,16 @@ function runComponentRender(instance: ComponentInstance): {
 }
 
 /**
- * Execute a full render cycle: run the component, commit the output,
- * and handle follow-up rerenders.
+ * Execute a full render cycle as a generator.
+ *
+ * Runs the component through hooks (synchronous), then yields child
+ * reconciliation through the driver (interruptible). Handles retries
+ * on mid-render state changes and follow-up rerenders.
  */
-function executeRerender(
+function* executeRerenderGen(
   instance: ComponentInstance,
   initiallyMounted: boolean,
-): { promise: Promise<void>; fragment: DocumentFragment } {
+): RenderGenerator<DocumentFragment> {
   const rctx = instance.renderCtx;
   let mounted = initiallyMounted;
   let initialFragment = document.createDocumentFragment();
@@ -290,25 +299,26 @@ function executeRerender(
       initialFragment.appendChild(instance.endMarker);
       const prevLiveOnly = rctx.liveOnlyMode;
       rctx.liveOnlyMode = false;
-      instance.slots = reconcileSlots(initialFragment, [], [vnode], instance.endMarker, ctxMap);
+      instance.slots = yield* driveWithContext(
+        ctxMap as CtxMap,
+        reconcileSlotsGen(initialFragment, [], [vnode], instance.endMarker),
+      );
       rctx.liveOnlyMode = prevLiveOnly;
       mounted = true;
       flushEffects(instance);
     } else {
-      commitOrDefer(instance, vnode);
+      yield* commitOrDeferGen(instance, vnode);
     }
 
     const resolvers = instance.renderResolvers.splice(0);
     for (const resolve of resolvers) resolve();
 
-    if (mounted && !instance.endMarker.parentNode) {
-      return { promise: Promise.resolve(), fragment: initialFragment };
-    }
+    if (mounted && !instance.endMarker.parentNode) return initialFragment;
     if (instance.pendingRerender) {
       instance.pendingRerender = false;
       continue;
     }
-    return { promise: Promise.resolve(), fragment: initialFragment };
+    return initialFragment;
   }
 }
 
@@ -347,7 +357,8 @@ function rerenderInstance(instance: ComponentInstance): Promise<void> {
     // During an active patch (another component is rendering or a
     // $patch batch is in progress), execute synchronously so the DOM
     // ops are collected into the same patch queue.
-    return executeRerender(instance, true /* already mounted */).promise;
+    drive(effectiveCtxMap(instance) as CtxMap, executeRerenderGen(instance, true));
+    return Promise.resolve();
   }
   // Outside a render phase (event handler, timer, async callback, etc.)
   // — schedule through the priority-aware scheduler.
@@ -410,10 +421,14 @@ export function* mountComponent(
   // Bind lifecycle functions after instance is created so they can close
   // over the instance reference. These are simple one-line wrappers.
   instance._resume = () => resumeInstance(instance);
-  instance._executeRerender = () => executeRerender(instance, true).promise;
+  instance._executeRerender = () => {
+    _setActiveCtx(instance.renderCtx);
+    drive(effectiveCtxMap(instance) as CtxMap, executeRerenderGen(instance, true));
+    return Promise.resolve();
+  };
   instance.rerender = () => rerenderInstance(instance);
 
-  const { fragment } = executeRerender(instance, false /* not yet mounted */);
+  const fragment = yield* executeRerenderGen(instance, false /* not yet mounted */);
 
   return { fragment, componentInstance: instance };
 }
