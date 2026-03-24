@@ -12,7 +12,7 @@
  * collection, and context propagation.
  */
 
-import { _getProviderCtx, _processContext, _resolveCtxValue, type Context } from "../context";
+import { _processContext, _resolveCtxValue, type Context, providerContexts } from "../context";
 import {
   $USE_CONTEXT,
   $USE_EFFECT,
@@ -552,7 +552,7 @@ export function propagateContextUpdate(
 ): void {
   for (const slot of slots) {
     // Stop at an inner Provider for the same context – it overrides the outer value.
-    if (typeof slot.type === "function" && _getProviderCtx(slot.type) === ctx) {
+    if (typeof slot.type === "symbol" && providerContexts.get(slot.type) === ctx) {
       continue;
     }
 

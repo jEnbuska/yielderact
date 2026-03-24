@@ -29,14 +29,13 @@
  */
 
 import {
-  _asProviderFn,
-  _getProviderCtx,
   _instanceBatch,
   _resolveCtxValue,
   _withBatch,
   BatchContext,
   type Context,
   PriorityContext,
+  providerContexts,
 } from "../context";
 import { depsChanged } from "../hooks";
 import { $USE_CONTEXT } from "../hooks/descriptors";
@@ -57,7 +56,7 @@ import {
   stripFrameworkDirectives,
 } from "./helpers";
 import { propagateContextUpdate, unmountSlot } from "./hooks-runtime";
-import { buildNode, mountComponent, mountContextProvider } from "./mount";
+import { buildNode, mountComponent } from "./mount";
 import {
   domAppendChild,
   domEnqueue,
@@ -532,6 +531,14 @@ function* reconcileOneGen(
   }
 
   // ════════════════════════════════════════════════════════════════════════
+  // SECTION: Provider (symbol-typed context provider)
+  // ════════════════════════════════════════════════════════════════════════
+  const providerCtx = typeof vnode.type === "symbol" ? providerContexts.get(vnode.type) : undefined;
+  if (providerCtx) {
+    return yield* reconcileProvider(prevSlot, vnode, providerCtx, ctxMap);
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
   // SECTION: Component
   // ════════════════════════════════════════════════════════════════════════
   if (isComponentNode(vnode)) {
@@ -578,7 +585,6 @@ function* reconcileComponent(
   // slotProps: what Slot.props stores (keeps $deps for next comparison, strips $deferred)
   const slotProps = stripDeferred(allPropsRaw);
   const component = vnode.type;
-  const providerCtx = _getProviderCtx(component);
   const newDeps = allPropsRaw.$deps;
 
   const childCtxMap = childContextMap(ctxMap, allPropsRaw);
@@ -645,35 +651,12 @@ function* reconcileComponent(
           );
           prevSlot.componentInstance.props["$patch"] = allProps["$patch"];
         }
-        if (!providerCtx) {
-          const hasContentChange = Object.keys({ ...prevSlot.props, ...allProps }).some(
-            (k) => k !== "$patch" && k !== "$shown" && !Object.is(prevSlot.props[k], allProps[k]),
-          );
-          if (!hasContentChange) prevSlot.props = slotProps;
-        }
+        const hasContentChange = Object.keys({ ...prevSlot.props, ...allProps }).some(
+          (k) => k !== "$patch" && k !== "$shown" && !Object.is(prevSlot.props[k], allProps[k]),
+        );
+        if (!hasContentChange) prevSlot.props = slotProps;
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
-    }
-
-    // Context Provider: reconcile children in place
-    if (providerCtx) {
-      const newCtxMap = new Map(childCtxMap);
-      newCtxMap.set(providerCtx, allProps["value"]);
-      if (!Object.is(prevSlot.props["value"], allProps["value"])) {
-        propagateContextUpdate(providerCtx, allProps["value"], prevSlot.childSlots);
-      }
-      const childVNode = _asProviderFn(component)(allProps);
-      if (childVNode != null) {
-        prevSlot.childSlots = yield* reconcileSlotsGen(
-          prevSlot.node.parentNode as HTMLElement,
-          prevSlot.childSlots,
-          [childVNode],
-          prevSlot.node,
-          newCtxMap,
-        );
-      }
-      prevSlot.props = slotProps;
-      return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
 
     // Component with changed props → rerender in place
@@ -704,24 +687,6 @@ function* reconcileComponent(
   }
 
   // Mount fresh component
-  if (providerCtx) {
-    const { fragment, endMarker, childSlots } = mountContextProvider(
-      component,
-      allProps,
-      providerCtx,
-      childCtxMap,
-    );
-    return {
-      slot: {
-        type: vnode.type,
-        node: endMarker,
-        props: slotProps,
-        childSlots,
-      },
-      node: fragment,
-      replaced: true,
-    };
-  }
   const { fragment, componentInstance } = mountComponent(component, allProps, childCtxMap);
   return {
     slot: {
@@ -888,6 +853,55 @@ function* reconcilePortal(
       portalDelegationRoot: delegation,
     },
     node: placeholder,
+    replaced: true,
+  };
+}
+
+// ── Provider reconciliation ───────────────────────────────────────────────
+
+function* reconcileProvider(
+  prevSlot: Slot | undefined,
+  vnode: VNode,
+  ctx: Context<unknown>,
+  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
+): Generator<void, { slot: Slot; node: Node; replaced: boolean }, void> {
+  const providerValue = vnode.props["value"];
+  const providerCtxMap = new Map(ctxMap);
+  providerCtxMap.set(ctx, providerValue);
+
+  // Same provider at same position — reconcile children in place.
+  if (prevSlot?.type === vnode.type) {
+    if (!Object.is(prevSlot.props["value"], providerValue)) {
+      propagateContextUpdate(ctx, providerValue, prevSlot.childSlots);
+    }
+    prevSlot.childSlots = yield* reconcileSlotsGen(
+      prevSlot.node.parentNode as HTMLElement,
+      prevSlot.childSlots,
+      vnode.children,
+      prevSlot.node,
+      providerCtxMap,
+    );
+    prevSlot.props = vnode.props;
+    return { slot: prevSlot, node: prevSlot.node, replaced: false };
+  }
+
+  // Fresh provider mount.
+  const endMarker = document.createComment("");
+  const fragment = document.createDocumentFragment();
+  fragment.appendChild(endMarker);
+  const prevLiveOnly = _requireActiveCtx().liveOnlyMode;
+  _requireActiveCtx().liveOnlyMode = false;
+  const childSlots = yield* reconcileSlotsGen(
+    fragment,
+    [],
+    vnode.children,
+    endMarker,
+    providerCtxMap,
+  );
+  _requireActiveCtx().liveOnlyMode = prevLiveOnly;
+  return {
+    slot: { type: vnode.type, node: endMarker, props: vnode.props, childSlots },
+    node: fragment,
     replaced: true,
   };
 }

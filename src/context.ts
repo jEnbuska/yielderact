@@ -1,14 +1,6 @@
 import { $USE_CONTEXT, type ContextDescriptor } from "./hooks/descriptors";
 import type { ComponentGenerator } from "./hooks/types";
 import { depsChanged } from "./hooks/types";
-import {
-  type Child,
-  type Component,
-  createElement,
-  Fragment,
-  type InternalProps,
-  type VNode,
-} from "./jsx";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -28,33 +20,19 @@ export interface Context<T> {
  * A context object returned by `createContext`.
  * Use `Context.Provider` to supply a value, `useContext` to consume it.
  *
- * Extends the minimal `Context<T>` with a `Provider` component field.
+ * Extends the minimal `Context<T>` with a `Provider` symbol that can be
+ * used as a VNode type in JSX.
  */
 export interface PublicContext<T> extends Context<T> {
-  readonly Provider: Component<InternalProps & { value: T; children?: Child[] }>;
+  readonly Provider: symbol;
 }
 
-// ---------------------------------------------------------------------------
-// Provider function type — the actual callable form of Context.Provider
-// ---------------------------------------------------------------------------
-
 /**
- * The actual callable signature of a context Provider function.
- *
- * Provider functions are stored as `Component` on the `Context` interface
- * (so they can appear in JSX), but at runtime they are plain functions
- * that return a VNode (not generators). This type represents their true
- * runtime signature.
- *
+ * Map from Provider symbols to their Context objects.
+ * Used by the renderer to resolve which context a Provider symbol belongs to.
  * @internal
  */
-type ProviderFunction = (props: InternalProps) => VNode | null | undefined;
-
-// ---------------------------------------------------------------------------
-// Internal symbols used to tag Provider functions
-// ---------------------------------------------------------------------------
-
-const PROVIDER_CTX = Symbol("providerCtx");
+export const providerContexts = new Map<symbol, Context<unknown>>();
 
 // ---------------------------------------------------------------------------
 // Internal descriptor type for useContext (carries optional selector/transform)
@@ -93,25 +71,12 @@ interface UseContextDescriptor {
  * }
  */
 export function createContext<T>(defaultValue: T): PublicContext<T> {
-  // Build the Provider function first, then assemble the context object.
-  // This avoids a `null!` placeholder.
-  function ContextProvider(props: { value: T; children?: Child[] }): VNode {
-    return createElement(Fragment, null, ...(props.children ?? []));
-  }
-
+  const providerSymbol = Symbol("Provider");
   const ctx: PublicContext<T> = {
     _defaultValue: defaultValue,
-    Provider: ContextProvider as unknown as Component<
-      InternalProps & {
-        value: T;
-        children?: Child[];
-      }
-    >,
+    Provider: providerSymbol,
   };
-
-  // Tag the provider function so the renderer can identify it and which
-  // context it belongs to.
-  (ContextProvider as unknown as Record<symbol, unknown>)[PROVIDER_CTX] = ctx;
+  providerContexts.set(providerSymbol, ctx);
   return ctx;
 }
 
@@ -227,27 +192,6 @@ export function _processContext(
 // ---------------------------------------------------------------------------
 // Internal helpers used by the renderer
 // ---------------------------------------------------------------------------
-
-/**
- * If `fn` is a context Provider function, return the matching Context object.
- * Otherwise return `null`.
- */
-export function _getProviderCtx(fn: unknown): Context<unknown> | null {
-  return ((fn as Record<symbol, unknown>)?.[PROVIDER_CTX] as Context<unknown>) ?? null;
-}
-
-/**
- * Cast a `Component` that is known to be a Provider to its actual callable form.
- *
- * Provider functions are stored with the `Component` type (so they can appear
- * in JSX) but at runtime they are plain functions, not generators.
- * This helper centralises the unsafe cast so call sites remain clean.
- *
- * @internal
- */
-export function _asProviderFn(component: Component): ProviderFunction {
-  return component as unknown as ProviderFunction;
-}
 
 /**
  * Resolve the effective value for `ctx` from `map`, falling back to the

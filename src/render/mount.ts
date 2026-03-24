@@ -17,14 +17,13 @@
  */
 
 import {
-  _asProviderFn,
-  _getProviderCtx,
   _instanceBatch,
   _resolveCtxValue,
   _withBatch,
   BatchContext,
   type Context,
   PriorityContext,
+  providerContexts,
 } from "../context";
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
@@ -43,7 +42,7 @@ import {
   runWithContext,
   setContext,
 } from "./state";
-import type { ComponentInstance, HookState, RenderContext, Slot } from "./types";
+import type { ComponentInstance, HookState, RenderContext } from "./types";
 
 /**
  * Build a single real DOM node from a virtual DOM node (or primitive value).
@@ -84,34 +83,37 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
   if ($patch) yield* setContext(BatchContext, () => $patch);
   if ($deferred) yield* setContext(PriorityContext, (current) => current + 1);
 
-  const effectiveProps = isComponentNode(child) ? mergedProps(child) : child.props;
+  // Provider symbol — set context value and render children.
+  const providerCtx = typeof child.type === "symbol" ? providerContexts.get(child.type) : undefined;
+  if (providerCtx) {
+    yield* setContext(providerCtx, () => child.props["value"]);
+  }
 
+  const effectiveProps = isComponentNode(child) ? mergedProps(child) : child.props;
   const map = yield* getContextMap();
-  if (child.type === Fragment) {
+
+  if (child.type === Fragment || providerCtx || child.type === Portal) {
+    if (child.type === Portal) {
+      const portalContainer = child.props["$portalContainer"] as Element;
+      for (const c of child.children) {
+        portalContainer.appendChild(runWithContext(map, buildNode(c)));
+      }
+      return document.createComment("portal");
+    }
     const frag = document.createDocumentFragment();
     for (const c of child.children) {
       frag.appendChild(runWithContext(map, buildNode(c)));
     }
     return frag;
   }
-  if (child.type === Portal) {
-    const portalContainer = child.props["$portalContainer"] as Element;
-    for (const c of child.children) {
-      portalContainer.appendChild(runWithContext(map, buildNode(c)));
-    }
-    return document.createComment("portal");
-  }
 
   if (isComponentNode(child)) {
     const allProps = stripFrameworkDirectives(effectiveProps);
-    const providerCtx = _getProviderCtx(child.type);
-    if (providerCtx) {
-      return mountContextProvider(child.type, allProps, providerCtx, map).fragment;
-    }
-    return mountComponent(child.type, allProps, map).fragment;
+    return mountComponent(child.type, allProps, map as ReadonlyMap<Context<unknown>, unknown>)
+      .fragment;
   }
 
-  // HTML element — propagate $patch and $deferred to children via context.
+  // HTML element
   const el = document.createElement(child.type as string);
   applyProps(el, child.props);
   for (const c of child.children) {
@@ -443,51 +445,4 @@ export function mountComponent(
   // initialFragment is reassigned by executeRerender(false) above (endMarker
   // included). TypeScript can't track the mutation across the closure boundary.
   return { fragment: initialFragment, componentInstance: instance };
-}
-
-/**
- * Mount a context Provider component.
- *
- * Pushes the Provider's `value` onto the context map, builds the
- * Provider's children (which see the new value), then restores the
- * previous context map.
- *
- * Returns a DocumentFragment (containing the Provider's children and
- * an endMarker Comment) and the child Slot array so that the reconciler
- * can update children in-place on subsequent renders.
- *
- * **Called by:**
- * - `buildVNodeList` and `buildNode` — during initial mount.
- * - `reconcileOne` in `reconciler.ts` — when a new Provider appears at
- *   a position where a different type was before.
- *
- * @param fn          - The Provider function (created by `createContext`).
- * @param props       - The Provider's props (includes `value` and `children`).
- * @param providerCtx - The Context object this Provider supplies.
- * @returns `{ fragment, endMarker, childSlots }` — the fragment to insert
- *   into the DOM, the endMarker for slot tracking, and Slot data for children.
- */
-export function mountContextProvider(
-  component: Component,
-  props: InternalProps,
-  providerCtx: Context<unknown>,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): { fragment: DocumentFragment; endMarker: Comment; childSlots: Slot[] } {
-  const newCtxMap = new Map(ctxMap);
-  newCtxMap.set(providerCtx, props["value"]);
-
-  const endMarker = document.createComment("");
-  const fragment = document.createDocumentFragment();
-  fragment.appendChild(endMarker);
-  let childSlots: Slot[] = [];
-
-  const vnode = _asProviderFn(component)(props);
-  if (vnode == null) return { fragment, endMarker, childSlots };
-
-  const activeCtx = _requireActiveCtx();
-  const prevLiveOnly = activeCtx.liveOnlyMode;
-  activeCtx.liveOnlyMode = false;
-  childSlots = reconcileSlots(fragment, [], [vnode], endMarker, newCtxMap);
-  activeCtx.liveOnlyMode = prevLiveOnly;
-  return { fragment, endMarker, childSlots };
 }
