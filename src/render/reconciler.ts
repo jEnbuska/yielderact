@@ -48,6 +48,7 @@ import { $USE_CONTEXT } from "../hooks/descriptors";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
 import { Portal } from "../jsx";
 import { acquirePortalDelegation } from "./delegation";
+import { type CtxMap, drive, driveWithContext, getContextMap } from "./driver";
 import {
   childContextMap,
   flattenChildren,
@@ -71,7 +72,6 @@ import {
   domSetText,
 } from "./patch-queue";
 import { applyProps, updateProps } from "./props";
-import { type CtxMap, driveWithContext, getContextMap } from "./driver";
 import { _requireActiveCtx } from "./state";
 import type { ComponentInstance, Slot } from "./types";
 
@@ -85,9 +85,7 @@ function runToCompletion<T>(
   gen: Generator<unknown, T, unknown>,
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
 ): T {
-  return driveWithContext(ctxMap as CtxMap, gen);
-  }
-  return result.value;
+  return drive(ctxMap as CtxMap, gen).value;
 }
 
 /**
@@ -560,7 +558,7 @@ function* reconcileOneGen(
   // SECTION: Fallback (Fragment or unknown)
   // Full rebuild via buildNode.
   // ════════════════════════════════════════════════════════════════════════
-  const node = runWithContext(ctxMap, buildNode(nextChild));
+  const node = drive(ctxMap as CtxMap, buildNode(nextChild)).value;
   return {
     slot: { type: (vnode as VNode).type, node, props: {}, childSlots: [] },
     node,
@@ -691,10 +689,10 @@ function* reconcileComponent(
   }
 
   // Mount fresh component
-  const { fragment, componentInstance } = runWithContext(
-    childCtxMap,
+  const { fragment, componentInstance } = drive(
+    childCtxMap as CtxMap,
     mountComponent(component, allProps),
-  );
+  ).value;
   return {
     slot: {
       type: vnode.type,

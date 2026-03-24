@@ -1,7 +1,7 @@
 import type { VNode } from "../jsx";
 import { DelegationRoot } from "./delegation";
 import { dispatchDelegatedEvent } from "./dispatch";
-import { driveWithContext } from "./driver";
+import { drive } from "./driver";
 import { buildNode } from "./mount";
 import { _setActiveCtx, createRenderContext } from "./state";
 
@@ -33,7 +33,7 @@ export function render(vnode: VNode, container: Element): void {
   _setActiveCtx(rctx);
   rctx.isInitialMount = true;
   try {
-    container.appendChild(driveWithContext(new Map(), buildNode(vnode)));
+    container.appendChild(drive(new Map(), buildNode(vnode)).value);
   } finally {
     rctx.isInitialMount = false;
   }
@@ -77,7 +77,7 @@ export function createRoot(container: Element): Root {
       _setActiveCtx(rctx);
       rctx.isInitialMount = true;
       try {
-        container.appendChild(driveWithContext(new Map(), buildNode(vnode)));
+        container.appendChild(drive(new Map(), buildNode(vnode)).value);
       } finally {
         rctx.isInitialMount = false;
       }

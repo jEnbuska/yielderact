@@ -1,9 +1,10 @@
 import { useState } from "../hooks";
 import { createElement, Fragment } from "../jsx";
 import { buildNode, render } from "../render";
-import { _setActiveCtx, createRenderContext, runWithContext } from "../render/state";
+import { drive } from "../render/driver";
+import { _setActiveCtx, createRenderContext } from "../render/state";
 
-const run = (child: Parameters<typeof buildNode>[0]) => runWithContext(new Map(), buildNode(child));
+const run = (child: Parameters<typeof buildNode>[0]) => drive(new Map(), buildNode(child)).value;
 
 // jsdom is provided by vitest (see vitest.config.ts)
 

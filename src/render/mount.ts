@@ -19,15 +19,16 @@
  */
 
 import {
-  type Context,
   _instanceBatch,
   _resolveCtxValue,
   _withBatch,
   BatchContext,
+  type Context,
   PriorityContext,
 } from "../context";
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
+import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "./driver";
 import { InvalidChildError } from "./errors";
 import { getPatchMode, isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
 import { flushEffects, resumeGenerator, runHooks } from "./hooks-runtime";
@@ -35,12 +36,6 @@ import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
 import { reconcileSlots } from "./reconciler";
 import { scheduleUpdate } from "./scheduler";
-import {
-  type RenderGenerator,
-  driveWithContext,
-  getContextMap,
-  setContext,
-} from "./driver";
 import { _requireActiveCtx, _setActiveCtx } from "./state";
 import type { ComponentInstance, RenderContext } from "./types";
 
@@ -90,13 +85,13 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
     if (child.type === Portal) {
       const portalContainer = child.props["$portalContainer"] as Element;
       for (const c of child.children) {
-        portalContainer.appendChild(driveWithContext(map, buildNode(c)));
+        portalContainer.appendChild(yield* driveWithContext(map, buildNode(c)));
       }
       return document.createComment("portal");
     }
     const frag = document.createDocumentFragment();
     for (const c of child.children) {
-      frag.appendChild(driveWithContext(map, buildNode(c)));
+      frag.appendChild(yield* driveWithContext(map, buildNode(c)));
     }
     return frag;
   }
@@ -110,7 +105,7 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   const el = document.createElement(child.type as string);
   applyProps(el, child.props);
   for (const c of child.children) {
-    el.appendChild(driveWithContext(map, buildNode(c)));
+    el.appendChild(yield* driveWithContext(map, buildNode(c)));
   }
   return el;
 }
@@ -180,7 +175,12 @@ function resumeInstance(instance: ComponentInstance): void {
   if (!instance.endMarker.parentNode) return;
   _setActiveCtx(instance.renderCtx);
 
-  const { vnode } = resumeGenerator(instance, instance.rerender, instance._resume, effectiveCtxMap(instance));
+  const { vnode } = resumeGenerator(
+    instance,
+    instance.rerender,
+    instance._resume,
+    effectiveCtxMap(instance),
+  );
   commitOrDefer(instance, vnode);
 }
 
@@ -222,7 +222,10 @@ function resumeInstance(instance: ComponentInstance): void {
  * Returns the produced VNode and effective context map. Does NOT commit
  * or reconcile — the caller decides what to do with the output.
  */
-function runComponentRender(instance: ComponentInstance): { vnode: Child; ctxMap: ReadonlyMap<Context<unknown>, unknown> } {
+function runComponentRender(instance: ComponentInstance): {
+  vnode: Child;
+  ctxMap: ReadonlyMap<Context<unknown>, unknown>;
+} {
   const rctx = instance.renderCtx;
 
   // eslint-disable-next-line no-constant-condition
