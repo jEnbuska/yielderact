@@ -29,13 +29,7 @@ import {
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
 import { InvalidChildError } from "./errors";
-import {
-  getPatchMode,
-  isComponentNode,
-  isShown,
-  mergedProps,
-  stripFrameworkDirectives,
-} from "./helpers";
+import { getPatchMode, isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
 import { flushEffects, resumeGenerator, runHooks } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
@@ -86,18 +80,24 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
   if (!child.type) {
     throw new InvalidChildError(child);
   }
-  if (child.type === Fragment) {
-    const frag = document.createDocumentFragment();
-    const map = yield* getContextMap();
-    for (const c of child.children) {
-      frag.appendChild(runWithContext(map, buildNode(c)));
-    }
-    return frag;
-  }
+  if (child.props.$shown === false) return document.createTextNode("");
 
-  if (child.type === Portal) {
-    const portalContainer = child.props["$portalContainer"] as Element;
+  const effectiveProps = isComponentNode(child) ? mergedProps(child) : child.props;
+
+  if (child.type === Fragment || child.type === Portal) {
+    const elBatch = getPatchMode(child.props);
+    if (elBatch !== undefined) yield* setContext(BatchContext, elBatch);
+    if (child.props.$deferred)
+      yield* setContext(PriorityContext, (yield* getContext(PriorityContext)) + 1);
     const map = yield* getContextMap();
+    if (child.type === Fragment) {
+      const frag = document.createDocumentFragment();
+      for (const c of child.children) {
+        frag.appendChild(runWithContext(map, buildNode(c)));
+      }
+      return frag;
+    }
+    const portalContainer = child.props["$portalContainer"] as Element;
     for (const c of child.children) {
       portalContainer.appendChild(runWithContext(map, buildNode(c)));
     }
@@ -105,41 +105,28 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
   }
 
   if (isComponentNode(child)) {
-    const component = child.type;
-    const allPropsRaw = mergedProps(child);
-    if (!isShown(allPropsRaw)) {
-      return document.createTextNode("");
-    }
-    // Strip $deferred and $deps from component props; propagate $deferred via context.
-    const allProps = stripFrameworkDirectives(allPropsRaw);
-    if (allPropsRaw.$deferred) {
+    const allProps = stripFrameworkDirectives(effectiveProps);
+    if (effectiveProps.$deferred) {
       yield* setContext(PriorityContext, (yield* getContext(PriorityContext)) + 1);
     }
-    const ctxMap = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
-    const providerCtx = _getProviderCtx(component);
+    const map = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
+    const providerCtx = _getProviderCtx(child.type);
     if (providerCtx) {
-      return mountContextProvider(component, allProps, providerCtx, ctxMap).fragment;
+      return mountContextProvider(child.type, allProps, providerCtx, map).fragment;
     }
-    return mountComponent(component, allProps, ctxMap).fragment;
-  }
-
-  if (!isShown(child.props)) {
-    return document.createTextNode("");
+    return mountComponent(child.type, allProps, map).fragment;
   }
 
   // HTML element — propagate $patch and $deferred to children via context.
   const el = document.createElement(child.type as string);
   applyProps(el, child.props);
   const elBatch = getPatchMode(child.props);
-  if (elBatch !== undefined) {
-    yield* setContext(BatchContext, elBatch);
-  }
-  if (child.props.$deferred) {
+  if (elBatch !== undefined) yield* setContext(BatchContext, elBatch);
+  if (child.props.$deferred)
     yield* setContext(PriorityContext, (yield* getContext(PriorityContext)) + 1);
-  }
-  const childMap = yield* getContextMap();
+  const map = yield* getContextMap();
   for (const c of child.children) {
-    el.appendChild(runWithContext(childMap, buildNode(c)));
+    el.appendChild(runWithContext(map, buildNode(c)));
   }
   return el;
 }

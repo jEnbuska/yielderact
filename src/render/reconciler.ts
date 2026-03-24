@@ -49,7 +49,6 @@ import {
   getPatchMode,
   isComponentNode,
   isElementNode,
-  isShown,
   isVNode,
   mergedProps,
   onlyPatchChanged,
@@ -505,7 +504,7 @@ function* reconcileOneGen(
   // placeholder (same as null/false above).
   // ════════════════════════════════════════════════════════════════════════
   const allPropsForShown = mergedProps(vnode);
-  if (!isShown(allPropsForShown)) {
+  if (allPropsForShown.$shown === false) {
     // In live-only mode, only hide when the effective batch is live.
     if (_requireActiveCtx().liveOnlyMode) {
       const effectiveBatch =

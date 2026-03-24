@@ -147,22 +147,6 @@ export function getPatchMode(props: SpecialProps): SpecialProps["$patch"] {
 }
 
 /**
- * Returns false only when the `$shown` prop is explicitly set to `false`.
- *
- * The `$shown` prop controls conditional mount/unmount. When `$shown={false}`,
- * the component or element is replaced with an empty text node placeholder.
- *
- * **Called by:**
- * - `reconcileOne` in `reconciler.ts` — before processing any VNode.
- * - `buildVNodeList` and `buildNode` in `mount.ts` — during initial mount.
- *
- * @param props - The (merged) props to check.
- */
-export function isShown(props: SpecialProps): boolean {
-  return props.$shown !== false;
-}
-
-/**
  * Strip framework-level directives (`$deferred`, `$deps`) from a props
  * object, returning props without them.
  *
