@@ -1,3 +1,10 @@
+import {
+  _resolveCtxValue,
+  _withBatch,
+  _withPriority,
+  type Context,
+  PriorityContext,
+} from "../context";
 import type { Renderable } from "../hooks";
 import {
   type Child,
@@ -144,6 +151,23 @@ export function mergedProps(vnode: VNode): InternalProps {
  */
 export function getPatchMode(props: SpecialProps): SpecialProps["$patch"] {
   return props.$patch;
+}
+
+/**
+ * Build a child context map from a parent map, applying `$patch` and
+ * `$deferred` from the given props.
+ *
+ * Returns the parent map unchanged if neither directive is set.
+ */
+export function childContextMap(
+  parentMap: ReadonlyMap<Context<unknown>, unknown>,
+  props: SpecialProps,
+): ReadonlyMap<Context<unknown>, unknown> {
+  let map = parentMap;
+  const batch = props.$patch;
+  if (batch !== undefined) map = _withBatch(map, batch);
+  if (props.$deferred) map = _withPriority(map, _resolveCtxValue(map, PriorityContext) + 1);
+  return map;
 }
 
 /**

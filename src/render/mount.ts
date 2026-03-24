@@ -482,12 +482,12 @@ export function mountContextProvider(
   let childSlots: Slot[] = [];
 
   const vnode = _asProviderFn(component)(props);
-  if (vnode != null) {
-    const activeCtx = _requireActiveCtx();
-    const prevLiveOnly = activeCtx.liveOnlyMode;
-    activeCtx.liveOnlyMode = false;
-    childSlots = reconcileSlots(fragment, [], [vnode], endMarker, newCtxMap);
-    activeCtx.liveOnlyMode = prevLiveOnly;
-  }
+  if (vnode == null) return { fragment, endMarker, childSlots };
+
+  const activeCtx = _requireActiveCtx();
+  const prevLiveOnly = activeCtx.liveOnlyMode;
+  activeCtx.liveOnlyMode = false;
+  childSlots = reconcileSlots(fragment, [], [vnode], endMarker, newCtxMap);
+  activeCtx.liveOnlyMode = prevLiveOnly;
   return { fragment, endMarker, childSlots };
 }

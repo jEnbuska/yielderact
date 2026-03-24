@@ -34,7 +34,6 @@ import {
   _instanceBatch,
   _resolveCtxValue,
   _withBatch,
-  _withPriority,
   BatchContext,
   type Context,
   PriorityContext,
@@ -45,6 +44,7 @@ import type { Child, Component, InternalProps, VNode } from "../jsx";
 import { Portal } from "../jsx";
 import { acquirePortalDelegation } from "./delegation";
 import {
+  childContextMap,
   flattenChildren,
   getPatchMode,
   isComponentNode,
@@ -581,11 +581,7 @@ function* reconcileComponent(
   const providerCtx = _getProviderCtx(component);
   const newDeps = allPropsRaw.$deps;
 
-  // Propagate $deferred to the subtree via context.
-  const compDeferred = allPropsRaw.$deferred;
-  const childCtxMap = compDeferred
-    ? _withPriority(ctxMap, _resolveCtxValue(ctxMap, PriorityContext) + 1)
-    : ctxMap;
+  const childCtxMap = childContextMap(ctxMap, allPropsRaw);
 
   const currentBatch = _resolveCtxValue(childCtxMap, BatchContext);
 
@@ -751,13 +747,7 @@ function* reconcileHTMLElement(
   vnode: VNode<string>,
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
 ): Generator<void, { slot: Slot; node: Node; replaced: boolean }, void> {
-  // Propagate $patch and $deferred to children via the context map.
-  const elBatch = getPatchMode(vnode.props);
-  const elDeferred = vnode.props.$deferred;
-  let childCtxMap = ctxMap;
-  if (elBatch !== undefined) childCtxMap = _withBatch(childCtxMap, elBatch);
-  if (elDeferred)
-    childCtxMap = _withPriority(childCtxMap, _resolveCtxValue(childCtxMap, PriorityContext) + 1);
+  const childCtxMap = childContextMap(ctxMap, vnode.props);
 
   if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
     // Same tag → update props in place and reconcile children.
