@@ -21,7 +21,6 @@ import {
   _resolveCtxValue,
   _withBatch,
   BatchContext,
-  type Context,
   PriorityContext,
 } from "../context";
 import { $USE_EFFECT } from "../hooks/descriptors";
@@ -124,14 +123,13 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
  *
  * **Called by:** `resume` and `executeRerender` in `mountComponent`.
  */
-function commitOrDefer(
-  instance: ComponentInstance,
-  vnode: Child,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): void {
+function commitOrDefer(instance: ComponentInstance, vnode: Child): void {
   const rctx = instance.renderCtx;
   const parent = instance.endMarker.parentNode as HTMLElement;
-  const effectiveBatch = getPatchMode(instance.props) ?? _instanceBatch(instance.capturedCtx);
+  const ownPatch = getPatchMode(instance.props);
+  const ctxMap =
+    ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx;
+  const effectiveBatch = ownPatch ?? _instanceBatch(instance.capturedCtx);
   const shouldDefer =
     (rctx.patchDepth > 0 || instance.localPatchRefCount > 0) && effectiveBatch !== "live";
   if (shouldDefer) {
@@ -247,7 +245,7 @@ export function* mountComponent(
 
     const { vnode } = resumeGenerator(instance, rerender, resume, effectiveCtxMap);
 
-    commitOrDefer(instance, vnode, effectiveCtxMap);
+    commitOrDefer(instance, vnode);
   }
 
   /**
@@ -348,7 +346,7 @@ export function* mountComponent(
         mounted = true;
         flushEffects(instance);
       } else {
-        commitOrDefer(instance, vnode, effectiveCtxMap);
+        commitOrDefer(instance, vnode);
       }
 
       // Resolve all Promise<void>s returned by setState calls that were
