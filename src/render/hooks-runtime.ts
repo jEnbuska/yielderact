@@ -12,7 +12,7 @@
  * collection, and context propagation.
  */
 
-import { _processContext, _resolveCtxValue, type Context, providerContexts } from "../context";
+import { _processContext, _resolveCtxValue, type Context } from "../context";
 import {
   $USE_CONTEXT,
   $USE_EFFECT,
@@ -22,6 +22,7 @@ import {
   $USE_RENDER,
   $USE_RESOLVE,
   $USE_RESOLVE_RAW,
+  $USE_SET_CONTEXT,
   $USE_STATE,
   $USE_UI_PATCH,
   HOOK_TYPES,
@@ -41,7 +42,6 @@ import { _createStateSetter, _processState } from "../hooks/useState";
 import { _processUIPatch } from "../hooks/useUIPatch";
 import type { Child } from "../jsx";
 import { releasePortalDelegation } from "./delegation";
-import { isContextProvider } from "./helpers";
 import { _flushPendingVNodes } from "./patch";
 import { clearRef } from "./props";
 import type { ComponentInstance, HookState, Slot } from "./types";
@@ -330,6 +330,17 @@ function processOneDescriptor(
       hookStates[hookIndex] = state;
       return state.startPatch;
     }
+    case $USE_SET_CONTEXT: {
+      const prevValue = _resolveCtxValue(instance.capturedCtx, descriptor.ctx);
+      const newCtxMap = new Map(instance.capturedCtx);
+      newCtxMap.set(descriptor.ctx, descriptor.value);
+      instance.capturedCtx = newCtxMap;
+      instance.providedContexts.add(descriptor.ctx);
+      if (!Object.is(prevValue, descriptor.value)) {
+        propagateContextUpdate(descriptor.ctx, descriptor.value, instance.slots);
+      }
+      return undefined;
+    }
     default:
       throw new Error(
         `Unknown hook descriptor type: ${String((descriptor as { type: string }).type)}`,
@@ -552,12 +563,11 @@ export function propagateContextUpdate(
   slots: import("./types").Slot[],
 ): void {
   for (const slot of slots) {
-    // Stop at an inner Provider for the same context – it overrides the outer value.
-    if (isContextProvider(slot) && providerContexts.get(slot.type) === ctx) {
+    const inst = slot.componentInstance;
+    // Stop at an inner Provider for the same context — it overrides the outer value.
+    if (inst?.providedContexts?.has(ctx)) {
       continue;
     }
-
-    const inst = slot.componentInstance;
     if (inst) {
       // Keep capturedCtx current so future self-triggered re-renders use the
       // new value even if this component doesn't consume the changed context.

@@ -23,18 +23,11 @@ import {
   BatchContext,
   type Context,
   PriorityContext,
-  providerContexts,
 } from "../context";
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
 import { InvalidChildError } from "./errors";
-import {
-  getPatchMode,
-  isComponentNode,
-  isContextProvider,
-  mergedProps,
-  stripFrameworkDirectives,
-} from "./helpers";
+import { getPatchMode, isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
 import { flushEffects, resumeGenerator, runHooks } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
@@ -89,15 +82,10 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
   if ($patch) yield* setContext(BatchContext, () => $patch);
   if ($deferred) yield* setContext(PriorityContext, (current) => current + 1);
 
-  if (isContextProvider(child)) {
-    const ctx = providerContexts.get(child.type) as Context<unknown>;
-    yield* setContext(ctx, () => child.props["value"]);
-  }
-
   const effectiveProps = isComponentNode(child) ? mergedProps(child) : child.props;
   const map = yield* getContextMap();
 
-  if (child.type === Fragment || isContextProvider(child) || child.type === Portal) {
+  if (child.type === Fragment || child.type === Portal) {
     if (child.type === Portal) {
       const portalContainer = child.props["$portalContainer"] as Element;
       for (const c of child.children) {
@@ -114,8 +102,7 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
 
   if (isComponentNode(child)) {
     const allProps = stripFrameworkDirectives(effectiveProps);
-    return mountComponent(child.type, allProps, map as ReadonlyMap<Context<unknown>, unknown>)
-      .fragment;
+    return (yield* mountComponent(child.type, allProps)).fragment;
   }
 
   // HTML element
@@ -188,11 +175,11 @@ function commitOrDefer(
  * @returns `{ fragment, componentInstance }` — the fragment to insert into the DOM
  *   and the instance for slot tracking.
  */
-export function mountComponent(
+export function* mountComponent(
   component: Component,
   props: InternalProps,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): { fragment: DocumentFragment; componentInstance: ComponentInstance } {
+): ContextGenerator<{ fragment: DocumentFragment; componentInstance: ComponentInstance }> {
+  const ctxMap = yield* getContextMap();
   const endMarker = document.createComment("");
 
   /** The per-root render context, captured from the active context at mount time. */
@@ -305,10 +292,11 @@ export function mountComponent(
 
       // Reset consumed-context tracking so the new render records a fresh set.
       instance.consumedContexts.clear();
+      instance.providedContexts.clear();
 
       // Compute effective context: inherited context + own $patch for children.
       const ownPatch = getPatchMode(instance.props);
-      const effectiveCtxMap =
+      let effectiveCtxMap =
         ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx;
 
       let vnode: Child;
@@ -325,6 +313,10 @@ export function mountComponent(
         instance.isRendering = false;
         rctx.renderingPriority = prevRenderingPriority;
       }
+
+      // Recompute effective context — useSetContext may have updated capturedCtx.
+      effectiveCtxMap =
+        ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx;
 
       if (cancelled) {
         // Revert deps for effects queued during this cancelled render so the
@@ -443,6 +435,7 @@ export function mountComponent(
     _executeRerender: () => executeRerender(true),
     rerender,
     consumedContexts: new Set(),
+    providedContexts: new Set(),
   };
 
   void executeRerender(false /* not yet mounted */);

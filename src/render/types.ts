@@ -340,6 +340,9 @@ export interface ComponentInstance {
    */
   consumedContexts: Set<Context<unknown>>;
 
+  /** Contexts provided via `useSetContext` during the last render. */
+  providedContexts: Set<Context<unknown>>;
+
   /**
    * Reconciled Slot tree for this component's last rendered output.
    *

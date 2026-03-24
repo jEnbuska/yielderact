@@ -1,6 +1,7 @@
-import { $USE_CONTEXT, type ContextDescriptor } from "./hooks/descriptors";
+import { $USE_CONTEXT, $USE_SET_CONTEXT, type ContextDescriptor } from "./hooks/descriptors";
 import type { ComponentGenerator } from "./hooks/types";
 import { depsChanged } from "./hooks/types";
+import { type Child, type Component, createElement, Fragment, type InternalProps } from "./jsx";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -24,15 +25,8 @@ export interface Context<T> {
  * used as a VNode type in JSX.
  */
 export interface PublicContext<T> extends Context<T> {
-  readonly Provider: symbol;
+  readonly Provider: Component<InternalProps & { value: T; children?: Child[] }>;
 }
-
-/**
- * Map from Provider symbols to their Context objects.
- * Used by the renderer to resolve which context a Provider symbol belongs to.
- * @internal
- */
-export const providerContexts = new Map<symbol, Context<unknown>>();
 
 // ---------------------------------------------------------------------------
 // Internal descriptor type for useContext (carries optional selector/transform)
@@ -71,12 +65,21 @@ interface UseContextDescriptor {
  * }
  */
 export function createContext<T>(defaultValue: T): PublicContext<T> {
-  const providerSymbol = Symbol("Provider");
   const ctx: PublicContext<T> = {
     _defaultValue: defaultValue,
-    Provider: providerSymbol,
+    Provider: undefined as never,
   };
-  providerContexts.set(providerSymbol, ctx);
+
+  function* ContextProvider(
+    props: InternalProps & { value: T; children?: Child[] },
+  ): ComponentGenerator<Child> {
+    yield { type: $USE_SET_CONTEXT, ctx, value: props.value };
+    return createElement(Fragment, null, ...(props.children ?? []));
+  }
+
+  (ctx as { Provider: Component<InternalProps & { value: T; children?: Child[] }> }).Provider =
+    ContextProvider;
+
   return ctx;
 }
 
