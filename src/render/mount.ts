@@ -13,9 +13,9 @@
  * `<span>` elements.
  */
 
-import { _withBatch, BatchContext, type Context, PriorityContext, resolveCtx } from "../context";
+import { _withBatch, BatchContext, type Context, PriorityContext } from "../context";
 import type { HookDescriptor } from "../hooks/descriptors";
-import { $USE_EFFECT } from "../hooks/descriptors";
+import { $USE_EFFECT, $USE_SET_CONTEXT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
 import {
   drive,
@@ -113,10 +113,8 @@ function effectiveCtxMap(instance: ComponentInstance): ReadonlyMap<Context<unkno
 function* commitOrDefer(instance: ComponentInstance, vnode: Child): RenderGenerator<void> {
   const rctx = yield* getContext(RenderCtx);
   const parent = instance.endMarker.parentNode as HTMLElement;
-  // Use instance.capturedCtx (not the driver's map) because useSetContext
-  // may have updated capturedCtx during hooks after the driver was seeded.
-  const ctxMap = effectiveCtxMap(instance);
-  const batch = instance.props.$patch ?? resolveCtx(instance.capturedCtx, BatchContext);
+  const batch = yield* getContext(BatchContext);
+  const ctxMap = yield* getContextMap();
   const shouldDefer = (rctx.patchDepth > 0 || instance.localPatchRefCount > 0) && batch !== "live";
 
   if (shouldDefer) {
@@ -216,8 +214,9 @@ function* executeRerender(
     rctx.renderingPriority = yield* getContext(PriorityContext);
 
     while (!result.done && isHookDescriptor(result.value)) {
+      const descriptor = result.value as HookDescriptor;
       const hookResult = processOneDescriptor(
-        result.value as HookDescriptor,
+        descriptor,
         hookIndex++,
         instance.hookStates,
         instance.cleanupFns,
@@ -227,6 +226,11 @@ function* executeRerender(
         instance,
         ctxMap,
       );
+      // Sync driver's ctxMap when a context value is set via useSetContext
+      if (descriptor.type === $USE_SET_CONTEXT) {
+        const { ctx, value } = descriptor as { ctx: Context<unknown>; value: unknown };
+        yield* setContext(ctx, () => value);
+      }
       if (instance.pendingRerender) {
         cancelled = true;
         break;
