@@ -54,7 +54,7 @@ import {
   stripDeferred,
   stripFrameworkDirectives,
 } from "./helpers";
-import { propagateContextUpdate, unmountSlot } from "./hooks-runtime";
+import { unmountSlot } from "./hooks-runtime";
 import { buildNode, mountComponent } from "./mount";
 import {
   domAppendChild,
