@@ -9,18 +9,28 @@ import {
   type InternalProps,
   type VNode,
 } from "./jsx";
-import { _requireActiveCtx } from "./render/state";
 
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
 /**
- * A context object returned by `createContext`.
- * Use `Context.Provider` to supply a value, `useContext` to consume it.
+ * A context object. Holds only the default value.
+ *
+ * Internal contexts (like `BatchContext` and `PriorityContext`) use this
+ * minimal shape — they have no Provider component.
  */
 export interface Context<T> {
   readonly _defaultValue: T;
+}
+
+/**
+ * A context object returned by `createContext`.
+ * Use `Context.Provider` to supply a value, `useContext` to consume it.
+ *
+ * Extends the minimal `Context<T>` with a `Provider` component field.
+ */
+export interface PublicContext<T> extends Context<T> {
   readonly Provider: Component<InternalProps & { value: T; children?: Child[] }>;
 }
 
@@ -59,10 +69,6 @@ interface UseContextDescriptor {
 }
 
 // ---------------------------------------------------------------------------
-// Context map — stored on the active RenderContext, accessed via helpers
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -86,14 +92,14 @@ interface UseContextDescriptor {
  *   return <div className={theme}>hello</div>;
  * }
  */
-export function createContext<T>(defaultValue: T): Context<T> {
+export function createContext<T>(defaultValue: T): PublicContext<T> {
   // Build the Provider function first, then assemble the context object.
   // This avoids a `null!` placeholder.
   function ContextProvider(props: { value: T; children?: Child[] }): VNode {
     return createElement(Fragment, null, ...(props.children ?? []));
   }
 
-  const ctx: Context<T> = {
+  const ctx: PublicContext<T> = {
     _defaultValue: defaultValue,
     Provider: ContextProvider as unknown as Component<
       InternalProps & {
@@ -222,16 +228,6 @@ export function _processContext(
 // Internal helpers used by the renderer
 // ---------------------------------------------------------------------------
 
-/** Get the current context map from the active render context. */
-export function _getCtxMap(): ReadonlyMap<Context<unknown>, unknown> {
-  return _requireActiveCtx().ctxMap;
-}
-
-/** Set the context map on the active render context. */
-export function _setCtxMap(map: ReadonlyMap<Context<unknown>, unknown>): void {
-  _requireActiveCtx().ctxMap = map;
-}
-
 /**
  * If `fn` is a context Provider function, return the matching Context object.
  * Otherwise return `null`.
@@ -259,39 +255,27 @@ export function _asProviderFn(component: Component): ProviderFunction {
  *
  * @internal
  */
-export function _resolveCtxValue(
+export function _resolveCtxValue<T>(
   map: ReadonlyMap<Context<unknown>, unknown>,
-  ctx: Context<unknown>,
-): unknown {
-  return map.has(ctx) ? map.get(ctx) : ctx._defaultValue;
+  ctx: Context<T>,
+): T {
+  return (map.has(ctx) ? map.get(ctx) : ctx._defaultValue) as T;
 }
 
 // ---------------------------------------------------------------------------
-// Internal batch context – propagates `$patch` behaviour through _ctxMap
+// Internal batch context – propagates `$patch` behaviour through ctxMap
 // ---------------------------------------------------------------------------
 
 /**
  * Internal context for the `$patch` batch behaviour.
- * Not exported publicly — used only by the renderer to propagate `$patch`
- * through the context map, just like application-level contexts.
+ * Used by the renderer to propagate `$patch` through the context map,
+ * just like application-level contexts.
  *
  * @internal
  */
-export const _batchCtx: Context<"live" | "default"> = {
+export const BatchContext: Context<"live" | "default"> = {
   _defaultValue: "default",
-  Provider: undefined as never,
 };
-
-/**
- * Read the current `$patch` batch behaviour from the active context map.
- * Falls back to `'default'` when no `createRoot` or `$patch` ancestor has set it.
- * @internal
- */
-export function _getCurrentBatch(): "live" | "default" {
-  return _resolveCtxValue(_requireActiveCtx().ctxMap, _batchCtx as Context<unknown>) as
-    | "live"
-    | "default";
-}
 
 /**
  * Read the effective `$patch` batch behaviour from a captured context map
@@ -301,7 +285,7 @@ export function _getCurrentBatch(): "live" | "default" {
 export function _instanceBatch(
   capturedCtx: ReadonlyMap<Context<unknown>, unknown>,
 ): "live" | "default" {
-  return _resolveCtxValue(capturedCtx, _batchCtx as Context<unknown>) as "live" | "default";
+  return _resolveCtxValue(capturedCtx, BatchContext);
 }
 
 /**
@@ -313,39 +297,29 @@ export function _withBatch(
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
   batch: "live" | "default",
 ): ReadonlyMap<Context<unknown>, unknown> {
-  if ((_resolveCtxValue(ctxMap, _batchCtx as Context<unknown>) as string) === batch) return ctxMap;
+  if (_resolveCtxValue(ctxMap, BatchContext) === batch) return ctxMap;
   const newMap = new Map(ctxMap);
-  newMap.set(_batchCtx as Context<unknown>, batch);
+  newMap.set(BatchContext, batch);
   return newMap;
 }
 
 // ---------------------------------------------------------------------------
-// Internal priority context – propagates `$deferred` priority through _ctxMap
+// Internal priority context – propagates `$deferred` priority through ctxMap
 // ---------------------------------------------------------------------------
 
 /**
  * Internal context for the `$deferred` priority level.
- * Not exported publicly — used only by the renderer to propagate `$deferred`
- * through the context map, just like application-level contexts.
+ * Used by the renderer to propagate `$deferred` through the context map,
+ * just like application-level contexts.
  *
  * The default priority is 0 (highest priority). Each `$deferred={true}`
  * increments the priority by 1.
  *
  * @internal
  */
-const _priorityCtx: Context<number> = {
+export const PriorityContext: Context<number> = {
   _defaultValue: 0,
-  Provider: undefined as never,
 };
-
-/**
- * Read the current `$deferred` priority level from the active context map.
- * Falls back to `0` when no `$deferred` ancestor has set it.
- * @internal
- */
-export function _getCurrentPriority(): number {
-  return _resolveCtxValue(_requireActiveCtx().ctxMap, _priorityCtx as Context<unknown>) as number;
-}
 
 /**
  * Return a context map with the priority set to `priority`.
@@ -356,9 +330,8 @@ export function _withPriority(
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
   priority: number,
 ): ReadonlyMap<Context<unknown>, unknown> {
-  if ((_resolveCtxValue(ctxMap, _priorityCtx as Context<unknown>) as number) === priority)
-    return ctxMap;
+  if (_resolveCtxValue(ctxMap, PriorityContext) === priority) return ctxMap;
   const newMap = new Map(ctxMap);
-  newMap.set(_priorityCtx as Context<unknown>, priority);
+  newMap.set(PriorityContext, priority);
   return newMap;
 }

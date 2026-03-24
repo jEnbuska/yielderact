@@ -1,4 +1,4 @@
-import { _getCtxMap, _setCtxMap, _withBatch } from "../context";
+import { _withBatch } from "../context";
 import type { VNode } from "../jsx";
 import { DelegationRoot } from "./delegation";
 import { dispatchDelegatedEvent } from "./dispatch";
@@ -33,7 +33,7 @@ export function render(vnode: VNode, container: Element): void {
   _setActiveCtx(rctx);
   rctx.isInitialMount = true;
   try {
-    container.appendChild(buildNode(vnode));
+    container.appendChild(buildNode(vnode, new Map()));
   } finally {
     rctx.isInitialMount = false;
   }
@@ -75,14 +75,12 @@ export function createRoot(container: Element): Root {
   return {
     render(vnode: VNode): void {
       _setActiveCtx(rctx);
-      const prevCtx = _getCtxMap();
-      _setCtxMap(_withBatch(prevCtx, "default"));
+      const ctxMap = _withBatch(new Map(), "default");
       rctx.isInitialMount = true;
       try {
-        container.appendChild(buildNode(vnode));
+        container.appendChild(buildNode(vnode, ctxMap));
       } finally {
         rctx.isInitialMount = false;
-        _setCtxMap(prevCtx);
       }
     },
   };

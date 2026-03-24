@@ -14,7 +14,6 @@ export function createRenderContext(): RenderContext {
     dirtyInstances: new Set(),
     isInitialMount: false,
     liveOnlyMode: false,
-    ctxMap: new Map(),
     pendingUpdates: new Map(),
     isProcessing: false,
     syncMode: true,

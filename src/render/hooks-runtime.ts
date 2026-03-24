@@ -12,13 +12,7 @@
  * collection, and context propagation.
  */
 
-import {
-  _getCtxMap,
-  _getProviderCtx,
-  _processContext,
-  _resolveCtxValue,
-  type Context,
-} from "../context";
+import { _getProviderCtx, _processContext, _resolveCtxValue, type Context } from "../context";
 import {
   $USE_CONTEXT,
   $USE_EFFECT,
@@ -234,6 +228,7 @@ function processOneDescriptor(
   rerender: () => Promise<void>,
   resume: () => void,
   instance: ComponentInstance,
+  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
 ): unknown {
   switch (descriptor.type) {
     case $USE_STATE: {
@@ -276,7 +271,7 @@ function processOneDescriptor(
     case $USE_CONTEXT: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_CONTEXT, instance);
       instance.consumedContexts.add(descriptor.ctx);
-      const rawValue = _resolveCtxValue(_getCtxMap(), descriptor.ctx);
+      const rawValue = _resolveCtxValue(ctxMap, descriptor.ctx);
       const state = _processContext(descriptor, prev, rawValue);
       hookStates[hookIndex] = state;
       return state.lastResult;
@@ -375,6 +370,7 @@ export function runHooks(
   instance: ComponentInstance,
   rerender: () => Promise<void>,
   resume: () => void,
+  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
 ): {
   vnode: Child;
   gen?: ComponentGenerator<Child>;
@@ -394,6 +390,7 @@ export function runHooks(
       rerender,
       resume,
       instance,
+      ctxMap,
     );
     // A mid-render state change was queued — abort this stale render so the
     // next iteration of executeRerender picks up the accumulated latest state.
@@ -449,6 +446,7 @@ export function resumeGenerator(
   instance: ComponentInstance,
   rerender: () => Promise<void>,
   resume: () => void,
+  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
 ): { vnode: Child; done: boolean } {
   const gen = instance.gen;
   if (!gen) return { vnode: null, done: true };
@@ -467,6 +465,7 @@ export function resumeGenerator(
       rerender,
       resume,
       instance,
+      ctxMap,
     );
     result = gen.next(value);
   }

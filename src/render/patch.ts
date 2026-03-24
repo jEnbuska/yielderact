@@ -1,4 +1,4 @@
-import { _getCtxMap, _setCtxMap, _withBatch } from "../context";
+import { _withBatch } from "../context";
 import { getPatchMode } from "./helpers";
 import { flushEffects } from "./hooks-runtime";
 import { reconcileSlots } from "./reconciler";
@@ -13,9 +13,9 @@ import type { ComponentInstance } from "./types";
  * slots against the new VNode tree and applies the minimal DOM mutations.
  * After reconciliation, `flushEffects` runs any queued `useEffect` callbacks.
  *
- * Before reconciling, the context map is temporarily set to the instance's
- * `capturedCtx` (with its own `$patch` applied if present), so that child
- * components see the correct context values during the reconciliation walk.
+ * The effective context map is computed from the instance's `capturedCtx`
+ * (with its own `$patch` applied if present), so that child components see
+ * the correct context values during the reconciliation walk.
  *
  * **Called by:**
  * - `commitUIPatch()` below — drains `renderCtx.dirtyInstances` and
@@ -35,16 +35,12 @@ export function _flushPendingVNodes(instances: ComponentInstance[]): void {
     inst.pendingVNode = undefined;
     inst.renderCtx.dirtyInstances.delete(inst);
 
-    const prevCtx = _getCtxMap();
-    // Restore inherited context, then apply own $patch for children.
+    // Compute effective context: inherited context + own $patch for children.
     const ownPatch = getPatchMode(inst.props);
-    _setCtxMap(ownPatch !== undefined ? _withBatch(inst.capturedCtx, ownPatch) : inst.capturedCtx);
+    const ctxMap =
+      ownPatch !== undefined ? _withBatch(inst.capturedCtx, ownPatch) : inst.capturedCtx;
     const parent = inst.endMarker.parentNode as HTMLElement;
-    try {
-      inst.slots = reconcileSlots(parent, inst.slots, [vnode], inst.endMarker);
-    } finally {
-      _setCtxMap(prevCtx);
-    }
+    inst.slots = reconcileSlots(parent, inst.slots, [vnode], inst.endMarker, ctxMap);
     flushEffects(inst);
   }
 }

@@ -44,11 +44,15 @@ Each branch gets its own worktree under `.worktrees/feat/` so multiple Claude Co
 
 1. Check merged PRs: `gh pr list --state merged` — close resolved issues: `gh issue close <number>`
 2. Ensure main repo `dev` is up to date: `git checkout dev && git pull origin dev` (from main repo root)
-3. Create branch + worktree: `git worktree add .worktrees/feat/<branch_name> -b <branch_name>`
-4. Install deps in worktree: `cd .worktrees/feat/<branch_name> && npm ci && npm ci --prefix examples`
+3. Create branch + worktree: `git worktree add .worktrees/feat/<dir_name> -b <branch_name>`
+   - `<branch_name>` uses conventional commit prefixes: e.g. `feat/add-context`, `fix/render-bug`, `chore/cleanup`
+   - `<dir_name>` is a **flat directory name** (no slashes) — strip the prefix: e.g. `add-context`, `render-bug`, `cleanup`
+   - Example: `git worktree add .worktrees/feat/add-context -b feat/add-context`
+   - **Never** create nested directories under `.worktrees/feat/` — all worktrees must be direct children
+4. Install deps in worktree: `cd .worktrees/feat/<dir_name> && npm ci && npm ci --prefix examples`
 5. Copy Claude Code settings: `mkdir -p .claude && cp <main-repo-root>/.claude/settings.local.json .claude/`
 6. Work exclusively within the worktree directory — never edit files in the main repo root
-7. Cleanup after merge: `git worktree remove .worktrees/feat/<branch_name> && git branch -d <branch_name>`
+7. Cleanup after merge: `git worktree remove .worktrees/feat/<dir_name> && git branch -d <branch_name>`
 
 ### 2. Development Commands
 

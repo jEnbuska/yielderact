@@ -63,7 +63,7 @@ export function shallowEqual(a: InternalProps, b: InternalProps): boolean {
  * `$patch` prop, the child's generator body doesn't need to re-execute.
  * The `$patch` value is forwarded to `inst.props` for `shouldDefer`
  * checks, but no rerender occurs — unless the component consumes
- * `usePatchContext` (detected separately via `_batchCtx`).
+ * `usePatchContext` (detected separately via `BatchContext`).
  *
  * **Called by:** `reconcileOne` in `reconciler.ts` — after `shallowEqual`
  * returns `false`, as a secondary check before falling through to a full

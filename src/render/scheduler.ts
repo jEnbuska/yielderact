@@ -263,14 +263,12 @@ function _handlePreemption(rctx: RenderContext, currentPriority: number): void {
  */
 function _yieldToBrowser(rctx: RenderContext): void {
   // Save state that event handlers might disturb during the yield.
-  const savedCtxMap = rctx.ctxMap;
   const savedLiveOnlyMode = rctx.liveOnlyMode;
 
   if (typeof MessageChannel !== "undefined") {
     const mc = new MessageChannel();
     mc.port1.onmessage = () => {
       _setActiveCtx(rctx);
-      rctx.ctxMap = savedCtxMap;
       rctx.liveOnlyMode = savedLiveOnlyMode;
       _runLoop(rctx);
     };
@@ -279,7 +277,6 @@ function _yieldToBrowser(rctx: RenderContext): void {
     // Fallback for environments without MessageChannel.
     setTimeout(() => {
       _setActiveCtx(rctx);
-      rctx.ctxMap = savedCtxMap;
       rctx.liveOnlyMode = savedLiveOnlyMode;
       _runLoop(rctx);
     }, 0);

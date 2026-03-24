@@ -18,14 +18,13 @@
 
 import {
   _asProviderFn,
-  _getCtxMap,
-  _getCurrentPriority,
   _getProviderCtx,
   _instanceBatch,
-  _setCtxMap,
+  _resolveCtxValue,
   _withBatch,
   _withPriority,
   type Context,
+  PriorityContext,
 } from "../context";
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
@@ -68,7 +67,7 @@ import type { ComponentInstance, HookState, RenderContext, Slot } from "./types"
  *   a `DocumentFragment` containing the output nodes + endMarker.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode type dispatch with many branches
-export function buildNode(child: Child): Node {
+export function buildNode(child: Child, ctxMap: ReadonlyMap<Context<unknown>, unknown>): Node {
   if (child == null || typeof child === "boolean") {
     return document.createTextNode("");
   }
@@ -79,7 +78,7 @@ export function buildNode(child: Child): Node {
   if (child.type === Fragment) {
     const frag = document.createDocumentFragment();
     for (const c of child.children) {
-      frag.appendChild(buildNode(c));
+      frag.appendChild(buildNode(c, ctxMap));
     }
     return frag;
   }
@@ -87,7 +86,7 @@ export function buildNode(child: Child): Node {
   if (child.type === Portal) {
     const portalContainer = child.props["$portalContainer"] as Element;
     for (const c of child.children) {
-      portalContainer.appendChild(buildNode(c));
+      portalContainer.appendChild(buildNode(c, ctxMap));
     }
     return document.createComment("portal");
   }
@@ -101,17 +100,14 @@ export function buildNode(child: Child): Node {
     // Strip $deferred and $deps from component props; propagate $deferred via context.
     const allProps = stripFrameworkDirectives(allPropsRaw);
     const compDeferred = allPropsRaw.$deferred;
-    const prevCtx = _getCtxMap();
-    if (compDeferred) _setCtxMap(_withPriority(prevCtx, _getCurrentPriority() + 1));
-    try {
-      const providerCtx = _getProviderCtx(component);
-      if (providerCtx) {
-        return mountContextProvider(component, allProps, providerCtx).fragment;
-      }
-      return mountComponent(component, allProps).fragment;
-    } finally {
-      if (compDeferred) _setCtxMap(prevCtx);
+    const childCtxMap = compDeferred
+      ? _withPriority(ctxMap, _resolveCtxValue(ctxMap, PriorityContext) + 1)
+      : ctxMap;
+    const providerCtx = _getProviderCtx(component);
+    if (providerCtx) {
+      return mountContextProvider(component, allProps, providerCtx, childCtxMap).fragment;
     }
+    return mountComponent(component, allProps, childCtxMap).fragment;
   }
 
   if (!isShown(child.props)) {
@@ -123,13 +119,13 @@ export function buildNode(child: Child): Node {
   applyProps(el, child.props);
   const elBatch = getPatchMode(child.props);
   const elDeferred = child.props.$deferred;
-  const prevCtxBuildNode = _getCtxMap();
-  if (elBatch !== undefined) _setCtxMap(_withBatch(prevCtxBuildNode, elBatch));
-  if (elDeferred) _setCtxMap(_withPriority(_getCtxMap(), _getCurrentPriority() + 1));
+  let childCtxMap = ctxMap;
+  if (elBatch !== undefined) childCtxMap = _withBatch(childCtxMap, elBatch);
+  if (elDeferred)
+    childCtxMap = _withPriority(childCtxMap, _resolveCtxValue(childCtxMap, PriorityContext) + 1);
   for (const c of child.children) {
-    el.appendChild(buildNode(c));
+    el.appendChild(buildNode(c, childCtxMap));
   }
-  if (elBatch !== undefined || elDeferred) _setCtxMap(prevCtxBuildNode);
   return el;
 }
 
@@ -143,7 +139,11 @@ export function buildNode(child: Child): Node {
  *
  * **Called by:** `resume` and `executeRerender` in `mountComponent`.
  */
-function commitOrDefer(instance: ComponentInstance, vnode: Child): void {
+function commitOrDefer(
+  instance: ComponentInstance,
+  vnode: Child,
+  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
+): void {
   const rctx = instance.renderCtx;
   const parent = instance.endMarker.parentNode as HTMLElement;
   const effectiveBatch = getPatchMode(instance.props) ?? _instanceBatch(instance.capturedCtx);
@@ -155,13 +155,13 @@ function commitOrDefer(instance: ComponentInstance, vnode: Child): void {
     const prevLiveOnly = rctx.liveOnlyMode;
     rctx.liveOnlyMode = true;
     try {
-      instance.slots = reconcileSlots(parent, instance.slots, [vnode], instance.endMarker);
+      instance.slots = reconcileSlots(parent, instance.slots, [vnode], instance.endMarker, ctxMap);
     } finally {
       rctx.liveOnlyMode = prevLiveOnly;
     }
   } else {
     instance.pendingVNode = undefined;
-    instance.slots = reconcileSlots(parent, instance.slots, [vnode], instance.endMarker);
+    instance.slots = reconcileSlots(parent, instance.slots, [vnode], instance.endMarker, ctxMap);
     flushEffects(instance);
   }
 }
@@ -193,6 +193,7 @@ function commitOrDefer(instance: ComponentInstance, vnode: Child): void {
 export function mountComponent(
   component: Component,
   props: InternalProps,
+  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
 ): { fragment: DocumentFragment; componentInstance: ComponentInstance } {
   const endMarker = document.createComment("");
 
@@ -204,10 +205,10 @@ export function mountComponent(
    * context from ancestors. Does NOT include the component's own `$patch`
    * — that is applied dynamically in `executeRerender` via `_withBatch`.
    */
-  const capturedCtx = _getCtxMap();
+  const capturedCtx = ctxMap;
 
   /** Priority level captured from the context at mount time. */
-  const priority = _getCurrentPriority();
+  const priority = _resolveCtxValue(ctxMap, PriorityContext);
 
   /** Per-hook persistent state array. See `ComponentInstance.hookStates`. */
   const hookStates: HookState[] = [];
@@ -252,23 +253,16 @@ export function mountComponent(
     if (!instance.endMarker.parentNode) return;
     _setActiveCtx(rctx);
 
-    // Restore context: inherited context + own $patch applied for children.
-    const prevCtx = _getCtxMap();
+    // Compute effective context: inherited context + own $patch applied for children.
     const ownPatchResume = getPatchMode(instance.props);
-    _setCtxMap(
+    const effectiveCtxMap =
       ownPatchResume !== undefined
         ? _withBatch(instance.capturedCtx, ownPatchResume)
-        : instance.capturedCtx,
-    );
+        : instance.capturedCtx;
 
-    let vnode: Child;
-    try {
-      ({ vnode } = resumeGenerator(instance, rerender, resume));
-    } finally {
-      _setCtxMap(prevCtx);
-    }
+    const { vnode } = resumeGenerator(instance, rerender, resume, effectiveCtxMap);
 
-    commitOrDefer(instance, vnode);
+    commitOrDefer(instance, vnode, effectiveCtxMap);
   }
 
   /**
@@ -314,12 +308,10 @@ export function mountComponent(
       // Reset consumed-context tracking so the new render records a fresh set.
       instance.consumedContexts.clear();
 
-      // Restore context: inherited context + own $patch for children.
-      const prevCtx = _getCtxMap();
+      // Compute effective context: inherited context + own $patch for children.
       const ownPatch = getPatchMode(instance.props);
-      _setCtxMap(
-        ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx,
-      );
+      const effectiveCtxMap =
+        ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx;
 
       let vnode: Child;
       let cancelled = false;
@@ -327,12 +319,11 @@ export function mountComponent(
       rctx.renderingPriority = instance.priority;
       try {
         const gen = instance.component(instance.props, rerender);
-        const result = runHooks(gen, instance, rerender, resume);
+        const result = runHooks(gen, instance, rerender, resume, effectiveCtxMap);
         instance.gen = result.gen;
         vnode = result.vnode;
         cancelled = result.cancelled;
       } finally {
-        _setCtxMap(prevCtx);
         instance.isRendering = false;
         rctx.renderingPriority = prevRenderingPriority;
       }
@@ -362,12 +353,12 @@ export function mountComponent(
         initialFragment.appendChild(endMarker);
         const prevLiveOnly = rctx.liveOnlyMode;
         rctx.liveOnlyMode = false;
-        instance.slots = reconcileSlots(initialFragment, [], [vnode], endMarker);
+        instance.slots = reconcileSlots(initialFragment, [], [vnode], endMarker, effectiveCtxMap);
         rctx.liveOnlyMode = prevLiveOnly;
         mounted = true;
         flushEffects(instance);
       } else {
-        commitOrDefer(instance, vnode);
+        commitOrDefer(instance, vnode, effectiveCtxMap);
       }
 
       // Resolve all Promise<void>s returned by setState calls that were
@@ -489,28 +480,23 @@ export function mountContextProvider(
   component: Component,
   props: InternalProps,
   providerCtx: Context<unknown>,
+  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
 ): { fragment: DocumentFragment; endMarker: Comment; childSlots: Slot[] } {
-  const prevCtxMap = _getCtxMap();
-  const newCtxMap = new Map(prevCtxMap);
+  const newCtxMap = new Map(ctxMap);
   newCtxMap.set(providerCtx, props["value"]);
-  _setCtxMap(newCtxMap);
 
   const endMarker = document.createComment("");
   const fragment = document.createDocumentFragment();
   fragment.appendChild(endMarker);
   let childSlots: Slot[] = [];
 
-  try {
-    const vnode = _asProviderFn(component)(props);
-    if (vnode != null) {
-      const activeCtx = _requireActiveCtx();
-      const prevLiveOnly = activeCtx.liveOnlyMode;
-      activeCtx.liveOnlyMode = false;
-      childSlots = reconcileSlots(fragment, [], [vnode], endMarker);
-      activeCtx.liveOnlyMode = prevLiveOnly;
-    }
-  } finally {
-    _setCtxMap(prevCtxMap);
+  const vnode = _asProviderFn(component)(props);
+  if (vnode != null) {
+    const activeCtx = _requireActiveCtx();
+    const prevLiveOnly = activeCtx.liveOnlyMode;
+    activeCtx.liveOnlyMode = false;
+    childSlots = reconcileSlots(fragment, [], [vnode], endMarker, newCtxMap);
+    activeCtx.liveOnlyMode = prevLiveOnly;
   }
   return { fragment, endMarker, childSlots };
 }

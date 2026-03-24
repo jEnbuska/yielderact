@@ -23,9 +23,10 @@ import type { DelegationRoot } from "./delegation";
 /**
  * Per-root render state.
  *
- * Replaces the previous module-level singletons (`renderState`, `_ctxMap`,
+ * Replaces the previous module-level singletons (`renderState`,
  * `_ops`, scheduler variables). Stored on each `ComponentInstance.renderCtx` so
  * that closures and hook handlers can reach it without global lookups.
+ * The context map (`ctxMap`) is threaded as a parameter, not stored here.
  *
  * **Created by:** `createRenderContext()` in `state.ts`, called from
  * `render()` and `createRoot()` in `index.ts`.
@@ -39,9 +40,6 @@ export interface RenderContext {
   // ── From state.ts (rendering-phase temporary) ──
   liveOnlyMode: boolean;
   renderingPriority?: number;
-
-  // ── From context.ts ──
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>;
 
   // ── From patch-queue.ts ──
   ops?: (() => void)[];
@@ -303,7 +301,7 @@ export interface ComponentInstance {
   endMarker: Comment;
 
   /**
-   * Snapshot of the context map (`_ctxMap`) from the component's **parent**,
+   * Snapshot of the context map from the component's **parent**,
    * representing the *inherited* batch and any ancestor Provider values.
    *
    * **Does NOT include the component's own `$patch` prop** — that is applied
@@ -313,14 +311,14 @@ export interface ComponentInstance {
    * (inherited + own $patch) batch during their render.
    *
    * **Written by:**
-   * - `mountComponent` — set to `_getCtxMap()` at mount time.
+   * - `mountComponent` — set to the parent `ctxMap` parameter at mount time.
    * - `reconcileOne` — synced to current inherited batch via `_withBatch`.
    * - `propagateContextUpdate` — updated when an ancestor Provider value changes.
    *
    * **Read by:**
-   * - `executeRerender` / `resume` — restored as the active `_ctxMap` before
-   *   running the generator body, so hooks see the correct context values.
-   * - `reconcileOne` — compared against `_getCtxMap()` to detect context changes.
+   * - `executeRerender` / `resume` — used to compute the effective `ctxMap`
+   *   before running the generator body, so hooks see the correct context values.
+   * - `reconcileOne` — compared against the parent `ctxMap` to detect context changes.
    * - `_instanceBatch(capturedCtx)` — reads the inherited `$patch` batch.
    */
   capturedCtx: ReadonlyMap<Context<unknown>, unknown>;
@@ -336,7 +334,7 @@ export interface ComponentInstance {
    * **Read by:**
    * - `reconcileOne` — iterates consumed contexts to detect whether the
    *   component needs a rerender due to a context value change.
-   * - `reconcileOne`'s $patch-only path — checks if `_batchCtx` is consumed
+   * - `reconcileOne`'s $patch-only path — checks if `BatchContext` is consumed
    *   to decide whether `usePatchContext` consumers need a rerender.
    * - `propagateContextUpdate` — checks `inst.consumedContexts.has(ctx)`.
    */
@@ -470,13 +468,13 @@ export interface ComponentInstance {
   renderResolvers: Array<() => void>;
 
   /**
-   * The component's priority level, captured from `_priorityCtx` at mount time.
+   * The component's priority level, captured from `PriorityContext` at mount time.
    *
    * Priority 0 is the default (highest priority). Each ancestor with
    * `$deferred={true}` increments the priority by 1. Lower numbers are
    * processed first.
    *
-   * **Written by:** `mountComponent` — set from `_getCurrentPriority()`.
+   * **Written by:** `mountComponent` — set from `PriorityContext` via the ctxMap parameter.
    * **Read by:**
    * - The scheduler — to determine which priority pass the component belongs to.
    * - `rerender()` — to tag setState calls with the owner's priority when

@@ -1,6 +1,7 @@
 import { useState } from "../hooks";
 import { createElement, Fragment } from "../jsx";
 import { buildNode, render } from "../render";
+import { _setActiveCtx, createRenderContext } from "../render/state";
 
 // jsdom is provided by vitest (see vitest.config.ts)
 
@@ -191,46 +192,58 @@ describe("render – HTML elements", () => {
 
 describe("buildNode", () => {
   it("returns a text node for strings", () => {
-    const node = buildNode("hello");
+    const node = buildNode("hello", new Map());
     expect(node).toBeInstanceOf(Text);
     expect(node.textContent).toBe("hello");
   });
 
   it("returns a text node for numbers", () => {
-    const node = buildNode(42);
+    const node = buildNode(42, new Map());
     expect(node).toBeInstanceOf(Text);
     expect(node.textContent).toBe("42");
   });
 
   it("returns an empty text node for null", () => {
-    const node = buildNode(null);
+    const node = buildNode(null, new Map());
     expect(node).toBeInstanceOf(Text);
     expect(node.textContent).toBe("");
   });
 
   it("returns an empty text node for false", () => {
-    const node = buildNode(false);
+    const node = buildNode(false, new Map());
     expect(node).toBeInstanceOf(Text);
     expect(node.textContent).toBe("");
   });
 });
 
 describe("render – HTML defaults", () => {
+  beforeEach(() => {
+    _setActiveCtx(createRenderContext());
+  });
+
+  afterEach(() => {
+    _setActiveCtx(undefined);
+  });
+
   it('sets button type to "button" when not specified', () => {
-    const node = buildNode(createElement("button", {}, "Click")) as HTMLButtonElement;
+    const node = buildNode(createElement("button", {}, "Click"), new Map()) as HTMLButtonElement;
     expect(node.getAttribute("type")).toBe("button");
   });
 
   it("preserves explicit button type", () => {
     const node = buildNode(
       createElement("button", { type: "submit" }, "Submit"),
+      new Map(),
     ) as HTMLButtonElement;
     expect(node.getAttribute("type")).toBe("submit");
   });
 
   it('warns when <a target="_blank"> has no rel', () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    buildNode(createElement("a", { href: "https://example.com", target: "_blank" }, "link"));
+    buildNode(
+      createElement("a", { href: "https://example.com", target: "_blank" }, "link"),
+      new Map(),
+    );
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("noopener"));
     warn.mockRestore();
   });
@@ -243,6 +256,7 @@ describe("render – HTML defaults", () => {
         { href: "https://example.com", target: "_blank", rel: "noopener noreferrer" },
         "link",
       ),
+      new Map(),
     );
     buildNode(
       createElement(
@@ -250,6 +264,7 @@ describe("render – HTML defaults", () => {
         { href: "https://example.com", target: "_blank", rel: "noreferrer" },
         "link",
       ),
+      new Map(),
     );
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
@@ -257,7 +272,7 @@ describe("render – HTML defaults", () => {
 
   it('does not warn for <a> without target="_blank"', () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    buildNode(createElement("a", { href: "https://example.com" }, "link"));
+    buildNode(createElement("a", { href: "https://example.com" }, "link"), new Map());
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });
