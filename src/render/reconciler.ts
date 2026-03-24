@@ -26,6 +26,13 @@
  * (`reconcileSlots`) drain them immediately. When wired into the scheduler
  * (async mode), yields allow the work loop to check time deadlines and
  * yield to the browser for event processing.
+ *
+ * **Context propagation.** Internal generator functions do not receive
+ * `ctxMap` as a parameter. Instead, they obtain the current context map
+ * via `yield* getContextMap()`. When a subtree needs a different context
+ * (e.g., `$patch` or `$deferred` on an HTML element or component), the
+ * parent function creates an isolated scope via `runToCompletion(gen, childCtxMap)`.
+ * This prevents context changes from leaking to siblings.
  */
 
 import {
@@ -64,15 +71,25 @@ import {
   domSetText,
 } from "./patch-queue";
 import { applyProps, updateProps } from "./props";
-import { _requireActiveCtx, runWithContext } from "./state";
+import { _requireActiveCtx, getContextMap, handleContextYield, runWithContext } from "./state";
 import type { ComponentInstance, Slot } from "./types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
-/** Drain a generator synchronously, returning its final value. */
-function runToCompletion<T>(gen: Generator<void, T, void>): T {
+/**
+ * Drain a generator synchronously, handling context ops along the way.
+ * Supports both `void` yields (scheduling pauses) and context descriptors.
+ */
+function runToCompletion<T>(
+  gen: Generator<unknown, T, unknown>,
+  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
+): T {
+  const ctx = { current: ctxMap };
   let result = gen.next();
-  while (!result.done) result = gen.next();
+  while (!result.done) {
+    const handled = handleContextYield(result.value, ctx);
+    result = gen.next(handled.sendBack);
+  }
   return result.value;
 }
 
@@ -194,8 +211,7 @@ function* reconcileKeyedSlotsGen(
   prevSlots: Slot[],
   flatNext: Child[],
   beforeAnchor: Node | undefined,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): Generator<void, Slot[], void> {
+): Generator<unknown, Slot[], unknown> {
   // Build key → prevIndex map for keyed prev slots,
   // and collect non-keyed prev slot indices for positional matching.
   const prevKeyMap = new Map<string | number, number>();
@@ -241,7 +257,7 @@ function* reconcileKeyedSlotsGen(
     }
 
     if (matchedPrevSlot) {
-      const { slot, node, replaced } = yield* reconcileOneGen(matchedPrevSlot, nextChild, ctxMap);
+      const { slot, node, replaced } = yield* reconcileOneGen(matchedPrevSlot, nextChild);
       nextSlots.push(slot);
       if (replaced) {
         // Type changed — unmount old slot, track new node for insertion
@@ -250,7 +266,7 @@ function* reconcileKeyedSlotsGen(
         freshNodes.set(i, node);
       }
     } else {
-      const { slot, node, replaced } = yield* reconcileOneGen(undefined, nextChild, ctxMap);
+      const { slot, node, replaced } = yield* reconcileOneGen(undefined, nextChild);
       nextSlots.push(slot);
       if (replaced) {
         freshNodes.set(i, node);
@@ -299,21 +315,20 @@ function* reconcileSlotsGen(
   prevSlots: Slot[],
   nextVNodes: Child[],
   beforeAnchor: Node | undefined,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): Generator<void, Slot[], void> {
+): Generator<unknown, Slot[], unknown> {
   // Flatten fragments before reconciling so each child has a stable index.
   const flatNext = flattenChildren(nextVNodes);
 
   // Use keyed reconciliation when any new child has a key prop.
   if (hasKeyedChildren(flatNext)) {
-    return yield* reconcileKeyedSlotsGen(parent, prevSlots, flatNext, beforeAnchor, ctxMap);
+    return yield* reconcileKeyedSlotsGen(parent, prevSlots, flatNext, beforeAnchor);
   }
 
   const nextSlots: Slot[] = [];
 
   for (let i = 0; i < flatNext.length; i++) {
     const prevSlot = prevSlots[i];
-    const { slot, node, replaced } = yield* reconcileOneGen(prevSlot, flatNext[i], ctxMap);
+    const { slot, node, replaced } = yield* reconcileOneGen(prevSlot, flatNext[i]);
     nextSlots.push(slot);
 
     if (replaced) {
@@ -382,7 +397,7 @@ export function reconcileSlots(
   beforeAnchor: Node | undefined,
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
 ): Slot[] {
-  return runToCompletion(reconcileSlotsGen(parent, prevSlots, nextVNodes, beforeAnchor, ctxMap));
+  return runToCompletion(reconcileSlotsGen(parent, prevSlots, nextVNodes, beforeAnchor), ctxMap);
 }
 
 // ── Single-slot reconciliation (generator) ──────────────────────────────────
@@ -434,8 +449,9 @@ export function reconcileSlots(
 function* reconcileOneGen(
   prevSlot: Slot | undefined,
   nextChild: Child,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): Generator<void, { slot: Slot; node: Node; replaced: boolean }, void> {
+): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
+  const ctxMap = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
+
   // ════════════════════════════════════════════════════════════════════════
   // SECTION: Empty / null
   // Handles: null, undefined, false → empty text node placeholder.
@@ -526,21 +542,21 @@ function* reconcileOneGen(
   // SECTION: Portal
   // ════════════════════════════════════════════════════════════════════════
   if (vnode.type === Portal) {
-    return yield* reconcilePortal(prevSlot, vnode, ctxMap);
+    return yield* reconcilePortal(prevSlot, vnode);
   }
 
   // ════════════════════════════════════════════════════════════════════════
   // SECTION: Component
   // ════════════════════════════════════════════════════════════════════════
   if (isComponentNode(vnode)) {
-    return yield* reconcileComponent(prevSlot, vnode, allPropsForShown, ctxMap);
+    return yield* reconcileComponent(prevSlot, vnode, allPropsForShown);
   }
 
   // ════════════════════════════════════════════════════════════════════════
   // SECTION: HTML element
   // ════════════════════════════════════════════════════════════════════════
   if (isElementNode(vnode)) {
-    return yield* reconcileHTMLElement(prevSlot, vnode, ctxMap);
+    return yield* reconcileHTMLElement(prevSlot, vnode);
   }
 
   // ════════════════════════════════════════════════════════════════════════
@@ -568,8 +584,8 @@ function* reconcileComponent(
   prevSlot: Slot | undefined,
   vnode: VNode<Component>,
   allPropsForShown: InternalProps,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): Generator<void, { slot: Slot; node: Node; replaced: boolean }, void> {
+): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
+  const ctxMap = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
   const allPropsRaw = allPropsForShown;
   // allProps: what the component sees (no $deferred, no $deps)
   const allProps = stripFrameworkDirectives(allPropsRaw);
@@ -700,12 +716,16 @@ function* reconcileComponent(
  *
  * Handles same-tag prop updates + child reconciliation, and different-tag
  * fresh element creation.
+ *
+ * Child reconciliation runs in an isolated context scope via
+ * `runToCompletion(reconcileSlotsGen(...), childCtxMap)` so that
+ * `$patch`/`$deferred` propagation does not leak to siblings.
  */
 function* reconcileHTMLElement(
   prevSlot: Slot | undefined,
   vnode: VNode<string>,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): Generator<void, { slot: Slot; node: Node; replaced: boolean }, void> {
+): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
+  const ctxMap = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
   const childCtxMap = childContextMap(ctxMap, vnode.props);
 
   if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
@@ -724,11 +744,8 @@ function* reconcileHTMLElement(
       );
     }
     prevSlot.props = vnode.props;
-    prevSlot.childSlots = yield* reconcileSlotsGen(
-      prevSlot.node,
-      prevSlot.childSlots,
-      vnode.children,
-      undefined,
+    prevSlot.childSlots = runToCompletion(
+      reconcileSlotsGen(prevSlot.node, prevSlot.childSlots, vnode.children, undefined),
       childCtxMap,
     );
     return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -750,9 +767,8 @@ function* reconcileHTMLElement(
   const prevLiveOnly = _requireActiveCtx().liveOnlyMode;
   _requireActiveCtx().liveOnlyMode = false;
   for (const child of flatChildren) {
-    const { slot: childSlot, node: childNode } = yield* reconcileOneGen(
-      undefined,
-      child,
+    const { slot: childSlot, node: childNode } = runToCompletion(
+      reconcileOneGen(undefined, child),
       childCtxMap,
     );
     childSlots.push(childSlot);
@@ -787,8 +803,8 @@ function* reconcileHTMLElement(
 function* reconcilePortal(
   prevSlot: Slot | undefined,
   vnode: VNode,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): Generator<void, { slot: Slot; node: Node; replaced: boolean }, void> {
+): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
+  const ctxMap = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
   const portalContainer = vnode.props["$portalContainer"] as Element;
   const rctx = _requireActiveCtx();
 
@@ -803,11 +819,13 @@ function* reconcilePortal(
     const prevDelegation = rctx.delegationRoot;
     rctx.delegationRoot = prevSlot.portalDelegationRoot;
     try {
-      prevSlot.childSlots = yield* reconcileSlotsGen(
-        portalContainer,
-        prevSlot.childSlots,
-        vnode.children,
-        prevSlot.portalEndMarker,
+      prevSlot.childSlots = runToCompletion(
+        reconcileSlotsGen(
+          portalContainer,
+          prevSlot.childSlots,
+          vnode.children,
+          prevSlot.portalEndMarker,
+        ),
         ctxMap,
       );
     } finally {
@@ -830,7 +848,10 @@ function* reconcilePortal(
   const prevLiveOnly = rctx.liveOnlyMode;
   rctx.liveOnlyMode = false;
   try {
-    childSlots = yield* reconcileSlotsGen(portalContainer, [], vnode.children, endMarker, ctxMap);
+    childSlots = runToCompletion(
+      reconcileSlotsGen(portalContainer, [], vnode.children, endMarker),
+      ctxMap,
+    );
   } finally {
     rctx.delegationRoot = prevDelegation;
     rctx.liveOnlyMode = prevLiveOnly;

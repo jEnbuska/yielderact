@@ -557,11 +557,7 @@ function _hasStableSelectors(
  * @param slots    - The descendant slot tree to walk (typically a Provider's
  *                   `childSlots` or a generator instance's `slots`).
  */
-export function propagateContextUpdate(
-  ctx: Context<unknown>,
-  newValue: unknown,
-  slots: import("./types").Slot[],
-): void {
+function propagateContextUpdate(ctx: Context<unknown>, newValue: unknown, slots: Slot[]): void {
   for (const slot of slots) {
     const inst = slot.componentInstance;
     // Stop at an inner Provider for the same context — it overrides the outer value.

@@ -109,19 +109,42 @@ export function runWithContext<T>(
   ctxMap: ReadonlyMap<{ readonly _defaultValue: unknown }, unknown>,
   gen: ContextGenerator<T>,
 ): T {
-  let currentMap = ctxMap;
+  const ctx = { current: ctxMap };
   let result = gen.next();
   while (!result.done) {
-    const desc = result.value;
-    if (desc.op === $SET_CONTEXT) {
-      const current = currentMap.has(desc.key) ? currentMap.get(desc.key) : desc.key._defaultValue;
-      const newMap = new Map(currentMap);
-      newMap.set(desc.key, desc.updater(current));
-      currentMap = newMap;
-      result = gen.next(undefined);
-    } else {
-      result = gen.next(currentMap);
-    }
+    const handled = handleContextYield(result.value, ctx);
+    result = gen.next(handled.sendBack);
   }
   return result.value;
+}
+
+/**
+ * Process a yielded value that may be a context descriptor.
+ *
+ * Handles `$SET_CONTEXT` and `$GET_CONTEXT_MAP` ops by updating/reading
+ * the mutable context map wrapper. For `void` yields (scheduling pauses)
+ * or other values, returns `undefined` as sendBack.
+ *
+ * @internal
+ */
+export function handleContextYield(
+  value: unknown,
+  ctx: { current: ReadonlyMap<{ readonly _defaultValue: unknown }, unknown> },
+): { sendBack: unknown } {
+  if (value === null || value === undefined || typeof value !== "object") {
+    return { sendBack: undefined };
+  }
+  const desc = value as { op?: symbol };
+  if (desc.op === $SET_CONTEXT) {
+    const d = value as ContextDescriptor & { op: typeof $SET_CONTEXT };
+    const current = ctx.current.has(d.key) ? ctx.current.get(d.key) : d.key._defaultValue;
+    const newMap = new Map(ctx.current);
+    newMap.set(d.key, d.updater(current));
+    ctx.current = newMap;
+    return { sendBack: undefined };
+  }
+  if (desc.op === $GET_CONTEXT_MAP) {
+    return { sendBack: ctx.current };
+  }
+  return { sendBack: undefined };
 }
