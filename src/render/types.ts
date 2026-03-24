@@ -374,14 +374,6 @@ export interface ComponentInstance {
   renderResolvers: Array<() => void>;
 
   /**
-   * Priority level captured from `PriorityContext` at mount time.
-   *
-   * 0 = default (highest). Each `$deferred` ancestor adds 1.
-   * Used by the scheduler for priority ordering.
-   */
-  priority: number;
-
-  /**
    * Hook index at which the generator last paused (yielded a non-descriptor,
    * e.g. inside `useRender`). Used by `resume()` to continue processing
    * hook descriptors from the correct index when the generator advances

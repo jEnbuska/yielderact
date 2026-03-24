@@ -24,7 +24,14 @@ import {
 import type { HookDescriptor } from "../hooks/descriptors";
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
-import { drive, driveWithContext, getContextMap, type RenderGenerator, setContext } from "./driver";
+import {
+  drive,
+  driveWithContext,
+  getContext,
+  getContextMap,
+  type RenderGenerator,
+  setContext,
+} from "./driver";
 import { InvalidChildError } from "./errors";
 import { getPatchMode, isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
 import { flushEffects, isHookDescriptor, processOneDescriptor } from "./hooks-runtime";
@@ -193,7 +200,7 @@ function* executeRerender(
   instance: ComponentInstance,
   initiallyMounted: boolean,
 ): RenderGenerator<DocumentFragment> {
-  const rctx = instance.renderCtx;
+  const rctx = yield* getContext(RenderCtx);
   let mounted = initiallyMounted;
   let initialFragment = document.createDocumentFragment();
 
@@ -212,7 +219,8 @@ function* executeRerender(
     let cancelled = false;
 
     const prevRenderingPriority = rctx.renderingPriority;
-    rctx.renderingPriority = instance.priority;
+    // TODO: should use yield* getContext(PriorityContext) — but this is inside a sync loop
+    rctx.renderingPriority = _resolveCtxValue(instance.capturedCtx, PriorityContext);
 
     while (!result.done && isHookDescriptor(result.value)) {
       const hookResult = processOneDescriptor(
@@ -338,9 +346,7 @@ export function* mountComponent(
   props: InternalProps,
 ): RenderGenerator<{ fragment: DocumentFragment; componentInstance: ComponentInstance }> {
   const ctxMap = yield* getContextMap();
-
-  /** The per-root render context, resolved from the ctxMap at mount time. */
-  const rctx: RenderContext = _resolveCtxValue(ctxMap, RenderCtx);
+  const rctx = yield* getContext(RenderCtx);
 
   const instance: ComponentInstance = {
     renderCtx: rctx,
@@ -356,7 +362,6 @@ export function* mountComponent(
     isRendering: false,
     pendingRerender: false,
     renderResolvers: [],
-    priority: _resolveCtxValue(ctxMap, PriorityContext),
     resumeHookIndex: 0,
     consumedContexts: new Set(),
     providedContexts: new Set(),

@@ -571,7 +571,6 @@ function* reconcileComponent(
 
         if (contextChanged) {
           inst.capturedCtx = childCtxMap;
-          inst.priority = _resolveCtxValue(childCtxMap, PriorityContext);
           void inst.rerender();
         } else {
           inst.capturedCtx = _withBatch(inst.capturedCtx, currentBatch);
