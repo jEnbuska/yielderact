@@ -235,7 +235,6 @@ export function createElement(
  * a type error.
  */
 declare global {
-  // eslint-disable-next-line @typescript-eslint/no-namespace
   namespace JSX {
     interface IntrinsicElements extends IntrinsicElementsDef {}
     /**

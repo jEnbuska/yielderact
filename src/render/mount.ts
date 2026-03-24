@@ -1,21 +1,16 @@
 /**
- * mount.ts — Initial DOM construction and component lifecycle.
+ * mount.ts — DOM construction and component lifecycle.
  *
- * This module handles:
- * 1. **Building** DOM nodes from VNode trees (`buildNode`).
- * 2. **Mounting** components (`mountComponent`) — creates
- *    an end-marker Comment node, the `ComponentInstance`, and binds
- *    `resumeInstance`, `executeRerender`, and `rerenderInstance` as the
- *    component's lifecycle drivers.
- * 3. Standalone lifecycle functions (`resumeInstance`, `executeRerender`,
- *    `rerenderInstance`, `commitOrDefer`) that operate on a
- *    `ComponentInstance` parameter instead of closing over local state.
+ * Handles:
+ * 1. Building DOM nodes from VNode trees (`buildNode`).
+ * 2. Mounting components (`mountComponent`) — creates an end-marker Comment
+ *    node, the `ComponentInstance`, and binds lifecycle closures.
+ * 3. Lifecycle functions (`resumeInstance`, `rerenderInstance`,
+ *    `runComponentRender`, `executeRerender`, `commitOrDefer`)
+ *    that drive component rendering and reconciliation.
  *
- * **No wrapper spans.** Components do not create wrapper `<span>` elements.
- * Instead, output nodes are placed directly in the parent DOM. Each component
- * and Provider uses an end-marker Comment node (`<!---->`) as an
- * insertion anchor and slot reference. The end-marker is always the last DOM
- * node belonging to the component within its parent.
+ * Components use end-marker Comment nodes as insertion anchors — no wrapper
+ * `<span>` elements.
  */
 
 import {
@@ -28,46 +23,25 @@ import {
 } from "../context";
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
-import {
-  type CtxMap,
-  drive,
-  driveWithContext,
-  getContextMap,
-  type RenderGenerator,
-  setContext,
-} from "./driver";
+import { drive, driveWithContext, getContextMap, type RenderGenerator, setContext } from "./driver";
 import { InvalidChildError } from "./errors";
 import { getPatchMode, isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
 import { flushEffects, resumeGenerator, runHooks } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
-import { reconcileSlots, reconcileSlotsGen } from "./reconciler";
+import { reconcileSlotsGen } from "./reconciler";
 import { scheduleUpdate } from "./scheduler";
 import { _requireActiveCtx, _setActiveCtx } from "./state";
 import type { ComponentInstance, RenderContext } from "./types";
 
 /**
- * Build a single real DOM node from a virtual DOM node (or primitive value).
+ * Build a single real DOM node from a VNode (or primitive).
  *
- * Unlike `buildVNodeList`, this returns a single Node and does not produce
- * Slot tracking data. Used for top-level renders and Fragment children.
+ * Handles null/boolean (empty TextNode), string/number (TextNode),
+ * Fragment/Portal (DocumentFragment), components (via `mountComponent`),
+ * and HTML elements.
  *
- * **Called by:**
- * - `render()` and `createRoot().render()` in `index.ts` — top-level mount.
- * - Itself (recursively) — for Fragment children and HTML element children.
- * - `reconcileOne` in `reconciler.ts` — fallback for unrecognized VNode types.
- *
- * **Handles:**
- * 1. `null` / `undefined` / `false` → empty TextNode.
- * 2. `string` / `number` → TextNode.
- * 3. `Fragment` → `DocumentFragment` containing children.
- * 4. Component → dispatches to `mountComponent`
- *    or `mountContextProvider`.
- * 5. HTML tag string → `HTMLElement` with props and children.
- *
- * @param child - The VNode or primitive to build.
- * @returns The real DOM node. For components and Providers, returns
- *   a `DocumentFragment` containing the output nodes + endMarker.
+ * Returns a `DocumentFragment` for components (output nodes + endMarker).
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode type dispatch with many branches
 export function* buildNode(child: Child): RenderGenerator<Node> {
@@ -88,14 +62,15 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   const effectiveProps = isComponentNode(child) ? mergedProps(child) : child.props;
   const map = yield* getContextMap();
 
-  if (child.type === Fragment || child.type === Portal) {
-    if (child.type === Portal) {
-      const portalContainer = child.props["$portalContainer"] as Element;
-      for (const c of child.children) {
-        portalContainer.appendChild(yield* driveWithContext(map, buildNode(c)));
-      }
-      return document.createComment("portal");
+  if (child.type === Portal) {
+    const portalContainer = child.props["$portalContainer"] as Element;
+    for (const c of child.children) {
+      portalContainer.appendChild(yield* driveWithContext(map, buildNode(c)));
     }
+    return document.createComment("portal");
+  }
+
+  if (child.type === Fragment) {
     const frag = document.createDocumentFragment();
     for (const c of child.children) {
       frag.appendChild(yield* driveWithContext(map, buildNode(c)));
@@ -128,57 +103,43 @@ function effectiveCtxMap(instance: ComponentInstance): ReadonlyMap<Context<unkno
 // ── Standalone lifecycle functions ────────────────────────────────────────
 
 /**
- * Decide whether to commit a VNode immediately or defer it during a UI patch.
+ * Commit or defer a VNode during a UI patch.
  *
- * When a global or local patch is active and the component is not `$patch="live"`,
- * the VNode is stored as `pendingVNode` and a live-only reconcile pass updates
- * only `$patch="live"` descendants. Otherwise, the VNode is committed immediately
- * via `reconcileSlots` and effects are flushed.
- *
- * **Called by:** `resumeInstance` and `executeRerender`.
+ * When a patch is active and the component is not `$patch="live"`, stores
+ * the VNode as `pendingVNode` and runs a live-only reconcile pass.
+ * Otherwise commits immediately and flushes effects.
  */
-function* commitOrDeferGen(instance: ComponentInstance, vnode: Child): RenderGenerator<void> {
+function* commitOrDefer(instance: ComponentInstance, vnode: Child): RenderGenerator<void> {
   const rctx = instance.renderCtx;
   const parent = instance.endMarker.parentNode as HTMLElement;
   const ctxMap = effectiveCtxMap(instance);
   const effectiveBatch = getPatchMode(instance.props) ?? _instanceBatch(instance.capturedCtx);
   const shouldDefer =
     (rctx.patchDepth > 0 || instance.localPatchRefCount > 0) && effectiveBatch !== "live";
+
   if (shouldDefer) {
     instance.pendingVNode = vnode;
     rctx.dirtyInstances.add(instance);
-    const prevLiveOnly = rctx.liveOnlyMode;
-    rctx.liveOnlyMode = true;
-    instance.slots = yield* driveWithContext(
-      ctxMap as CtxMap,
-      reconcileSlotsGen(parent, instance.slots, [vnode], instance.endMarker),
-    );
-    rctx.liveOnlyMode = prevLiveOnly;
   } else {
     instance.pendingVNode = undefined;
-    instance.slots = yield* driveWithContext(
-      ctxMap as CtxMap,
-      reconcileSlotsGen(parent, instance.slots, [vnode], instance.endMarker),
-    );
-    flushEffects(instance);
   }
+
+  const prevLiveOnly = rctx.liveOnlyMode;
+  if (shouldDefer) rctx.liveOnlyMode = true;
+  instance.slots = yield* driveWithContext(
+    ctxMap,
+    reconcileSlotsGen(parent, instance.slots, [vnode], instance.endMarker),
+  );
+  rctx.liveOnlyMode = prevLiveOnly;
+
+  if (!shouldDefer) flushEffects(instance);
 }
 
 /**
- * Resume a paused generator (e.g. inside `useResolve` or `useRender`).
+ * Resume a paused generator (e.g. after `useResolve` or `useRender`).
  *
- * Called when the pending operation completes — `useResolve`'s promise
- * resolves, or `useRender`'s `resumeCallback` is invoked. Advances the
- * generator one step via `gen.next()` and reconciles the resulting VNode.
- *
- * If a UI patch is active and the component is not `$patch="live"`,
- * the DOM update is deferred: the VNode is stored as `pendingVNode` and
- * a live-only reconcile pass updates only `$patch="live"` descendants.
- *
- * **Called by:**
- * - `useRender`'s `resumeCallback` (registered in `processOneDescriptor`).
- * - `useResolve`'s promise `.then()` handler (indirectly via rerender,
- *   but `resumeInstance` is for mid-generator continuation specifically).
+ * Advances the generator past the resolved hook and reconciles the
+ * resulting VNode via `commitOrDefer`.
  */
 function resumeInstance(instance: ComponentInstance): void {
   if (!instance.gen) return;
@@ -187,41 +148,9 @@ function resumeInstance(instance: ComponentInstance): void {
 
   const ctxMap = effectiveCtxMap(instance);
   const { vnode } = resumeGenerator(instance, instance.rerender, instance._resume, ctxMap);
-  drive(ctxMap as CtxMap, commitOrDeferGen(instance, vnode));
+  drive(ctxMap, commitOrDefer(instance, vnode));
 }
 
-/**
- * Run the generator body in a loop, retrying on mid-render state changes.
- *
- * This is the core render execution function, used for both the initial
- * mount (`mounted=false`) and all subsequent re-renders (`mounted=true`).
- *
- * **Loop structure:**
- * 1. Set `isRendering = true` to guard against recursive rerenders.
- * 2. Clear paused generator and pending effects.
- * 3. Clear `consumedContexts` so the new render records fresh subscriptions.
- * 4. Set the context map to `capturedCtx` (with own `$patch` applied).
- * 5. Create a fresh generator: `instance.component(instance.props, rerender)`.
- * 6. Run `runHooks(gen, …)` — processes hook descriptors, returns VNode.
- * 7. Set `isRendering = false`.
- * 8. If cancelled (mid-render setState detected) → revert effect deps, retry.
- * 9. If not cancelled → commit the VNode:
- *    - Initial mount: `reconcileSlots` into the returned fragment.
- *    - Rerender: `commitOrDefer` for reconciliation in place.
- * 10. Resolve any `renderResolvers` (awaited setState promises).
- * 11. If `pendingRerender` is set → loop again for follow-up rerender.
- *
- * **Called by:**
- * - `mountComponent` — for the initial mount (returns the fragment).
- * - `rerenderInstance` — for all subsequent re-renders.
- * - `instance._executeRerender` — called by the scheduler.
- *
- * @param instance - The component instance to render.
- * @param initiallyMounted - `false` on initial mount, `true` on rerenders.
- * @param endMarker - The end-marker Comment node (needed for initial fragment assembly).
- * @returns An object with `promise` (resolves when done) and `fragment`
- *   (the initial mount fragment, only meaningful when `initiallyMounted=false`).
- */
 /**
  * Run the component generator through hooks, handling mid-render retries.
  *
@@ -234,7 +163,6 @@ function runComponentRender(instance: ComponentInstance): {
 } {
   const rctx = instance.renderCtx;
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     instance.isRendering = true;
     instance.gen = undefined;
@@ -276,13 +204,10 @@ function runComponentRender(instance: ComponentInstance): {
 }
 
 /**
- * Execute a full render cycle as a generator.
- *
- * Runs the component through hooks (synchronous), then yields child
- * reconciliation through the driver (interruptible). Handles retries
- * on mid-render state changes and follow-up rerenders.
+ * Execute a full render cycle as a generator, handling initial mount,
+ * rerenders, follow-up rerenders, and mid-render retries.
  */
-function* executeRerenderGen(
+function* executeRerender(
   instance: ComponentInstance,
   initiallyMounted: boolean,
 ): RenderGenerator<DocumentFragment> {
@@ -290,7 +215,6 @@ function* executeRerenderGen(
   let mounted = initiallyMounted;
   let initialFragment = document.createDocumentFragment();
 
-  // eslint-disable-next-line no-constant-condition
   while (true) {
     const { vnode, ctxMap } = runComponentRender(instance);
 
@@ -300,14 +224,14 @@ function* executeRerenderGen(
       const prevLiveOnly = rctx.liveOnlyMode;
       rctx.liveOnlyMode = false;
       instance.slots = yield* driveWithContext(
-        ctxMap as CtxMap,
+        ctxMap,
         reconcileSlotsGen(initialFragment, [], [vnode], instance.endMarker),
       );
       rctx.liveOnlyMode = prevLiveOnly;
       mounted = true;
       flushEffects(instance);
     } else {
-      yield* commitOrDeferGen(instance, vnode);
+      yield* commitOrDefer(instance, vnode);
     }
 
     const resolvers = instance.renderResolvers.splice(0);
@@ -323,26 +247,12 @@ function* executeRerenderGen(
 }
 
 /**
- * Trigger a full re-render of this component from the top of its
- * generator body.
+ * Trigger a re-render of this component.
  *
- * **If a render is already in progress** (`isRendering === true`):
- * the request is queued — `pendingRerender` is set so the active
- * `runHooks` loop exits early, and a Promise is returned that resolves
- * after the next committed render.
- *
- * **Otherwise:** `executeRerender(instance, true)` is called immediately.
- *
- * **Called by:**
- * - `useState` setters — via the setter function returned by
- *   `processOneDescriptor($USE_STATE)`.
- * - `reconcileOne` in `reconciler.ts` — when the parent passes new
- *   props, or a consumed context value changed.
- * - `propagateContextUpdate` in `hooks-runtime.ts` — when an ancestor
- *   Provider value changes and this instance consumes the context.
- * - `useResolveRaw`'s `.then()` handler — when a tracked promise settles.
- *
- * @returns A Promise that resolves after the rerender is committed.
+ * If a render is already in progress, queues the rerender for after the
+ * current cycle. If a UI patch is active, executes synchronously to
+ * collect DOM ops in the same batch. Otherwise, schedules via the
+ * priority-aware scheduler.
  */
 function rerenderInstance(instance: ComponentInstance): Promise<void> {
   if (instance.isRendering) {
@@ -357,7 +267,7 @@ function rerenderInstance(instance: ComponentInstance): Promise<void> {
     // During an active patch (another component is rendering or a
     // $patch batch is in progress), execute synchronously so the DOM
     // ops are collected into the same patch queue.
-    drive(effectiveCtxMap(instance) as CtxMap, executeRerenderGen(instance, true));
+    drive(effectiveCtxMap(instance), executeRerender(instance, true));
     return Promise.resolve();
   }
   // Outside a render phase (event handler, timer, async callback, etc.)
@@ -369,21 +279,11 @@ function rerenderInstance(instance: ComponentInstance): Promise<void> {
 // ── mountComponent ─────────────────────────────────────────────────────────
 
 /**
- * Mount a component using an end-marker Comment node.
+ * Mount a component: create the `ComponentInstance`, bind lifecycle
+ * closures, and run the initial render.
  *
- * Creates the `ComponentInstance` with all mutable state arrays, binds the
- * standalone lifecycle functions (`resumeInstance`, `executeRerender`,
- * `rerenderInstance`) to the instance, and runs the initial render.
- *
- * **Called by:**
- * - `buildVNodeList` and `buildNode` — during initial mount.
- * - `reconcileOne` in `reconciler.ts` — when a new component appears
- *   at a position where a different type was before.
- *
- * @param component - The component function.
- * @param props     - The component's initial props.
- * @returns `{ fragment, componentInstance }` — the fragment to insert into the DOM
- *   and the instance for slot tracking.
+ * Returns a `DocumentFragment` containing the output nodes and the
+ * instance for slot tracking.
  */
 export function* mountComponent(
   component: Component,
@@ -423,12 +323,12 @@ export function* mountComponent(
   instance._resume = () => resumeInstance(instance);
   instance._executeRerender = () => {
     _setActiveCtx(instance.renderCtx);
-    drive(effectiveCtxMap(instance) as CtxMap, executeRerenderGen(instance, true));
+    drive(effectiveCtxMap(instance), executeRerender(instance, true));
     return Promise.resolve();
   };
   instance.rerender = () => rerenderInstance(instance);
 
-  const fragment = yield* executeRerenderGen(instance, false /* not yet mounted */);
+  const fragment = yield* executeRerender(instance, false /* not yet mounted */);
 
   return { fragment, componentInstance: instance };
 }

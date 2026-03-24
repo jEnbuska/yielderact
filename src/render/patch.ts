@@ -6,26 +6,10 @@ import { _requireActiveCtx } from "./state";
 import type { ComponentInstance } from "./types";
 
 /**
- * Apply deferred DOM updates for a list of generator instances.
+ * Apply deferred DOM updates for a list of component instances.
  *
- * Each instance with a `pendingVNode` gets its DOM reconciled: the pending
- * VNode is passed to `reconcileSlots`, which diffs the instance's current
- * slots against the new VNode tree and applies the minimal DOM mutations.
- * After reconciliation, `flushEffects` runs any queued `useEffect` callbacks.
- *
- * The effective context map is computed from the instance's `capturedCtx`
- * (with its own `$patch` applied if present), so that child components see
- * the correct context values during the reconciliation walk.
- *
- * **Called by:**
- * - `commitUIPatch()` below — drains `renderCtx.dirtyInstances` and
- *   flushes all globally-deferred instances.
- * - `useUIPatch`'s `commit()` function (via `processOneDescriptor` in
- *   `hooks-runtime.ts`) — flushes locally-deferred instances when the
- *   local patch is committed.
- *
- * @param instances - The list of instances to flush. Instances with
- *   `pendingVNode === undefined` are skipped (no pending update).
+ * Each instance with a `pendingVNode` gets its DOM reconciled and effects
+ * flushed. Instances without a pending update are skipped.
  */
 export function _flushPendingVNodes(instances: ComponentInstance[]): void {
   for (const inst of instances) {

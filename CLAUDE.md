@@ -110,10 +110,11 @@ function* Counter(_props: object) {
 | `jsx-types.ts`            | Intrinsic element type definitions (HTML/SVG attribute types)           |
 | `jsx-runtime.ts`          | Automatic JSX transform (`jsx`, `jsxs`, `jsxDEV`)                      |
 | `events.ts`               | `SyntheticEvent` type and proxy-based event wrapper                     |
-| `context.ts`              | `createContext`, `useContext`, `ProviderFunction`, context map helpers   |
+| `context.ts`              | `createContext`, `useContext`, context map helpers                       |
 | `index.ts`                | Public API re-exports                                                   |
 | `render/types.ts`         | `RenderContext`, `ComponentInstance`, `Slot`, `HookState`               |
 | `render/state.ts`         | `createRenderContext()`, active context pointer                         |
+| `render/driver.ts`        | Generator driver: context scoping, yield protocol, `drive`, `driveWithContext` |
 | `render/index.ts`         | `render()`, `createRoot()` entry points                                 |
 | `render/mount.ts`         | DOM construction & component lifecycle                                  |
 | `render/reconciler.ts`    | Positional reconciliation (diff + patch)                                |

@@ -12,6 +12,7 @@
  * The driver is the single point of control.
  */
 
+import type { Context } from "../context";
 import { HOOK_TYPES, type HookDescriptor, type HookType } from "../hooks/descriptors";
 
 // ── Yield protocol ───────────────────────────────────────────────────────
@@ -19,7 +20,7 @@ import { HOOK_TYPES, type HookDescriptor, type HookType } from "../hooks/descrip
 const $SET_CONTEXT = Symbol("SET_CONTEXT");
 const $GET_CONTEXT_MAP = Symbol("GET_CONTEXT_MAP");
 
-export type CtxMap = ReadonlyMap<{ readonly _defaultValue: unknown }, unknown>;
+type CtxMap = ReadonlyMap<Context<unknown>, unknown>;
 
 /** Any generator that participates in the render pipeline. */
 export type RenderGenerator<TReturn> = Generator<unknown, TReturn, unknown>;
@@ -83,6 +84,7 @@ interface DriveResult<T> {
  * @param gen - The generator to drive.
  * @param onHook - Optional hook handler. Returns the value to send back.
  */
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: architectural dispatch loop
 export function drive<T>(
   initialCtxMap: CtxMap,
   gen: RenderGenerator<T>,

@@ -1,38 +1,17 @@
 /**
  * reconciler.ts — Positional reconciliation of DOM children against new VNodes.
  *
- * The reconciler is the core diffing engine. It compares the previous Slot
- * array against a new list of VNodes and applies the minimal DOM mutations:
- * - **Same type + same props** → skip (memoization).
- * - **Same type + changed props** → update in place (elements) or rerender (components).
- * - **Different type** → replace (unmount old, mount new).
- * - **Extra old slots** → remove.
- * - **Extra new VNodes** → append.
+ * Compares the previous Slot array against new VNodes and applies minimal
+ * DOM mutations: skip (same type + same props), update in place, replace
+ * (type change), remove (extra old slots), or append (extra new VNodes).
  *
- * Special handling for:
- * - `$patch` / `liveOnlyMode` — deferred updates during UI patches.
- * - Context Providers — in-place child reconciliation with `propagateContextUpdate`.
- * - `$shown` — conditional mount/unmount.
- * - `onlyPatchChanged` — skip rerender when only `$patch` prop changed.
+ * Generator functions (`reconcileSlotsGen`, `reconcileOneGen`,
+ * `reconcileKeyedSlotsGen`) yield between children. The sync wrapper
+ * `reconcileSlots` drains them immediately via `runToCompletion`.
  *
- * **No wrapper spans.** Components and Providers use end-marker
- * Comment nodes instead of wrapper `<span>` elements. The `beforeAnchor`
- * parameter on `reconcileSlots` controls where new nodes are inserted
- * when reconciling a component's output within a shared parent element.
- *
- * **Generator architecture.** The core functions (`reconcileSlotsGen`,
- * `reconcileOneGen`, `reconcileKeyedSlotsGen`) are generators that `yield`
- * at natural boundaries (between children). The synchronous wrappers
- * (`reconcileSlots`) drain them immediately. When wired into the scheduler
- * (async mode), yields allow the work loop to check time deadlines and
- * yield to the browser for event processing.
- *
- * **Context propagation.** Internal generator functions do not receive
- * `ctxMap` as a parameter. Instead, they obtain the current context map
- * via `yield* getContextMap()`. When a subtree needs a different context
- * (e.g., `$patch` or `$deferred` on an HTML element or component), the
- * parent function creates an isolated scope via `runToCompletion(gen, childCtxMap)`.
- * This prevents context changes from leaking to siblings.
+ * Context is obtained via `yield* getContextMap()`. Subtrees needing a
+ * different context (e.g. `$patch` or `$deferred`) run in an isolated
+ * scope via `runToCompletion(gen, childCtxMap)`.
  */
 
 import {
@@ -48,7 +27,7 @@ import { $USE_CONTEXT } from "../hooks/descriptors";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
 import { Portal } from "../jsx";
 import { acquirePortalDelegation } from "./delegation";
-import { type CtxMap, drive, driveWithContext, getContextMap } from "./driver";
+import { drive, getContextMap } from "./driver";
 import {
   childContextMap,
   flattenChildren,
@@ -85,7 +64,7 @@ function runToCompletion<T>(
   gen: Generator<unknown, T, unknown>,
   ctxMap: ReadonlyMap<Context<unknown>, unknown>,
 ): T {
-  return drive(ctxMap as CtxMap, gen).value;
+  return drive(ctxMap, gen).value;
 }
 
 /**
@@ -365,25 +344,11 @@ export function* reconcileSlotsGen(
 }
 
 /**
- * Reconcile the DOM children of `parent` against a new list of VNodes.
+ * Synchronous wrapper around `reconcileSlotsGen`.
  *
- * Synchronous wrapper around `reconcileSlotsGen`. Drains the generator
- * immediately, preserving the current synchronous rendering behavior.
- *
- * **Called by:**
- * - `executeRerender` in `mount.ts` — reconciles the component's
- *   output against its previous slots.
- * - `resume` in `mount.ts` — same, after resuming a paused generator.
- * - `_flushPendingVNodes` in `patch.ts` — when committing deferred updates.
- *
- * @param parent        - The parent DOM element whose children to reconcile.
- * @param prevSlots     - The previous Slot array (from the last render).
- * @param nextVNodes    - The new VNode children to reconcile against.
- * @param beforeAnchor  - Optional anchor node. When provided, new nodes that
- *   don't have a previous slot are inserted before this anchor instead of
- *   using `parent.childNodes[i]`. Used by components and Providers
- *   whose output nodes share a parent with sibling slots.
- * @returns The updated Slot array (replaces `prevSlots`).
+ * Used by `_flushPendingVNodes` in `patch.ts` when committing deferred
+ * updates. The generator-based `reconcileSlotsGen` is used directly
+ * by `mount.ts` via `driveWithContext`.
  */
 export function reconcileSlots(
   parent: HTMLElement | Node,
@@ -400,52 +365,20 @@ export function reconcileSlots(
 /**
  * Reconcile a single child slot against a new VNode.
  *
- * This function implements the full decision tree for one position:
+ * Decision tree: null/false -> empty, string/number -> text,
+ * $shown=false -> empty, Portal -> reconcilePortal,
+ * component -> reconcileComponent, HTML element -> reconcileHTMLElement,
+ * fallback -> buildNode.
  *
- * ```
- * nextChild is null/false?
- *   └─ liveOnlyMode guard → skip or replace with empty
- *
- * nextChild is string/number?
- *   └─ same type (text) → update textContent
- *   └─ different → replace with new TextNode
- *
- * nextChild.$shown === false?
- *   └─ replace with empty placeholder
- *
- * nextChild is component?
- *   └─ same type at same position?
- *     └─ props unchanged (or only $patch changed)?
- *       └─ check consumed contexts → rerender if changed
- *       └─ $patch-only → forward $patch, rerender only if usePatchContext consumed
- *     └─ liveOnlyMode → skip non-live components
- *     └─ Context Provider → reconcile children in place
- *     └─ Component → rerender in place (preserve hook state)
- *   └─ different type → mount fresh component
- *
- * nextChild is HTML element?
- *   └─ same tag → updateProps + reconcile children
- *   └─ different tag → build fresh element
- *
- * Fallback → buildNode (full rebuild)
- * ```
- *
- * **Called by:** `reconcileSlotsGen` — once per position in the child list.
- *
- * @param prevSlot  - The previous Slot at this position, or `undefined` if new.
- * @param nextChild - The new VNode (or primitive/null) for this position.
- * @returns `{ slot, node, replaced }`:
- *   - `slot` — the updated (or new) Slot object.
- *   - `node` — the real DOM node for this slot (or a DocumentFragment for
- *     freshly-mounted components / Providers).
- *   - `replaced` — true if the DOM node changed and needs to be swapped in by the caller.
+ * Returns `{ slot, node, replaced }` where `replaced` is true when the
+ * DOM node changed and needs to be swapped in by the caller.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode type dispatch with many match/replace branches
 function* reconcileOneGen(
   prevSlot: Slot | undefined,
   nextChild: Child,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
-  const ctxMap = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
+  const ctxMap = yield* getContextMap();
 
   // ════════════════════════════════════════════════════════════════════════
   // SECTION: Empty / null
@@ -558,9 +491,9 @@ function* reconcileOneGen(
   // SECTION: Fallback (Fragment or unknown)
   // Full rebuild via buildNode.
   // ════════════════════════════════════════════════════════════════════════
-  const node = drive(ctxMap as CtxMap, buildNode(nextChild)).value;
+  const node = drive(ctxMap, buildNode(nextChild)).value;
   return {
-    slot: { type: (vnode as VNode).type, node, props: {}, childSlots: [] },
+    slot: { type: vnode.type, node, props: {}, childSlots: [] },
     node,
     replaced: true,
   };
@@ -580,7 +513,7 @@ function* reconcileComponent(
   vnode: VNode<Component>,
   allPropsForShown: InternalProps,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
-  const ctxMap = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
+  const ctxMap = yield* getContextMap();
   const allPropsRaw = allPropsForShown;
   // allProps: what the component sees (no $deferred, no $deps)
   const allProps = stripFrameworkDirectives(allPropsRaw);
@@ -690,7 +623,7 @@ function* reconcileComponent(
 
   // Mount fresh component
   const { fragment, componentInstance } = drive(
-    childCtxMap as CtxMap,
+    childCtxMap,
     mountComponent(component, allProps),
   ).value;
   return {
@@ -707,20 +640,14 @@ function* reconcileComponent(
 }
 
 /**
- * Reconcile an HTML element (string tag name like 'div', 'span').
- *
- * Handles same-tag prop updates + child reconciliation, and different-tag
- * fresh element creation.
- *
- * Child reconciliation runs in an isolated context scope via
- * `runToCompletion(reconcileSlotsGen(...), childCtxMap)` so that
- * `$patch`/`$deferred` propagation does not leak to siblings.
+ * Reconcile an HTML element. Same-tag: update props + reconcile children.
+ * Different-tag: build fresh element.
  */
 function* reconcileHTMLElement(
   prevSlot: Slot | undefined,
   vnode: VNode<string>,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
-  const ctxMap = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
+  const ctxMap = yield* getContextMap();
   const childCtxMap = childContextMap(ctxMap, vnode.props);
 
   if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
@@ -799,7 +726,7 @@ function* reconcilePortal(
   prevSlot: Slot | undefined,
   vnode: VNode,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
-  const ctxMap = (yield* getContextMap()) as ReadonlyMap<Context<unknown>, unknown>;
+  const ctxMap = yield* getContextMap();
   const portalContainer = vnode.props["$portalContainer"] as Element;
   const rctx = _requireActiveCtx();
 
