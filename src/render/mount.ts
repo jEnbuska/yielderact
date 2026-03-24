@@ -19,6 +19,7 @@
  */
 
 import {
+  type Context,
   _instanceBatch,
   _resolveCtxValue,
   _withBatch,
@@ -35,13 +36,12 @@ import { applyProps } from "./props";
 import { reconcileSlots } from "./reconciler";
 import { scheduleUpdate } from "./scheduler";
 import {
-  _requireActiveCtx,
-  _setActiveCtx,
-  type ContextGenerator,
+  type RenderGenerator,
+  driveWithContext,
   getContextMap,
-  runWithContext,
   setContext,
-} from "./state";
+} from "./driver";
+import { _requireActiveCtx, _setActiveCtx } from "./state";
 import type { ComponentInstance, RenderContext } from "./types";
 
 /**
@@ -68,7 +68,7 @@ import type { ComponentInstance, RenderContext } from "./types";
  *   a `DocumentFragment` containing the output nodes + endMarker.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode type dispatch with many branches
-export function* buildNode(child: Child): ContextGenerator<Node> {
+export function* buildNode(child: Child): RenderGenerator<Node> {
   if (child == null || typeof child === "boolean") {
     return document.createTextNode("");
   }
@@ -90,13 +90,13 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
     if (child.type === Portal) {
       const portalContainer = child.props["$portalContainer"] as Element;
       for (const c of child.children) {
-        portalContainer.appendChild(runWithContext(map, buildNode(c)));
+        portalContainer.appendChild(driveWithContext(map, buildNode(c)));
       }
       return document.createComment("portal");
     }
     const frag = document.createDocumentFragment();
     for (const c of child.children) {
-      frag.appendChild(runWithContext(map, buildNode(c)));
+      frag.appendChild(driveWithContext(map, buildNode(c)));
     }
     return frag;
   }
@@ -110,9 +110,17 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
   const el = document.createElement(child.type as string);
   applyProps(el, child.props);
   for (const c of child.children) {
-    el.appendChild(runWithContext(map, buildNode(c)));
+    el.appendChild(driveWithContext(map, buildNode(c)));
   }
   return el;
+}
+
+// ── Helpers ──────────────────────────────────────────────────────────────
+
+/** Compute the effective context map for a component's children. */
+function effectiveCtxMap(instance: ComponentInstance): ReadonlyMap<Context<unknown>, unknown> {
+  const ownPatch = getPatchMode(instance.props);
+  return ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx;
 }
 
 // ── Standalone lifecycle functions ────────────────────────────────────────
@@ -130,10 +138,8 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
 function commitOrDefer(instance: ComponentInstance, vnode: Child): void {
   const rctx = instance.renderCtx;
   const parent = instance.endMarker.parentNode as HTMLElement;
-  const ownPatch = getPatchMode(instance.props);
-  const ctxMap =
-    ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx;
-  const effectiveBatch = ownPatch ?? _instanceBatch(instance.capturedCtx);
+  const ctxMap = effectiveCtxMap(instance);
+  const effectiveBatch = getPatchMode(instance.props) ?? _instanceBatch(instance.capturedCtx);
   const shouldDefer =
     (rctx.patchDepth > 0 || instance.localPatchRefCount > 0) && effectiveBatch !== "live";
   if (shouldDefer) {
@@ -174,15 +180,7 @@ function resumeInstance(instance: ComponentInstance): void {
   if (!instance.endMarker.parentNode) return;
   _setActiveCtx(instance.renderCtx);
 
-  // Compute effective context: inherited context + own $patch applied for children.
-  const ownPatchResume = getPatchMode(instance.props);
-  const effectiveCtxMap =
-    ownPatchResume !== undefined
-      ? _withBatch(instance.capturedCtx, ownPatchResume)
-      : instance.capturedCtx;
-
-  const { vnode } = resumeGenerator(instance, instance.rerender, instance._resume, effectiveCtxMap);
-
+  const { vnode } = resumeGenerator(instance, instance.rerender, instance._resume, effectiveCtxMap(instance));
   commitOrDefer(instance, vnode);
 }
 
@@ -218,7 +216,60 @@ function resumeInstance(instance: ComponentInstance): void {
  * @returns An object with `promise` (resolves when done) and `fragment`
  *   (the initial mount fragment, only meaningful when `initiallyMounted=false`).
  */
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: generator lifecycle with retry, defer, and reconciliation
+/**
+ * Run the component generator through hooks, handling mid-render retries.
+ *
+ * Returns the produced VNode and effective context map. Does NOT commit
+ * or reconcile — the caller decides what to do with the output.
+ */
+function runComponentRender(instance: ComponentInstance): { vnode: Child; ctxMap: ReadonlyMap<Context<unknown>, unknown> } {
+  const rctx = instance.renderCtx;
+
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    instance.isRendering = true;
+    instance.gen = undefined;
+    instance.pendingEffects.length = 0;
+    instance.consumedContexts.clear();
+    instance.providedContexts.clear();
+
+    const ctxMap = effectiveCtxMap(instance);
+
+    let vnode: Child;
+    let cancelled = false;
+    const prevRenderingPriority = rctx.renderingPriority;
+    rctx.renderingPriority = instance.priority;
+    try {
+      const gen = instance.component(instance.props, instance.rerender);
+      const result = runHooks(gen, instance, instance.rerender, instance._resume, ctxMap);
+      instance.gen = result.gen;
+      vnode = result.vnode;
+      cancelled = result.cancelled;
+    } finally {
+      instance.isRendering = false;
+      rctx.renderingPriority = prevRenderingPriority;
+    }
+
+    if (!cancelled) {
+      // Recompute — useSetContext may have updated capturedCtx during hooks.
+      return { vnode, ctxMap: effectiveCtxMap(instance) };
+    }
+
+    // Cancelled: mid-render setState detected. Revert effect deps and retry.
+    for (const pe of instance.pendingEffects) {
+      const state = instance.hookStates[pe.hookIndex];
+      if (state !== undefined && state.kind === $USE_EFFECT) {
+        state.deps = [];
+      }
+    }
+    instance.pendingRerender = false;
+  }
+}
+
+/**
+ * Execute a full render cycle: run the component, commit the output,
+ * and handle follow-up rerenders.
+ */
 function executeRerender(
   instance: ComponentInstance,
   initiallyMounted: boolean,
@@ -229,71 +280,14 @@ function executeRerender(
 
   // eslint-disable-next-line no-constant-condition
   while (true) {
-    instance.isRendering = true;
-    // Discard any paused generator; the fresh run starts from the top.
-    instance.gen = undefined;
-    instance.pendingEffects.length = 0;
+    const { vnode, ctxMap } = runComponentRender(instance);
 
-    // Reset consumed-context tracking so the new render records a fresh set.
-    instance.consumedContexts.clear();
-    instance.providedContexts.clear();
-
-    // Compute effective context: inherited context + own $patch for children.
-    const ownPatch = getPatchMode(instance.props);
-    let effectiveCtxMap =
-      ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx;
-
-    let vnode: Child;
-    let cancelled = false;
-    const prevRenderingPriority = rctx.renderingPriority;
-    rctx.renderingPriority = instance.priority;
-    try {
-      const gen = instance.component(instance.props, instance.rerender);
-      const result = runHooks(gen, instance, instance.rerender, instance._resume, effectiveCtxMap);
-      instance.gen = result.gen;
-      vnode = result.vnode;
-      cancelled = result.cancelled;
-    } finally {
-      instance.isRendering = false;
-      rctx.renderingPriority = prevRenderingPriority;
-    }
-
-    // Recompute effective context — useSetContext may have updated capturedCtx.
-    effectiveCtxMap =
-      ownPatch !== undefined ? _withBatch(instance.capturedCtx, ownPatch) : instance.capturedCtx;
-
-    if (cancelled) {
-      // Revert deps for effects queued during this cancelled render so the
-      // retry re-queues them (their deps in hookStates already match).
-      for (const pe of instance.pendingEffects) {
-        const state = instance.hookStates[pe.hookIndex];
-        if (state !== undefined && state.kind === $USE_EFFECT) {
-          state.deps = [];
-        }
-      }
-      // A mid-render setState was queued — retry with the accumulated state.
-      instance.pendingRerender = false;
-      continue;
-    }
-
-    // ── Commit ──
     if (!mounted) {
-      // Initial mount: build DOM into a DocumentFragment via reconcileSlots.
-      // The endMarker is pre-appended so it serves as the insertion anchor.
-      // Temporarily disable liveOnlyMode — fresh mounts always create real
-      // nodes (matching the old buildVNodeList behavior which had no
-      // liveOnlyMode guards).
       initialFragment = document.createDocumentFragment();
       initialFragment.appendChild(instance.endMarker);
       const prevLiveOnly = rctx.liveOnlyMode;
       rctx.liveOnlyMode = false;
-      instance.slots = reconcileSlots(
-        initialFragment,
-        [],
-        [vnode],
-        instance.endMarker,
-        effectiveCtxMap,
-      );
+      instance.slots = reconcileSlots(initialFragment, [], [vnode], instance.endMarker, ctxMap);
       rctx.liveOnlyMode = prevLiveOnly;
       mounted = true;
       flushEffects(instance);
@@ -301,15 +295,9 @@ function executeRerender(
       commitOrDefer(instance, vnode);
     }
 
-    // Resolve all Promise<void>s returned by setState calls that were
-    // queued during this render batch.
     const resolvers = instance.renderResolvers.splice(0);
     for (const resolve of resolvers) resolve();
 
-    // A follow-up rerender may have been requested (e.g. from an effect or
-    // an async callback that fired synchronously after resolve()).
-    // Guard against zombie rerenders: if the component was unmounted during
-    // this render cycle (e.g. by an effect), bail out.
     if (mounted && !instance.endMarker.parentNode) {
       return { promise: Promise.resolve(), fragment: initialFragment };
     }
@@ -317,7 +305,6 @@ function executeRerender(
       instance.pendingRerender = false;
       continue;
     }
-
     return { promise: Promise.resolve(), fragment: initialFragment };
   }
 }
@@ -387,7 +374,7 @@ function rerenderInstance(instance: ComponentInstance): Promise<void> {
 export function* mountComponent(
   component: Component,
   props: InternalProps,
-): ContextGenerator<{ fragment: DocumentFragment; componentInstance: ComponentInstance }> {
+): RenderGenerator<{ fragment: DocumentFragment; componentInstance: ComponentInstance }> {
   const ctxMap = yield* getContextMap();
 
   /** The per-root render context, captured from the active context at mount time. */

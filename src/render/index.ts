@@ -1,8 +1,9 @@
 import type { VNode } from "../jsx";
 import { DelegationRoot } from "./delegation";
 import { dispatchDelegatedEvent } from "./dispatch";
+import { driveWithContext } from "./driver";
 import { buildNode } from "./mount";
-import { _setActiveCtx, createRenderContext, runWithContext } from "./state";
+import { _setActiveCtx, createRenderContext } from "./state";
 
 export { buildNode } from "./mount";
 export { commitUIPatch, startUIPatch } from "./patch";
@@ -32,7 +33,7 @@ export function render(vnode: VNode, container: Element): void {
   _setActiveCtx(rctx);
   rctx.isInitialMount = true;
   try {
-    container.appendChild(runWithContext(new Map(), buildNode(vnode)));
+    container.appendChild(driveWithContext(new Map(), buildNode(vnode)));
   } finally {
     rctx.isInitialMount = false;
   }
@@ -76,7 +77,7 @@ export function createRoot(container: Element): Root {
       _setActiveCtx(rctx);
       rctx.isInitialMount = true;
       try {
-        container.appendChild(runWithContext(new Map(), buildNode(vnode)));
+        container.appendChild(driveWithContext(new Map(), buildNode(vnode)));
       } finally {
         rctx.isInitialMount = false;
       }
