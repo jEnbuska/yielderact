@@ -4,6 +4,7 @@ import {
   _withPriority,
   type Context,
   PriorityContext,
+  providerContexts,
 } from "../context";
 import type { Renderable } from "../hooks";
 import {
@@ -31,6 +32,11 @@ export function isVNode(child: Child): child is VNode {
 /** Narrows a VNode to a component node (`VNode<Component>`). */
 export function isComponentNode(vnode: VNode): vnode is VNode<Component> {
   return typeof vnode.type === "function";
+}
+
+/** Type guard: returns true when the node is a context Provider. */
+export function isContextProvider(node: { type: unknown }): node is { type: symbol } {
+  return typeof node.type === "symbol" && providerContexts.has(node.type);
 }
 
 /** Narrows a VNode to an HTML element node (`VNode<string>`). */

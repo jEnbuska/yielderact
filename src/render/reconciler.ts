@@ -47,6 +47,7 @@ import {
   flattenChildren,
   getPatchMode,
   isComponentNode,
+  isContextProvider,
   isElementNode,
   isVNode,
   mergedProps,
@@ -533,9 +534,9 @@ function* reconcileOneGen(
   // ════════════════════════════════════════════════════════════════════════
   // SECTION: Provider (symbol-typed context provider)
   // ════════════════════════════════════════════════════════════════════════
-  const providerCtx = typeof vnode.type === "symbol" ? providerContexts.get(vnode.type) : undefined;
-  if (providerCtx) {
-    return yield* reconcileProvider(prevSlot, vnode, providerCtx, ctxMap);
+  if (isContextProvider(vnode)) {
+    const ctx = providerContexts.get(vnode.type) as Context<unknown>;
+    return yield* reconcileProvider(prevSlot, vnode, ctx, ctxMap);
   }
 
   // ════════════════════════════════════════════════════════════════════════

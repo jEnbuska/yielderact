@@ -41,6 +41,7 @@ import { _createStateSetter, _processState } from "../hooks/useState";
 import { _processUIPatch } from "../hooks/useUIPatch";
 import type { Child } from "../jsx";
 import { releasePortalDelegation } from "./delegation";
+import { isContextProvider } from "./helpers";
 import { _flushPendingVNodes } from "./patch";
 import { clearRef } from "./props";
 import type { ComponentInstance, HookState, Slot } from "./types";
@@ -552,7 +553,7 @@ export function propagateContextUpdate(
 ): void {
   for (const slot of slots) {
     // Stop at an inner Provider for the same context – it overrides the outer value.
-    if (typeof slot.type === "symbol" && providerContexts.get(slot.type) === ctx) {
+    if (isContextProvider(slot) && providerContexts.get(slot.type) === ctx) {
       continue;
     }
 

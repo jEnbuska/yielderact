@@ -28,7 +28,13 @@ import {
 import { $USE_EFFECT } from "../hooks/descriptors";
 import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
 import { InvalidChildError } from "./errors";
-import { getPatchMode, isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
+import {
+  getPatchMode,
+  isComponentNode,
+  isContextProvider,
+  mergedProps,
+  stripFrameworkDirectives,
+} from "./helpers";
 import { flushEffects, resumeGenerator, runHooks } from "./hooks-runtime";
 import { isPatchActive } from "./patch-queue";
 import { applyProps } from "./props";
@@ -83,16 +89,15 @@ export function* buildNode(child: Child): ContextGenerator<Node> {
   if ($patch) yield* setContext(BatchContext, () => $patch);
   if ($deferred) yield* setContext(PriorityContext, (current) => current + 1);
 
-  // Provider symbol — set context value and render children.
-  const providerCtx = typeof child.type === "symbol" ? providerContexts.get(child.type) : undefined;
-  if (providerCtx) {
-    yield* setContext(providerCtx, () => child.props["value"]);
+  if (isContextProvider(child)) {
+    const ctx = providerContexts.get(child.type) as Context<unknown>;
+    yield* setContext(ctx, () => child.props["value"]);
   }
 
   const effectiveProps = isComponentNode(child) ? mergedProps(child) : child.props;
   const map = yield* getContextMap();
 
-  if (child.type === Fragment || providerCtx || child.type === Portal) {
+  if (child.type === Fragment || isContextProvider(child) || child.type === Portal) {
     if (child.type === Portal) {
       const portalContainer = child.props["$portalContainer"] as Element;
       for (const c of child.children) {
