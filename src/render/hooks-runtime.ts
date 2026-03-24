@@ -574,7 +574,7 @@ function propagateContextUpdate(ctx: Context<unknown>, newValue: unknown, slots:
       if (inst.consumedContexts.has(ctx) && !_hasStableSelectors(inst, ctx, newValue)) {
         // Re-render this consumer.  rerender() calls reconcileSlots on its
         // children with the updated capturedCtx, so we don't recurse further.
-        inst.rerender();
+        void inst.rerender();
       } else {
         // This component doesn't consume the context (or all its selectors
         // are stable), but its rendered children might.  Recurse into its

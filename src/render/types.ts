@@ -506,12 +506,27 @@ export interface ComponentInstance {
   finalHookCount?: number;
 
   /**
+   * Resume a paused generator (e.g. inside `useResolve` or `useRender`).
+   *
+   * Called when the pending operation completes — `useResolve`'s promise
+   * resolves, or `useRender`'s `resumeCallback` is invoked. Advances the
+   * generator one step via `gen.next()` and reconciles the resulting VNode.
+   *
+   * **Called by:**
+   * - `useRender`'s `resumeCallback` (registered in `processOneDescriptor`).
+   * - `useResolve`'s promise `.then()` handler (indirectly via rerender,
+   *   but `_resume` is for mid-generator continuation specifically).
+   * @internal
+   */
+  _resume: () => void;
+
+  /**
    * Execute a rerender directly, bypassing the scheduling logic.
    *
    * Called by the priority scheduler to process an instance during a
    * scheduled priority pass. Unlike `rerender()`, this does NOT check
    * `isPatchActive()` or go through `scheduleUpdate()` — it always
-   * runs `executeRerender(true)` synchronously.
+   * runs the rerender synchronously.
    *
    * **Called by:** `_processPendingUpdates` in `scheduler.ts`.
    * @internal
@@ -529,9 +544,8 @@ export interface ComponentInstance {
    * - `propagateContextUpdate` — when an ancestor Provider value changes
    *   and this instance consumes the affected context.
    *
-   * **Implementation:** defined as a closure in `mountComponent`
-   * that calls `executeRerender(true)` if not currently rendering, or sets
-   * `pendingRerender = true` if a render is already in progress.
+   * **Implementation:** calls `executeRerender` if not currently rendering,
+   * or sets `pendingRerender = true` if a render is already in progress.
    */
-  rerender: () => void;
+  rerender: () => Promise<void>;
 }

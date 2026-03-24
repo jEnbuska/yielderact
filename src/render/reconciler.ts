@@ -616,7 +616,7 @@ function* reconcileComponent(
         if (inst.consumedContexts.has(BatchContext)) {
           prevSlot.props = slotProps;
           inst.capturedCtx = _withBatch(inst.capturedCtx, currentBatch);
-          inst.rerender();
+          void inst.rerender();
           return { slot: prevSlot, node: prevSlot.node, replaced: false };
         }
       }
@@ -639,7 +639,7 @@ function* reconcileComponent(
         if (contextChanged) {
           inst.capturedCtx = childCtxMap;
           inst.priority = _resolveCtxValue(childCtxMap, PriorityContext);
-          inst.rerender();
+          void inst.rerender();
         } else {
           inst.capturedCtx = _withBatch(inst.capturedCtx, currentBatch);
         }
@@ -673,7 +673,7 @@ function* reconcileComponent(
         prevSlot.componentInstance.capturedCtx,
         currentBatch,
       );
-      prevSlot.componentInstance.rerender();
+      void prevSlot.componentInstance.rerender();
       prevSlot.props = slotProps;
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
