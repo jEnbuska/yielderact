@@ -151,31 +151,34 @@ function resumeInstance(instance: ComponentInstance): void {
 }
 
 /**
- * Run the component generator through hooks, handling mid-render retries.
+ * Execute a full render cycle as a generator.
  *
- * Returns the produced VNode and effective context map. Does NOT commit
- * or reconcile — the caller decides what to do with the output.
+ * One loop handles: run hooks → check cancelled → commit/defer →
+ * resolve promises → check pendingRerender → return or retry.
  */
-function runComponentRender(instance: ComponentInstance): {
-  vnode: Child;
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>;
-} {
+// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: component lifecycle with retry and commit
+function* executeRerender(
+  instance: ComponentInstance,
+  initiallyMounted: boolean,
+): RenderGenerator<DocumentFragment> {
   const rctx = instance.renderCtx;
+  let mounted = initiallyMounted;
+  let initialFragment = document.createDocumentFragment();
 
   while (true) {
+    // ── Run hooks ──
     instance.isRendering = true;
     instance.gen = undefined;
     instance.pendingEffects.length = 0;
     instance.consumedContexts.clear();
     instance.providedContexts.clear();
 
-    const ctxMap = effectiveCtxMap(instance);
-
     let vnode: Child;
     let cancelled = false;
     const prevRenderingPriority = rctx.renderingPriority;
     rctx.renderingPriority = instance.priority;
     try {
+      const ctxMap = effectiveCtxMap(instance);
       const gen = instance.component(instance.props, instance.rerender);
       const result = runHooks(gen, instance, instance.rerender, instance._resume, ctxMap);
       instance.gen = result.gen;
@@ -186,44 +189,28 @@ function runComponentRender(instance: ComponentInstance): {
       rctx.renderingPriority = prevRenderingPriority;
     }
 
-    if (!cancelled) {
-      // Recompute — useSetContext may have updated capturedCtx during hooks.
-      return { vnode, ctxMap: effectiveCtxMap(instance) };
-    }
-
-    // Cancelled: mid-render setState detected. Revert effect deps and retry.
-    for (const pe of instance.pendingEffects) {
-      const state = instance.hookStates[pe.hookIndex];
-      if (state !== undefined && state.kind === $USE_EFFECT) {
-        state.deps = [];
+    // ── Mid-render setState → revert effect deps and retry ──
+    if (cancelled) {
+      for (const pe of instance.pendingEffects) {
+        const state = instance.hookStates[pe.hookIndex];
+        if (state !== undefined && state.kind === $USE_EFFECT) {
+          state.deps = [];
+        }
       }
+      instance.pendingRerender = false;
+      continue;
     }
-    instance.pendingRerender = false;
-  }
-}
 
-/**
- * Execute a full render cycle as a generator, handling initial mount,
- * rerenders, follow-up rerenders, and mid-render retries.
- */
-function* executeRerender(
-  instance: ComponentInstance,
-  initiallyMounted: boolean,
-): RenderGenerator<DocumentFragment> {
-  const rctx = instance.renderCtx;
-  let mounted = initiallyMounted;
-  let initialFragment = document.createDocumentFragment();
-
-  while (true) {
-    const { vnode, ctxMap } = runComponentRender(instance);
-
+    // ── Commit ──
+    // Recompute ctxMap — useSetContext may have updated capturedCtx.
+    const commitCtxMap = effectiveCtxMap(instance);
     if (!mounted) {
       initialFragment = document.createDocumentFragment();
       initialFragment.appendChild(instance.endMarker);
       const prevLiveOnly = rctx.liveOnlyMode;
       rctx.liveOnlyMode = false;
       instance.slots = yield* driveWithContext(
-        ctxMap,
+        commitCtxMap,
         reconcileSlotsGen(initialFragment, [], [vnode], instance.endMarker),
       );
       rctx.liveOnlyMode = prevLiveOnly;
@@ -233,9 +220,11 @@ function* executeRerender(
       yield* commitOrDefer(instance, vnode);
     }
 
+    // ── Resolve setState promises ──
     const resolvers = instance.renderResolvers.splice(0);
     for (const resolve of resolvers) resolve();
 
+    // ── Follow-up rerender or return ──
     if (mounted && !instance.endMarker.parentNode) return initialFragment;
     if (instance.pendingRerender) {
       instance.pendingRerender = false;
