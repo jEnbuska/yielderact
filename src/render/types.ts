@@ -479,7 +479,6 @@ export interface ComponentInstance {
    * - The scheduler — to determine which priority pass the component belongs to.
    * - `rerender()` — to tag setState calls with the owner's priority when
    *   called outside of a render phase.
-   * - The reconciler — updated when `$deferred` context changes.
    */
   priority: number;
 
