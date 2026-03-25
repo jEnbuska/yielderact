@@ -337,6 +337,9 @@ export interface ComponentInstance {
    */
   localPatchRefCount: number;
 
+  /** True after the initial render has been committed to the DOM. */
+  mounted: boolean;
+
   /**
    * True while the component's generator body is executing synchronously.
    *
@@ -380,18 +383,11 @@ export interface ComponentInstance {
    */
   finalHookCount?: number;
 
-  /**
-   * Resume a paused generator. Bound closure over `resumeInstance`.
-   * @internal
-   */
-  _resume: () => void;
+  /** Resume a paused generator. Bound closure over `resumeInstance`. */
+  resume: () => void;
 
-  /**
-   * Execute a rerender directly, bypassing scheduling. Called by the
-   * priority scheduler.
-   * @internal
-   */
-  _executeRerender: () => Promise<void>;
+  /** Execute a rerender directly, bypassing scheduling. Called by the priority scheduler. */
+  executeRerender: () => Promise<void>;
 
   /**
    * Triggers a re-render. Bound closure over `rerenderInstance`.

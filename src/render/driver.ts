@@ -22,7 +22,7 @@ import type { RenderContext } from "./types";
 const $SET_CONTEXT = Symbol("SET_CONTEXT");
 const $GET_CONTEXT_MAP = Symbol("GET_CONTEXT_MAP");
 
-type CtxMap = ReadonlyMap<Context<unknown>, unknown>;
+export type CtxMap = ReadonlyMap<Context<unknown>, unknown>;
 
 /** Any generator that participates in the render pipeline. */
 export type RenderGenerator<TReturn> = Generator<unknown, TReturn, unknown>;
