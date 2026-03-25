@@ -1,5 +1,4 @@
 import { useEffect, useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -24,10 +23,10 @@ describe("render – useEffect", () => {
         calls.push("effect");
         return undefined;
       }, []);
-      return createElement("span", {}, "hi");
+      return <span>hi</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(calls).toEqual(["effect"]);
   });
 
@@ -42,10 +41,10 @@ describe("render – useEffect", () => {
         calls.push("effect");
         return undefined;
       }, []); // empty deps — should only run once
-      return createElement("span", {}, String(count));
+      return <span>{String(count)}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(calls).toEqual(["effect"]);
 
     setCount(1);
@@ -64,10 +63,10 @@ describe("render – useEffect", () => {
         log.push(`effect:${id}`);
         return () => log.push(`cleanup:${id}`);
       }, [id]);
-      return createElement("span", {}, String(id));
+      return <span>{String(id)}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(log).toEqual(["effect:1"]);
 
     setId(2);
@@ -86,16 +85,16 @@ describe("render – useEffect", () => {
         log.push("mount");
         return () => log.push("unmount");
       }, []);
-      return createElement("span", {}, "inner");
+      return <span>inner</span>;
     }
 
     function* Outer() {
       const [show, ss] = yield* useState(true);
       setShow = ss;
-      return show ? createElement(Inner as never, {}) : null;
+      return show ? <Inner /> : null;
     }
 
-    render(createElement(Outer as never, {}), container);
+    render(<Outer />, container);
     expect(log).toEqual(["mount"]);
 
     setShow(false);
@@ -117,7 +116,7 @@ describe("render – useEffect", () => {
         }) as null;
         return caps as unknown as string;
       })();
-      return createElement("span", {}, answer);
+      return <span>{answer}</span>;
     }
 
     // We cannot easily test useRender interaction without full plumbing,
@@ -129,10 +128,10 @@ describe("render – useEffect", () => {
         log.push("ran");
         return undefined;
       }, []);
-      return createElement("span", {}, "ok");
+      return <span>ok</span>;
     }
 
-    render(createElement(Simple as never, {}), container);
+    render(<Simple />, container);
     expect(log).toEqual(["ran"]);
     void Comp; // silence unused warning
   });
@@ -145,10 +144,10 @@ describe("render – useEffect", () => {
         receivedSignal = signal;
         return undefined;
       }, []);
-      return createElement("span", {}, "hi");
+      return <span>hi</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(receivedSignal).toBeInstanceOf(AbortSignal);
     expect((receivedSignal as unknown as AbortSignal).aborted).toBe(false);
   });
@@ -167,10 +166,10 @@ describe("render – useEffect", () => {
         },
         [id],
       );
-      return createElement("span", {}, String(id));
+      return <span>{String(id)}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(signals).toHaveLength(1);
     expect(signals[0]?.aborted).toBe(false);
 
@@ -190,16 +189,16 @@ describe("render – useEffect", () => {
         capturedSignal = signal;
         return undefined;
       }, []);
-      return createElement("span", {}, "inner");
+      return <span>inner</span>;
     }
 
     function* Outer() {
       const [show, ss] = yield* useState(true);
       setShow = ss;
-      return show ? createElement(Inner as never, {}) : null;
+      return show ? <Inner /> : null;
     }
 
-    render(createElement(Outer as never, {}), container);
+    render(<Outer />, container);
     expect(capturedSignal).toBeInstanceOf(AbortSignal);
     expect((capturedSignal as unknown as AbortSignal).aborted).toBe(false);
 
@@ -222,10 +221,10 @@ describe("render – useEffect", () => {
         },
         [id],
       );
-      return createElement("span", {}, String(id));
+      return <span>{String(id)}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     setId(2);
     expect(log).toEqual(["cleanup:1:aborted=true"]);
   });

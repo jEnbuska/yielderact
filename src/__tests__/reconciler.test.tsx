@@ -1,5 +1,4 @@
 import { useState } from "../hooks";
-import { createElement, Fragment } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -26,15 +25,19 @@ describe("prop memoization", () => {
 
     function* Child({ label }: { label: string }) {
       mountCount++;
-      return createElement("span", null, label);
+      return <span>{label}</span>;
     }
 
     function* Parent(_: Record<string, unknown>, rerender: () => void) {
       parentRerender = rerender;
-      return createElement("div", null, createElement(Child as never, { label: "hello" }));
+      return (
+        <div>
+          <Child label="hello" />
+        </div>
+      );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(mountCount).toBe(1);
     expect(container.querySelector("span")?.textContent).toBe("hello");
 
@@ -50,20 +53,20 @@ describe("prop memoization", () => {
 
     function* Child({ label }: { label: string }) {
       mountCount++;
-      return createElement("span", null, label);
+      return <span>{label}</span>;
     }
 
     function* Parent() {
       const [phase, sp] = yield* useState(0);
       setPhase = sp;
-      return createElement(
-        "div",
-        null,
-        createElement(Child as never, { label: phase === 0 ? "first" : "second" }),
+      return (
+        <div>
+          <Child label={phase === 0 ? "first" : "second"} />
+        </div>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(mountCount).toBe(1);
     expect(container.querySelector("span")?.textContent).toBe("first");
 
@@ -91,27 +94,35 @@ describe("component renders component", () => {
 
   it("renders a component child", () => {
     function* Greeting({ name }: { name: string }) {
-      return createElement("h1", null, `Hello, ${name}!`);
+      return <h1>Hello, {name}!</h1>;
     }
 
     function* App() {
-      return createElement("div", null, createElement(Greeting as never, { name: "World" }));
+      return (
+        <div>
+          <Greeting name="World" />
+        </div>
+      );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(container.querySelector("h1")?.textContent).toBe("Hello, World!");
   });
 
   it("renders a component child with yield*", () => {
     function* Label({ text }: { text: string }) {
-      return createElement("em", null, text);
+      return <em>{text}</em>;
     }
 
     function* App() {
-      return createElement("div", null, createElement(Label as never, { text: "from-child" }));
+      return (
+        <div>
+          <Label text="from-child" />
+        </div>
+      );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(container.querySelector("em")?.textContent).toBe("from-child");
   });
 
@@ -122,15 +133,19 @@ describe("component renders component", () => {
     function* Counter() {
       const [count, setCount] = yield* useState(0);
       incrementCounter = () => setCount(count + 1);
-      return createElement("span", { id: "counter" }, String(count));
+      return <span id="counter">{String(count)}</span>;
     }
 
     function* Wrapper(_: Record<string, unknown>, rerender: () => void) {
       parentRerender = rerender;
-      return createElement("div", null, createElement(Counter as never, {}));
+      return (
+        <div>
+          <Counter />
+        </div>
+      );
     }
 
-    render(createElement(Wrapper as never, {}), container);
+    render(<Wrapper />, container);
     expect(container.querySelector("#counter")?.textContent).toBe("0");
 
     // Increment child
@@ -147,23 +162,19 @@ describe("component renders component", () => {
     let setPhase: (v: number) => void = () => {};
 
     function* CompA() {
-      return createElement("span", { id: "a" }, "A");
+      return <span id="a">A</span>;
     }
     function* CompB() {
-      return createElement("span", { id: "b" }, "B");
+      return <span id="b">B</span>;
     }
 
     function* Parent() {
       const [phase, sp] = yield* useState(0);
       setPhase = sp;
-      return createElement(
-        "div",
-        null,
-        phase === 0 ? createElement(CompA as never, {}) : createElement(CompB as never, {}),
-      );
+      return <div>{phase === 0 ? <CompA /> : <CompB />}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector("#a")).not.toBeNull();
     expect(container.querySelector("#b")).toBeNull();
 
@@ -178,12 +189,10 @@ describe("component renders component", () => {
     function* App() {
       const [step, ss] = yield* useState(0);
       setStep = ss;
-      return step === 0
-        ? createElement("p", { className: "first" }, "hello")
-        : createElement("p", { className: "second" }, "world");
+      return step === 0 ? <p className="first">hello</p> : <p className="second">world</p>;
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     const p = container.querySelector("p") as HTMLParagraphElement;
     expect(p.className).toBe("first");
     expect(p.textContent).toBe("hello");
@@ -197,22 +206,22 @@ describe("component renders component", () => {
 
   it("renders Fragment with multiple component children", () => {
     function* A() {
-      return createElement("span", { id: "a" }, "A");
+      return <span id="a">A</span>;
     }
     function* B() {
-      return createElement("span", { id: "b" }, "B");
+      return <span id="b">B</span>;
     }
 
     function* App() {
-      return createElement(
-        Fragment,
-        null,
-        createElement(A as never, {}),
-        createElement(B as never, {}),
+      return (
+        <>
+          <A />
+          <B />
+        </>
       );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(container.querySelector("#a")?.textContent).toBe("A");
     expect(container.querySelector("#b")?.textContent).toBe("B");
   });

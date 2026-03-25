@@ -1,5 +1,4 @@
 import { useMemo, useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -22,10 +21,10 @@ describe("useMemo", () => {
 
     function* Comp() {
       capturedValue = yield* useMemo(factory, [2, 3]);
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(factory).toHaveBeenCalledTimes(1);
     expect(factory).toHaveBeenCalledWith(2, 3);
     expect(capturedValue).toBe(5);
@@ -39,10 +38,10 @@ describe("useMemo", () => {
       const [v, sv] = yield* useState(10);
       setValue = sv;
       yield* useMemo(factory, [5]);
-      return createElement("div", null, String(v));
+      return <div>{String(v)}</div>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     setValue(20); // trigger re-render, same dep [5]
 
     expect(factory).toHaveBeenCalledTimes(1);
@@ -57,10 +56,10 @@ describe("useMemo", () => {
       const [v, sv] = yield* useState(1);
       setValue = sv;
       capturedValue = yield* useMemo(factory, [v]);
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(capturedValue).toBe(2);
     expect(factory).toHaveBeenCalledTimes(1);
 
@@ -79,10 +78,10 @@ describe("useMemo", () => {
       const [, sv] = yield* useState(0);
       setValue = sv;
       capturedValue = yield* useMemo(factory, []);
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(capturedValue).toBe(42);
     expect(factory).toHaveBeenCalledTimes(1);
 

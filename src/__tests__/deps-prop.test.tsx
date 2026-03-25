@@ -21,7 +21,7 @@ describe("$deps prop", () => {
 
     function* Child(_props: { data: Record<string, unknown> }) {
       renderCount++;
-      return createElement("p", null, `renders: ${renderCount}`);
+      return <p>{`renders: ${renderCount}`}</p>;
     }
 
     function* Parent() {
@@ -30,17 +30,21 @@ describe("$deps prop", () => {
       const data = { value: count };
       // $deps only depends on count — if count stays the same,
       // child should not rerender even though data is a new object.
-      return createElement("div", null, createElement(Child as never, { data, $deps: [count] }));
+      return (
+        <div>
+          <Child data={data} $deps={[count]} />
+        </div>
+      );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(renderCount).toBe(1);
 
-    // Trigger parent rerender with same count → child should be skipped
+    // Trigger parent rerender with same count -> child should be skipped
     setParentState(0);
     expect(renderCount).toBe(1);
 
-    // Trigger parent rerender with different count → child should rerender
+    // Trigger parent rerender with different count -> child should rerender
     setParentState(1);
     expect(renderCount).toBe(2);
   });
@@ -51,16 +55,16 @@ describe("$deps prop", () => {
 
     function* Child(_props: { a: number; b: number }) {
       renderCount++;
-      return createElement("span", null, `a=${_props.a}`);
+      return <span>{`a=${_props.a}`}</span>;
     }
 
     function* Parent() {
       const [a, setAFn] = yield* useState(1);
       setA = setAFn;
-      return createElement(Child as never, { a, b: 99, $deps: [a] });
+      return <Child a={a} b={99} $deps={[a]} />;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(renderCount).toBe(1);
 
     setA(2);
@@ -74,23 +78,19 @@ describe("$deps prop", () => {
     function* Parent() {
       const [cls, setCls] = yield* useState("cls-a");
       setParentState = setCls;
-      return createElement("div", {
-        className: cls,
-        "data-extra": Math.random().toString(),
-        $deps: [cls],
-      });
+      return <div className={cls} data-extra={Math.random().toString()} $deps={[cls]} />;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     const el = container.querySelector("div") as HTMLElement;
     expect(el.className).toBe("cls-a");
     const extraBefore = el.getAttribute("data-extra");
 
-    // Same cls → $deps unchanged → updateProps skipped → data-extra unchanged
+    // Same cls -> $deps unchanged -> updateProps skipped -> data-extra unchanged
     setParentState("cls-a");
     expect(el.getAttribute("data-extra")).toBe(extraBefore);
 
-    // Different cls → $deps changed → updateProps runs
+    // Different cls -> $deps changed -> updateProps runs
     setParentState("cls-b");
     expect(el.className).toBe("cls-b");
     expect(el.getAttribute("data-extra")).not.toBe(extraBefore);
@@ -102,10 +102,10 @@ describe("$deps prop", () => {
     function* Parent() {
       const [val, setValFn] = yield* useState("hello");
       setVal = setValFn;
-      return createElement("div", { "data-val": val, $deps: [val] });
+      return <div data-val={val} $deps={[val]} />;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect((container.querySelector("div") as HTMLElement).getAttribute("data-val")).toBe("hello");
 
     setVal("world");
@@ -113,7 +113,7 @@ describe("$deps prop", () => {
   });
 
   it("does not set $deps as a DOM attribute", () => {
-    render(createElement("div", { $deps: [1, 2, 3] }), container);
+    render(<div $deps={[1, 2, 3]} />, container);
     const el = container.querySelector("div") as HTMLElement;
     expect(el.hasAttribute("$deps")).toBe(false);
   });
@@ -123,10 +123,10 @@ describe("$deps prop", () => {
 
     function* Child(props: { name: string }) {
       receivedProps = props;
-      return createElement("p", null, props.name);
+      return <p>{props.name}</p>;
     }
 
-    render(createElement(Child as never, { name: "test", $deps: [1] }), container);
+    render(<Child name="test" $deps={[1]} />, container);
     expect(receivedProps["name"]).toBe("test");
     expect("$deps" in receivedProps).toBe(false);
   });
@@ -138,7 +138,7 @@ describe("$deps prop", () => {
 
     function* Child(_props: { val: number }) {
       renderCount++;
-      return createElement("p", null, `${renderCount}`);
+      return <p>{`${renderCount}`}</p>;
     }
 
     function* Parent() {
@@ -151,18 +151,18 @@ describe("$deps prop", () => {
       return createElement(Child as never, props);
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(renderCount).toBe(1);
 
-    // Remove $deps → props differ (prevSlot had $deps, new doesn't) → rerenders
+    // Remove $deps -> props differ (prevSlot had $deps, new doesn't) -> rerenders
     setUseDeps(false);
     expect(renderCount).toBe(2);
 
-    // Now using shallowEqual: same val → skip
+    // Now using shallowEqual: same val -> skip
     setVal(0);
     expect(renderCount).toBe(2);
 
-    // Change val → shallowEqual detects difference → rerender
+    // Change val -> shallowEqual detects difference -> rerender
     setVal(1);
     expect(renderCount).toBe(3);
   });
@@ -171,16 +171,16 @@ describe("$deps prop", () => {
     let setShown: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("p", null, "child");
+      return <p>child</p>;
     }
 
     function* Parent() {
       const [shown, setS] = yield* useState(true);
       setShown = setS;
-      return createElement(Child as never, { $shown: shown, $deps: [] });
+      return <Child $shown={shown} $deps={[]} />;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector("p")).not.toBeNull();
 
     setShown(false);
@@ -196,21 +196,17 @@ describe("$deps prop", () => {
     function* Consumer(_props: { extra: number }) {
       const theme = yield* useContext(ThemeCtx);
       renderCount++;
-      return createElement("span", null, theme);
+      return <span>{theme}</span>;
     }
 
     function* Provider() {
       const [theme, setT] = yield* useState("light");
       setTheme = setT;
       // $deps is stable (empty) but context should still trigger rerender
-      return createElement(Consumer as never, {
-        extra: 42,
-        $deps: [],
-        $context: ThemeCtx(theme),
-      });
+      return <Consumer extra={42} $deps={[]} $context={ThemeCtx(theme)} />;
     }
 
-    render(createElement(Provider as never, {}), container);
+    render(<Provider />, container);
     expect(renderCount).toBe(1);
     expect(container.textContent).toContain("light");
 
@@ -225,10 +221,14 @@ describe("$deps prop", () => {
     function* Parent() {
       const [child, setC] = yield* useState("hello");
       setChild = setC;
-      return createElement("div", { className: "wrapper", $deps: ["stable"] }, child);
+      return (
+        <div className="wrapper" $deps={["stable"]}>
+          {child}
+        </div>
+      );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.textContent).toContain("hello");
 
     setChild("world");

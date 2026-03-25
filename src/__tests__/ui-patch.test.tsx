@@ -1,5 +1,4 @@
 import { useState, useUIPatch } from "../hooks";
-import { createElement } from "../jsx";
 import { commitUIPatch, render, startUIPatch } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -28,10 +27,10 @@ describe("startUIPatch / commitUIPatch (global patch)", () => {
     function* Comp() {
       const [v, sv] = yield* useState("initial");
       setValue = sv;
-      return createElement("span", null, v);
+      return <span>{v}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(container.textContent).toBe("initial");
 
     startUIPatch();
@@ -51,10 +50,10 @@ describe("startUIPatch / commitUIPatch (global patch)", () => {
       const [v, sv] = yield* useState("a");
       setValue = sv;
       renderCalls.push(v);
-      return createElement("span", null, v);
+      return <span>{v}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     renderCalls.length = 0; // reset after initial mount
 
     startUIPatch();
@@ -74,10 +73,10 @@ describe("startUIPatch / commitUIPatch (global patch)", () => {
     function* Comp() {
       const [v, sv] = yield* useState("a");
       setValue = sv;
-      return createElement("span", null, v);
+      return <span>{v}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
 
     startUIPatch();
     startUIPatch();
@@ -95,25 +94,25 @@ describe("startUIPatch / commitUIPatch (global patch)", () => {
     function* Live() {
       const [v, sv] = yield* useState("live-a");
       setLive = sv;
-      return createElement("span", { id: "live" }, v);
+      return <span id="live">{v}</span>;
     }
 
     function* Frozen() {
       const [v, sv] = yield* useState("frozen-a");
       setFrozen = sv;
-      return createElement("span", { id: "frozen" }, v);
+      return <span id="frozen">{v}</span>;
     }
 
     function* App() {
-      return createElement(
-        "div",
-        null,
-        createElement(Live as never, { $patch: "live" }),
-        createElement(Frozen as never, {}),
+      return (
+        <div>
+          <Live $patch="live" />
+          <Frozen />
+        </div>
       );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
 
     startUIPatch();
     setLive("live-b");
@@ -134,16 +133,16 @@ describe("startUIPatch / commitUIPatch (global patch)", () => {
     function* Inner() {
       const [v, sv] = yield* useState("x");
       setValue = sv;
-      return createElement("span", null, v);
+      return <span>{v}</span>;
     }
 
     function* Outer() {
       const [shown, setS] = yield* useState(true);
       setShown = setS;
-      return createElement("div", null, shown ? createElement(Inner as never, {}) : null);
+      return <div>{shown ? <Inner /> : null}</div>;
     }
 
-    render(createElement(Outer as never, {}), container);
+    render(<Outer />, container);
 
     startUIPatch();
     setValue("y"); // Inner is now dirty
@@ -177,16 +176,20 @@ describe("useUIPatch (local patch)", () => {
     function* Child() {
       const [v, sv] = yield* useState("child-a");
       setInner = sv;
-      return createElement("span", { id: "child" }, v);
+      return <span id="child">{v}</span>;
     }
 
     function* Parent() {
       const startPatch = yield* useUIPatch();
       capturedStartPatch = startPatch;
-      return createElement("div", null, createElement(Child as never, {}));
+      return (
+        <div>
+          <Child />
+        </div>
+      );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     capturedCommit = capturedStartPatch();
     setInner("child-b");
@@ -205,25 +208,25 @@ describe("useUIPatch (local patch)", () => {
     function* PatchedArea() {
       const startPatch = yield* useUIPatch();
       capturedStartPatch = startPatch;
-      return createElement("span", { id: "patched" }, "content");
+      return <span id="patched">content</span>;
     }
 
     function* Sibling() {
       const [v, sv] = yield* useState("sib-a");
       setSibling = sv;
-      return createElement("span", { id: "sib" }, v);
+      return <span id="sib">{v}</span>;
     }
 
     function* App() {
-      return createElement(
-        "div",
-        null,
-        createElement(PatchedArea as never, {}),
-        createElement(Sibling as never, {}),
+      return (
+        <div>
+          <PatchedArea />
+          <Sibling />
+        </div>
       );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
 
     const commit = capturedStartPatch();
     setSibling("sib-b");
@@ -245,7 +248,7 @@ describe("useUIPatch (local patch)", () => {
     function* Dynamic() {
       const [v, sv] = yield* useState("dyn-a");
       setDynamic = sv;
-      return createElement("span", { id: "dyn" }, v);
+      return <span id="dyn">{v}</span>;
     }
 
     function* Parent() {
@@ -253,10 +256,10 @@ describe("useUIPatch (local patch)", () => {
       capturedStartPatch = startPatch;
       const [show, setS] = yield* useState(false);
       setShow = setS;
-      return createElement("div", null, show ? createElement(Dynamic as never, {}) : null);
+      return <div>{show ? <Dynamic /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     // Start patch BEFORE Dynamic is mounted
     const commit = capturedStartPatch();
@@ -296,16 +299,16 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     let setShow: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
       const [show, setS] = yield* useState(true);
       setShow = setS;
-      return createElement("div", null, show ? createElement(Child as never, {}) : null);
+      return <div>{show ? <Child /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector("#target")).not.toBeNull();
 
     startUIPatch();
@@ -321,20 +324,16 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     let setShow: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
       const [show, setS] = yield* useState(true);
       setShow = setS;
-      return createElement(
-        "div",
-        null,
-        show ? createElement(Child as never, { $patch: "live" }) : null,
-      );
+      return <div>{show ? <Child $patch="live" /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector("#target")).not.toBeNull();
 
     startUIPatch();
@@ -351,20 +350,16 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     let setShow: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
       const [show, setS] = yield* useState(true);
       setShow = setS;
-      return createElement(
-        "div",
-        { $patch: "live" },
-        show ? createElement(Child as never, {}) : null,
-      );
+      return <div $patch="live">{show ? <Child /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     startUIPatch();
     setShow(false);
@@ -378,20 +373,20 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     let setShow: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
       const [show, setS] = yield* useState(true);
       setShow = setS;
-      return createElement(
-        "div",
-        null,
-        createElement(Child as never, { $shown: show, $patch: "live" }),
+      return (
+        <div>
+          <Child $shown={show} $patch="live" />
+        </div>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector("#target")).not.toBeNull();
 
     startUIPatch();
@@ -407,16 +402,20 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     let setShow: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
       const [show, setS] = yield* useState(true);
       setShow = setS;
-      return createElement("div", null, createElement(Child as never, { $shown: show }));
+      return (
+        <div>
+          <Child $shown={show} />
+        </div>
+      );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     startUIPatch();
     setShow(false);
@@ -432,16 +431,16 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     let setShow: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
       const [show, setS] = yield* useState(false);
       setShow = setS;
-      return createElement("div", null, show ? createElement(Child as never, {}) : null);
+      return <div>{show ? <Child /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector("#target")).toBeNull();
 
     startUIPatch();
@@ -457,20 +456,16 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     let setShow: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
       const [show, setS] = yield* useState(false);
       setShow = setS;
-      return createElement(
-        "div",
-        null,
-        show ? createElement(Child as never, { $patch: "live" }) : null,
-      );
+      return <div>{show ? <Child $patch="live" /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     startUIPatch();
     setShow(true);
@@ -486,20 +481,16 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     let setShow: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
       const [show, setS] = yield* useState(false);
       setShow = setS;
-      return createElement(
-        "div",
-        { $patch: "live" },
-        show ? createElement(Child as never, {}) : null,
-      );
+      return <div $patch="live">{show ? <Child /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     startUIPatch();
     setShow(true);
@@ -513,20 +504,20 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     let setShow: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
       const [show, setS] = yield* useState(false);
       setShow = setS;
-      return createElement(
-        "div",
-        null,
-        createElement(Child as never, { $shown: show, $patch: "live" }),
+      return (
+        <div>
+          <Child $shown={show} $patch="live" />
+        </div>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector("#target")).toBeNull();
 
     startUIPatch();
@@ -543,16 +534,16 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     let setShow: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
       const [show, setS] = yield* useState(true);
       setShow = setS;
-      return createElement("div", null, show ? createElement(Child as never, {}) : null);
+      return <div>{show ? <Child /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     startUIPatch();
     setShow(false); // remove — frozen, stays visible
@@ -569,20 +560,16 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     let setShow: (v: boolean) => void = () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
       const [show, setS] = yield* useState(true);
       setShow = setS;
-      return createElement(
-        "div",
-        null,
-        show ? createElement(Child as never, { $patch: "live" }) : null,
-      );
+      return <div>{show ? <Child $patch="live" /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     startUIPatch();
     setShow(false); // live remove → gone immediately
@@ -602,10 +589,10 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     function* Parent() {
       const [v, setV] = yield* useState("a");
       setValue = setV;
-      return createElement("div", { $patch: "live" }, v);
+      return <div $patch="live">{v}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     startUIPatch();
     setValue("b");
@@ -621,10 +608,10 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     function* Parent() {
       const [v, setV] = yield* useState("a");
       setValue = setV;
-      return createElement("span", null, v);
+      return <span>{v}</span>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     startUIPatch();
     setValue("b");
@@ -643,20 +630,20 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     function* Child() {
       const [v, setV] = yield* useState("a");
       setValue = setV;
-      return createElement("span", { id: "target" }, v);
+      return <span id="target">{v}</span>;
     }
 
     function* Parent() {
       const [live, setLive_] = yield* useState(false);
       setLive = setLive_;
-      return createElement(
-        "div",
-        null,
-        createElement(Child as never, { $patch: live ? "live" : "default" }),
+      return (
+        <div>
+          <Child $patch={live ? "live" : "default"} />
+        </div>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector("#target")?.textContent).toBe("a");
 
     startUIPatch();
@@ -682,20 +669,20 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     function* Child() {
       const [v, setV] = yield* useState("a");
       setValue = setV;
-      return createElement("span", { id: "target" }, v);
+      return <span id="target">{v}</span>;
     }
 
     function* Parent() {
       const [live, setLive_] = yield* useState(true);
       setLive = setLive_;
-      return createElement(
-        "div",
-        null,
-        createElement(Child as never, { $patch: live ? "live" : "default" }),
+      return (
+        <div>
+          <Child $patch={live ? "live" : "default"} />
+        </div>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     startUIPatch();
     // Child is live → updates immediately
@@ -719,20 +706,20 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     function* Child() {
       const [v, setV] = yield* useState("a");
       setValue = setV;
-      return createElement("span", { id: "target" }, v);
+      return <span id="target">{v}</span>;
     }
 
     function* Parent() {
       const [live, setLive_] = yield* useState(true);
       setLive = setLive_;
-      return createElement(
-        "div",
-        null,
-        createElement(Child as never, { $patch: live ? "live" : "default" }),
+      return (
+        <div>
+          <Child $patch={live ? "live" : "default"} />
+        </div>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     startUIPatch();
     setValue("b"); // live → updates immediately
@@ -770,7 +757,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     let capturedStartPatch: () => () => void = () => () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
@@ -778,10 +765,10 @@ describe("live-only reconcile: element add/remove during local patch", () => {
       capturedStartPatch = startPatch;
       const [show, setS] = yield* useState(true);
       setShow = setS;
-      return createElement("div", null, show ? createElement(Child as never, {}) : null);
+      return <div>{show ? <Child /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     const commit = capturedStartPatch();
     setShow(false);
@@ -796,7 +783,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     let capturedStartPatch: () => () => void = () => () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
@@ -804,14 +791,10 @@ describe("live-only reconcile: element add/remove during local patch", () => {
       capturedStartPatch = startPatch;
       const [show, setS] = yield* useState(true);
       setShow = setS;
-      return createElement(
-        "div",
-        null,
-        show ? createElement(Child as never, { $patch: "live" }) : null,
-      );
+      return <div>{show ? <Child $patch="live" /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     const commit = capturedStartPatch();
     setShow(false);
@@ -826,7 +809,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     let capturedStartPatch: () => () => void = () => () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
@@ -834,10 +817,10 @@ describe("live-only reconcile: element add/remove during local patch", () => {
       capturedStartPatch = startPatch;
       const [show, setS] = yield* useState(false);
       setShow = setS;
-      return createElement("div", null, show ? createElement(Child as never, {}) : null);
+      return <div>{show ? <Child /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     const commit = capturedStartPatch();
     setShow(true);
@@ -852,7 +835,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     let capturedStartPatch: () => () => void = () => () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
@@ -860,14 +843,10 @@ describe("live-only reconcile: element add/remove during local patch", () => {
       capturedStartPatch = startPatch;
       const [show, setS] = yield* useState(false);
       setShow = setS;
-      return createElement(
-        "div",
-        null,
-        show ? createElement(Child as never, { $patch: "live" }) : null,
-      );
+      return <div>{show ? <Child $patch="live" /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     const commit = capturedStartPatch();
     setShow(true);
@@ -882,7 +861,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     let capturedStartPatch: () => () => void = () => () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
@@ -890,14 +869,10 @@ describe("live-only reconcile: element add/remove during local patch", () => {
       capturedStartPatch = startPatch;
       const [show, setS] = yield* useState(false);
       setShow = setS;
-      return createElement(
-        "div",
-        null,
-        show ? createElement(Child as never, { $patch: "live" }) : null,
-      );
+      return <div>{show ? <Child $patch="live" /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     const commit = capturedStartPatch();
     setShow(true); // live-add → appears immediately
@@ -914,7 +889,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     let capturedStartPatch: () => () => void = () => () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
@@ -922,10 +897,10 @@ describe("live-only reconcile: element add/remove during local patch", () => {
       capturedStartPatch = startPatch;
       const [show, setS] = yield* useState(false);
       setShow = setS;
-      return createElement("div", null, show ? createElement(Child as never, {}) : null);
+      return <div>{show ? <Child /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     const commit = capturedStartPatch();
     setShow(true); // default: still not visible
@@ -943,7 +918,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     let capturedStartPatch: () => () => void = () => () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "hello");
+      return <span id="target">hello</span>;
     }
 
     function* Parent() {
@@ -951,10 +926,10 @@ describe("live-only reconcile: element add/remove during local patch", () => {
       capturedStartPatch = startPatch;
       const [show, setS] = yield* useState(true);
       setShow = setS;
-      return createElement("div", null, show ? createElement(Child as never, {}) : null);
+      return <div>{show ? <Child /> : null}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     const commit = capturedStartPatch();
     setShow(false); // frozen: still visible
@@ -971,7 +946,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     let capturedStartPatch: () => () => void = () => () => {};
 
     function* Child() {
-      return createElement("span", { id: "target" }, "x");
+      return <span id="target">x</span>;
     }
 
     function* Parent() {
@@ -979,14 +954,14 @@ describe("live-only reconcile: element add/remove during local patch", () => {
       capturedStartPatch = startPatch;
       const [shown, setS] = yield* useState(true);
       setShown = setS;
-      return createElement(
-        "div",
-        null,
-        createElement(Child as never, { $shown: shown, $patch: "live" }),
+      return (
+        <div>
+          <Child $shown={shown} $patch="live" />
+        </div>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector("#target")).not.toBeNull();
 
     const commit = capturedStartPatch();
@@ -1023,16 +998,24 @@ describe("child component prop updates apply correctly after global patch commit
     let setPending: (v: boolean) => Promise<void> = () => Promise.resolve();
 
     function* Nav(props: { isPending: boolean }) {
-      return createElement("button", { id: "btn", disabled: props.isPending }, "click");
+      return (
+        <button id="btn" disabled={props.isPending}>
+          click
+        </button>
+      );
     }
 
     function* App() {
       const [isPending, setP] = yield* useState(false);
       setPending = setP;
-      return createElement("div", null, createElement(Nav as never, { isPending }));
+      return (
+        <div>
+          <Nav isPending={isPending} />
+        </div>
+      );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(container.querySelector("#btn")?.hasAttribute("disabled")).toBe(false);
 
     // Set isPending=true BEFORE the patch (immediate DOM update — buttons disabled)
@@ -1055,16 +1038,20 @@ describe("child component prop updates apply correctly after global patch commit
 
     function* Status(props: { pending: boolean }) {
       renderLog.push(props.pending);
-      return createElement("span", { id: "status" }, props.pending ? "loading" : "done");
+      return <span id="status">{props.pending ? "loading" : "done"}</span>;
     }
 
     function* App() {
       const [pending, setP] = yield* useState(false);
       setPending = setP;
-      return createElement("div", null, createElement(Status as never, { pending }));
+      return (
+        <div>
+          <Status pending={pending} />
+        </div>
+      );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(container.querySelector("#status")?.textContent).toBe("done");
     renderLog.length = 0;
 
@@ -1083,16 +1070,20 @@ describe("child component prop updates apply correctly after global patch commit
     let setLabel: (v: string) => Promise<void> = () => Promise.resolve();
 
     function* Label(props: { text: string }) {
-      return createElement("span", { id: "label" }, props.text);
+      return <span id="label">{props.text}</span>;
     }
 
     function* App() {
       const [text, setText] = yield* useState("a");
       setLabel = setText;
-      return createElement("div", null, createElement(Label as never, { text }));
+      return (
+        <div>
+          <Label text={text} />
+        </div>
+      );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(container.querySelector("#label")?.textContent).toBe("a");
 
     startUIPatch();
@@ -1126,7 +1117,11 @@ describe("child component prop updates apply correctly after local patch commit"
     let capturedStartPatch: () => () => void = () => () => {};
 
     function* Nav(props: { isPending: boolean }) {
-      return createElement("button", { id: "btn", disabled: props.isPending }, "click");
+      return (
+        <button id="btn" disabled={props.isPending}>
+          click
+        </button>
+      );
     }
 
     function* App() {
@@ -1134,10 +1129,14 @@ describe("child component prop updates apply correctly after local patch commit"
       capturedStartPatch = startPatch;
       const [isPending, setP] = yield* useState(false);
       setPending = setP;
-      return createElement("div", null, createElement(Nav as never, { isPending }));
+      return (
+        <div>
+          <Nav isPending={isPending} />
+        </div>
+      );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(container.querySelector("#btn")?.hasAttribute("disabled")).toBe(false);
 
     // Set isPending=true BEFORE patch (immediate DOM update)
@@ -1159,7 +1158,7 @@ describe("child component prop updates apply correctly after local patch commit"
     let capturedStartPatch: () => () => void = () => () => {};
 
     function* Status(props: { pending: boolean }) {
-      return createElement("span", { id: "status" }, props.pending ? "loading" : "done");
+      return <span id="status">{props.pending ? "loading" : "done"}</span>;
     }
 
     function* App() {
@@ -1167,10 +1166,14 @@ describe("child component prop updates apply correctly after local patch commit"
       capturedStartPatch = startPatch;
       const [pending, setP] = yield* useState(false);
       setPending = setP;
-      return createElement("div", null, createElement(Status as never, { pending }));
+      return (
+        <div>
+          <Status pending={pending} />
+        </div>
+      );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(container.querySelector("#status")?.textContent).toBe("done");
 
     const commit = capturedStartPatch();
