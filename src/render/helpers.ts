@@ -1,4 +1,11 @@
-import { type Context, PriorityContext, resolveCtx, withBatch, withPriority } from "../context";
+import {
+  type Context,
+  type ContextEntry,
+  PriorityContext,
+  resolveCtx,
+  withBatch,
+  withPriority,
+} from "../context";
 import type { Renderable } from "../hooks";
 import {
   type Child,
@@ -96,7 +103,22 @@ export function childContextMap(
   const batch = props.$patch;
   if (batch !== undefined) map = withBatch(map, batch);
   if (props.$deferred) map = withPriority(map, resolveCtx(map, PriorityContext) + 1);
+  const ctxProp = props.$context;
+  if (ctxProp) {
+    const entries = Array.isArray(ctxProp) ? ctxProp : [ctxProp];
+    const newMap = new Map(map);
+    for (const entry of entries) {
+      newMap.set(entry.ctx, entry.value);
+    }
+    map = newMap;
+  }
   return map;
+}
+
+/** Normalize a `$context` prop to an array of entries. */
+export function contextEntries(ctxProp: ContextEntry | ContextEntry[] | undefined): ContextEntry[] {
+  if (!ctxProp) return [];
+  return Array.isArray(ctxProp) ? ctxProp : [ctxProp];
 }
 
 /**
@@ -108,8 +130,8 @@ export function childContextMap(
  * directive is present (no allocation).
  */
 export function stripFrameworkDirectives(props: InternalProps): InternalProps {
-  if (!("$deferred" in props) && !("$deps" in props)) return props;
-  const { $deferred: _d, $deps: _p, ...rest } = props;
+  if (!("$deferred" in props) && !("$deps" in props) && !("$context" in props)) return props;
+  const { $deferred: _d, $deps: _p, $context: _c, ...rest } = props;
   return rest satisfies InternalProps;
 }
 
@@ -123,7 +145,7 @@ export function stripFrameworkDirectives(props: InternalProps): InternalProps {
  * If `$deferred` is not present, returns the original object (no allocation).
  */
 export function stripDeferred(props: InternalProps): InternalProps {
-  if (!("$deferred" in props)) return props;
-  const { $deferred: _, ...rest } = props;
+  if (!("$deferred" in props) && !("$context" in props)) return props;
+  const { $deferred: _d, $context: _c, ...rest } = props;
   return rest satisfies InternalProps;
 }

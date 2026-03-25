@@ -202,12 +202,12 @@ describe("$deps prop", () => {
     function* Provider() {
       const [theme, setT] = yield* useState("light");
       setTheme = setT;
-      return createElement(
-        ThemeCtx.Provider as never,
-        { value: theme },
-        // $deps is stable (empty) but context should still trigger rerender
-        createElement(Consumer as never, { extra: 42, $deps: [] }),
-      );
+      // $deps is stable (empty) but context should still trigger rerender
+      return createElement(Consumer as never, {
+        extra: 42,
+        $deps: [],
+        $context: ThemeCtx(theme),
+      });
     }
 
     render(createElement(Provider as never, {}), container);

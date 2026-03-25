@@ -31,7 +31,7 @@ describe("createContext / useContext", () => {
     expect(container.querySelector("span")?.textContent).toBe("default");
   });
 
-  it("passes a value through Context.Provider to a consumer component", () => {
+  it("passes a value through $context to a consumer component", () => {
     const Ctx = createContext("default");
 
     function* Consumer() {
@@ -39,14 +39,7 @@ describe("createContext / useContext", () => {
       return createElement("span", null, value);
     }
 
-    render(
-      createElement(
-        Ctx.Provider as never,
-        { value: "provided" },
-        createElement(Consumer as never, {}),
-      ),
-      container,
-    );
+    render(createElement(Consumer as never, { $context: Ctx("provided") }), container);
     expect(container.querySelector("span")?.textContent).toBe("provided");
   });
 
@@ -60,17 +53,9 @@ describe("createContext / useContext", () => {
 
     render(
       createElement(
-        Ctx.Provider as never,
-        { value: "outer" },
-        createElement(
-          "div",
-          null,
-          createElement(
-            Ctx.Provider as never,
-            { value: "inner" },
-            createElement(Consumer as never, {}),
-          ),
-        ),
+        "div",
+        { $context: Ctx("outer") },
+        createElement(Consumer as never, { $context: Ctx("inner") }),
       ),
       container,
     );
@@ -89,11 +74,7 @@ describe("createContext / useContext", () => {
       createElement(
         "div",
         null,
-        createElement(
-          Ctx.Provider as never,
-          { value: 99 },
-          createElement("span", { id: "inside" }, "ignored"),
-        ),
+        createElement("span", { id: "inside", $context: Ctx(99) }, "ignored"),
         createElement(Consumer as never, {}),
       ),
       container,
@@ -115,11 +96,7 @@ describe("createContext / useContext", () => {
     function* Parent() {
       const [theme, st] = yield* useState(7);
       setTheme = st;
-      return createElement(
-        Ctx.Provider as never,
-        { value: theme },
-        createElement(Consumer as never, {}),
-      );
+      return createElement(Consumer as never, { $context: Ctx(theme) });
     }
 
     render(createElement(Parent as never, {}), container);
@@ -148,11 +125,7 @@ describe("createContext / useContext", () => {
     function* Parent() {
       const [val, setVal] = yield* useState("A");
       setCtxValue = setVal;
-      return createElement(
-        Ctx.Provider as never,
-        { value: val },
-        createElement(Child as never, {}),
-      );
+      return createElement(Child as never, { $context: Ctx(val) });
     }
 
     render(createElement(Parent as never, {}), container);
@@ -186,11 +159,7 @@ describe("createContext / useContext", () => {
     function* Root() {
       const [val, setVal] = yield* useState("first");
       setCtxValue = setVal;
-      return createElement(
-        Ctx.Provider as never,
-        { value: val },
-        createElement(Middle as never, {}),
-      );
+      return createElement(Middle as never, { $context: Ctx(val) });
     }
 
     render(createElement(Root as never, {}), container);
@@ -225,16 +194,8 @@ describe("createContext / useContext", () => {
       return createElement(
         "div",
         null,
-        createElement(
-          Ctx.Provider as never,
-          { value: valA },
-          createElement(ConsumerA as never, {}),
-        ),
-        createElement(
-          Ctx.Provider as never,
-          { value: valB },
-          createElement(ConsumerB as never, {}),
-        ),
+        createElement(ConsumerA as never, { $context: Ctx(valA) }),
+        createElement(ConsumerB as never, { $context: Ctx(valB) }),
       );
     }
 
@@ -264,21 +225,13 @@ describe("createContext / useContext", () => {
 
     // Middle re-provides a fixed inner value
     function* Middle() {
-      return createElement(
-        Ctx.Provider as never,
-        { value: "inner" },
-        createElement(Consumer as never, {}),
-      );
+      return createElement(Consumer as never, { $context: Ctx("inner") });
     }
 
     function* Root() {
       const [outer, setOuter_] = yield* useState("outer-1");
       setOuter = setOuter_;
-      return createElement(
-        Ctx.Provider as never,
-        { value: outer },
-        createElement(Middle as never, {}),
-      );
+      return createElement(Middle as never, { $context: Ctx(outer) });
     }
 
     render(createElement(Root as never, {}), container);
@@ -307,18 +260,14 @@ describe("createContext / useContext", () => {
         "div",
         null,
         createElement("span", { "data-testid": "middle" }, outerVal),
-        createElement(Ctx.Provider as never, { value: "inner" }, createElement(Child as never, {})),
+        createElement(Child as never, { $context: Ctx("inner") }),
       );
     }
 
     function* Root() {
       const [val, setVal] = yield* useState("outer");
       setOuter = setVal;
-      return createElement(
-        Ctx.Provider as never,
-        { value: val },
-        createElement(Middle as never, {}),
-      );
+      return createElement(Middle as never, { $context: Ctx(val) });
     }
 
     render(createElement(Root as never, {}), container);
@@ -358,11 +307,7 @@ describe("createContext / useContext", () => {
     function* Root() {
       const [val, setVal] = yield* useState("v1");
       setCtxValue = setVal;
-      return createElement(
-        Ctx.Provider as never,
-        { value: val },
-        createElement(Middle as never, {}),
-      );
+      return createElement(Middle as never, { $context: Ctx(val) });
     }
 
     render(createElement(Root as never, {}), container);
@@ -398,15 +343,9 @@ describe("createContext / useContext", () => {
       const [valB, sB] = yield* useState("B1");
       setA = sA;
       setB = sB;
-      return createElement(
-        CtxA.Provider as never,
-        { value: valA },
-        createElement(
-          CtxB.Provider as never,
-          { value: valB },
-          createElement(Consumer as never, {}),
-        ),
-      );
+      return createElement(Consumer as never, {
+        $context: [CtxA(valA), CtxB(valB)],
+      });
     }
 
     render(createElement(Root as never, {}), container);
@@ -428,14 +367,7 @@ describe("createContext / useContext", () => {
         return createElement("span", null, `${val.a}:${val.b}`);
       }
 
-      render(
-        createElement(
-          Ctx.Provider as never,
-          { value: { a: 1, b: 2 } },
-          createElement(Consumer as never, {}),
-        ),
-        container,
-      );
+      render(createElement(Consumer as never, { $context: Ctx({ a: 1, b: 2 }) }), container);
       expect(container.querySelector("span")?.textContent).toBe("1:2");
     });
 
@@ -453,11 +385,7 @@ describe("createContext / useContext", () => {
       function* Parent() {
         const [val, sv] = yield* useState({ a: 1, b: 1 });
         setVal = sv;
-        return createElement(
-          Ctx.Provider as never,
-          { value: val },
-          createElement(Consumer as never, {}),
-        );
+        return createElement(Consumer as never, { $context: Ctx(val) });
       }
 
       render(createElement(Parent as never, {}), container);
@@ -483,11 +411,7 @@ describe("createContext / useContext", () => {
       function* Parent() {
         const [val, sv] = yield* useState({ a: 1, b: 1 });
         setVal = sv;
-        return createElement(
-          Ctx.Provider as never,
-          { value: val },
-          createElement(Consumer as never, {}),
-        );
+        return createElement(Consumer as never, { $context: Ctx(val) });
       }
 
       render(createElement(Parent as never, {}), container);
@@ -512,11 +436,9 @@ describe("createContext / useContext", () => {
       }
 
       render(
-        createElement(
-          Ctx.Provider as never,
-          { value: { name: "Alice", age: 30 } },
-          createElement(Consumer as never, {}),
-        ),
+        createElement(Consumer as never, {
+          $context: Ctx({ name: "Alice", age: 30 }),
+        }),
         container,
       );
       expect(container.querySelector("span")?.textContent).toBe("ALICE");
@@ -540,11 +462,7 @@ describe("createContext / useContext", () => {
       function* Parent() {
         const [val, sv] = yield* useState({ name: "Alice", count: 0 });
         setVal = sv;
-        return createElement(
-          Ctx.Provider as never,
-          { value: val },
-          createElement(Consumer as never, {}),
-        );
+        return createElement(Consumer as never, { $context: Ctx(val) });
       }
 
       render(createElement(Parent as never, {}), container);
@@ -570,11 +488,7 @@ describe("createContext / useContext", () => {
       function* Parent() {
         const [val, sv] = yield* useState({ a: 1, b: 1 });
         setVal = sv;
-        return createElement(
-          Ctx.Provider as never,
-          { value: val },
-          createElement(Consumer as never, {}),
-        );
+        return createElement(Consumer as never, { $context: Ctx(val) });
       }
 
       render(createElement(Parent as never, {}), container);
@@ -602,11 +516,7 @@ describe("createContext / useContext", () => {
       function* Parent() {
         const [val, sv] = yield* useState({ a: 1, b: 1 });
         setVal = sv;
-        return createElement(
-          Ctx.Provider as never,
-          { value: val },
-          createElement(Consumer as never, {}),
-        );
+        return createElement(Consumer as never, { $context: Ctx(val) });
       }
 
       render(createElement(Parent as never, {}), container);

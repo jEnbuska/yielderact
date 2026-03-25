@@ -73,8 +73,8 @@ describe("createPortal", () => {
 
     function* App() {
       return createElement(
-        Ctx.Provider as never,
-        { value: "provided" },
+        "div",
+        { $context: Ctx("provided") },
         createPortal(createElement(Consumer as never, {}), portalTarget),
       );
     }

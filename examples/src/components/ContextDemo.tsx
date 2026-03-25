@@ -44,22 +44,19 @@ export function* ContextDemo() {
       <p style={{ fontSize: "0.9rem", color: "#555", marginBottom: "0.5rem" }}>
         Theme and Locale are separate contexts. Toggling one must not affect the other.
       </p>
-      <ThemeCtx.Provider value={theme}>
-        <LocaleCtx.Provider value={locale}>
-          <div
-            data-testid="independent-panel"
-            style={{
-              padding: "0.75rem",
-              borderRadius: "6px",
-              ...themeStyles[theme],
-              marginBottom: "1rem",
-            }}
-          >
-            Theme: <ThemeBadge data-testid="theme-badge" /> &nbsp; Locale: <LocaleBadge /> &nbsp;
-            Both: <BothBadge />
-          </div>
-        </LocaleCtx.Provider>
-      </ThemeCtx.Provider>
+      <div
+        $context={[ThemeCtx(theme), LocaleCtx(locale)]}
+        data-testid="independent-panel"
+        style={{
+          padding: "0.75rem",
+          borderRadius: "6px",
+          ...themeStyles[theme],
+          marginBottom: "1rem",
+        }}
+      >
+        Theme: <ThemeBadge data-testid="theme-badge" /> &nbsp; Locale: <LocaleBadge /> &nbsp; Both:{" "}
+        <BothBadge />
+      </div>
 
       {/* Part 2: inner Provider shadows outer */}
       <h3>2 - Nested Provider override</h3>
@@ -67,30 +64,29 @@ export function* ContextDemo() {
         The outer theme is <em>{theme}</em>. An inner Provider hard-codes the theme to <em>dark</em>
         . The inner card must always display <em>dark</em>.
       </p>
-      <ThemeCtx.Provider value={theme}>
-        <div data-testid="outer-card" style={{ padding: "0.5rem", ...themeStyles[theme] }}>
-          <span>Outer card -- theme: </span>
-          <ThemeBadge data-testid="outer-theme-badge" />
-          <ThemeCtx.Provider value="dark">
-            <div
-              data-testid="inner-card"
-              style={{ marginTop: "0.5rem", padding: "0.5rem", ...themeStyles["dark"] }}
-            >
-              <span>Inner card (always dark) -- theme: </span>
-              <ThemeBadge data-testid="inner-theme-badge" />
-            </div>
-          </ThemeCtx.Provider>
+      <div
+        $context={ThemeCtx(theme)}
+        data-testid="outer-card"
+        style={{ padding: "0.5rem", ...themeStyles[theme] }}
+      >
+        <span>Outer card -- theme: </span>
+        <ThemeBadge data-testid="outer-theme-badge" />
+        <div
+          $context={ThemeCtx("dark")}
+          data-testid="inner-card"
+          style={{ marginTop: "0.5rem", padding: "0.5rem", ...themeStyles["dark"] }}
+        >
+          <span>Inner card (always dark) -- theme: </span>
+          <ThemeBadge data-testid="inner-theme-badge" />
         </div>
-      </ThemeCtx.Provider>
+      </div>
 
       {/* Part 3: state preserved across context updates */}
       <h3>3 - State preserved across context updates</h3>
       <p style={{ fontSize: "0.9rem", color: "#555", marginBottom: "0.5rem" }}>
         Increment the counter, then toggle the outer theme. The counter must keep its value.
       </p>
-      <ThemeCtx.Provider value={theme}>
-        <StatefulConsumer />
-      </ThemeCtx.Provider>
+      <StatefulConsumer $context={ThemeCtx(theme)} />
 
       {/* Part 4: sibling providers are isolated */}
       <SiblingProvidersDemo />

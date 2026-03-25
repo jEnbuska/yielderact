@@ -359,7 +359,11 @@ function _hasStableSelectors(
  * selectors are not stable under the new value. Stops at inner Providers
  * for the same context.
  */
-function propagateContextUpdate(ctx: Context<unknown>, newValue: unknown, slots: Slot[]): void {
+export function propagateContextUpdate(
+  ctx: Context<unknown>,
+  newValue: unknown,
+  slots: Slot[],
+): void {
   for (const slot of slots) {
     const inst = slot.componentInstance;
     // Stop at an inner Provider for the same context — it overrides the outer value.

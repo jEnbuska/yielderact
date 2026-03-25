@@ -56,10 +56,16 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   if (!child.type) {
     throw new InvalidChildError(child);
   }
-  const { $shown, $patch, $deferred } = child.props;
+  const { $shown, $patch, $deferred, $context } = child.props;
   if ($shown === false) return document.createTextNode("");
   if ($patch) yield* setContext(BatchContext, () => $patch);
   if ($deferred) yield* setContext(PriorityContext, (current) => current + 1);
+  if ($context) {
+    const entries = Array.isArray($context) ? $context : [$context];
+    for (const entry of entries) {
+      yield* setContext(entry.ctx, () => entry.value);
+    }
+  }
 
   const effectiveProps = isComponentNode(child) ? mergedProps(child) : child.props;
   const map = yield* getContextMap();
@@ -152,8 +158,9 @@ function* resumeInstance(instance: ComponentInstance): RenderGenerator<void> {
   let result = gen.next();
 
   while (!result.done && isHookDescriptor(result.value)) {
+    const descriptor = result.value as HookDescriptor;
     const hookResult = processOneDescriptor(
-      result.value as HookDescriptor,
+      descriptor,
       hookIndex++,
       instance.hookStates,
       instance.cleanupFns,
@@ -163,6 +170,11 @@ function* resumeInstance(instance: ComponentInstance): RenderGenerator<void> {
       instance,
       ctxMap,
     );
+    // Sync driver's ctxMap when a context value is set via useSetContext
+    if (descriptor.type === $USE_SET_CONTEXT) {
+      const { ctx, value } = descriptor as { ctx: Context<unknown>; value: unknown };
+      yield* setContext(ctx, () => value);
+    }
     result = gen.next(hookResult);
   }
 

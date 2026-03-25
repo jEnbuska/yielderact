@@ -101,32 +101,31 @@ export function* PortalDemo() {
       {/* Portal content – rendered into the target container */}
       {containerRef.current && showModal
         ? createPortal(
-            <PortalThemeCtx.Provider value={theme}>
-              <div
-                data-testid="portal-modal"
-                style={{
-                  padding: "1rem",
-                  background: theme === "dark" ? "#222" : "#fff",
-                  color: theme === "dark" ? "#eee" : "#333",
-                  border: "1px solid #ccc",
-                  borderRadius: "6px",
-                }}
-              >
-                <h3 style={{ marginTop: 0 }}>Portal Modal</h3>
-                <p>
-                  This content is rendered via <code>createPortal</code> into the dashed container
-                  above.
-                </p>
-                <div style={{ marginBottom: "0.5rem" }}>
-                  <strong>Context inheritance: </strong>
-                  <PortalThemeConsumer />
-                </div>
-                <div>
-                  <strong>Events: </strong>
-                  <PortalCounter />
-                </div>
+            <div
+              $context={PortalThemeCtx(theme)}
+              data-testid="portal-modal"
+              style={{
+                padding: "1rem",
+                background: theme === "dark" ? "#222" : "#fff",
+                color: theme === "dark" ? "#eee" : "#333",
+                border: "1px solid #ccc",
+                borderRadius: "6px",
+              }}
+            >
+              <h3 style={{ marginTop: 0 }}>Portal Modal</h3>
+              <p>
+                This content is rendered via <code>createPortal</code> into the dashed container
+                above.
+              </p>
+              <div style={{ marginBottom: "0.5rem" }}>
+                <strong>Context inheritance: </strong>
+                <PortalThemeConsumer />
               </div>
-            </PortalThemeCtx.Provider>,
+              <div>
+                <strong>Events: </strong>
+                <PortalCounter />
+              </div>
+            </div>,
             containerRef.current,
           )
         : false}

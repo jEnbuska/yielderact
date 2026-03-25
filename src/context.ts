@@ -11,21 +11,36 @@ import { type Child, type Component, createElement, Fragment, type InternalProps
  * A context object. Holds only the default value.
  *
  * Internal contexts (like `BatchContext` and `PriorityContext`) use this
- * minimal shape — they have no Provider component.
+ * minimal shape — they are not callable.
  */
 export interface Context<T> {
-  readonly _defaultValue: T;
+  readonly defaultValue: T;
 }
 
 /**
- * A context object returned by `createContext`.
- * Use `Context.Provider` to supply a value, `useContext` to consume it.
+ * A context entry produced by calling a context object with a value.
+ * Passed to the `$context` framework prop to provide context to a subtree.
  *
- * Extends the minimal `Context<T>` with a `Provider` symbol that can be
- * used as a VNode type in JSX.
+ * @example
+ * const ThemeCtx = createContext<'light' | 'dark'>('light');
+ * <Child $context={ThemeCtx('dark')} />
+ */
+export interface ContextEntry<T = unknown> {
+  readonly ctx: Context<T>;
+  readonly value: T;
+}
+
+/**
+ * A callable context object returned by `createContext`.
+ * Call it with a value to produce a `ContextEntry` for the `$context` prop.
+ * Use `useContext` to consume the value.
+ *
+ * @example
+ * const ThemeCtx = createContext<'light' | 'dark'>('light');
+ * <Child $context={ThemeCtx('dark')} />
  */
 export interface PublicContext<T> extends Context<T> {
-  readonly Provider: Component<InternalProps & { value: T; children?: Child[] }>;
+  (value: T): ContextEntry<T>;
 }
 
 // ---------------------------------------------------------------------------
@@ -47,16 +62,15 @@ interface UseContextDescriptor {
 /**
  * Create a new context with a default value.
  *
+ * Call the returned context with a value to produce a `ContextEntry`
+ * for the `$context` prop. Use `useContext` to consume the value.
+ *
  * @example
  * const ThemeCtx = createContext<'light' | 'dark'>('light');
  *
  * function* App() {
  *   const [theme] = yield* useState<'light' | 'dark'>('light');
- *   return (
- *     <ThemeCtx.Provider value={theme}>
- *       <Child />
- *     </ThemeCtx.Provider>
- *   );
+ *   return <Child $context={ThemeCtx(theme)} />;
  * }
  *
  * function* Child() {
@@ -65,23 +79,40 @@ interface UseContextDescriptor {
  * }
  */
 export function createContext<T>(defaultValue: T): PublicContext<T> {
-  const ctx: PublicContext<T> = {
-    _defaultValue: defaultValue,
-    Provider: undefined as never,
-  };
-
-  function* ContextProvider(
-    props: InternalProps & { value: T; children?: Child[] },
-  ): ComponentGenerator<Child> {
-    yield { type: $USE_SET_CONTEXT, ctx, value: props.value };
-    return createElement(Fragment, null, ...(props.children ?? []));
-  }
-
-  (ctx as { Provider: Component<InternalProps & { value: T; children?: Child[] }> }).Provider =
-    ContextProvider;
-
+  const ctx: PublicContext<T> = Object.assign((value: T): ContextEntry<T> => ({ ctx, value }), {
+    defaultValue: defaultValue,
+  } satisfies Context<T>);
   return ctx;
 }
+
+// ---------------------------------------------------------------------------
+// Internal context bridge — transparent component for Fragment-with-$context
+// ---------------------------------------------------------------------------
+
+/**
+ * Transparent passthrough component that sets context values via
+ * `$USE_SET_CONTEXT` and renders its children as a Fragment.
+ *
+ * Used internally when a Fragment VNode carries `$context` — `createElement`
+ * swaps the Fragment for this component so the context participates in the
+ * normal component lifecycle (mount, reconcile, propagate).
+ *
+ * @internal
+ */
+function* _ContextBridge(props: InternalProps): ComponentGenerator<Child> {
+  const ctxProp = props["$context"] as ContextEntry | ContextEntry[] | undefined;
+  if (ctxProp) {
+    const entries = Array.isArray(ctxProp) ? ctxProp : [ctxProp];
+    for (const entry of entries) {
+      yield { type: $USE_SET_CONTEXT, ctx: entry.ctx as Context<unknown>, value: entry.value };
+    }
+  }
+  const children = props.children as Child[] | undefined;
+  return createElement(Fragment, null, ...(children ?? []));
+}
+
+/** @internal — exposed for createElement to use. */
+export const ContextBridge: Component = _ContextBridge;
 
 /**
  * Consume a context value inside a component.
@@ -198,14 +229,14 @@ export function processContext(
 
 /**
  * Resolve the effective value for `ctx` from `map`, falling back to the
- * context's `_defaultValue` when no Provider has supplied a value.
+ * context's `defaultValue` when no Provider has supplied a value.
  *
  * TODO: eliminate in favor of `yield* getContext()` in generator code.
  * Kept for synchronous code that cannot yield (hooks, helpers, scheduler).
  * @internal
  */
 export function resolveCtx<T>(map: ReadonlyMap<Context<unknown>, unknown>, ctx: Context<T>): T {
-  return (map.has(ctx) ? map.get(ctx) : ctx._defaultValue) as T;
+  return (map.has(ctx) ? map.get(ctx) : ctx.defaultValue) as T;
 }
 
 // ---------------------------------------------------------------------------
@@ -220,7 +251,7 @@ export function resolveCtx<T>(map: ReadonlyMap<Context<unknown>, unknown>, ctx: 
  * @internal
  */
 export const BatchContext: Context<"live" | "default"> = {
-  _defaultValue: "default",
+  defaultValue: "default",
 };
 
 /**
@@ -253,7 +284,7 @@ export function withBatch(
  * @internal
  */
 export const PriorityContext: Context<number> = {
-  _defaultValue: 0,
+  defaultValue: 0,
 };
 
 /**

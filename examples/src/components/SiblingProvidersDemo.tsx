@@ -44,22 +44,20 @@ export function* SiblingProvidersDemo() {
         </button>
       </div>
       <div style={{ display: "flex", gap: "1rem" }}>
-        <ThemeCtx.Provider value={valA}>
-          <div
-            data-testid="sibling-panel-a"
-            style={{ padding: "0.5rem", border: "1px solid #ccc" }}
-          >
-            Subtree A: <SiblingConsumerA />
-          </div>
-        </ThemeCtx.Provider>
-        <ThemeCtx.Provider value={valB}>
-          <div
-            data-testid="sibling-panel-b"
-            style={{ padding: "0.5rem", border: "1px solid #ccc" }}
-          >
-            Subtree B: <SiblingConsumerB />
-          </div>
-        </ThemeCtx.Provider>
+        <div
+          $context={ThemeCtx(valA)}
+          data-testid="sibling-panel-a"
+          style={{ padding: "0.5rem", border: "1px solid #ccc" }}
+        >
+          Subtree A: <SiblingConsumerA />
+        </div>
+        <div
+          $context={ThemeCtx(valB)}
+          data-testid="sibling-panel-b"
+          style={{ padding: "0.5rem", border: "1px solid #ccc" }}
+        >
+          Subtree B: <SiblingConsumerB />
+        </div>
       </div>
     </div>
   );

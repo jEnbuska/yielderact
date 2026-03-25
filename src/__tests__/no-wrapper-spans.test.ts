@@ -189,14 +189,7 @@ describe("no wrapper spans in rendered output", () => {
       return createElement("span", null, value);
     }
 
-    render(
-      createElement(
-        Ctx.Provider as never,
-        { value: "provided" },
-        createElement(Consumer as never, {}),
-      ),
-      container,
-    );
+    render(createElement(Consumer as never, { $context: Ctx("provided") }), container);
     expect(container.querySelector("span")?.textContent).toBe("provided");
     expectNoDisplayContentsSpans(container);
   });
@@ -211,13 +204,9 @@ describe("no wrapper spans in rendered output", () => {
 
     render(
       createElement(
-        Ctx.Provider as never,
-        { value: "outer" },
-        createElement(
-          Ctx.Provider as never,
-          { value: "inner" },
-          createElement(Consumer as never, {}),
-        ),
+        "div",
+        { $context: Ctx("outer") },
+        createElement(Consumer as never, { $context: Ctx("inner") }),
       ),
       container,
     );
@@ -245,13 +234,9 @@ describe("no wrapper spans in rendered output", () => {
 
     render(
       createElement(
-        Ctx.Provider as never,
-        { value: "deep" },
-        createElement(
-          Middle as never,
-          {},
-          createElement(PlainWrapper as never, {}, createElement(Leaf as never, {})),
-        ),
+        Middle as never,
+        { $context: Ctx("deep") },
+        createElement(PlainWrapper as never, {}, createElement(Leaf as never, {})),
       ),
       container,
     );
