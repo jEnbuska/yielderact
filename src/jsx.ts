@@ -162,11 +162,10 @@ export const RawFragment: unique symbol = Symbol("RawFragment");
  *   );
  * }
  */
-function* _Fragment(props: InternalProps): ComponentGenerator<Child> {
+export function* Fragment(props: InternalProps): ComponentGenerator<Child> {
   const children = props.children as Child[] | undefined;
   return { type: RawFragment, props: {}, children: children ?? [] } satisfies VNode;
 }
-export const Fragment: Component = _Fragment;
 
 /**
  * Portal symbol – used as the `type` of VNodes created by `createPortal`.
