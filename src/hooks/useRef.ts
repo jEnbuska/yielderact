@@ -23,7 +23,7 @@ export interface RefObject<T> {
  * @example
  * function* InputFocus() {
  *   const ref = yield* useRef<HTMLInputElement>();
- *   return <input $ref={ref} />;
+ *   return <input ref={ref} />;
  * }
  *
  * **Overload 2 — with initial value:** `.current` is `T` (non-optional).

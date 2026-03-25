@@ -3,7 +3,7 @@ import { render } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
 
-describe("$ref", () => {
+describe("ref", () => {
   let container: HTMLElement;
 
   beforeEach(() => {

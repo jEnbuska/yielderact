@@ -9,18 +9,6 @@ import {
 import { addNonDelegatedListener, removeNonDelegatedListener } from "./events";
 import { requireActiveCtx } from "./state";
 
-// ── Ref helpers ─────────────────────────────────────────────────────────────
-
-/** Attach a $ref object to a DOM element. */
-function setRef(ref: { current: unknown } | undefined, el: Element): void {
-  if (ref) ref.current = el;
-}
-
-/** Clear a $ref object (set .current to undefined). */
-export function clearRef(ref: { current: unknown } | undefined): void {
-  if (ref) ref.current = undefined;
-}
-
 // ── Event registration helpers ─────────────────────────────────────────────
 
 /**
@@ -69,7 +57,7 @@ function _unregisterEvent(el: HTMLElement, propKey: string): void {
  *   encountered and a fresh element is created.
  *
  * **Prop handling rules:**
- * - All `$`-prefixed props are skipped (framework-internal special props).
+ * - All `$`-prefixed props, `ref`, and `children` are skipped.
  * - `onXxx` props → delegated or per-element via `_registerEvent`.
  * - `className` → `el.className`.
  * - `htmlFor` → `el.setAttribute('for', …)`.
@@ -89,7 +77,7 @@ function _unregisterEvent(el: HTMLElement, propKey: string): void {
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: prop type dispatch with many branches
 export function applyProps(el: HTMLElement, props: InternalProps): void {
   for (const [key, value] of Object.entries(props)) {
-    if (key.startsWith("$")) continue;
+    if (key === "ref" || key === "children" || key.startsWith("$")) continue;
     if (key.startsWith("on") && typeof value === "function") {
       _registerEvent(el, key, value as (e: SyntheticEvent) => void);
     } else if (key === "className") {
@@ -118,8 +106,8 @@ export function applyProps(el: HTMLElement, props: InternalProps): void {
     }
   }
 
-  // Handle $ref on initial mount
-  setRef(props.$ref, el);
+  // Handle ref on initial mount
+  if (props.ref) props.ref.current = el;
 
   // Default <button> type to "button" to prevent accidental form submission.
   // The HTML default is "submit", which is almost never the intended behaviour.
@@ -166,7 +154,7 @@ export function updateProps(
 ): void {
   // 1. Remove props that no longer exist in nextProps
   for (const key in prevProps) {
-    if (key.startsWith("$")) continue;
+    if (key === "ref" || key === "children" || key.startsWith("$")) continue;
     if (key in nextProps) continue;
     if (key.startsWith("on") && typeof prevProps[key] === "function") {
       _unregisterEvent(el, key);
@@ -183,7 +171,7 @@ export function updateProps(
 
   // 2. Add or update props that changed
   for (const key in nextProps) {
-    if (key.startsWith("$")) continue;
+    if (key === "ref" || key === "children" || key.startsWith("$")) continue;
     const next = nextProps[key];
     const prev = prevProps[key];
     if (Object.is(next, prev)) continue;
@@ -221,11 +209,11 @@ export function updateProps(
     }
   }
 
-  // 3. Handle $ref changes
-  const prevRef = prevProps.$ref;
-  const nextRef = nextProps.$ref;
+  // 3. Handle ref changes
+  const prevRef = prevProps.ref;
+  const nextRef = nextProps.ref;
   if (!Object.is(prevRef, nextRef)) {
-    clearRef(prevRef);
-    setRef(nextRef, el);
+    if (prevRef) prevRef.current = undefined;
+    if (nextRef) nextRef.current = el;
   }
 }

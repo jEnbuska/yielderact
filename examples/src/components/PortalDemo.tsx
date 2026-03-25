@@ -85,7 +85,7 @@ export function* PortalDemo() {
       {/* Portal target container (rendered in normal flow for demo visibility) */}
       <div
         data-testid="portal-target"
-        $ref={containerRef}
+        ref={containerRef}
         style={{
           border: "2px dashed #999",
           borderRadius: "6px",
