@@ -1,3 +1,4 @@
+import type { ContextEntry } from "./context";
 import type { ComponentGenerator, DependencyList } from "./hooks/types";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
 
@@ -58,6 +59,18 @@ export interface FrameworkProps {
    * only cares about a subset of values.
    */
   $deps?: DependencyList;
+  /**
+   * Provide context values to this element/component and its descendants.
+   *
+   * Accepts a single `ContextEntry` or an array for multiple contexts.
+   * Create entries by calling a context object: `MyCtx(value)`.
+   *
+   * @example
+   * const ThemeCtx = createContext<'light' | 'dark'>('light');
+   * <Child $context={ThemeCtx('dark')} />
+   * <div $context={[ThemeCtx('dark'), LocaleCtx('fi')]}>...</div>
+   */
+  $context?: ContextEntry | ContextEntry[];
 }
 
 /**
@@ -124,12 +137,24 @@ export type Component<P extends InternalProps = InternalProps> = (
 ) => ComponentGenerator<Child>;
 
 /**
- * Fragment symbol – use instead of a wrapper element when you need to
+ * Internal raw fragment symbol — the primitive grouping mechanism used by
+ * `buildNode` and `flattenChildren`. Not part of the public API.
+ *
+ * @internal
+ */
+export const RawFragment: unique symbol = Symbol("RawFragment");
+
+/**
+ * Fragment component — use instead of a wrapper element when you need to
  * return multiple children.
+ *
+ * Framework directives (`$context`, `$patch`, `$deferred`) placed on a
+ * Fragment work correctly because Fragment is a real component that
+ * participates in the normal lifecycle (mount, reconcile, propagate).
  *
  * @example
  * function* List() {
- *   yield (
+ *   return (
  *     <>
  *       <li>One</li>
  *       <li>Two</li>
@@ -137,14 +162,17 @@ export type Component<P extends InternalProps = InternalProps> = (
  *   );
  * }
  */
-export const Fragment: unique symbol = Symbol("Fragment");
+export function* Fragment(props: InternalProps): ComponentGenerator<Child> {
+  const children = props.children as Child[] | undefined;
+  return { type: RawFragment, props: {}, children: children ?? [] } satisfies VNode;
+}
 
 /**
  * Portal symbol – used as the `type` of VNodes created by `createPortal`.
  *
  * Portal VNodes render their children into an arbitrary DOM container
  * outside the render root, while maintaining component-tree context
- * (Providers, `$patch`, `$deferred`).
+ * (`$context`, `$patch`, `$deferred`).
  */
 export const Portal: unique symbol = Symbol("Portal");
 
@@ -196,7 +224,7 @@ export function createElement<P extends InternalProps>(
   ...children: Child[]
 ): VNode;
 
-// Overload 3: symbol (Fragment)
+// Overload 3: symbol (RawFragment, Portal)
 export function createElement(type: symbol, props: null, ...children: Child[]): VNode;
 
 // Overload 4: escape-hatch (jsx-runtime, dynamic types)
@@ -243,7 +271,7 @@ declare global {
      * declared in the component's own props type.
      *
      * Only framework-level props (`key`, `$shown`, `$patch`, `$deferred`,
-     * `$deps`) are universally available. `children` and `$ref` must be
+     * `$deps`, `$context`) are universally available. `children` and `$ref` must be
      * explicitly declared in a component's props type to be accepted.
      */
     interface IntrinsicAttributes extends FrameworkProps {}

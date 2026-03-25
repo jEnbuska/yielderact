@@ -31,7 +31,7 @@ export type RenderGenerator<TReturn> = Generator<unknown, TReturn, unknown>;
 
 /** Yield to update a context value for the current subtree. */
 export function* setContext<T>(
-  ctx: { readonly _defaultValue: T },
+  ctx: { readonly defaultValue: T },
   updater: (current: T) => T,
 ): RenderGenerator<void> {
   yield { op: $SET_CONTEXT, key: ctx, updater };
@@ -43,16 +43,16 @@ export function* getContextMap(): RenderGenerator<CtxMap> {
 }
 
 /** Yield to read a single context value. */
-export function* getContext<T>(ctx: { readonly _defaultValue: T }): RenderGenerator<T> {
+export function* getContext<T>(ctx: { readonly defaultValue: T }): RenderGenerator<T> {
   const map = yield* getContextMap();
-  return (map.has(ctx) ? map.get(ctx) : ctx._defaultValue) as T;
+  return (map.has(ctx) ? map.get(ctx) : ctx.defaultValue) as T;
 }
 
 // ── Type guards ──────────────────────────────────────────────────────────
 
 function isSetContext(v: unknown): v is {
   op: typeof $SET_CONTEXT;
-  key: { _defaultValue: unknown };
+  key: { defaultValue: unknown };
   updater: (c: unknown) => unknown;
 } {
   return (
@@ -112,7 +112,7 @@ export function drive<T>(
     if (yielded === undefined) {
       result = gen.next(undefined);
     } else if (isSetContext(yielded)) {
-      const prev = ctxMap.has(yielded.key) ? ctxMap.get(yielded.key) : yielded.key._defaultValue;
+      const prev = ctxMap.has(yielded.key) ? ctxMap.get(yielded.key) : yielded.key.defaultValue;
       const next = new Map(ctxMap);
       next.set(yielded.key, yielded.updater(prev));
       ctxMap = next;
@@ -152,7 +152,7 @@ export function* driveWithContext<T>(ctxMap: CtxMap, gen: RenderGenerator<T>): R
     if (isSetContext(yielded)) {
       const prev = currentMap.has(yielded.key)
         ? currentMap.get(yielded.key)
-        : yielded.key._defaultValue;
+        : yielded.key.defaultValue;
       const next = new Map(currentMap);
       next.set(yielded.key, yielded.updater(prev));
       currentMap = next;

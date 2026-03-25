@@ -23,6 +23,7 @@ import { acquirePortalDelegation } from "./delegation";
 import { drive, getContext, getContextMap } from "./driver";
 import {
   childContextMap,
+  contextEntries,
   flattenChildren,
   isComponentNode,
   isElementNode,
@@ -33,7 +34,7 @@ import {
   stripDeferred,
   stripFrameworkDirectives,
 } from "./helpers";
-import { unmountSlot } from "./hooks-runtime";
+import { propagateContextUpdate, unmountSlot } from "./hooks-runtime";
 import { buildNode, mountComponent } from "./mount";
 import {
   domAppendChild,
@@ -541,6 +542,13 @@ function* reconcileComponent(
         prevSlot.props = slotProps;
       }
       if (inst) {
+        // Update providedContexts from $context prop.
+        const entries = contextEntries(allPropsRaw.$context);
+        inst.providedContexts.clear();
+        for (const entry of entries) {
+          inst.providedContexts.add(entry.ctx);
+        }
+
         // Check if any consumed context value differs from capturedCtx.
         let contextChanged = false;
         for (const ctx of inst.consumedContexts) {
@@ -557,7 +565,15 @@ function* reconcileComponent(
           inst.capturedCtx = childCtxMap;
           void inst.rerender();
         } else {
-          inst.capturedCtx = withBatch(inst.capturedCtx, currentBatch);
+          // Detect $context value changes that need propagation to descendants.
+          const prevCtx = inst.capturedCtx;
+          inst.capturedCtx = childCtxMap;
+          for (const entry of entries) {
+            const prevVal = resolveCtx(prevCtx, entry.ctx);
+            if (!Object.is(prevVal, entry.value)) {
+              propagateContextUpdate(entry.ctx, entry.value, inst.slots);
+            }
+          }
         }
       }
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -585,10 +601,12 @@ function* reconcileComponent(
     // Component with changed props → rerender in place
     if (prevSlot.componentInstance) {
       prevSlot.componentInstance.props = allProps;
-      prevSlot.componentInstance.capturedCtx = withBatch(
-        prevSlot.componentInstance.capturedCtx,
-        currentBatch,
-      );
+      prevSlot.componentInstance.capturedCtx = childCtxMap;
+      const entries = contextEntries(allPropsRaw.$context);
+      prevSlot.componentInstance.providedContexts.clear();
+      for (const entry of entries) {
+        prevSlot.componentInstance.providedContexts.add(entry.ctx);
+      }
       void prevSlot.componentInstance.rerender();
       prevSlot.props = slotProps;
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -614,6 +632,10 @@ function* reconcileComponent(
     childCtxMap,
     mountComponent(component, allProps),
   ).value;
+  const entries = contextEntries(allPropsRaw.$context);
+  for (const entry of entries) {
+    componentInstance.providedContexts.add(entry.ctx);
+  }
   return {
     slot: {
       type: vnode.type,

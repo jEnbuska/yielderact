@@ -20,7 +20,7 @@ import type { RenderContext } from "./types";
  * @internal
  */
 export const RenderCtx: Context<RenderContext> = {
-  _defaultValue: undefined as never,
+  defaultValue: undefined as never,
 };
 
 /**
