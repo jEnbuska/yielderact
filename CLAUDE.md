@@ -120,7 +120,7 @@ function* Counter(_props: object) {
 | `render/reconciler.ts`    | Positional reconciliation (diff + patch)                                |
 | `render/hooks-runtime.ts` | Hook descriptor dispatch, effect flushing, unmount                      |
 | `render/helpers.ts`       | Type guards, shallow equality, props merging, `flattenChildren`         |
-| `render/props.ts`         | `applyProps`, `updateProps`, `setRef`, `clearRef`                       |
+| `render/props.ts`         | `applyProps`, `updateProps`                                             |
 | `render/scheduler.ts`     | Priority-aware cooperative scheduler                                    |
 | `render/patch-queue.ts`   | Atomic DOM commit queue                                                 |
 | `render/patch.ts`         | Global/local UI patch (`startUIPatch`/`commitUIPatch`)                  |

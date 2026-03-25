@@ -39,7 +39,6 @@ import { _processUIPatch } from "../hooks/useUIPatch";
 
 import { releasePortalDelegation } from "./delegation";
 import { flushPendingVNodes } from "./patch";
-import { clearRef } from "./props";
 import { RenderCtx } from "./state";
 import type { ComponentInstance, HookState, Slot } from "./types";
 
@@ -113,9 +112,9 @@ export function unmountSlot(slot: Slot): void {
   for (const child of slot.childSlots) {
     unmountSlot(child);
   }
-  // Clear $ref on HTML element slots
-  if (typeof slot.type === "string" && slot.props.$ref) {
-    clearRef(slot.props.$ref);
+  // Clear ref on HTML element slots
+  if (typeof slot.type === "string" && slot.props.ref) {
+    slot.props.ref.current = undefined;
   }
   if (slot.componentInstance) {
     for (const child of slot.componentInstance.slots) {

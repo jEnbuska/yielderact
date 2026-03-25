@@ -15,7 +15,7 @@ function* CounterItem({ id, color }: { id: string; color: string }) {
 
   return (
     <div
-      $ref={nodeRef}
+      ref={nodeRef}
       data-testid={`item-${id}`}
       data-id={id}
       style={{
