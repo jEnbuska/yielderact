@@ -100,17 +100,19 @@ export function childContextMap(
   props: SpecialProps,
 ): ReadonlyMap<Context<unknown>, unknown> {
   let map = parentMap;
-  const batch = props.$patch;
-  if (batch !== undefined) map = withBatch(map, batch);
-  if (props.$deferred) map = withPriority(map, resolveCtx(map, PriorityContext) + 1);
-  const ctxProp = props.$context;
-  if (ctxProp) {
-    const entries = Array.isArray(ctxProp) ? ctxProp : [ctxProp];
-    const newMap = new Map(map);
+  const { $patch, $context, $deferred } = props;
+  if ($patch !== undefined) map = withBatch(map, $patch);
+  if ($deferred) map = withPriority(map, resolveCtx(map, PriorityContext) + 1);
+  if ($context) {
+    const entries = Array.isArray($context) ? $context : [$context];
+    let newMap: Map<Context<unknown>, unknown> | undefined;
     for (const entry of entries) {
-      newMap.set(entry.ctx, entry.value);
+      if (!Object.is(resolveCtx(newMap ?? map, entry.ctx), entry.value)) {
+        if (!newMap) newMap = new Map(map);
+        newMap.set(entry.ctx, entry.value);
+      }
     }
-    map = newMap;
+    if (newMap) map = newMap;
   }
   return map;
 }
