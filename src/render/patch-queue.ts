@@ -17,13 +17,13 @@
  *   after reconciliation completes for that priority level.
  */
 
-import { _requireActiveCtx } from "./state";
+import { requireActiveCtx } from "./state";
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /** Begin collecting DOM operations for a new priority pass. */
 export function beginPatch(): void {
-  _requireActiveCtx().ops = [];
+  requireActiveCtx().ops = [];
 }
 
 /**
@@ -35,7 +35,7 @@ export function beginPatch(): void {
  * Resets the queue to `undefined` (no active patch) after committing.
  */
 export function commitPatch(): void {
-  const ctx = _requireActiveCtx();
+  const ctx = requireActiveCtx();
   if (!ctx.ops) return;
   const ops = ctx.ops;
   ctx.ops = undefined;
@@ -44,7 +44,7 @@ export function commitPatch(): void {
 
 /** Returns `true` while a patch is being collected. */
 export function isPatchActive(): boolean {
-  return _requireActiveCtx().ops !== undefined;
+  return requireActiveCtx().ops !== undefined;
 }
 
 /**
@@ -52,7 +52,7 @@ export function isPatchActive(): boolean {
  * Returns the ops array and resets the queue to empty (ready for higher-priority work).
  */
 export function savePatchOps(): (() => void)[] {
-  const ctx = _requireActiveCtx();
+  const ctx = requireActiveCtx();
   const ops = ctx.ops ?? [];
   ctx.ops = [];
   return ops;
@@ -63,7 +63,7 @@ export function savePatchOps(): (() => void)[] {
  * The saved ops come first since they were collected before the preemption.
  */
 export function restorePatchOps(saved: (() => void)[]): void {
-  const ctx = _requireActiveCtx();
+  const ctx = requireActiveCtx();
   if (!ctx.ops) {
     ctx.ops = saved;
     return;
@@ -81,8 +81,12 @@ export function restorePatchOps(saved: (() => void)[]): void {
  * Wrapper for `parent.insertBefore(node, ref)`.
  * Defers insertion when the parent is in the live DOM and a patch is active.
  */
-export function domInsertBefore(parent: Node, node: Node, ref: Node | null): void {
-  const ops = _requireActiveCtx().ops;
+export function domInsertBefore(
+  parent: Node,
+  node: Node,
+  ref: Node | null,
+  ops: (() => void)[] | undefined,
+): void {
   if (!ops || !parent.isConnected) {
     parent.insertBefore(node, ref);
     return;
@@ -94,8 +98,7 @@ export function domInsertBefore(parent: Node, node: Node, ref: Node | null): voi
  * Wrapper for `parent.appendChild(node)`.
  * Defers when the parent is in the live DOM and a patch is active.
  */
-export function domAppendChild(parent: Node, node: Node): void {
-  const ops = _requireActiveCtx().ops;
+export function domAppendChild(parent: Node, node: Node, ops: (() => void)[] | undefined): void {
   if (!ops || !parent.isConnected) {
     parent.appendChild(node);
     return;
@@ -108,8 +111,7 @@ export function domAppendChild(parent: Node, node: Node): void {
  * Defers when the node is in the live DOM and a patch is active.
  * Includes a safety check at commit time in case the node was already removed.
  */
-export function domRemoveChild(parent: Node, node: Node): void {
-  const ops = _requireActiveCtx().ops;
+export function domRemoveChild(parent: Node, node: Node, ops: (() => void)[] | undefined): void {
   if (!ops || !node.isConnected) {
     if (node.parentNode === parent) parent.removeChild(node);
     return;
@@ -123,8 +125,7 @@ export function domRemoveChild(parent: Node, node: Node): void {
  * Wrapper for setting `textNode.textContent`.
  * Defers when the text node is in the live DOM and a patch is active.
  */
-export function domSetText(node: Text, text: string): void {
-  const ops = _requireActiveCtx().ops;
+export function domSetText(node: Text, text: string, ops: (() => void)[] | undefined): void {
   if (!ops || !node.isConnected) {
     node.textContent = text;
     return;
@@ -144,9 +145,13 @@ export function domSetText(node: Text, text: string): void {
  * @param op       - The DOM operation to enqueue.
  * @param liveNode - A node used to check connectivity. If connected, the op
  *                   is deferred. If not connected (or omitted), the op runs now.
+ * @param ops      - The current patch ops queue, or `undefined` if no patch is active.
  */
-export function domEnqueue(op: () => void, liveNode?: Node): void {
-  const ops = _requireActiveCtx().ops;
+export function domEnqueue(
+  op: () => void,
+  liveNode: Node | undefined,
+  ops: (() => void)[] | undefined,
+): void {
   if (!ops || !liveNode?.isConnected) {
     op();
     return;

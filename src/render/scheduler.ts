@@ -24,8 +24,9 @@
  * effects or context propagation is processed immediately).
  */
 
+import { PriorityContext, resolveCtx } from "../context";
 import { beginPatch, commitPatch, restorePatchOps, savePatchOps } from "./patch-queue";
-import { _requireActiveCtx, _setActiveCtx } from "./state";
+import { RenderCtx, requireActiveCtx, setActiveCtx } from "./state";
 import type { ComponentInstance, RenderContext } from "./types";
 
 /** Time budget per work chunk in milliseconds. */
@@ -47,8 +48,9 @@ const _timeSlice = 5;
  * @param instance - The ComponentInstance to rerender.
  */
 export function scheduleUpdate(instance: ComponentInstance): void {
-  const rctx = instance.renderCtx;
-  const priority = rctx.renderingPriority ?? instance.priority;
+  // TODO: should use yield* getContext(RenderCtx) — sync code can't yield
+  const rctx = resolveCtx(instance.capturedCtx, RenderCtx);
+  const priority = rctx.renderingPriority ?? resolveCtx(instance.capturedCtx, PriorityContext);
 
   let set = rctx.pendingUpdates.get(priority);
   if (!set) {
@@ -59,7 +61,7 @@ export function scheduleUpdate(instance: ComponentInstance): void {
 
   if (!rctx.isProcessing) {
     rctx.isProcessing = true;
-    _setActiveCtx(rctx);
+    setActiveCtx(rctx);
     _runLoop(rctx);
   }
 }
@@ -75,7 +77,7 @@ export function scheduleUpdate(instance: ComponentInstance): void {
  * are batched into a single processing pass.
  */
 export function flushSync(fn?: () => void): void {
-  const rctx = _requireActiveCtx();
+  const rctx = requireActiveCtx();
   const prevSync = rctx.syncMode;
   rctx.syncMode = true;
 
@@ -111,7 +113,7 @@ export function flushSync(fn?: () => void): void {
  */
 export function _flushPendingWork(rctx: RenderContext): void {
   if (_hasPendingWork(rctx)) {
-    _setActiveCtx(rctx);
+    setActiveCtx(rctx);
     rctx.isProcessing = true;
     _runLoop(rctx);
   }
@@ -263,14 +265,12 @@ function _handlePreemption(rctx: RenderContext, currentPriority: number): void {
  */
 function _yieldToBrowser(rctx: RenderContext): void {
   // Save state that event handlers might disturb during the yield.
-  const savedCtxMap = rctx.ctxMap;
   const savedLiveOnlyMode = rctx.liveOnlyMode;
 
   if (typeof MessageChannel !== "undefined") {
     const mc = new MessageChannel();
     mc.port1.onmessage = () => {
-      _setActiveCtx(rctx);
-      rctx.ctxMap = savedCtxMap;
+      setActiveCtx(rctx);
       rctx.liveOnlyMode = savedLiveOnlyMode;
       _runLoop(rctx);
     };
@@ -278,8 +278,7 @@ function _yieldToBrowser(rctx: RenderContext): void {
   } else {
     // Fallback for environments without MessageChannel.
     setTimeout(() => {
-      _setActiveCtx(rctx);
-      rctx.ctxMap = savedCtxMap;
+      setActiveCtx(rctx);
       rctx.liveOnlyMode = savedLiveOnlyMode;
       _runLoop(rctx);
     }, 0);

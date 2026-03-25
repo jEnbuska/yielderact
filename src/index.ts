@@ -23,7 +23,7 @@
  * ```
  */
 
-export type { Context } from "./context";
+export type { Context, PublicContext } from "./context";
 export { createContext, useContext } from "./context";
 export type { SEvent, SyntheticEvent } from "./events";
 export type {

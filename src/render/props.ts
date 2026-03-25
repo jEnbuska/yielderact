@@ -7,7 +7,7 @@ import {
   unregisterHandler,
 } from "./delegation";
 import { addNonDelegatedListener, removeNonDelegatedListener } from "./events";
-import { _requireActiveCtx } from "./state";
+import { requireActiveCtx } from "./state";
 
 // ── Ref helpers ─────────────────────────────────────────────────────────────
 
@@ -37,7 +37,7 @@ function _registerEvent(
     addNonDelegatedListener(el, domEvent, handler);
   } else {
     registerHandler(el, domEvent, handler, isCapture);
-    _requireActiveCtx().delegationRoot?.ensureListening(domEvent);
+    requireActiveCtx().delegationRoot?.ensureListening(domEvent);
   }
 }
 
@@ -63,10 +63,10 @@ function _unregisterEvent(el: HTMLElement, propKey: string): void {
  * `updateProps` below.
  *
  * **Called by:**
- * - `buildVNodeList` in `mount.ts` — when building an HTML element during
+ * - `buildNode` in `mount.ts` — when building an HTML element during
  *   initial mount.
- * - `reconcileOne` in `reconciler.ts` — when a different tag is encountered
- *   and a fresh element is created.
+ * - `reconcileOneGen` in `reconciler.ts` — when a different tag is
+ *   encountered and a fresh element is created.
  *
  * **Prop handling rules:**
  * - All `$`-prefixed props are skipped (framework-internal special props).
@@ -147,7 +147,7 @@ export function applyProps(el: HTMLElement, props: InternalProps): void {
  * Only touches the DOM for props that were added, removed, or changed
  * (compared via `Object.is`). This avoids unnecessary DOM writes.
  *
- * **Called by:** `reconcileOne` in `reconciler.ts` — when an HTML element
+ * **Called by:** `reconcileOneGen` in `reconciler.ts` — when an HTML element
  * at the same position has the same tag but different props. Not called
  * when `liveOnlyMode` is true and the current batch is not `'live'`.
  *

@@ -13,7 +13,7 @@
 import { createSyntheticEvent } from "../events";
 import { getHandlers } from "./delegation";
 import { _flushPendingWork } from "./scheduler";
-import { _setActiveCtx } from "./state";
+import { setActiveCtx } from "./state";
 import type { RenderContext } from "./types";
 
 /**
@@ -54,7 +54,7 @@ export function dispatchDelegatedEvent(
 
   // 3. Batching: suppress immediate scheduling during dispatch so
   //    multiple setState calls are batched into a single render pass.
-  _setActiveCtx(rctx);
+  setActiveCtx(rctx);
   const wasProcessing = rctx.isProcessing;
   rctx.isProcessing = true;
 

@@ -44,11 +44,15 @@ Each branch gets its own worktree under `.worktrees/feat/` so multiple Claude Co
 
 1. Check merged PRs: `gh pr list --state merged` — close resolved issues: `gh issue close <number>`
 2. Ensure main repo `dev` is up to date: `git checkout dev && git pull origin dev` (from main repo root)
-3. Create branch + worktree: `git worktree add .worktrees/feat/<branch_name> -b <branch_name>`
-4. Install deps in worktree: `cd .worktrees/feat/<branch_name> && npm ci && npm ci --prefix examples`
+3. Create branch + worktree: `git worktree add .worktrees/feat/<dir_name> -b <branch_name>`
+   - `<branch_name>` uses conventional commit prefixes: e.g. `feat/add-context`, `fix/render-bug`, `chore/cleanup`
+   - `<dir_name>` is a **flat directory name** (no slashes) — strip the prefix: e.g. `add-context`, `render-bug`, `cleanup`
+   - Example: `git worktree add .worktrees/feat/add-context -b feat/add-context`
+   - **Never** create nested directories under `.worktrees/feat/` — all worktrees must be direct children
+4. Install deps in worktree: `cd .worktrees/feat/<dir_name> && npm ci && npm ci --prefix examples`
 5. Copy Claude Code settings: `mkdir -p .claude && cp <main-repo-root>/.claude/settings.local.json .claude/`
 6. Work exclusively within the worktree directory — never edit files in the main repo root
-7. Cleanup after merge: `git worktree remove .worktrees/feat/<branch_name> && git branch -d <branch_name>`
+7. Cleanup after merge: `git worktree remove .worktrees/feat/<dir_name> && git branch -d <branch_name>`
 
 ### 2. Development Commands
 
@@ -106,10 +110,11 @@ function* Counter(_props: object) {
 | `jsx-types.ts`            | Intrinsic element type definitions (HTML/SVG attribute types)           |
 | `jsx-runtime.ts`          | Automatic JSX transform (`jsx`, `jsxs`, `jsxDEV`)                      |
 | `events.ts`               | `SyntheticEvent` type and proxy-based event wrapper                     |
-| `context.ts`              | `createContext`, `useContext`, `ProviderFunction`, context map helpers   |
+| `context.ts`              | `createContext`, `useContext`, context map helpers                       |
 | `index.ts`                | Public API re-exports                                                   |
 | `render/types.ts`         | `RenderContext`, `ComponentInstance`, `Slot`, `HookState`               |
 | `render/state.ts`         | `createRenderContext()`, active context pointer                         |
+| `render/driver.ts`        | Generator driver: context scoping, yield protocol, `drive`, `driveWithContext` |
 | `render/index.ts`         | `render()`, `createRoot()` entry points                                 |
 | `render/mount.ts`         | DOM construction & component lifecycle                                  |
 | `render/reconciler.ts`    | Positional reconciliation (diff + patch)                                |
@@ -140,6 +145,7 @@ function* Counter(_props: object) {
 - **JSX Config:** The library build uses the classic `react` transform (`jsxFactory: "createElement"`). Consumers (including `examples/`) use `react-jsx` with `jsxImportSource: "yract"`, backed by `src/jsx-runtime.ts`.
 - **Multi-root:** Each `render()`/`createRoot()` creates an independent `RenderContext` with its own state (patch depth, dirty instances, scheduler queue, context map, DOM ops queue). The global `idCounter` is the only shared state (IDs must be globally unique).
 - **Guard Clauses:** Always prefer guard clauses (early returns) over nested conditionals. Return early when a condition short-circuits the rest of the logic.
+- **Flat Code:** Avoid deeply nested blocks (`if` inside `if`, `try` inside `if`, etc.). Extract nested logic into separate functions, use early returns, or restructure to keep indentation shallow. Flat code is easier to read and maintain.
 - **Lint Strictness:** Never weaken linting or tsconfig rules. Fix lint issues by improving code, not by adding `biome-ignore` or `@ts-ignore` comments. The only accepted exceptions are `biome-ignore lint/complexity/noExcessiveCognitiveComplexity` on architectural dispatch functions (reconciler, props, mount, dispatch) that inherently require many branches.
 - **Type Safety Tests:** Compile-time type tests live in `src/__tests__/*.typetest.tsx` and are checked by `npm run typecheck`.
 - **New Feature Checklist:** Every new public API feature must include:
