@@ -1,6 +1,6 @@
 import { createContext, useContext } from "../context";
 import { useState } from "../hooks";
-import { createElement, Fragment } from "../jsx";
+import { Fragment } from "../jsx";
 import { render } from "../render";
 
 /**
@@ -36,9 +36,9 @@ describe("no wrapper spans in rendered output", () => {
 
   it("component returning a single element", () => {
     function* Greeting({ name }: { name: string }) {
-      return createElement("h1", null, `Hello, ${name}!`);
+      return <h1>{`Hello, ${name}!`}</h1>;
     }
-    render(createElement(Greeting as never, { name: "World" }), container);
+    render(<Greeting name="World" />, container);
     expect(container.querySelector("h1")?.textContent).toBe("Hello, World!");
     expectNoDisplayContentsSpans(container);
   });
@@ -47,18 +47,22 @@ describe("no wrapper spans in rendered output", () => {
     function* Empty() {
       return null;
     }
-    render(createElement(Empty as never, {}), container);
+    render(<Empty />, container);
     expectNoDisplayContentsSpans(container);
   });
 
   it("nested components (no hooks)", () => {
     function* Inner() {
-      return createElement("span", null, "inner");
+      return <span>inner</span>;
     }
     function* Outer() {
-      return createElement("div", null, createElement(Inner as never, {}));
+      return (
+        <div>
+          <Inner />
+        </div>
+      );
     }
-    render(createElement(Outer as never, {}), container);
+    render(<Outer />, container);
     expect(container.querySelector("span")?.textContent).toBe("inner");
     expectNoDisplayContentsSpans(container);
   });
@@ -67,9 +71,9 @@ describe("no wrapper spans in rendered output", () => {
 
   it("component returning a single element", () => {
     function* Card() {
-      return createElement("div", { className: "card" }, "content");
+      return <div className="card">content</div>;
     }
-    render(createElement(Card as never, {}), container);
+    render(<Card />, container);
     expect(container.querySelector(".card")?.textContent).toBe("content");
     expectNoDisplayContentsSpans(container);
   });
@@ -80,10 +84,10 @@ describe("no wrapper spans in rendered output", () => {
     function* Counter() {
       const [count, sc] = yield* useState(0);
       setCount = sc;
-      return createElement("button", {}, String(count));
+      return <button>{String(count)}</button>;
     }
 
-    render(createElement(Counter as never, {}), container);
+    render(<Counter />, container);
     expect(container.querySelector("button")?.textContent).toBe("0");
     expectNoDisplayContentsSpans(container);
 
@@ -94,22 +98,28 @@ describe("no wrapper spans in rendered output", () => {
 
   it("nested components", () => {
     function* Inner() {
-      return createElement("span", null, "hello");
+      return <span>hello</span>;
     }
     function* Outer() {
-      return createElement("div", null, createElement(Inner as never, {}));
+      return (
+        <div>
+          <Inner />
+        </div>
+      );
     }
-    render(createElement(Outer as never, {}), container);
+    render(<Outer />, container);
     expect(container.querySelector("span")?.textContent).toBe("hello");
     expectNoDisplayContentsSpans(container);
   });
 
   it("component inside HTML element", () => {
     function* Label({ text }: { text: string }) {
-      return createElement("span", null, text);
+      return <span>{text}</span>;
     }
     render(
-      createElement("div", { className: "wrapper" }, createElement(Label as never, { text: "hi" })),
+      <div className="wrapper">
+        <Label text="hi" />
+      </div>,
       container,
     );
     expect(container.querySelector("span")?.textContent).toBe("hi");
@@ -120,13 +130,16 @@ describe("no wrapper spans in rendered output", () => {
 
   it("multiple components as siblings", () => {
     function* A() {
-      return createElement("p", null, "A");
+      return <p>A</p>;
     }
     function* B() {
-      return createElement("p", null, "B");
+      return <p>B</p>;
     }
     render(
-      createElement("div", null, createElement(A as never, {}), createElement(B as never, {})),
+      <div>
+        <A />
+        <B />
+      </div>,
       container,
     );
     const ps = container.querySelectorAll("p");
@@ -138,20 +151,18 @@ describe("no wrapper spans in rendered output", () => {
 
   it("mixed children: elements, text, and components", () => {
     function* GenChild() {
-      return createElement("em", null, "gen");
+      return <em>gen</em>;
     }
     function* PlainChild() {
-      return createElement("strong", null, "plain");
+      return <strong>plain</strong>;
     }
     render(
-      createElement(
-        "section",
-        null,
-        createElement("p", null, "text"),
-        createElement(GenChild as never, {}),
-        createElement(PlainChild as never, {}),
-        "raw text",
-      ),
+      <section>
+        <p>text</p>
+        <GenChild />
+        <PlainChild />
+        {"raw text"}
+      </section>,
       container,
     );
     expect(container.querySelector("p")?.textContent).toBe("text");
@@ -164,14 +175,19 @@ describe("no wrapper spans in rendered output", () => {
 
   it("generator returning Fragment with multiple children", () => {
     function* Multi() {
-      return createElement(
-        Fragment,
-        null,
-        createElement("p", null, "one"),
-        createElement("p", null, "two"),
+      return (
+        <Fragment>
+          <p>one</p>
+          <p>two</p>
+        </Fragment>
       );
     }
-    render(createElement("div", null, createElement(Multi as never, {})), container);
+    render(
+      <div>
+        <Multi />
+      </div>,
+      container,
+    );
     const ps = container.querySelectorAll("p");
     expect(ps).toHaveLength(2);
     expect(ps[0]?.textContent).toBe("one");
@@ -186,10 +202,10 @@ describe("no wrapper spans in rendered output", () => {
 
     function* Consumer() {
       const value = yield* useContext(Ctx);
-      return createElement("span", null, value);
+      return <span>{value}</span>;
     }
 
-    render(createElement(Consumer as never, { $context: Ctx("provided") }), container);
+    render(<Consumer $context={Ctx("provided")} />, container);
     expect(container.querySelector("span")?.textContent).toBe("provided");
     expectNoDisplayContentsSpans(container);
   });
@@ -199,15 +215,13 @@ describe("no wrapper spans in rendered output", () => {
 
     function* Consumer() {
       const value = yield* useContext(Ctx);
-      return createElement("span", null, value);
+      return <span>{value}</span>;
     }
 
     render(
-      createElement(
-        "div",
-        { $context: Ctx("outer") },
-        createElement(Consumer as never, { $context: Ctx("inner") }),
-      ),
+      <div $context={Ctx("outer")}>
+        <Consumer $context={Ctx("inner")} />
+      </div>,
       container,
     );
     expect(container.querySelector("span")?.textContent).toBe("inner");
@@ -221,23 +235,23 @@ describe("no wrapper spans in rendered output", () => {
 
     function* Leaf() {
       const value = yield* useContext(Ctx);
-      return createElement("b", null, value);
+      return <b>{value}</b>;
     }
 
     function* PlainWrapper({ children }: { children: unknown }) {
-      return createElement("div", { className: "plain" }, ...(children as never[]));
+      return <div className="plain">{...(children as never[])}</div>;
     }
 
     function* Middle({ children }: { children: unknown }) {
-      return createElement("article", null, ...(children as never[]));
+      return <article>{...(children as never[])}</article>;
     }
 
     render(
-      createElement(
-        Middle as never,
-        { $context: Ctx("deep") },
-        createElement(PlainWrapper as never, {}, createElement(Leaf as never, {})),
-      ),
+      <Middle $context={Ctx("deep")}>
+        <PlainWrapper>
+          <Leaf />
+        </PlainWrapper>
+      </Middle>,
       container,
     );
     expect(container.querySelector("b")?.textContent).toBe("deep");
@@ -250,18 +264,24 @@ describe("no wrapper spans in rendered output", () => {
     let toggle: () => void = () => {};
 
     function* Child({ label }: { label: string }) {
-      return createElement("span", null, label);
+      return <span>{label}</span>;
     }
 
     function* Parent() {
       const [on, setOn] = yield* useState(true);
       toggle = () => setOn(!on);
-      return on
-        ? createElement("div", null, createElement(Child as never, { label: "A" }))
-        : createElement("div", null, createElement(Child as never, { label: "B" }));
+      return on ? (
+        <div>
+          <Child label="A" />
+        </div>
+      ) : (
+        <div>
+          <Child label="B" />
+        </div>
+      );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector("span")?.textContent).toBe("A");
     expectNoDisplayContentsSpans(container);
 

@@ -1,6 +1,5 @@
 import { BatchContext, useContext } from "../context";
 import { useState } from "../hooks";
-import { createElement } from "../jsx";
 import { createRoot } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -19,20 +18,20 @@ describe("createRoot", () => {
 
   it("renders a component into the container", () => {
     function* Greeting({ name }: { name: string }) {
-      return createElement("h1", null, `Hello, ${name}!`);
+      return <h1>Hello, {name}!</h1>;
     }
     const root = createRoot(container);
-    root.render(createElement(Greeting as never, { name: "World" }));
+    root.render(<Greeting name="World" />);
     expect(container.querySelector("h1")?.textContent).toBe("Hello, World!");
   });
 
   it("renders a component into the container", () => {
     function* Counter() {
       const [count] = yield* useState(0);
-      return createElement("span", null, String(count));
+      return <span>{String(count)}</span>;
     }
     const root = createRoot(container);
-    root.render(createElement(Counter as never, {}));
+    root.render(<Counter />);
     expect(container.textContent).toBe("0");
   });
 
@@ -41,11 +40,11 @@ describe("createRoot", () => {
 
     function* Comp() {
       capturedBatch = yield* useContext(BatchContext);
-      return createElement("div", null);
+      return <div />;
     }
 
     const root = createRoot(container);
-    root.render(createElement(Comp as never, {}));
+    root.render(<Comp />);
     expect(capturedBatch).toBe("default");
   });
 
@@ -57,19 +56,19 @@ describe("createRoot", () => {
 
     function* Comp1() {
       capturedBatch1 = yield* useContext(BatchContext);
-      return createElement("div", null);
+      return <div />;
     }
     function* Comp2() {
       capturedBatch2 = yield* useContext(BatchContext);
-      return createElement("div", null);
+      return <div />;
     }
 
     const container2 = document.createElement("div");
     document.body.appendChild(container2);
     const root1 = createRoot(container);
     const root2 = createRoot(container2);
-    root1.render(createElement(Comp1 as never, {}));
-    root2.render(createElement(Comp2 as never, {}));
+    root1.render(<Comp1 />);
+    root2.render(<Comp2 />);
     expect(capturedBatch1).toBe("default");
     expect(capturedBatch2).toBe("default");
     document.body.removeChild(container2);
@@ -85,19 +84,19 @@ describe("createRoot", () => {
     function* Counter1() {
       const [count, set] = yield* useState(0);
       setCount1 = set;
-      return createElement("span", { id: "c1" }, String(count));
+      return <span id="c1">{String(count)}</span>;
     }
 
     function* Counter2() {
       const [count, set] = yield* useState(100);
       setCount2 = set;
-      return createElement("span", { id: "c2" }, String(count));
+      return <span id="c2">{String(count)}</span>;
     }
 
     const root1 = createRoot(container);
     const root2 = createRoot(container2);
-    root1.render(createElement(Counter1 as never, {}));
-    root2.render(createElement(Counter2 as never, {}));
+    root1.render(<Counter1 />);
+    root2.render(<Counter2 />);
 
     expect(container.querySelector("#c1")?.textContent).toBe("0");
     expect(container2.querySelector("#c2")?.textContent).toBe("100");

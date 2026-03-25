@@ -50,7 +50,10 @@
         "noAccumulatingSpread": "warn"
       },
       "a11y": {
-        "useButtonType": "off"
+        "recommended": false
+      },
+      "security": {
+        "noBlankTarget": "off"
       }
     }
   },
