@@ -1,6 +1,15 @@
+import type { Context } from "../context";
 import { useState } from "../hooks";
 import { createElement, Fragment } from "../jsx";
 import { buildNode, render } from "../render";
+import { drive } from "../render/driver";
+import { createRenderContext, RenderCtx } from "../render/state";
+
+function run(child: Parameters<typeof buildNode>[0]) {
+  const map: Map<Context<unknown>, unknown> = new Map();
+  map.set(RenderCtx as Context<unknown>, createRenderContext());
+  return drive(map, buildNode(child)).value;
+}
 
 // jsdom is provided by vitest (see vitest.config.ts)
 
@@ -191,25 +200,25 @@ describe("render – HTML elements", () => {
 
 describe("buildNode", () => {
   it("returns a text node for strings", () => {
-    const node = buildNode("hello");
+    const node = run("hello");
     expect(node).toBeInstanceOf(Text);
     expect(node.textContent).toBe("hello");
   });
 
   it("returns a text node for numbers", () => {
-    const node = buildNode(42);
+    const node = run(42);
     expect(node).toBeInstanceOf(Text);
     expect(node.textContent).toBe("42");
   });
 
   it("returns an empty text node for null", () => {
-    const node = buildNode(null);
+    const node = run(null);
     expect(node).toBeInstanceOf(Text);
     expect(node.textContent).toBe("");
   });
 
   it("returns an empty text node for false", () => {
-    const node = buildNode(false);
+    const node = run(false);
     expect(node).toBeInstanceOf(Text);
     expect(node.textContent).toBe("");
   });
@@ -217,34 +226,32 @@ describe("buildNode", () => {
 
 describe("render – HTML defaults", () => {
   it('sets button type to "button" when not specified', () => {
-    const node = buildNode(createElement("button", {}, "Click")) as HTMLButtonElement;
+    const node = run(createElement("button", {}, "Click")) as HTMLButtonElement;
     expect(node.getAttribute("type")).toBe("button");
   });
 
   it("preserves explicit button type", () => {
-    const node = buildNode(
-      createElement("button", { type: "submit" }, "Submit"),
-    ) as HTMLButtonElement;
+    const node = run(createElement("button", { type: "submit" }, "Submit")) as HTMLButtonElement;
     expect(node.getAttribute("type")).toBe("submit");
   });
 
   it('warns when <a target="_blank"> has no rel', () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    buildNode(createElement("a", { href: "https://example.com", target: "_blank" }, "link"));
+    run(createElement("a", { href: "https://example.com", target: "_blank" }, "link"));
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("noopener"));
     warn.mockRestore();
   });
 
   it('does not warn when <a target="_blank"> has any rel value', () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    buildNode(
+    run(
       createElement(
         "a",
         { href: "https://example.com", target: "_blank", rel: "noopener noreferrer" },
         "link",
       ),
     );
-    buildNode(
+    run(
       createElement(
         "a",
         { href: "https://example.com", target: "_blank", rel: "noreferrer" },
@@ -257,7 +264,7 @@ describe("render – HTML defaults", () => {
 
   it('does not warn for <a> without target="_blank"', () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    buildNode(createElement("a", { href: "https://example.com" }, "link"));
+    run(createElement("a", { href: "https://example.com" }, "link"));
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });

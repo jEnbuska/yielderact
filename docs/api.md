@@ -577,7 +577,7 @@ Creates a context with a default value. The returned object exposes a `Provider`
 | -------------- | ---- | ------------------------------------------ |
 | `defaultValue` | `T`  | Value used when no Provider is in the tree |
 
-**Returns** `Context<T>` — `{ Provider, _defaultValue }`
+**Returns** `PublicContext<T>` — `{ Provider, _defaultValue }`
 
 ```tsx
 const ThemeCtx = createContext<'light' | 'dark'>('light');

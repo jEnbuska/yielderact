@@ -167,25 +167,26 @@ function* App() {
 
 ### Priority propagation
 
-Priority propagates through the context system, just like `$patch`. An
-internal context (`_priorityCtx`) tracks the current priority level. Each
+Priority propagates through the context system, just like `$patch`. The
+internal `PriorityContext` tracks the current priority level. Each
 `$deferred={true}` increments the priority by 1:
 
 ```
-_priorityCtx default = 0
+PriorityContext default = 0
 
 <App>                       priority 0
   <Header />                priority 0
-  <Content $deferred>       priority 1  (_getCurrentPriority() + 1)
-    <Widget $deferred>      priority 2  (_getCurrentPriority() + 1)
+  <Content $deferred>       priority 1
+    <Widget $deferred>      priority 2
     </Widget>
   </Content>
 </App>
 ```
 
-When a component mounts, it captures its priority from
-`_getCurrentPriority()` and stores it in `instance.priority`. This value is
-used by the scheduler to place the instance in the correct priority queue.
+When a component mounts, it captures its priority from the context map
+via `_resolveCtxValue(ctxMap, PriorityContext)` and stores it in
+`instance.priority`. This value is used by the scheduler to place the
+instance in the correct priority queue.
 
 ### Priority levels and ordering
 
@@ -342,7 +343,8 @@ regardless of active patches.
 | :-------------------------- | :--------------------------------------------------------- |
 | `src/render/scheduler.ts`   | Priority queue, work loop, preemption, time slicing        |
 | `src/render/patch-queue.ts` | DOM operation collection and atomic commit                 |
-| `src/render/mount.ts`       | `commitOrDefer`, `executeRerender`, `rerender` closures    |
-| `src/render/state.ts`       | Shared mutable state (`patchDepth`, `liveOnlyMode`, etc.)  |
-| `src/context.ts`            | `_priorityCtx`, `_withPriority`, `_getCurrentPriority`     |
+| `src/render/mount.ts`       | `commitOrDefer`, `executeRerender`, `rerenderInstance`     |
+| `src/render/driver.ts`      | Generator driver with context scoping                      |
+| `src/render/state.ts`       | `RenderContext` and active context pointer                  |
+| `src/context.ts`            | `PriorityContext`, `_withPriority`, `_resolveCtxValue`     |
 | `src/render/helpers.ts`     | `stripFrameworkDirectives` — removes `$deferred` / `$deps` from component props |

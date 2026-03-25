@@ -1,3 +1,4 @@
+import { type Context, PriorityContext, resolveCtx, withBatch, withPriority } from "../context";
 import type { Renderable } from "../hooks";
 import {
   type Child,
@@ -8,15 +9,7 @@ import {
   type VNode,
 } from "../jsx";
 
-/**
- * Type guard: returns `true` when `child` is a VNode (an object with a `type` field).
- *
- * Narrows the `Child` union (`VNode | string | number | boolean | null | undefined`)
- * to `VNode`, eliminating the need for `as VNode` casts after the check.
- *
- * **Called by:** `flattenChildren` (to detect Fragment wrappers), and the
- * reconciler (to narrow children before type-specific handling).
- */
+/** Type guard: narrows `Child` to `VNode`. */
 export function isVNode(child: Child): child is VNode {
   return child !== null && child !== undefined && typeof child === "object";
 }
@@ -36,19 +29,7 @@ export function isComponentRenderable(renderable: Renderable): renderable is Com
   return typeof renderable === "function";
 }
 
-/**
- * Shallow equality check for two props objects.
- *
- * Returns `true` when both objects have the same keys and every value
- * is identical by `Object.is`. Used as the primary memoization gate
- * in the reconciler — when props haven't changed, the component is skipped.
- *
- * **Called by:** `reconcileOne` in `reconciler.ts` — to determine if a
- * same-type component at the same position can be skipped (no rerender).
- *
- * @param a - Previous props (from `Slot.props`).
- * @param b - Next props (from the new VNode).
- */
+/** Shallow equality check for two props objects (same keys, all values `Object.is`). */
 export function shallowEqual(a: InternalProps, b: InternalProps): boolean {
   const aKeys = Object.keys(a);
   if (aKeys.length !== Object.keys(b).length) return false;
@@ -56,22 +37,10 @@ export function shallowEqual(a: InternalProps, b: InternalProps): boolean {
 }
 
 /**
- * Returns true when `a` and `b` differ **only** in the `$patch` prop and
- * all other (content) props are identical.
+ * Returns true when `a` and `b` differ only in the `$patch` prop.
  *
- * This enables an optimization: when a parent changes only a child's
- * `$patch` prop, the child's generator body doesn't need to re-execute.
- * The `$patch` value is forwarded to `inst.props` for `shouldDefer`
- * checks, but no rerender occurs — unless the component consumes
- * `usePatchContext` (detected separately via `_batchCtx`).
- *
- * **Called by:** `reconcileOne` in `reconciler.ts` — after `shallowEqual`
- * returns `false`, as a secondary check before falling through to a full
- * rerender.
- *
- * @param a - Previous props (from `Slot.props`).
- * @param b - Next props (from the new VNode).
- * @returns `true` if and only if `$patch` differs and all other props match.
+ * Enables skipping a rerender when only `$patch` changed -- the value is
+ * forwarded for `shouldDefer` checks without re-executing the generator.
  */
 export function onlyPatchChanged(a: InternalProps, b: InternalProps): boolean {
   const aKeys = Object.keys(a);
@@ -88,19 +57,7 @@ export function onlyPatchChanged(a: InternalProps, b: InternalProps): boolean {
   return patchDiffers;
 }
 
-/**
- * Recursively flatten Fragment VNodes into a flat list of non-Fragment children.
- *
- * Fragments (`<>…</>`) are virtual grouping nodes that produce no DOM element.
- * Before reconciling, fragments must be flattened so each child has a stable
- * positional index in the parent's slot array.
- *
- * **Called by:** `reconcileSlots` in `reconciler.ts` — as the first step
- * before the positional reconciliation loop.
- *
- * @param children - The raw children array (may contain nested Fragments).
- * @returns A flat array with all Fragment wrappers removed.
- */
+/** Recursively flatten Fragment VNodes into a flat list of non-Fragment children. */
 export function flattenChildren(children: Child[]): Child[] {
   const result: Child[] = [];
   for (const child of children) {
@@ -117,49 +74,29 @@ export function flattenChildren(children: Child[]): Child[] {
  * Compute the merged props for a VNode, including `children` if present.
  *
  * When a VNode has children (e.g. `<Comp>child</Comp>`), they are passed
- * to the component as `props.children`. This function merges them into a
- * single props object so the component receives `{ ...ownProps, children }`.
- *
- * **Called by:**
- * - `reconcileOne` in `reconciler.ts` — to compute the full props before
- *   checking `$shown`, `shallowEqual`, and passing to components.
- * - `buildVNodeList` and `buildNode` in `mount.ts` — same purpose during
- *   initial mount.
- *
- * @param vnode - The VNode whose props to merge.
- * @returns The props object, with `children` included if non-empty.
+ * to the component as `props.children`.
  */
 export function mergedProps(vnode: VNode): InternalProps {
   return (
     vnode.children.length > 0 ? { ...vnode.props, children: vnode.children } : vnode.props
-  ) as InternalProps;
+  ) satisfies InternalProps;
 }
 
 /**
- * Read the `$patch` mode from a props object.
+ * Build a child context map from a parent map, applying `$patch` and
+ * `$deferred` from the given props.
  *
- * Returns `'live'`, `'default'`, or `undefined` (when not set).
- * **Called by:** reconciler and mount — whenever the effective batch behaviour
- * needs to be determined from a VNode's props.
+ * Returns the parent map unchanged if neither directive is set.
  */
-export function getPatchMode(props: SpecialProps): SpecialProps["$patch"] {
-  return props.$patch;
-}
-
-/**
- * Returns false only when the `$shown` prop is explicitly set to `false`.
- *
- * The `$shown` prop controls conditional mount/unmount. When `$shown={false}`,
- * the component or element is replaced with an empty text node placeholder.
- *
- * **Called by:**
- * - `reconcileOne` in `reconciler.ts` — before processing any VNode.
- * - `buildVNodeList` and `buildNode` in `mount.ts` — during initial mount.
- *
- * @param props - The (merged) props to check.
- */
-export function isShown(props: SpecialProps): boolean {
-  return props.$shown !== false;
+export function childContextMap(
+  parentMap: ReadonlyMap<Context<unknown>, unknown>,
+  props: SpecialProps,
+): ReadonlyMap<Context<unknown>, unknown> {
+  let map = parentMap;
+  const batch = props.$patch;
+  if (batch !== undefined) map = withBatch(map, batch);
+  if (props.$deferred) map = withPriority(map, resolveCtx(map, PriorityContext) + 1);
+  return map;
 }
 
 /**
@@ -167,22 +104,13 @@ export function isShown(props: SpecialProps): boolean {
  * object, returning props without them.
  *
  * These directives are consumed by the reconciler/scheduler and are
- * **not** passed to the component — the component should never see them
- * in its props.
- *
- * If neither directive is present, returns the original object (no allocation).
- *
- * **Called by:**
- * - `reconcileComponent` in `reconciler.ts` — before passing props to components.
- * - `buildNode` / `buildVNodeList` in `mount.ts` — same.
- *
- * @param props - The (merged) props that may contain `$deferred` / `$deps`.
- * @returns Props without `$deferred` or `$deps`.
+ * not passed to the component. Returns the original object if neither
+ * directive is present (no allocation).
  */
 export function stripFrameworkDirectives(props: InternalProps): InternalProps {
   if (!("$deferred" in props) && !("$deps" in props)) return props;
   const { $deferred: _d, $deps: _p, ...rest } = props;
-  return rest as InternalProps;
+  return rest satisfies InternalProps;
 }
 
 /**
@@ -197,5 +125,5 @@ export function stripFrameworkDirectives(props: InternalProps): InternalProps {
 export function stripDeferred(props: InternalProps): InternalProps {
   if (!("$deferred" in props)) return props;
   const { $deferred: _, ...rest } = props;
-  return rest as InternalProps;
+  return rest satisfies InternalProps;
 }

@@ -1,4 +1,4 @@
-import { _getCtxMap, _getCurrentBatch } from "../context";
+import { BatchContext, useContext } from "../context";
 import { useState } from "../hooks";
 import { createElement } from "../jsx";
 import { createRoot } from "../render";
@@ -40,7 +40,7 @@ describe("createRoot", () => {
     let capturedBatch: string | undefined;
 
     function* Comp() {
-      capturedBatch = _getCurrentBatch();
+      capturedBatch = yield* useContext(BatchContext);
       return createElement("div", null);
     }
 
@@ -49,13 +49,30 @@ describe("createRoot", () => {
     expect(capturedBatch).toBe("default");
   });
 
-  it("restores context map after render", () => {
-    const root = createRoot(container);
-    root.render(createElement("div", null));
-    // After render completes, the root's context map is restored to its
-    // initial state (no leftover Provider values from the rendered tree).
-    const after = _getCtxMap();
-    expect(after.size).toBe(0);
+  it("context map does not leak between independent roots", () => {
+    // After render completes, each root's context map is independent.
+    // Verify by checking that a second root doesn't inherit values from the first.
+    let capturedBatch1: string | undefined;
+    let capturedBatch2: string | undefined;
+
+    function* Comp1() {
+      capturedBatch1 = yield* useContext(BatchContext);
+      return createElement("div", null);
+    }
+    function* Comp2() {
+      capturedBatch2 = yield* useContext(BatchContext);
+      return createElement("div", null);
+    }
+
+    const container2 = document.createElement("div");
+    document.body.appendChild(container2);
+    const root1 = createRoot(container);
+    const root2 = createRoot(container2);
+    root1.render(createElement(Comp1 as never, {}));
+    root2.render(createElement(Comp2 as never, {}));
+    expect(capturedBatch1).toBe("default");
+    expect(capturedBatch2).toBe("default");
+    document.body.removeChild(container2);
   });
 
   it("two independent createRoot calls do not share state", () => {

@@ -27,6 +27,8 @@ export const $USE_RESOLVE_RAW = "$USE_RESOLVE_RAW" as const;
 export const $USE_UI_PATCH = "$USE_UI_PATCH" as const;
 /** @internal */
 export const $USE_SLOT_CONTENT = "$USE_SLOT_CONTENT" as const;
+/** @internal */
+export const $USE_SET_CONTEXT = "$USE_SET_CONTEXT" as const;
 
 /** Union of all hook type string identifiers. */
 export type HookType =
@@ -40,7 +42,8 @@ export type HookType =
   | typeof $USE_RESOLVE
   | typeof $USE_RESOLVE_RAW
   | typeof $USE_UI_PATCH
-  | typeof $USE_SLOT_CONTENT;
+  | typeof $USE_SLOT_CONTENT
+  | typeof $USE_SET_CONTEXT;
 
 /**
  * Runtime set of all hook type strings for fast membership testing.
@@ -58,6 +61,7 @@ export const HOOK_TYPES: ReadonlySet<HookType> = new Set<HookType>([
   $USE_RESOLVE_RAW,
   $USE_UI_PATCH,
   $USE_SLOT_CONTENT,
+  $USE_SET_CONTEXT,
 ]);
 
 // ---------------------------------------------------------------------------
@@ -123,6 +127,12 @@ export interface SlotContentDescriptor {
   registryCtx: Context<unknown>;
   contentCtx: Context<unknown>;
 }
+/** @internal */
+export interface SetContextDescriptor {
+  type: typeof $USE_SET_CONTEXT;
+  ctx: Context<unknown>;
+  value: unknown;
+}
 
 /**
  * Discriminated union of all hook descriptor types.
@@ -142,4 +152,5 @@ export type HookDescriptor =
   | ResolveDescriptor
   | ResolveRawDescriptor
   | UIPatchDescriptor
-  | SlotContentDescriptor;
+  | SlotContentDescriptor
+  | SetContextDescriptor;

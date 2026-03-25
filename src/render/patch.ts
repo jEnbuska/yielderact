@@ -1,50 +1,29 @@
-import { _getCtxMap, _setCtxMap, _withBatch } from "../context";
-import { getPatchMode } from "./helpers";
+import { resolveCtx, withBatch } from "../context";
 import { flushEffects } from "./hooks-runtime";
 import { reconcileSlots } from "./reconciler";
-import { _requireActiveCtx } from "./state";
+import { RenderCtx, requireActiveCtx } from "./state";
 import type { ComponentInstance } from "./types";
 
 /**
- * Apply deferred DOM updates for a list of generator instances.
+ * Apply deferred DOM updates for a list of component instances.
  *
- * Each instance with a `pendingVNode` gets its DOM reconciled: the pending
- * VNode is passed to `reconcileSlots`, which diffs the instance's current
- * slots against the new VNode tree and applies the minimal DOM mutations.
- * After reconciliation, `flushEffects` runs any queued `useEffect` callbacks.
- *
- * Before reconciling, the context map is temporarily set to the instance's
- * `capturedCtx` (with its own `$patch` applied if present), so that child
- * components see the correct context values during the reconciliation walk.
- *
- * **Called by:**
- * - `commitUIPatch()` below — drains `renderCtx.dirtyInstances` and
- *   flushes all globally-deferred instances.
- * - `useUIPatch`'s `commit()` function (via `processOneDescriptor` in
- *   `hooks-runtime.ts`) — flushes locally-deferred instances when the
- *   local patch is committed.
- *
- * @param instances - The list of instances to flush. Instances with
- *   `pendingVNode === undefined` are skipped (no pending update).
+ * Each instance with a `pendingVNode` gets its DOM reconciled and effects
+ * flushed. Instances without a pending update are skipped.
  */
-export function _flushPendingVNodes(instances: ComponentInstance[]): void {
+export function flushPendingVNodes(instances: ComponentInstance[]): void {
   for (const inst of instances) {
     if (inst.pendingVNode === undefined) continue;
     if (!inst.endMarker.parentNode) continue;
     const vnode = inst.pendingVNode;
     inst.pendingVNode = undefined;
-    inst.renderCtx.dirtyInstances.delete(inst);
+    resolveCtx(inst.capturedCtx, RenderCtx).dirtyInstances.delete(inst);
 
-    const prevCtx = _getCtxMap();
-    // Restore inherited context, then apply own $patch for children.
-    const ownPatch = getPatchMode(inst.props);
-    _setCtxMap(ownPatch !== undefined ? _withBatch(inst.capturedCtx, ownPatch) : inst.capturedCtx);
+    // Compute effective context: inherited context + own $patch for children.
+    const ownPatch = inst.props.$patch;
+    const ctxMap =
+      ownPatch !== undefined ? withBatch(inst.capturedCtx, ownPatch) : inst.capturedCtx;
     const parent = inst.endMarker.parentNode as HTMLElement;
-    try {
-      inst.slots = reconcileSlots(parent, inst.slots, [vnode], inst.endMarker);
-    } finally {
-      _setCtxMap(prevCtx);
-    }
+    inst.slots = reconcileSlots(parent, inst.slots, [vnode], inst.endMarker, ctxMap);
     flushEffects(inst);
   }
 }
@@ -71,14 +50,14 @@ export function _flushPendingVNodes(instances: ComponentInstance[]): void {
  * commitUIPatch();      // both updates applied at once
  */
 export function startUIPatch(): void {
-  _requireActiveCtx().patchDepth++;
+  requireActiveCtx().patchDepth++;
 }
 
 /**
  * Commit the global UI patch, applying all deferred DOM updates at once.
  *
  * Decrements the reference count. When it reaches 0 (outermost patch),
- * drains `renderCtx.dirtyInstances` and calls `_flushPendingVNodes`
+ * drains `renderCtx.dirtyInstances` and calls `flushPendingVNodes`
  * to reconcile every pending VNode.
  *
  * Must be called exactly once for each matching `startUIPatch` call.
@@ -87,12 +66,12 @@ export function startUIPatch(): void {
  * have been triggered.
  */
 export function commitUIPatch(): void {
-  const rctx = _requireActiveCtx();
+  const rctx = requireActiveCtx();
   if (rctx.patchDepth === 0) return;
   rctx.patchDepth--;
   if (rctx.patchDepth > 0) return; // nested patch still active
 
   const pending = [...rctx.dirtyInstances];
   rctx.dirtyInstances.clear();
-  _flushPendingVNodes(pending);
+  flushPendingVNodes(pending);
 }
