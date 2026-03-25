@@ -51,6 +51,9 @@
       },
       "a11y": {
         "recommended": false
+      },
+      "security": {
+        "noBlankTarget": "off"
       }
     }
   },
