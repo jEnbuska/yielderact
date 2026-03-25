@@ -528,4 +528,85 @@ describe("createContext / useContext", () => {
       expect(container.querySelector("span")?.textContent).toBe("1:99");
     });
   });
+
+  describe("conditional $context", () => {
+    it("switching between branches with different $context values", () => {
+      const CtxA = createContext("defaultA");
+      const CtxB = createContext("defaultB");
+
+      function* Consumer() {
+        const a = yield* useContext(CtxA);
+        const b = yield* useContext(CtxB);
+        return createElement("span", null, `${a}:${b}`);
+      }
+
+      let setMode!: (v: number) => void;
+
+      function* Parent() {
+        const [mode, _setMode] = yield* useState(0);
+        setMode = _setMode;
+
+        if (mode === 0) {
+          return createElement(
+            "div",
+            { $context: [CtxA("A0"), CtxB("B0")] },
+            createElement(Consumer as never, {}),
+          );
+        }
+        if (mode === 1) {
+          return createElement(
+            "div",
+            { $context: CtxA("A1") },
+            createElement(Consumer as never, {}),
+          );
+        }
+        return createElement("div", null, createElement(Consumer as never, {}));
+      }
+
+      render(createElement(Parent as never, {}), container);
+      expect(container.querySelector("span")?.textContent).toBe("A0:B0");
+
+      setMode(1);
+      expect(container.querySelector("span")?.textContent).toBe("A1:defaultB");
+
+      setMode(2);
+      expect(container.querySelector("span")?.textContent).toBe("defaultA:defaultB");
+
+      setMode(0);
+      expect(container.querySelector("span")?.textContent).toBe("A0:B0");
+    });
+
+    it("switching $context on a Fragment between branches", () => {
+      const Ctx = createContext("default");
+
+      function* Consumer() {
+        const v = yield* useContext(Ctx);
+        return createElement("span", null, v);
+      }
+
+      let setMode!: (v: number) => void;
+
+      function* Parent() {
+        const [mode, _setMode] = yield* useState(0);
+        setMode = _setMode;
+
+        return createElement(
+          "div",
+          null,
+          mode === 0
+            ? createElement(Consumer as never, { $context: Ctx("provided") })
+            : createElement(Consumer as never, {}),
+        );
+      }
+
+      render(createElement(Parent as never, {}), container);
+      expect(container.querySelector("span")?.textContent).toBe("provided");
+
+      setMode(1);
+      expect(container.querySelector("span")?.textContent).toBe("default");
+
+      setMode(0);
+      expect(container.querySelector("span")?.textContent).toBe("provided");
+    });
+  });
 });

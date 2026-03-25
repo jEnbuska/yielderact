@@ -1,7 +1,6 @@
-import { $USE_CONTEXT, $USE_SET_CONTEXT, type ContextDescriptor } from "./hooks/descriptors";
+import { $USE_CONTEXT, type ContextDescriptor } from "./hooks/descriptors";
 import type { ComponentGenerator } from "./hooks/types";
 import { depsChanged } from "./hooks/types";
-import { type Child, type Component, createElement, Fragment, type InternalProps } from "./jsx";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -84,35 +83,6 @@ export function createContext<T>(defaultValue: T): PublicContext<T> {
   } satisfies Context<T>);
   return ctx;
 }
-
-// ---------------------------------------------------------------------------
-// Internal context bridge — transparent component for Fragment-with-$context
-// ---------------------------------------------------------------------------
-
-/**
- * Transparent passthrough component that sets context values via
- * `$USE_SET_CONTEXT` and renders its children as a Fragment.
- *
- * Used internally when a Fragment VNode carries `$context` — `createElement`
- * swaps the Fragment for this component so the context participates in the
- * normal component lifecycle (mount, reconcile, propagate).
- *
- * @internal
- */
-function* _ContextBridge(props: InternalProps): ComponentGenerator<Child> {
-  const ctxProp = props["$context"] as ContextEntry | ContextEntry[] | undefined;
-  if (ctxProp) {
-    const entries = Array.isArray(ctxProp) ? ctxProp : [ctxProp];
-    for (const entry of entries) {
-      yield { type: $USE_SET_CONTEXT, ctx: entry.ctx as Context<unknown>, value: entry.value };
-    }
-  }
-  const children = props.children as Child[] | undefined;
-  return createElement(Fragment, null, ...(children ?? []));
-}
-
-/** @internal — exposed for createElement to use. */
-export const ContextBridge: Component = _ContextBridge;
 
 /**
  * Consume a context value inside a component.

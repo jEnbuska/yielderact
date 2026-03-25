@@ -10,8 +10,8 @@ import type { Renderable } from "../hooks";
 import {
   type Child,
   type Component,
-  Fragment,
   type InternalProps,
+  RawFragment,
   type SpecialProps,
   type VNode,
 } from "../jsx";
@@ -64,11 +64,11 @@ export function onlyPatchChanged(a: InternalProps, b: InternalProps): boolean {
   return patchDiffers;
 }
 
-/** Recursively flatten Fragment VNodes into a flat list of non-Fragment children. */
+/** Recursively flatten RawFragment VNodes into a flat list of non-fragment children. */
 export function flattenChildren(children: Child[]): Child[] {
   const result: Child[] = [];
   for (const child of children) {
-    if (isVNode(child) && child.type === Fragment) {
+    if (isVNode(child) && child.type === RawFragment) {
       result.push(...flattenChildren(child.children));
     } else {
       result.push(child);
@@ -90,30 +90,38 @@ export function mergedProps(vnode: VNode): InternalProps {
 }
 
 /**
- * Build a child context map from a parent map, applying `$patch` and
- * `$deferred` from the given props.
+ * Apply `$context` entries to a context map, skipping entries whose value
+ * is already the same. Returns the original map if nothing changed.
+ */
+function withContextEntries(
+  map: ReadonlyMap<Context<unknown>, unknown>,
+  ctxProp: ContextEntry | ContextEntry[],
+): ReadonlyMap<Context<unknown>, unknown> {
+  const entries = Array.isArray(ctxProp) ? ctxProp : [ctxProp];
+  let newMap: Map<Context<unknown>, unknown> | undefined;
+  for (const entry of entries) {
+    if (!Object.is(resolveCtx(newMap ?? map, entry.ctx), entry.value)) {
+      if (!newMap) newMap = new Map(map);
+      newMap.set(entry.ctx, entry.value);
+    }
+  }
+  return newMap ?? map;
+}
+
+/**
+ * Build a child context map from a parent map, applying framework
+ * directives (`$patch`, `$deferred`, `$context`) from the given props.
  *
- * Returns the parent map unchanged if neither directive is set.
+ * Returns the parent map unchanged if no directive is set.
  */
 export function childContextMap(
   parentMap: ReadonlyMap<Context<unknown>, unknown>,
   props: SpecialProps,
 ): ReadonlyMap<Context<unknown>, unknown> {
   let map = parentMap;
-  const { $patch, $context, $deferred } = props;
-  if ($patch !== undefined) map = withBatch(map, $patch);
-  if ($deferred) map = withPriority(map, resolveCtx(map, PriorityContext) + 1);
-  if ($context) {
-    const entries = Array.isArray($context) ? $context : [$context];
-    let newMap: Map<Context<unknown>, unknown> | undefined;
-    for (const entry of entries) {
-      if (!Object.is(resolveCtx(newMap ?? map, entry.ctx), entry.value)) {
-        if (!newMap) newMap = new Map(map);
-        newMap.set(entry.ctx, entry.value);
-      }
-    }
-    if (newMap) map = newMap;
-  }
+  if (props.$patch !== undefined) map = withBatch(map, props.$patch);
+  if (props.$deferred) map = withPriority(map, resolveCtx(map, PriorityContext) + 1);
+  if (props.$context) map = withContextEntries(map, props.$context);
   return map;
 }
 

@@ -16,7 +16,7 @@
 import { BatchContext, type Context, PriorityContext, withBatch } from "../context";
 import type { HookDescriptor } from "../hooks/descriptors";
 import { $USE_EFFECT, $USE_SET_CONTEXT } from "../hooks/descriptors";
-import { type Child, type Component, Fragment, type InternalProps, Portal } from "../jsx";
+import { type Child, type Component, type InternalProps, Portal, RawFragment } from "../jsx";
 import {
   drive,
   driveWithContext,
@@ -78,7 +78,7 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
     return document.createComment("portal");
   }
 
-  if (child.type === Fragment) {
+  if (child.type === RawFragment) {
     const frag = document.createDocumentFragment();
     for (const c of child.children) {
       frag.appendChild(yield* driveWithContext(map, buildNode(c)));
