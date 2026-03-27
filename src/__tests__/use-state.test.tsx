@@ -32,7 +32,7 @@ describe("useState", () => {
     expect(capturedValue).toBe(42);
 
     // Re-render should not call the initializer again
-    setValue(99);
+    void setValue(99);
     expect(init).toHaveBeenCalledTimes(1);
     expect(capturedValue).toBe(99);
   });

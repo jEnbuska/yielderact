@@ -117,7 +117,7 @@ describe("stop-render-on-update", () => {
       }, [n]);
 
       yield* useMemo(() => {
-        if (n === 0) setN(1);
+        if (n === 0) void setN(1);
       }, [n]);
 
       return <span>{String(n)}</span>;

@@ -35,10 +35,10 @@ describe("render – components", () => {
     render(<Counter />, container);
     expect(container.querySelector("button")?.textContent).toBe("0");
 
-    setCount(1);
+    void setCount(1);
     expect(container.querySelector("button")?.textContent).toBe("1");
 
-    setCount(5);
+    void setCount(5);
     expect(container.querySelector("button")?.textContent).toBe("5");
   });
 
@@ -120,10 +120,10 @@ describe("render – components with useState", () => {
     render(<Label />, container);
     expect(container.querySelector("p")?.textContent).toBe("initial");
 
-    setLabel("updated");
+    void setLabel("updated");
     expect(container.querySelector("p")?.textContent).toBe("updated");
 
-    setLabel("again");
+    void setLabel("again");
     expect(container.querySelector("p")?.textContent).toBe("again");
   });
 
@@ -142,10 +142,10 @@ describe("render – components with useState", () => {
     render(<Multi />, container);
     expect(container.querySelector("p")?.textContent).toBe("hello-0");
 
-    setA("world");
+    void setA("world");
     expect(container.querySelector("p")?.textContent).toBe("world-0");
 
-    setB(42);
+    void setB(42);
     expect(container.querySelector("p")?.textContent).toBe("world-42");
   });
 });

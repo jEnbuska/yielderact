@@ -63,7 +63,7 @@ describe("useMemo", () => {
     expect(capturedValue).toBe(2);
     expect(factory).toHaveBeenCalledTimes(1);
 
-    setValue(3);
+    void setValue(3);
     expect(capturedValue).toBe(6);
     expect(factory).toHaveBeenCalledTimes(2);
     expect(factory).toHaveBeenLastCalledWith(3);

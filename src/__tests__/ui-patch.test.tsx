@@ -34,7 +34,7 @@ describe("startUIPatch / commitUIPatch (global patch)", () => {
     expect(container.textContent).toBe("initial");
 
     startUIPatch();
-    setValue("updated");
+    void setValue("updated");
     // DOM not yet changed
     expect(container.textContent).toBe("initial");
 
@@ -57,8 +57,8 @@ describe("startUIPatch / commitUIPatch (global patch)", () => {
     renderCalls.length = 0; // reset after initial mount
 
     startUIPatch();
-    setValue("b");
-    setValue("c");
+    void setValue("b");
+    void setValue("c");
     // Two state changes → two generator runs, but DOM unchanged
     expect(container.textContent).toBe("a");
 
@@ -80,7 +80,7 @@ describe("startUIPatch / commitUIPatch (global patch)", () => {
 
     startUIPatch();
     startUIPatch();
-    setValue("b");
+    void setValue("b");
     commitUIPatch(); // depth 2→1; not flushed yet
     expect(container.textContent).toBe("a");
     commitUIPatch(); // depth 1→0; flushed now
@@ -115,8 +115,8 @@ describe("startUIPatch / commitUIPatch (global patch)", () => {
     render(<App />, container);
 
     startUIPatch();
-    setLive("live-b");
-    setFrozen("frozen-b");
+    void setLive("live-b");
+    void setFrozen("frozen-b");
 
     // Live component updated immediately; frozen component not yet
     expect(container.querySelector("#live")?.textContent).toBe("live-b");
@@ -192,7 +192,7 @@ describe("useUIPatch (local patch)", () => {
     render(<Parent />, container);
 
     capturedCommit = capturedStartPatch();
-    setInner("child-b");
+    void setInner("child-b");
 
     // DOM not yet updated
     expect(container.querySelector("#child")?.textContent).toBe("child-a");
@@ -229,7 +229,7 @@ describe("useUIPatch (local patch)", () => {
     render(<App />, container);
 
     const commit = capturedStartPatch();
-    setSibling("sib-b");
+    void setSibling("sib-b");
 
     // Sibling is outside the patch scope → updates immediately
     expect(container.querySelector("#sib")?.textContent).toBe("sib-b");
@@ -312,7 +312,7 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     expect(container.querySelector("#target")).not.toBeNull();
 
     startUIPatch();
-    setShow(false);
+    void setShow(false);
     // Still visible — DOM is frozen
     expect(container.querySelector("#target")).not.toBeNull();
 
@@ -337,7 +337,7 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     expect(container.querySelector("#target")).not.toBeNull();
 
     startUIPatch();
-    setShow(false);
+    void setShow(false);
     // Removed immediately because $patch="live"
     expect(container.querySelector("#target")).toBeNull();
 
@@ -362,7 +362,7 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     render(<Parent />, container);
 
     startUIPatch();
-    setShow(false);
+    void setShow(false);
     expect(container.querySelector("#target")).toBeNull();
 
     commitUIPatch();
@@ -390,7 +390,7 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     expect(container.querySelector("#target")).not.toBeNull();
 
     startUIPatch();
-    setShow(false);
+    void setShow(false);
     // Hidden immediately
     expect(container.querySelector("#target")).toBeNull();
 
@@ -418,7 +418,7 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     render(<Parent />, container);
 
     startUIPatch();
-    setShow(false);
+    void setShow(false);
     expect(container.querySelector("#target")).not.toBeNull();
 
     commitUIPatch();
@@ -444,7 +444,7 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     expect(container.querySelector("#target")).toBeNull();
 
     startUIPatch();
-    setShow(true);
+    void setShow(true);
     // Not yet visible
     expect(container.querySelector("#target")).toBeNull();
 
@@ -468,7 +468,7 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     render(<Parent />, container);
 
     startUIPatch();
-    setShow(true);
+    void setShow(true);
     // Appears immediately
     expect(container.querySelector("#target")).not.toBeNull();
 
@@ -493,7 +493,7 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     render(<Parent />, container);
 
     startUIPatch();
-    setShow(true);
+    void setShow(true);
     expect(container.querySelector("#target")).not.toBeNull();
 
     commitUIPatch();
@@ -521,7 +521,7 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     expect(container.querySelector("#target")).toBeNull();
 
     startUIPatch();
-    setShow(true);
+    void setShow(true);
     expect(container.querySelector("#target")).not.toBeNull();
 
     commitUIPatch();
@@ -595,7 +595,7 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     render(<Parent />, container);
 
     startUIPatch();
-    setValue("b");
+    void setValue("b");
     expect(container.textContent).toBe("b");
 
     commitUIPatch();
@@ -614,7 +614,7 @@ describe("live-only reconcile: element add/remove during global patch", () => {
     render(<Parent />, container);
 
     startUIPatch();
-    setValue("b");
+    void setValue("b");
     expect(container.textContent).toBe("a");
 
     commitUIPatch();
@@ -648,14 +648,14 @@ describe("live-only reconcile: element add/remove during global patch", () => {
 
     startUIPatch();
     // First update while Child is still default → deferred
-    setValue("b");
+    void setValue("b");
     expect(container.querySelector("#target")?.textContent).toBe("a");
 
     // Switch Child to live (via parent rerender)
-    setLive(true);
+    void setLive(true);
     // Now Child's captured batch context is updated to 'live'
     // Subsequent updates should be immediate
-    setValue("c");
+    void setValue("c");
     expect(container.querySelector("#target")?.textContent).toBe("c");
 
     commitUIPatch();
@@ -686,12 +686,12 @@ describe("live-only reconcile: element add/remove during global patch", () => {
 
     startUIPatch();
     // Child is live → updates immediately
-    setValue("b");
+    void setValue("b");
     expect(container.querySelector("#target")?.textContent).toBe("b");
 
     // Switch Child to default → stops updating immediately
-    setLive(false);
-    setValue("c");
+    void setLive(false);
+    void setValue("c");
     // Should still show 'b' — deferred now
     expect(container.querySelector("#target")?.textContent).toBe("b");
 
@@ -771,7 +771,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     render(<Parent />, container);
 
     const commit = capturedStartPatch();
-    setShow(false);
+    void setShow(false);
     expect(container.querySelector("#target")).not.toBeNull();
 
     commit();
@@ -797,7 +797,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     render(<Parent />, container);
 
     const commit = capturedStartPatch();
-    setShow(false);
+    void setShow(false);
     expect(container.querySelector("#target")).toBeNull();
 
     commit();
@@ -823,7 +823,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     render(<Parent />, container);
 
     const commit = capturedStartPatch();
-    setShow(true);
+    void setShow(true);
     expect(container.querySelector("#target")).toBeNull();
 
     commit();
@@ -849,7 +849,7 @@ describe("live-only reconcile: element add/remove during local patch", () => {
     render(<Parent />, container);
 
     const commit = capturedStartPatch();
-    setShow(true);
+    void setShow(true);
     expect(container.querySelector("#target")).not.toBeNull();
 
     commit();
@@ -1019,12 +1019,12 @@ describe("child component prop updates apply correctly after global patch commit
     expect(container.querySelector("#btn")?.hasAttribute("disabled")).toBe(false);
 
     // Set isPending=true BEFORE the patch (immediate DOM update — buttons disabled)
-    setPending(true);
+    void setPending(true);
     expect(container.querySelector("#btn")?.hasAttribute("disabled")).toBe(true);
 
     startUIPatch();
     // Inside patch, clear isPending — DOM frozen (buttons still disabled)
-    setPending(false);
+    void setPending(false);
     expect(container.querySelector("#btn")?.hasAttribute("disabled")).toBe(true);
 
     commitUIPatch();
@@ -1087,8 +1087,8 @@ describe("child component prop updates apply correctly after global patch commit
     expect(container.querySelector("#label")?.textContent).toBe("a");
 
     startUIPatch();
-    setLabel("b");
-    setLabel("c");
+    void setLabel("b");
+    void setLabel("c");
     // Frozen during patch
     expect(container.querySelector("#label")?.textContent).toBe("a");
 
@@ -1140,12 +1140,12 @@ describe("child component prop updates apply correctly after local patch commit"
     expect(container.querySelector("#btn")?.hasAttribute("disabled")).toBe(false);
 
     // Set isPending=true BEFORE patch (immediate DOM update)
-    setPending(true);
+    void setPending(true);
     expect(container.querySelector("#btn")?.hasAttribute("disabled")).toBe(true);
 
     const commit = capturedStartPatch();
     // Inside patch, clear isPending — DOM frozen (still disabled)
-    setPending(false);
+    void setPending(false);
     expect(container.querySelector("#btn")?.hasAttribute("disabled")).toBe(true);
 
     commit();

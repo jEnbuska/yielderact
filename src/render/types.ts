@@ -14,6 +14,20 @@ import type { UseRenderState } from "../hooks/useRender";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
 import type { DelegationRoot } from "./delegation";
 
+// ── Context map ─────────────────────────────────────────────────────────────
+
+/**
+ * Typed context map returned by `getContextMap()`.
+ *
+ * Always contains a `RenderContext` entry — seeded by `render()` /
+ * `createRoot()` and preserved through all derived maps. The overloaded
+ * `get` returns `RenderContext` directly for `Context<RenderContext>` keys.
+ */
+export interface CtxMap extends ReadonlyMap<Context<unknown>, unknown> {
+  get(key: Context<RenderContext>): RenderContext;
+  get(key: Context<unknown>): unknown | undefined;
+}
+
 // ── Render context ─────────────────────────────────────────────────────────
 //
 // Per-root mutable state. Each `createRoot()` (or `render()`) creates its
@@ -184,7 +198,7 @@ export interface Slot {
    * For HTML element slots this contains one Slot per direct child node.
    * For Provider slots it holds the Provider's rendered children.
    * For component slots this is always `[]` — child
-   * tracking lives inside `componentInstance.slots` instead.
+   * tracking lives inside `instance.slots` instead.
    *
    * Recursed into by `reconcileSlots`, `unmountSlot`, and `propagateContextUpdate`.
    */
@@ -198,7 +212,7 @@ export interface Slot {
    * read `inst.consumedContexts` for selective context updates, and access
    * `inst.slots` for subtree walks.
    */
-  componentInstance?: ComponentInstance;
+  instance?: ComponentInstance;
 
   /** Set only on Portal slots — the target DOM container. */
   portalContainer?: Element;
@@ -213,7 +227,7 @@ export interface Slot {
 /**
  * Persistent state for one mounted component instance.
  *
- * Created by `mountComponent`, referenced by `Slot.componentInstance`.
+ * Created by `mountComponent`, referenced by `Slot.instance`.
  * Survives across re-renders so hook state persists.
  * Destroyed by `unmountSlot` which calls all `cleanupFns`.
  */
@@ -337,6 +351,9 @@ export interface ComponentInstance {
    */
   localPatchRefCount: number;
 
+  /** True after the initial render has been committed to the DOM. */
+  mounted: boolean;
+
   /**
    * True while the component's generator body is executing synchronously.
    *
@@ -380,18 +397,11 @@ export interface ComponentInstance {
    */
   finalHookCount?: number;
 
-  /**
-   * Resume a paused generator. Bound closure over `resumeInstance`.
-   * @internal
-   */
-  _resume: () => void;
+  /** Resume a paused generator. Bound closure over `resumeInstance`. */
+  resume: () => void;
 
-  /**
-   * Execute a rerender directly, bypassing scheduling. Called by the
-   * priority scheduler.
-   * @internal
-   */
-  _executeRerender: () => Promise<void>;
+  /** Execute a rerender directly, bypassing scheduling. Called by the priority scheduler. */
+  executeRerender: () => Promise<void>;
 
   /**
    * Triggers a re-render. Bound closure over `rerenderInstance`.

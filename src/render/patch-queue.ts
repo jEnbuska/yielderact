@@ -37,7 +37,7 @@ export function beginPatch(): void {
 export function commitPatch(): void {
   const ctx = requireActiveCtx();
   if (!ctx.ops) return;
-  const ops = ctx.ops;
+  const { ops } = ctx;
   ctx.ops = undefined;
   for (let i = 0; i < ops.length; i++) ops[i]?.();
 }

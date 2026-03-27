@@ -78,12 +78,12 @@ export function scheduleUpdate(instance: ComponentInstance): void {
  */
 export function flushSync(fn?: () => void): void {
   const rctx = requireActiveCtx();
-  const prevSync = rctx.syncMode;
+  const { syncMode: prevSync } = rctx;
   rctx.syncMode = true;
 
   if (fn) {
     // Suppress immediate processing during fn so all setState calls batch.
-    const wasProcessing = rctx.isProcessing;
+    const { isProcessing: wasProcessing } = rctx;
     rctx.isProcessing = true;
     try {
       fn();
@@ -193,7 +193,7 @@ function _runLoop(rctx: RenderContext): void {
       const instance = set.values().next().value as ComponentInstance;
       set.delete(instance);
 
-      instance._executeRerender();
+      void instance.executeRerender();
 
       // Preemption: process any higher-priority work that arrived during rerender.
       _handlePreemption(rctx, priority);
@@ -239,7 +239,7 @@ function _handlePreemption(rctx: RenderContext, currentPriority: number): void {
       // SAFETY: set.size > 0 guarantees .next().value is defined
       const inst = set.values().next().value as ComponentInstance;
       set.delete(inst);
-      inst._executeRerender();
+      void inst.executeRerender();
 
       // Recursive preemption: even higher priority may have arrived.
       _handlePreemption(rctx, hp);
@@ -265,7 +265,7 @@ function _handlePreemption(rctx: RenderContext, currentPriority: number): void {
  */
 function _yieldToBrowser(rctx: RenderContext): void {
   // Save state that event handlers might disturb during the yield.
-  const savedLiveOnlyMode = rctx.liveOnlyMode;
+  const { liveOnlyMode: savedLiveOnlyMode } = rctx;
 
   if (typeof MessageChannel !== "undefined") {
     const mc = new MessageChannel();

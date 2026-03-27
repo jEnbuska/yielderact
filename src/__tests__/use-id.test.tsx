@@ -41,7 +41,7 @@ describe("useId", () => {
     }
 
     render(<Comp />, container);
-    setValue(1);
+    void setValue(1);
 
     expect(ids).toHaveLength(2);
     expect(ids[0]).toBe(ids[1]);

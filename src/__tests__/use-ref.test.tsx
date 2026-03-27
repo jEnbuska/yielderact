@@ -41,7 +41,7 @@ describe("ref", () => {
     }
 
     render(<Comp />, container);
-    setValue(1);
+    void setValue(1);
 
     expect(refInstances).toHaveLength(2);
     expect(refInstances[0]).toBe(refInstances[1]);

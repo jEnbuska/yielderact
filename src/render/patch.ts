@@ -14,7 +14,7 @@ export function flushPendingVNodes(instances: ComponentInstance[]): void {
   for (const inst of instances) {
     if (inst.pendingVNode === undefined) continue;
     if (!inst.endMarker.parentNode) continue;
-    const vnode = inst.pendingVNode;
+    const { pendingVNode } = inst;
     inst.pendingVNode = undefined;
     resolveCtx(inst.capturedCtx, RenderCtx).dirtyInstances.delete(inst);
 
@@ -23,7 +23,7 @@ export function flushPendingVNodes(instances: ComponentInstance[]): void {
     const ctxMap =
       ownPatch !== undefined ? withBatch(inst.capturedCtx, ownPatch) : inst.capturedCtx;
     const parent = inst.endMarker.parentNode as HTMLElement;
-    inst.slots = reconcileSlots(parent, inst.slots, [vnode], inst.endMarker, ctxMap);
+    inst.slots = reconcileSlots(parent, inst.slots, [pendingVNode], inst.endMarker, ctxMap);
     flushEffects(inst);
   }
 }
