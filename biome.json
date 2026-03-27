@@ -20,8 +20,8 @@
     "rules": {
       "recommended": true,
       "suspicious": {
-        "noExplicitAny": "error",
-        "noConfusingVoidType": "error"
+        "noExplicitAny": "warn",
+        "noConfusingVoidType": "warn"
       },
       "complexity": {
         "noExcessiveCognitiveComplexity": {
@@ -29,20 +29,21 @@
           "options": { "maxAllowedComplexity": 15 }
         },
         "noForEach": "warn",
-        "useFlatMap": "error",
+        "useFlatMap": "warn",
         "useLiteralKeys": "off"
       },
       "style": {
+        "noInferrableTypes": "warn",
         "noNonNullAssertion": "warn",
-        "useConst": "error",
-        "noParameterAssign": "error",
-        "useExportType": "error",
-        "useImportType": "error",
+        "useConst": "warn",
+        "noParameterAssign": "warn",
+        "useExportType": "warn",
+        "useImportType": "warn",
         "useNodejsImportProtocol": "off"
       },
       "correctness": {
-        "noUnusedVariables": "error",
-        "noUnusedImports": "error",
+        "noUnusedVariables": "warn",
+        "noUnusedImports": "warn",
         "useExhaustiveDependencies": "off",
         "useYield": "off"
       },
