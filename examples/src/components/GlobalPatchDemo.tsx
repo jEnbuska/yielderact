@@ -11,15 +11,15 @@ export function* GlobalPatchDemo() {
   const [log, setLog] = yield* useState<string[]>([]);
 
   const navigate = async (next: Page) => {
-    setIsPending(true);
+    void setIsPending(true);
     startUIPatch();
     try {
-      setLog((prev) => [...prev, `[global] navigating to ${next}...`]);
+      void setLog((prev) => [...prev, `[global] navigating to ${next}...`]);
       await sleep(5000);
-      setPage(next);
-      setLog((prev) => [...prev, `[global] arrived at ${next}`]);
+      void setPage(next);
+      void setLog((prev) => [...prev, `[global] arrived at ${next}`]);
     } finally {
-      setIsPending(false);
+      void setIsPending(false);
       commitUIPatch();
     }
   };

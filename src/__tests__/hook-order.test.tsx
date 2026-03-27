@@ -198,7 +198,7 @@ describe("hook order validation", () => {
 
     swapped = true;
     try {
-      setCount(1);
+      void setCount(1);
       // Should not reach here
       expect(true).toBe(false);
     } catch (e) {

@@ -36,7 +36,7 @@ export function* TodoList() {
   function addTodo() {
     const text = inputValue.trim();
     if (!text) return;
-    setState({
+    void setState({
       todos: [...todos, { id: nextId, text, done: false }],
       nextId: nextId + 1,
       inputValue: "",
@@ -44,11 +44,14 @@ export function* TodoList() {
   }
 
   function toggleTodo(id: number) {
-    setState({ ...state, todos: todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)) });
+    void setState({
+      ...state,
+      todos: todos.map((t) => (t.id === id ? { ...t, done: !t.done } : t)),
+    });
   }
 
   function removeTodo(id: number) {
-    setState({ ...state, todos: todos.filter((t) => t.id !== id) });
+    void setState({ ...state, todos: todos.filter((t) => t.id !== id) });
   }
 
   return (

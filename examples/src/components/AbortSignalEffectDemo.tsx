@@ -17,17 +17,17 @@ function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) 
   yield* useEffect(
     (signal) => {
       if (activeId !== userId) {
-        setStatus("inactive");
+        void setStatus("inactive");
         return;
       }
-      setStatus("polling");
+      void setStatus("polling");
 
       let stopped = false;
       const poll = async () => {
         let count = 0;
         while (!stopped && !signal.aborted) {
           count++;
-          setStatus(`fetched #${count}`);
+          void setStatus(`fetched #${count}`);
           await new Promise<void>((resolve, reject) => {
             const timer = setTimeout(resolve, 400);
             signal.addEventListener(
@@ -50,8 +50,8 @@ function* SignalRow({ userId, activeId }: { userId: number; activeId: number }) 
         "abort",
         () => {
           stopped = true;
-          setAbortCount((c) => c + 1);
-          setStatus("aborted");
+          void setAbortCount((c) => c + 1);
+          void setStatus("aborted");
         },
         { once: true },
       );

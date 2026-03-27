@@ -101,7 +101,7 @@ describe("shown prop", () => {
     render(<Wrapper />, container);
     expect(container.querySelector("div")).not.toBeNull();
 
-    setShown(false);
+    void setShown(false);
     expect(container.querySelector("div")).toBeNull();
   });
 
@@ -117,7 +117,7 @@ describe("shown prop", () => {
     render(<Wrapper />, container);
     expect(container.querySelector("div")).toBeNull();
 
-    setShown(true);
+    void setShown(true);
     expect(container.querySelector("div")).not.toBeNull();
     expect(container.querySelector("div")?.textContent).toBe("content");
   });
@@ -138,7 +138,7 @@ describe("shown prop", () => {
     render(<Wrapper />, container);
     expect(container.querySelector("p")).not.toBeNull();
 
-    setShown(false);
+    void setShown(false);
     expect(container.querySelector("p")).toBeNull();
   });
 
@@ -158,7 +158,7 @@ describe("shown prop", () => {
     render(<Wrapper />, container);
     expect(container.querySelector("p")).toBeNull();
 
-    setShown(true);
+    void setShown(true);
     expect(container.querySelector("p")).not.toBeNull();
     expect(container.querySelector("p")?.textContent).toBe("inner");
   });

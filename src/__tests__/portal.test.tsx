@@ -95,7 +95,7 @@ describe("createPortal", () => {
     render(<App />, container);
     expect(portalTarget.querySelector("span")?.textContent).toBe("count:0");
 
-    setter(1);
+    void setter(1);
     expect(portalTarget.querySelector("span")?.textContent).toBe("count:1");
   });
 
@@ -116,7 +116,7 @@ describe("createPortal", () => {
     render(<App />, container);
     expect(portalTarget.querySelector("span")?.textContent).toBe("portal");
 
-    setter(false);
+    void setter(false);
     expect(portalTarget.querySelector("span")).toBeNull();
     expect(container.querySelector("span")?.textContent).toBe("no portal");
   });
@@ -157,7 +157,7 @@ describe("createPortal", () => {
     expect(portalTarget.querySelector(".p2")?.textContent).toBe("portal-2");
 
     // Remove second portal
-    setter(false);
+    void setter(false);
     expect(portalTarget.querySelectorAll("span").length).toBe(1);
     expect(portalTarget.querySelector(".p1")?.textContent).toBe("portal-1");
     expect(portalTarget.querySelector(".p2")).toBeNull();
@@ -184,7 +184,7 @@ describe("createPortal", () => {
     expect(portalTarget.querySelectorAll("span").length).toBe(3);
 
     // Reorder: reverse
-    setter(["c", "b", "a"]);
+    void setter(["c", "b", "a"]);
     expect(portalTarget.querySelectorAll("span").length).toBe(3);
     expect(portalTarget.querySelector(".item-a")?.textContent).toBe("a");
     expect(portalTarget.querySelector(".item-c")?.textContent).toBe("c");
@@ -208,7 +208,7 @@ describe("createPortal", () => {
     expect(portalTarget.querySelector("span")?.textContent).toBe("movable");
     expect(secondTarget.querySelector("span")).toBeNull();
 
-    setter(secondTarget);
+    void setter(secondTarget);
     expect(secondTarget.querySelector("span")?.textContent).toBe("movable");
     // Old container children are cleaned up by unmountSlot when the old portal
     // is replaced (the type is Portal but the container changed, so it's a fresh mount).
@@ -244,7 +244,7 @@ describe("createPortal", () => {
     expect(portalTarget.querySelector("span")?.textContent).toBe("effect child");
     expect(cleanup).not.toHaveBeenCalled();
 
-    setter(false);
+    void setter(false);
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(portalTarget.querySelector("span")).toBeNull();
   });

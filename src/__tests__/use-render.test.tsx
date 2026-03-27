@@ -84,7 +84,7 @@ describe("useRender (Variant 2 – inline function)", () => {
     expect(renderCount).toBe(1);
 
     // Trigger a rerender while waiting
-    setVal(1);
+    void setVal(1);
     expect(renderCount).toBe(2);
 
     // The generator is still waiting – resolve it now
@@ -118,7 +118,7 @@ describe("useRender (Variant 2 – inline function)", () => {
     expect(resolveCount).toBe(1);
 
     // Change dep → should reset and show dialog again
-    setDep(1);
+    void setDep(1);
     expect(container.querySelector("span")).not.toBeNull();
 
     capturedResume("second");
@@ -188,7 +188,7 @@ describe("useRender (Variant 1 – JSX child with useResume)", () => {
     expect(mountCount).toBe(1);
 
     // Trigger a parent rerender while the dialog is still open
-    setVal(1);
+    void setVal(1);
     expect(mountCount).toBe(1); // Dialog must NOT remount
 
     // Resolve still works after the rerender

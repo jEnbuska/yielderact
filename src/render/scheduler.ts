@@ -193,7 +193,7 @@ function _runLoop(rctx: RenderContext): void {
       const instance = set.values().next().value as ComponentInstance;
       set.delete(instance);
 
-      instance.executeRerender();
+      void instance.executeRerender();
 
       // Preemption: process any higher-priority work that arrived during rerender.
       _handlePreemption(rctx, priority);
@@ -239,7 +239,7 @@ function _handlePreemption(rctx: RenderContext, currentPriority: number): void {
       // SAFETY: set.size > 0 guarantees .next().value is defined
       const inst = set.values().next().value as ComponentInstance;
       set.delete(inst);
-      inst.executeRerender();
+      void inst.executeRerender();
 
       // Recursive preemption: even higher priority may have arrived.
       _handlePreemption(rctx, hp);

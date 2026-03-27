@@ -99,7 +99,7 @@ describe("createContext / useContext", () => {
     render(<Parent />, container);
     expect(container.querySelector("span")?.textContent).toBe("7");
 
-    setTheme(99);
+    void setTheme(99);
     expect(container.querySelector("span")?.textContent).toBe("99");
   });
 
@@ -129,11 +129,11 @@ describe("createContext / useContext", () => {
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("A:0");
 
     // Build up state in the child component
-    setChildCount(5);
+    void setChildCount(5);
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("A:5");
 
     // Change the context value – child state must NOT be reset
-    setCtxValue("B");
+    void setCtxValue("B");
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("B:5");
   });
 
@@ -166,7 +166,7 @@ describe("createContext / useContext", () => {
     render(<Root />, container);
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("first");
 
-    setCtxValue("second");
+    void setCtxValue("second");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("second");
   });
 
@@ -204,11 +204,11 @@ describe("createContext / useContext", () => {
     expect(container.querySelector('[data-testid="a"]')?.textContent).toBe("A1");
     expect(container.querySelector('[data-testid="b"]')?.textContent).toBe("B1");
 
-    setA("A2");
+    void setA("A2");
     expect(container.querySelector('[data-testid="a"]')?.textContent).toBe("A2");
     expect(container.querySelector('[data-testid="b"]')?.textContent).toBe("B1");
 
-    setB("B2");
+    void setB("B2");
     expect(container.querySelector('[data-testid="a"]')?.textContent).toBe("A2");
     expect(container.querySelector('[data-testid="b"]')?.textContent).toBe("B2");
   });
@@ -240,7 +240,7 @@ describe("createContext / useContext", () => {
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("inner");
 
     // Change outer value – Consumer must still see "inner" (not the outer value)
-    setOuter("outer-2");
+    void setOuter("outer-2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("inner");
   });
 
@@ -275,7 +275,7 @@ describe("createContext / useContext", () => {
     expect(container.querySelector('[data-testid="middle"]')?.textContent).toBe("outer");
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("inner");
 
-    setOuter("outer-2");
+    void setOuter("outer-2");
     // Middle should see the new outer value
     expect(container.querySelector('[data-testid="middle"]')?.textContent).toBe("outer-2");
     // Child must still see "inner" (provided by Middle's inner Provider)
@@ -316,11 +316,11 @@ describe("createContext / useContext", () => {
     expect(container.querySelector('[data-testid="middle-count"]')?.textContent).toBe("0");
 
     // Build state in the intermediate (non-consuming) component
-    setMiddleCount(7);
+    void setMiddleCount(7);
     expect(container.querySelector('[data-testid="middle-count"]')?.textContent).toBe("7");
 
     // Context changes – Middle's state (count=7) must be preserved
-    setCtxValue("v2");
+    void setCtxValue("v2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("v2");
     expect(container.querySelector('[data-testid="middle-count"]')?.textContent).toBe("7");
   });
@@ -350,10 +350,10 @@ describe("createContext / useContext", () => {
     render(<Root />, container);
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("A1|B1");
 
-    setA("A2");
+    void setA("A2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("A2|B1");
 
-    setB("B2");
+    void setB("B2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("A2|B2");
   });
 
@@ -391,7 +391,7 @@ describe("createContext / useContext", () => {
       expect(renderCount).toBe(1);
 
       // Change only `b` — selector selects `a`, so Consumer should NOT rerender.
-      setVal({ a: 1, b: 99 });
+      void setVal({ a: 1, b: 99 });
       expect(renderCount).toBe(1);
       expect(container.querySelector("span")?.textContent).toBe("1");
     });
@@ -417,7 +417,7 @@ describe("createContext / useContext", () => {
       expect(renderCount).toBe(1);
 
       // Change `a` — selector selects `a`, so Consumer SHOULD rerender.
-      setVal({ a: 99, b: 1 });
+      void setVal({ a: 99, b: 1 });
       expect(renderCount).toBe(2);
       expect(container.querySelector("span")?.textContent).toBe("99");
     });
@@ -463,7 +463,7 @@ describe("createContext / useContext", () => {
       expect(renderCount).toBe(1);
 
       // Change only `count` — selector tracks `name`, so no rerender.
-      setVal({ name: "Alice", count: 99 });
+      void setVal({ name: "Alice", count: 99 });
       expect(renderCount).toBe(1);
     });
 
@@ -487,11 +487,11 @@ describe("createContext / useContext", () => {
 
       render(<Parent />, container);
       // Update local state in Consumer.
-      setLocal(100);
+      void setLocal(100);
       expect(container.querySelector("span")?.textContent).toBe("100");
 
       // Trigger a context change that should be suppressed (b changes, a stable).
-      setVal({ a: 1, b: 99 });
+      void setVal({ a: 1, b: 99 });
       // Consumer should NOT have remounted — local state preserved.
       expect(container.querySelector("span")?.textContent).toBe("100");
     });
@@ -517,7 +517,7 @@ describe("createContext / useContext", () => {
       expect(renderCount).toBe(1);
 
       // Change only `b` — Consumer has no selector so it always rerenders.
-      setVal({ a: 1, b: 99 });
+      void setVal({ a: 1, b: 99 });
       expect(renderCount).toBe(2);
       expect(container.querySelector("span")?.textContent).toBe("1:99");
     });
@@ -564,13 +564,13 @@ describe("createContext / useContext", () => {
       render(<Parent />, container);
       expect(container.querySelector("span")?.textContent).toBe("A0:B0");
 
-      setMode(1);
+      void setMode(1);
       expect(container.querySelector("span")?.textContent).toBe("A1:defaultB");
 
-      setMode(2);
+      void setMode(2);
       expect(container.querySelector("span")?.textContent).toBe("defaultA:defaultB");
 
-      setMode(0);
+      void setMode(0);
       expect(container.querySelector("span")?.textContent).toBe("A0:B0");
     });
 
@@ -594,10 +594,10 @@ describe("createContext / useContext", () => {
       render(<Parent />, container);
       expect(container.querySelector("span")?.textContent).toBe("provided");
 
-      setMode(1);
+      void setMode(1);
       expect(container.querySelector("span")?.textContent).toBe("default");
 
-      setMode(0);
+      void setMode(0);
       expect(container.querySelector("span")?.textContent).toBe("provided");
     });
   });

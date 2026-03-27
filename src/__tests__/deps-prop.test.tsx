@@ -41,11 +41,11 @@ describe("$deps prop", () => {
     expect(renderCount).toBe(1);
 
     // Trigger parent rerender with same count -> child should be skipped
-    setParentState(0);
+    void setParentState(0);
     expect(renderCount).toBe(1);
 
     // Trigger parent rerender with different count -> child should rerender
-    setParentState(1);
+    void setParentState(1);
     expect(renderCount).toBe(2);
   });
 
@@ -67,7 +67,7 @@ describe("$deps prop", () => {
     render(<Parent />, container);
     expect(renderCount).toBe(1);
 
-    setA(2);
+    void setA(2);
     expect(renderCount).toBe(2);
     expect(container.textContent).toContain("a=2");
   });
@@ -87,11 +87,11 @@ describe("$deps prop", () => {
     const extraBefore = el.getAttribute("data-extra");
 
     // Same cls -> $deps unchanged -> updateProps skipped -> data-extra unchanged
-    setParentState("cls-a");
+    void setParentState("cls-a");
     expect(el.getAttribute("data-extra")).toBe(extraBefore);
 
     // Different cls -> $deps changed -> updateProps runs
-    setParentState("cls-b");
+    void setParentState("cls-b");
     expect(el.className).toBe("cls-b");
     expect(el.getAttribute("data-extra")).not.toBe(extraBefore);
   });
@@ -108,7 +108,7 @@ describe("$deps prop", () => {
     render(<Parent />, container);
     expect((container.querySelector("div") as HTMLElement).getAttribute("data-val")).toBe("hello");
 
-    setVal("world");
+    void setVal("world");
     expect((container.querySelector("div") as HTMLElement).getAttribute("data-val")).toBe("world");
   });
 
@@ -155,15 +155,15 @@ describe("$deps prop", () => {
     expect(renderCount).toBe(1);
 
     // Remove $deps -> props differ (prevSlot had $deps, new doesn't) -> rerenders
-    setUseDeps(false);
+    void setUseDeps(false);
     expect(renderCount).toBe(2);
 
     // Now using shallowEqual: same val -> skip
-    setVal(0);
+    void setVal(0);
     expect(renderCount).toBe(2);
 
     // Change val -> shallowEqual detects difference -> rerender
-    setVal(1);
+    void setVal(1);
     expect(renderCount).toBe(3);
   });
 
@@ -183,7 +183,7 @@ describe("$deps prop", () => {
     render(<Parent />, container);
     expect(container.querySelector("p")).not.toBeNull();
 
-    setShown(false);
+    void setShown(false);
     expect(container.querySelector("p")).toBeNull();
   });
 
@@ -210,7 +210,7 @@ describe("$deps prop", () => {
     expect(renderCount).toBe(1);
     expect(container.textContent).toContain("light");
 
-    setTheme("dark");
+    void setTheme("dark");
     expect(renderCount).toBe(2);
     expect(container.textContent).toContain("dark");
   });
@@ -231,7 +231,7 @@ describe("$deps prop", () => {
     render(<Parent />, container);
     expect(container.textContent).toContain("hello");
 
-    setChild("world");
+    void setChild("world");
     // Entire subtree should be frozen when $deps didn't change
     expect(container.textContent).toContain("hello");
   });

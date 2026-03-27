@@ -47,8 +47,8 @@ describe("render – useEffect", () => {
     render(<Comp />, container);
     expect(calls).toEqual(["effect"]);
 
-    setCount(1);
-    setCount(2);
+    void setCount(1);
+    void setCount(2);
     expect(calls).toEqual(["effect"]); // still only once
   });
 
@@ -69,10 +69,10 @@ describe("render – useEffect", () => {
     render(<Comp />, container);
     expect(log).toEqual(["effect:1"]);
 
-    setId(2);
+    void setId(2);
     expect(log).toEqual(["effect:1", "cleanup:1", "effect:2"]);
 
-    setId(3);
+    void setId(3);
     expect(log).toEqual(["effect:1", "cleanup:1", "effect:2", "cleanup:2", "effect:3"]);
   });
 
@@ -97,7 +97,7 @@ describe("render – useEffect", () => {
     render(<Outer />, container);
     expect(log).toEqual(["mount"]);
 
-    setShow(false);
+    void setShow(false);
     expect(log).toEqual(["mount", "unmount"]);
   });
 
@@ -173,7 +173,7 @@ describe("render – useEffect", () => {
     expect(signals).toHaveLength(1);
     expect(signals[0]?.aborted).toBe(false);
 
-    setId(2);
+    void setId(2);
     // The first signal should now be aborted.
     expect(signals[0]?.aborted).toBe(true);
     expect(signals).toHaveLength(2);
@@ -202,7 +202,7 @@ describe("render – useEffect", () => {
     expect(capturedSignal).toBeInstanceOf(AbortSignal);
     expect((capturedSignal as unknown as AbortSignal).aborted).toBe(false);
 
-    setShow(false);
+    void setShow(false);
     expect((capturedSignal as unknown as AbortSignal).aborted).toBe(true);
   });
 
@@ -225,7 +225,7 @@ describe("render – useEffect", () => {
     }
 
     render(<Comp />, container);
-    setId(2);
+    void setId(2);
     expect(log).toEqual(["cleanup:1:aborted=true"]);
   });
 });

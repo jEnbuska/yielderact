@@ -73,7 +73,7 @@ describe("key prop – keyed reconciliation", () => {
     renderCountC = 0;
 
     // Reverse order
-    setOrder(["c", "b", "a"]);
+    void setOrder(["c", "b", "a"]);
 
     // DOM nodes should be MOVED, not recreated
     expect(list.children).toHaveLength(3);
@@ -118,7 +118,7 @@ describe("key prop – keyed reconciliation", () => {
     const spanC = spans[2];
 
     // Reorder with different falsy positions
-    setItems([null, "c", "a", null, "b"]);
+    void setItems([null, "c", "a", null, "b"]);
 
     const newSpans = div.querySelectorAll("span");
     expect(newSpans).toHaveLength(3);
@@ -171,7 +171,7 @@ describe("key prop – keyed reconciliation", () => {
     const nodeY = ul.children[1];
 
     // Reverse
-    setOrder(["y", "x"]);
+    void setOrder(["y", "x"]);
 
     expect(ul.children[0]?.textContent).toBe("Y");
     expect(ul.children[1]?.textContent).toBe("X");
@@ -199,7 +199,7 @@ describe("key prop – keyed reconciliation", () => {
     const bP = bs[0];
     const bQ = bs[1];
 
-    setItems([null, "q", null, "p"]);
+    void setItems([null, "q", null, "p"]);
     const newBs = div.querySelectorAll("b");
     expect(newBs).toHaveLength(2);
     expect(newBs[0]).toBe(bQ);
@@ -232,7 +232,7 @@ describe("key prop – keyed reconciliation", () => {
     const li3 = ul.children[2];
 
     // Reverse
-    setOrder(["third", "second", "first"]);
+    void setOrder(["third", "second", "first"]);
 
     expect(ul.children[0]?.textContent).toBe("third");
     expect(ul.children[1]?.textContent).toBe("second");
@@ -257,7 +257,7 @@ describe("key prop – keyed reconciliation", () => {
     const spanA = spans[0];
     const spanB = spans[1];
 
-    setItems(["b", null, null, "a"]);
+    void setItems(["b", null, null, "a"]);
     const newSpans = div.querySelectorAll("span");
     expect(newSpans).toHaveLength(2);
     expect(newSpans[0]).toBe(spanB);
@@ -299,7 +299,7 @@ describe("key prop – keyed reconciliation", () => {
     expect(container.querySelector('[data-id="y"]')?.textContent).toBe("y:3");
 
     // Reorder: z, x, y
-    setOrder(["z", "x", "y"]);
+    void setOrder(["z", "x", "y"]);
 
     // State preserved after reorder
     expect(container.querySelector('[data-id="x"]')?.textContent).toBe("x:5");
@@ -344,7 +344,7 @@ describe("key prop – keyed reconciliation", () => {
 
     // Change only the key — content props unchanged
     renderCount = 0;
-    setKey("key-2");
+    void setKey("key-2");
 
     // The child should NOT rerender since label didn't change
     // (key change means it's a "new" slot, but same type + same props = skip)
@@ -356,7 +356,7 @@ describe("key prop – keyed reconciliation", () => {
     expect(span.textContent).toBe("hello");
 
     // Verify it still works: changing label causes update
-    setLabel("world");
+    void setLabel("world");
     expect(container.querySelector("span")?.textContent).toBe("world");
   });
 
@@ -402,7 +402,7 @@ describe("key prop – keyed reconciliation", () => {
     expect(container.querySelector('[data-id="after"]')?.textContent).toBe("after:40");
 
     // Reverse keyed children
-    setOrder(["y", "x"]);
+    void setOrder(["y", "x"]);
 
     // All state must be preserved — keyed and non-keyed alike
     expect(container.querySelector('[data-id="before"]')?.textContent).toBe("before:10");
@@ -458,12 +458,12 @@ describe("key prop – keyed reconciliation", () => {
     expect(container.querySelector('[data-id="b"]')?.textContent).toBe("Beta");
 
     // Reorder
-    setOrder(["b", "a"]);
+    void setOrder(["b", "a"]);
     expect(container.querySelector("div")?.children[0]?.getAttribute("data-id")).toBe("b");
     expect(container.querySelector("div")?.children[1]?.getAttribute("data-id")).toBe("a");
 
     // Update label after reorder
-    setLabelFor("a", "Alpha Updated");
+    void setLabelFor("a", "Alpha Updated");
     expect(container.querySelector('[data-id="a"]')?.textContent).toBe("Alpha Updated");
   });
 });
