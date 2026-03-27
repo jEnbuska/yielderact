@@ -20,13 +20,13 @@ import { executeComponentRerender, rerenderInstance, resumeInstance } from "./re
 function createComponentInstance(
   component: Component,
   props: InternalProps,
-  ctxMap: CtxMap,
+  ctx: CtxMap,
 ): ComponentInstance {
   const instance: ComponentInstance = {
     component,
     props,
     endMarker: document.createComment(""),
-    capturedCtx: ctxMap,
+    capturedCtx: ctx,
     slots: [],
     hookStates: [],
     cleanupFns: [],
@@ -61,9 +61,9 @@ function createComponentInstance(
 export function* mountComponent(
   component: Component,
   props: InternalProps,
-): RenderGenerator<{ fragment: DocumentFragment; componentInstance: ComponentInstance }> {
-  const ctxMap = yield* getContextMap();
-  const instance = createComponentInstance(component, props, ctxMap);
+): RenderGenerator<{ fragment: DocumentFragment; instance: ComponentInstance }> {
+  const ctx = yield* getContextMap();
+  const instance = createComponentInstance(component, props, ctx);
   const fragment = yield* initialComponentRender(instance);
-  return { fragment, componentInstance: instance };
+  return { fragment, instance };
 }

@@ -7,18 +7,25 @@
  */
 
 import type { Child } from "../../jsx";
-import { driveWithContext, getContext, type RenderGenerator } from "../driver";
+import { driveWithContext, getContext, getContextMap, type RenderGenerator } from "../driver";
 import { flushEffects } from "../hooks-runtime";
 import { reconcileSlotsGen } from "../reconciler";
 import { RenderCtx } from "../state";
-import type { ComponentInstance } from "../types";
-import {
-  drainResolvers,
-  effectiveCtxMap,
-  revertPendingEffects,
-  runComponentRender,
-} from "./lifecycle";
+import type { ComponentInstance, RenderContext } from "../types";
+import { drainResolvers, revertPendingEffects, runComponentRender } from "./lifecycle";
 import { executeComponentRerender } from "./rerender";
+
+/** Retry rendering until a non-cancelled result is produced. */
+function* renderUntilSuccess(
+  instance: ComponentInstance,
+  rctx: RenderContext,
+): RenderGenerator<Child> {
+  while (true) {
+    const { vnode, cancelled } = yield* runComponentRender(instance, rctx);
+    if (!cancelled) return vnode;
+    revertPendingEffects(instance);
+  }
+}
 
 /**
  * Initial render: run hooks, commit to a DocumentFragment, flush effects.
@@ -30,33 +37,26 @@ export function* initialComponentRender(
   instance: ComponentInstance,
 ): RenderGenerator<DocumentFragment> {
   const rctx = yield* getContext(RenderCtx);
+  const vnode = yield* renderUntilSuccess(instance, rctx);
 
-  while (true) {
-    const { vnode, cancelled } = yield* runComponentRender(instance, rctx);
-    if (cancelled) {
-      revertPendingEffects(instance);
-      continue;
-    }
+  // Commit to fragment
+  const ctx = yield* getContextMap();
+  const fragment = document.createDocumentFragment();
+  fragment.appendChild(instance.endMarker);
+  const { liveOnlyMode: prevLiveOnly } = rctx;
+  rctx.liveOnlyMode = false;
+  instance.slots = yield* driveWithContext(
+    ctx,
+    reconcileSlotsGen(fragment, [], [vnode] satisfies Child[], instance.endMarker),
+  );
+  rctx.liveOnlyMode = prevLiveOnly;
+  instance.mounted = true;
+  flushEffects(instance);
+  drainResolvers(instance);
 
-    // Commit to fragment
-    const commitCtxMap = effectiveCtxMap(instance);
-    const fragment = document.createDocumentFragment();
-    fragment.appendChild(instance.endMarker);
-    const prevLiveOnly = rctx.liveOnlyMode;
-    rctx.liveOnlyMode = false;
-    instance.slots = yield* driveWithContext(
-      commitCtxMap,
-      reconcileSlotsGen(fragment, [], [vnode] satisfies Child[], instance.endMarker),
-    );
-    rctx.liveOnlyMode = prevLiveOnly;
-    instance.mounted = true;
-    flushEffects(instance);
-    drainResolvers(instance);
-
-    if (instance.pendingRerender) {
-      instance.pendingRerender = false;
-      yield* executeComponentRerender(instance, rctx);
-    }
-    return fragment;
+  if (instance.pendingRerender) {
+    instance.pendingRerender = false;
+    yield* executeComponentRerender(instance, rctx);
   }
+  return fragment;
 }

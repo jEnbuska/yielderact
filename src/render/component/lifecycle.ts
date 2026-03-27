@@ -8,7 +8,6 @@
 import { BatchContext, type Context, PriorityContext, withBatch } from "../../context";
 import type { HookDescriptor } from "../../hooks/descriptors";
 import { $USE_EFFECT, $USE_SET_CONTEXT } from "../../hooks/descriptors";
-import type { ComponentGenerator } from "../../hooks/types";
 import type { Child } from "../../jsx";
 import {
   driveWithContext,
@@ -63,18 +62,15 @@ export function drainResolvers(instance: ComponentInstance): void {
 // ── Hook processing ──────────────────────────────────────────────────────
 
 /**
- * Process hook descriptors from a generator.
+ * Process hook descriptors from the instance's generator.
  *
- * Shared by initial render, rerender, and resume. The caller advances the
- * generator once and passes the initial `IteratorResult`; this function
- * continues from there until a non-hook value is yielded or the generator
- * returns.
+ * Shared by initial render, rerender, and resume. Advances `instance.gen`,
+ * processing hook descriptors until a non-hook value is yielded or the
+ * generator returns.
  */
 export function* processHookDescriptors(
-  gen: ComponentGenerator<Child>,
-  initialResult: IteratorResult<unknown, Child>,
   instance: ComponentInstance,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
+  ctx: ReadonlyMap<Context<unknown>, unknown>,
   startIndex: number,
   checkCancel: boolean,
 ): RenderGenerator<{
@@ -82,23 +78,15 @@ export function* processHookDescriptors(
   result: IteratorResult<unknown, Child>;
   cancelled: boolean;
 }> {
+  const { gen } = instance;
+  if (!gen) throw new Error("processHookDescriptors called without an active generator");
   let hookIndex = startIndex;
-  let result = initialResult;
+  let result = gen.next();
   let cancelled = false;
 
   while (!result.done && isHookDescriptor(result.value)) {
     const descriptor = result.value as HookDescriptor;
-    const hookResult = processOneDescriptor(
-      descriptor,
-      hookIndex++,
-      instance.hookStates,
-      instance.cleanupFns,
-      instance.pendingEffects,
-      instance.rerender,
-      instance.resume,
-      instance,
-      ctxMap,
-    );
+    const hookResult = processOneDescriptor(descriptor, hookIndex++, instance, ctx);
     if (descriptor.type === $USE_SET_CONTEXT) {
       const { ctx, value } = descriptor as { ctx: Context<unknown>; value: unknown };
       yield* setContext(ctx, () => value);
@@ -126,7 +114,7 @@ export function* commitOrDefer(instance: ComponentInstance, vnode: Child): Rende
   const rctx = yield* getContext(RenderCtx);
   const parent = instance.endMarker.parentNode as HTMLElement;
   const batch = yield* getContext(BatchContext);
-  const ctxMap = yield* getContextMap();
+  const ctx = yield* getContextMap();
   const shouldDefer = (rctx.patchDepth > 0 || instance.localPatchRefCount > 0) && batch !== "live";
 
   if (shouldDefer) {
@@ -136,10 +124,10 @@ export function* commitOrDefer(instance: ComponentInstance, vnode: Child): Rende
     instance.pendingVNode = undefined;
   }
 
-  const prevLiveOnly = rctx.liveOnlyMode;
+  const { liveOnlyMode: prevLiveOnly } = rctx;
   if (shouldDefer) rctx.liveOnlyMode = true;
   instance.slots = yield* driveWithContext(
-    ctxMap,
+    ctx,
     reconcileSlotsGen(parent, instance.slots, [vnode], instance.endMarker),
   );
   rctx.liveOnlyMode = prevLiveOnly;
@@ -162,28 +150,19 @@ export function* runComponentRender(
 ): RenderGenerator<{
   vnode: Child;
   cancelled: boolean;
-  componentGen: ComponentGenerator<Child>;
 }> {
   instance.isRendering = true;
-  instance.gen = undefined;
   instance.pendingEffects.length = 0;
   instance.consumedContexts.clear();
   instance.providedContexts.clear();
 
-  const ctxMap = effectiveCtxMap(instance);
-  const componentGen = instance.component(instance.props, instance.rerender);
+  const ctx = effectiveCtxMap(instance);
+  instance.gen = instance.component(instance.props, instance.rerender);
 
-  const prevRenderingPriority = rctx.renderingPriority;
+  const { renderingPriority: prevRenderingPriority } = rctx;
   rctx.renderingPriority = yield* getContext(PriorityContext);
 
-  const { hookIndex, result, cancelled } = yield* processHookDescriptors(
-    componentGen,
-    componentGen.next(undefined),
-    instance,
-    ctxMap,
-    0,
-    true,
-  );
+  const { hookIndex, result, cancelled } = yield* processHookDescriptors(instance, ctx, 0, true);
 
   instance.isRendering = false;
   rctx.renderingPriority = prevRenderingPriority;
@@ -192,7 +171,7 @@ export function* runComponentRender(
   if (!cancelled && result.done) validateHookCount(instance, hookIndex);
 
   const vnode: Child = cancelled ? null : ((result.value as Child) ?? null);
-  instance.gen = cancelled || result.done ? undefined : componentGen;
+  if (cancelled || result.done) instance.gen = undefined;
 
-  return { vnode, cancelled, componentGen };
+  return { vnode, cancelled };
 }

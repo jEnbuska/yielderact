@@ -55,7 +55,7 @@ export function dispatchDelegatedEvent(
   // 3. Batching: suppress immediate scheduling during dispatch so
   //    multiple setState calls are batched into a single render pass.
   setActiveCtx(rctx);
-  const wasProcessing = rctx.isProcessing;
+  const { isProcessing: wasProcessing } = rctx;
   rctx.isProcessing = true;
 
   try {

@@ -78,12 +78,12 @@ export function scheduleUpdate(instance: ComponentInstance): void {
  */
 export function flushSync(fn?: () => void): void {
   const rctx = requireActiveCtx();
-  const prevSync = rctx.syncMode;
+  const { syncMode: prevSync } = rctx;
   rctx.syncMode = true;
 
   if (fn) {
     // Suppress immediate processing during fn so all setState calls batch.
-    const wasProcessing = rctx.isProcessing;
+    const { isProcessing: wasProcessing } = rctx;
     rctx.isProcessing = true;
     try {
       fn();
@@ -265,7 +265,7 @@ function _handlePreemption(rctx: RenderContext, currentPriority: number): void {
  */
 function _yieldToBrowser(rctx: RenderContext): void {
   // Save state that event handlers might disturb during the yield.
-  const savedLiveOnlyMode = rctx.liveOnlyMode;
+  const { liveOnlyMode: savedLiveOnlyMode } = rctx;
 
   if (typeof MessageChannel !== "undefined") {
     const mc = new MessageChannel();

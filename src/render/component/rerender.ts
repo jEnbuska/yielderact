@@ -32,14 +32,11 @@ export function* resumeInstance(instance: ComponentInstance): RenderGenerator<vo
   if (!instance.gen) return;
   if (!instance.endMarker.parentNode) return;
 
-  const ctxMap = effectiveCtxMap(instance);
-  const gen = instance.gen;
+  const ctx = effectiveCtxMap(instance);
 
   const { hookIndex, result } = yield* processHookDescriptors(
-    gen,
-    gen.next(),
     instance,
-    ctxMap,
+    ctx,
     instance.resumeHookIndex,
     false,
   );

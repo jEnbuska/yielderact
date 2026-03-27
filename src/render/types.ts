@@ -184,7 +184,7 @@ export interface Slot {
    * For HTML element slots this contains one Slot per direct child node.
    * For Provider slots it holds the Provider's rendered children.
    * For component slots this is always `[]` — child
-   * tracking lives inside `componentInstance.slots` instead.
+   * tracking lives inside `instance.slots` instead.
    *
    * Recursed into by `reconcileSlots`, `unmountSlot`, and `propagateContextUpdate`.
    */
@@ -198,7 +198,7 @@ export interface Slot {
    * read `inst.consumedContexts` for selective context updates, and access
    * `inst.slots` for subtree walks.
    */
-  componentInstance?: ComponentInstance;
+  instance?: ComponentInstance;
 
   /** Set only on Portal slots — the target DOM container. */
   portalContainer?: Element;
@@ -213,7 +213,7 @@ export interface Slot {
 /**
  * Persistent state for one mounted component instance.
  *
- * Created by `mountComponent`, referenced by `Slot.componentInstance`.
+ * Created by `mountComponent`, referenced by `Slot.instance`.
  * Survives across re-renders so hook state persists.
  * Destroyed by `unmountSlot` which calls all `cleanupFns`.
  */

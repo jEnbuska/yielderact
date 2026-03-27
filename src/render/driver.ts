@@ -107,21 +107,21 @@ export function drive<T>(
   let result = gen.next();
 
   while (!result.done) {
-    const yielded = result.value;
+    const { value } = result;
 
-    if (yielded === undefined) {
+    if (value === undefined) {
       result = gen.next(undefined);
-    } else if (isSetContext(yielded)) {
-      const prev = ctxMap.has(yielded.key) ? ctxMap.get(yielded.key) : yielded.key.defaultValue;
+    } else if (isSetContext(value)) {
+      const prev = ctxMap.has(value.key) ? ctxMap.get(value.key) : value.key.defaultValue;
       const next = new Map(ctxMap);
-      next.set(yielded.key, yielded.updater(prev));
+      next.set(value.key, value.updater(prev));
       ctxMap = next;
       result = gen.next(undefined);
-    } else if (isGetContextMap(yielded)) {
+    } else if (isGetContextMap(value)) {
       result = gen.next(ctxMap);
-    } else if (isHookDescriptor(yielded)) {
-      if (!onHook) throw new Error(`Unexpected hook yield: ${yielded.type}`);
-      result = gen.next(onHook(yielded));
+    } else if (isHookDescriptor(value)) {
+      if (!onHook) throw new Error(`Unexpected hook yield: ${value.type}`);
+      result = gen.next(onHook(value));
     } else {
       result = gen.next(undefined);
     }
@@ -147,21 +147,19 @@ export function* driveWithContext<T>(ctxMap: CtxMap, gen: RenderGenerator<T>): R
   let result = gen.next();
 
   while (!result.done) {
-    const yielded = result.value;
+    const { value } = result;
 
-    if (isSetContext(yielded)) {
-      const prev = currentMap.has(yielded.key)
-        ? currentMap.get(yielded.key)
-        : yielded.key.defaultValue;
+    if (isSetContext(value)) {
+      const prev = currentMap.has(value.key) ? currentMap.get(value.key) : value.key.defaultValue;
       const next = new Map(currentMap);
-      next.set(yielded.key, yielded.updater(prev));
+      next.set(value.key, value.updater(prev));
       currentMap = next;
       result = gen.next(undefined);
-    } else if (isGetContextMap(yielded)) {
+    } else if (isGetContextMap(value)) {
       result = gen.next(currentMap);
     } else {
       // Forward everything else (hooks, void, unknown) to the caller
-      const sent = yield yielded;
+      const sent = yield value;
       result = gen.next(sent);
     }
   }

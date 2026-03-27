@@ -210,8 +210,8 @@ export function updateProps(
   }
 
   // 3. Handle ref changes
-  const prevRef = prevProps.ref;
-  const nextRef = nextProps.ref;
+  const { ref: prevRef } = prevProps;
+  const { ref: nextRef } = nextProps;
   if (!Object.is(prevRef, nextRef)) {
     if (prevRef) prevRef.current = undefined;
     if (nextRef) nextRef.current = el;
