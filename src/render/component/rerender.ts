@@ -6,7 +6,7 @@
  */
 
 import type { Child } from "../../jsx";
-import { drive, getContext, type RenderGenerator } from "../driver";
+import { drive, getContextMap, type RenderGenerator } from "../driver";
 import { isPatchActive } from "../patch-queue";
 import { createResolvable } from "../promise";
 import { scheduleUpdate } from "../scheduler";
@@ -60,7 +60,7 @@ export function* executeComponentRerender(
   instance: ComponentInstance,
   rctx?: RenderContext,
 ): RenderGenerator<void> {
-  const resolvedRctx = rctx ?? (yield* getContext(RenderCtx));
+  const resolvedRctx = rctx ?? (yield* getContextMap()).get(RenderCtx);
 
   while (true) {
     const { vnode, cancelled } = yield* runComponentRender(instance, resolvedRctx);

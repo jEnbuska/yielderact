@@ -7,7 +7,7 @@
  */
 
 import type { Child } from "../../jsx";
-import { driveWithContext, getContext, getContextMap, type RenderGenerator } from "../driver";
+import { driveWithContext, getContextMap, type RenderGenerator } from "../driver";
 import { flushEffects } from "../hooks-runtime";
 import { reconcileSlotsGen } from "../reconciler";
 import { RenderCtx } from "../state";
@@ -36,11 +36,11 @@ function* renderUntilSuccess(
 export function* initialComponentRender(
   instance: ComponentInstance,
 ): RenderGenerator<DocumentFragment> {
-  const rctx = yield* getContext(RenderCtx);
+  const ctx = yield* getContextMap();
+  const rctx = ctx.get(RenderCtx);
   const vnode = yield* renderUntilSuccess(instance, rctx);
 
   // Commit to fragment
-  const ctx = yield* getContextMap();
   const fragment = document.createDocumentFragment();
   fragment.appendChild(instance.endMarker);
   const { liveOnlyMode: prevLiveOnly } = rctx;

@@ -20,7 +20,7 @@ import { $USE_CONTEXT } from "../hooks/descriptors";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
 import { Portal } from "../jsx";
 import { acquirePortalDelegation } from "./delegation";
-import { drive, getContext, getContextMap } from "./driver";
+import { drive, getContextMap } from "./driver";
 import {
   childContextMap,
   contextEntries,
@@ -169,7 +169,8 @@ function* reconcileKeyedSlotsGen(
   flatNext: Child[],
   beforeAnchor: Node | undefined,
 ): Generator<unknown, Slot[], unknown> {
-  const rctx = yield* getContext(RenderCtx);
+  const ctxMap = yield* getContextMap();
+  const rctx = ctxMap.get(RenderCtx);
   // Build key → prevIndex map for keyed prev slots,
   // and collect non-keyed prev slot indices for positional matching.
   const prevKeyMap = new Map<string | number, number>();
@@ -274,7 +275,8 @@ export function* reconcileSlotsGen(
   nextVNodes: Child[],
   beforeAnchor: Node | undefined,
 ): Generator<unknown, Slot[], unknown> {
-  const rctx = yield* getContext(RenderCtx);
+  const ctxMap = yield* getContextMap();
+  const rctx = ctxMap.get(RenderCtx);
   // Flatten fragments before reconciling so each child has a stable index.
   const flatNext = flattenChildren(nextVNodes);
 
@@ -364,7 +366,8 @@ function* reconcileOneGen(
   nextChild: Child,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
-  const rctx = yield* getContext(RenderCtx);
+  const rctx = ctxMap.get(RenderCtx);
+  const batch = ctxMap.get(BatchContext) as "live" | "default" | undefined;
 
   // ════════════════════════════════════════════════════════════════════════
   // SECTION: Empty / null
@@ -378,7 +381,7 @@ function* reconcileOneGen(
         ? (prevSlot.instance.props.$patch ??
             resolveCtx(prevSlot.instance.capturedCtx, BatchContext)) === "live"
         : false;
-      if ((yield* getContext(BatchContext)) !== "live" && !prevIsLive) {
+      if (batch !== "live" && !prevIsLive) {
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
     }
@@ -404,8 +407,7 @@ function* reconcileOneGen(
     if (prevSlot?.type === "text" && prevSlot.node instanceof Text) {
       // Same type (text) → update content in place.
       // In live-only mode, only update when the current batch is live.
-      const liveOnlyDefault =
-        (yield* getContext(RenderCtx)).liveOnlyMode && (yield* getContext(BatchContext)) !== "live";
+      const liveOnlyDefault = rctx.liveOnlyMode && batch !== "live";
       if (!liveOnlyDefault && prevSlot.node.textContent !== text) {
         domSetText(prevSlot.node, text, rctx.ops);
         prevSlot.props = { text };
@@ -413,8 +415,7 @@ function* reconcileOneGen(
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
     // In live-only default mode, don't insert new text nodes.
-    const liveOnlyDefaultText =
-      (yield* getContext(RenderCtx)).liveOnlyMode && (yield* getContext(BatchContext)) !== "live";
+    const liveOnlyDefaultText = rctx.liveOnlyMode && batch !== "live";
     if (liveOnlyDefaultText && prevSlot) {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
@@ -439,7 +440,7 @@ function* reconcileOneGen(
   if (allPropsForShown.$shown === false) {
     // In live-only mode, only hide when the effective batch is live.
     if (rctx.liveOnlyMode) {
-      const effectiveBatch = allPropsForShown.$patch ?? (yield* getContext(BatchContext));
+      const effectiveBatch = allPropsForShown.$patch ?? batch;
       if (effectiveBatch !== "live" && prevSlot) {
         return { slot: prevSlot, node: prevSlot.node, replaced: false };
       }
@@ -503,7 +504,7 @@ function* reconcileComponent(
   allPropsForShown: InternalProps,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
-  const rctx = yield* getContext(RenderCtx);
+  const rctx = ctxMap.get(RenderCtx);
   const allPropsRaw = allPropsForShown;
   // allProps: what the component sees (no $deferred, no $deps)
   const allProps = stripFrameworkDirectives(allPropsRaw);
@@ -652,7 +653,8 @@ function* reconcileHTMLElement(
   vnode: VNode<string>,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
-  const rctx = yield* getContext(RenderCtx);
+  const rctx = ctxMap.get(RenderCtx);
+  const batch = ctxMap.get(BatchContext) as "live" | "default" | undefined;
   const childCtxMap = childContextMap(ctxMap, vnode.props);
 
   if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
@@ -663,8 +665,7 @@ function* reconcileHTMLElement(
       prevSlot.props = vnode.props;
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
-    const liveOnlyDefault =
-      (yield* getContext(RenderCtx)).liveOnlyMode && (yield* getContext(BatchContext)) !== "live";
+    const liveOnlyDefault = rctx.liveOnlyMode && batch !== "live";
     if (!liveOnlyDefault) {
       const { props: prevProps } = prevSlot;
       domEnqueue(
@@ -681,8 +682,7 @@ function* reconcileHTMLElement(
     return { slot: prevSlot, node: prevSlot.node, replaced: false };
   }
   // Different tag → build fresh element
-  const liveOnlyDefaultEl =
-    (yield* getContext(RenderCtx)).liveOnlyMode && (yield* getContext(BatchContext)) !== "live";
+  const liveOnlyDefaultEl = rctx.liveOnlyMode && batch !== "live";
   if (liveOnlyDefaultEl) {
     if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
     const empty = document.createTextNode("");
@@ -738,7 +738,7 @@ function* reconcilePortal(
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
   const portalContainer = vnode.props["$portalContainer"] as Element;
-  const rctx = yield* getContext(RenderCtx);
+  const rctx = ctxMap.get(RenderCtx);
 
   // Same portal at same position, same container → reconcile children in place
   if (

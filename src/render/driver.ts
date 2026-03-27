@@ -15,14 +15,14 @@
 import type { Context } from "../context";
 import { HOOK_TYPES, type HookDescriptor, type HookType } from "../hooks/descriptors";
 import { RenderCtx, setActiveCtx } from "./state";
-import type { RenderContext } from "./types";
+import type { CtxMap, RenderContext } from "./types";
 
 // ── Yield protocol ───────────────────────────────────────────────────────
 
 const $SET_CONTEXT = Symbol("SET_CONTEXT");
 const $GET_CONTEXT_MAP = Symbol("GET_CONTEXT_MAP");
 
-export type CtxMap = ReadonlyMap<Context<unknown>, unknown>;
+export type { CtxMap } from "./types";
 
 /** Any generator that participates in the render pipeline. */
 export type RenderGenerator<TReturn> = Generator<unknown, TReturn, unknown>;
@@ -78,9 +78,10 @@ function isHookDescriptor(v: unknown): v is HookDescriptor {
 
 // ── Driver ───────────────────────────────────────────────────────────────
 
+type BaseCtxMap = ReadonlyMap<Context<unknown>, unknown>;
+
 interface DriveResult<T> {
   value: T;
-  ctxMap: CtxMap;
 }
 
 /**
@@ -94,7 +95,7 @@ interface DriveResult<T> {
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: architectural dispatch loop
 export function drive<T>(
-  initialCtxMap: CtxMap,
+  initialCtxMap: BaseCtxMap,
   gen: RenderGenerator<T>,
   onHook?: (descriptor: HookDescriptor) => unknown,
 ): DriveResult<T> {
@@ -103,7 +104,7 @@ export function drive<T>(
   const rctx = initialCtxMap.get(RenderCtx as Context<unknown>) as RenderContext | undefined;
   if (rctx) setActiveCtx(rctx);
 
-  let ctxMap = initialCtxMap;
+  let ctxMap: BaseCtxMap = initialCtxMap;
   let result = gen.next();
 
   while (!result.done) {
@@ -127,7 +128,7 @@ export function drive<T>(
     }
   }
 
-  return { value: result.value, ctxMap };
+  return { value: result.value };
 }
 
 /**
@@ -142,8 +143,11 @@ export function drive<T>(
  * gets its own driveWithContext scope, so setContext in one child
  * doesn't leak to siblings.
  */
-export function* driveWithContext<T>(ctxMap: CtxMap, gen: RenderGenerator<T>): RenderGenerator<T> {
-  let currentMap = ctxMap;
+export function* driveWithContext<T>(
+  ctxMap: BaseCtxMap,
+  gen: RenderGenerator<T>,
+): RenderGenerator<T> {
+  let currentMap: BaseCtxMap = ctxMap;
   let result = gen.next();
 
   while (!result.done) {

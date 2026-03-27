@@ -111,10 +111,10 @@ export function* processHookDescriptors(
  * Otherwise commits immediately and flushes effects.
  */
 export function* commitOrDefer(instance: ComponentInstance, vnode: Child): RenderGenerator<void> {
-  const rctx = yield* getContext(RenderCtx);
+  const ctx = yield* getContextMap();
+  const rctx = ctx.get(RenderCtx);
   const parent = instance.endMarker.parentNode as HTMLElement;
   const batch = yield* getContext(BatchContext);
-  const ctx = yield* getContextMap();
   const shouldDefer = (rctx.patchDepth > 0 || instance.localPatchRefCount > 0) && batch !== "live";
 
   if (shouldDefer) {

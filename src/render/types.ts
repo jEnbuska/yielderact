@@ -14,6 +14,20 @@ import type { UseRenderState } from "../hooks/useRender";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
 import type { DelegationRoot } from "./delegation";
 
+// ── Context map ─────────────────────────────────────────────────────────────
+
+/**
+ * Typed context map returned by `getContextMap()`.
+ *
+ * Always contains a `RenderContext` entry — seeded by `render()` /
+ * `createRoot()` and preserved through all derived maps. The overloaded
+ * `get` returns `RenderContext` directly for `Context<RenderContext>` keys.
+ */
+export interface CtxMap extends ReadonlyMap<Context<unknown>, unknown> {
+  get(key: Context<RenderContext>): RenderContext;
+  get(key: Context<unknown>): unknown | undefined;
+}
+
 // ── Render context ─────────────────────────────────────────────────────────
 //
 // Per-root mutable state. Each `createRoot()` (or `render()`) creates its
