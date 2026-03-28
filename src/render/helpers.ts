@@ -50,12 +50,12 @@ export function flattenChildren(children: Child[]): Child[] {
 }
 
 /**
- * Compute the merged props for a VNode, including `children` if present.
+ * Return props with `children` included when the VNode has children.
  *
- * When a VNode has children (e.g. `<Comp>child</Comp>`), they are passed
- * to the component as `props.children`.
+ * When a VNode has children (e.g. `<Comp>child</Comp>`), they are added
+ * to the props object as `props.children` so the component can access them.
  */
-export function mergedProps(vnode: VNode): InternalProps {
+export function propsWithChildren(vnode: VNode): InternalProps {
   return (
     vnode.children.length > 0 ? { ...vnode.props, children: vnode.children } : vnode.props
   ) satisfies InternalProps;

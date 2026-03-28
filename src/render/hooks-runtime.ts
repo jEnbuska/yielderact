@@ -19,7 +19,6 @@ import {
   $USE_RENDER,
   $USE_RESOLVE,
   $USE_RESOLVE_RAW,
-  $USE_SET_CONTEXT,
   $USE_STATE,
   HOOK_TYPES,
   type HookDescriptor,
@@ -251,17 +250,6 @@ export function processOneDescriptor(
       const state = processRender(descriptor, prev, hookStates, hookIndex, resume);
       hookStates[hookIndex] = state;
       return { slot: state, resumeCallback: state.resumeCallback };
-    }
-    case $USE_SET_CONTEXT: {
-      const prevValue = resolveCtx(instance.capturedCtx, descriptor.ctx);
-      const newCtxMap = new Map(instance.capturedCtx);
-      newCtxMap.set(descriptor.ctx, descriptor.value);
-      instance.capturedCtx = newCtxMap;
-      instance.providedContexts.add(descriptor.ctx);
-      if (!Object.is(prevValue, descriptor.value)) {
-        propagateContextUpdate(descriptor.ctx, descriptor.value, instance.slots);
-      }
-      return undefined;
     }
     default:
       throw new Error(
