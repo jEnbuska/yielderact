@@ -78,13 +78,14 @@ export function* LazyContextDemo() {
         <strong>{state.user.role}</strong> | count: <strong>{state.count}</strong>
       </p>
 
-      <AppCtx.Provider value={state}>
-        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-          <NoSelectorConsumer />
-          <SelectorConsumer />
-          <TransformConsumer />
-        </div>
-      </AppCtx.Provider>
+      <div
+        $context={AppCtx(state)}
+        style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
+      >
+        <NoSelectorConsumer />
+        <SelectorConsumer />
+        <TransformConsumer />
+      </div>
 
       <details style={{ marginTop: "1rem", fontSize: "0.8rem", color: "#555" }}>
         <summary>Expected behavior</summary>

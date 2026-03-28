@@ -1,6 +1,5 @@
 import { createContext, useContext } from "../context";
 import { useEffect, useMemo, useRef, useState } from "../hooks";
-import { createElement } from "../jsx";
 import { createRoot } from "../render";
 
 describe("hook order validation", () => {
@@ -25,11 +24,11 @@ describe("hook order validation", () => {
       if (toggle) {
         yield* useRef(null);
       }
-      return createElement("span", null, String(count));
+      return <span>{String(count)}</span>;
     }
 
     const root = createRoot(container);
-    root.render(createElement(Conditional as never, {}));
+    root.render(<Conditional />);
     expect(container.textContent).toBe("0");
 
     // Remove the conditional hook on re-render
@@ -51,11 +50,11 @@ describe("hook order validation", () => {
         yield* useMemo(() => 42, []);
         yield* useRef(null);
       }
-      return createElement("span", null, String(count));
+      return <span>{String(count)}</span>;
     }
 
     const root = createRoot(container);
-    root.render(createElement(SwapHooks as never, {}));
+    root.render(<SwapHooks />);
 
     swapped = true;
     expect(() => setCount(1)).toThrow(/Hook order mismatch.*"SwapHooks".*index 1/);
@@ -72,11 +71,11 @@ describe("hook order validation", () => {
       if (useExtra) {
         yield* useMemo(() => 42, []);
       }
-      return createElement("span", null, String(count));
+      return <span>{String(count)}</span>;
     }
 
     const root = createRoot(container);
-    root.render(createElement(HookCountDecrease as never, {}));
+    root.render(<HookCountDecrease />);
 
     useExtra = false;
     expect(() => setCount(1)).toThrow(/Hook count mismatch.*"HookCountDecrease"/);
@@ -93,11 +92,11 @@ describe("hook order validation", () => {
       if (useExtra) {
         yield* useMemo(() => 42, []);
       }
-      return createElement("span", null, String(count));
+      return <span>{String(count)}</span>;
     }
 
     const root = createRoot(container);
-    root.render(createElement(HookCountIncrease as never, {}));
+    root.render(<HookCountIncrease />);
 
     useExtra = true;
     expect(() => setCount(1)).toThrow(/Hook count mismatch.*"HookCountIncrease"/);
@@ -117,11 +116,11 @@ describe("hook order validation", () => {
         yield* useContext(Ctx2);
       }
       yield* useRef(null);
-      return createElement("span", null, String(count));
+      return <span>{String(count)}</span>;
     }
 
     const root = createRoot(container);
-    root.render(createElement(ContextNotExempt as never, {}));
+    root.render(<ContextNotExempt />);
     expect(container.textContent).toBe("0");
 
     // Removing context hooks DOES throw — useContext follows the same rules as all hooks
@@ -145,11 +144,11 @@ describe("hook order validation", () => {
         yield* useContext(Ctx1);
         yield* useContext(Ctx2);
       }
-      return createElement("span", null, String(count));
+      return <span>{String(count)}</span>;
     }
 
     const root = createRoot(container);
-    root.render(createElement(ContextReorder as never, {}));
+    root.render(<ContextReorder />);
 
     // Swapping context hooks throws — same order required on every render
     swapContexts = true;
@@ -165,11 +164,11 @@ describe("hook order validation", () => {
       yield* useRef(null);
       yield* useMemo(() => count * 2, [count]);
       yield* useEffect(() => undefined, [count]);
-      return createElement("span", null, String(count));
+      return <span>{String(count)}</span>;
     }
 
     const root = createRoot(container);
-    root.render(createElement(Stable as never, {}));
+    root.render(<Stable />);
     expect(container.textContent).toBe("0");
 
     expect(() => setCount(1)).not.toThrow();
@@ -191,15 +190,15 @@ describe("hook order validation", () => {
       } else {
         yield* useRef(null);
       }
-      return createElement("span", null, String(count));
+      return <span>{String(count)}</span>;
     }
 
     const root = createRoot(container);
-    root.render(createElement(NamedComponent as never, {}));
+    root.render(<NamedComponent />);
 
     swapped = true;
     try {
-      setCount(1);
+      void setCount(1);
       // Should not reach here
       expect(true).toBe(false);
     } catch (e) {

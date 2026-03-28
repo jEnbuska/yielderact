@@ -1,5 +1,4 @@
 import { useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 describe("event delegation", () => {
@@ -20,13 +19,11 @@ describe("event delegation", () => {
     const addSpy = vi.spyOn(container, "addEventListener");
 
     render(
-      createElement(
-        "div",
-        null,
-        createElement("button", { onClick: () => {} }, "A"),
-        createElement("button", { onClick: () => {} }, "B"),
-        createElement("button", { onClick: () => {} }, "C"),
-      ),
+      <div>
+        <button onClick={() => {}}>A</button>
+        <button onClick={() => {}}>B</button>
+        <button onClick={() => {}}>C</button>
+      </div>,
       container,
     );
 
@@ -39,14 +36,14 @@ describe("event delegation", () => {
 
   it("dispatches click events through delegation", () => {
     const onClick = vi.fn();
-    render(createElement("button", { onClick }, "click me"), container);
+    render(<button onClick={onClick}>click me</button>, container);
     container.querySelector("button")?.click();
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
   it("wraps events in SyntheticEvent with correct properties", () => {
     const onClick = vi.fn();
-    render(createElement("button", { onClick }, "click me"), container);
+    render(<button onClick={onClick}>click me</button>, container);
     container.querySelector("button")?.click();
 
     const syntheticEvent = onClick.mock.calls[0]?.[0];
@@ -65,21 +62,17 @@ describe("event delegation", () => {
     const order: string[] = [];
 
     render(
-      createElement(
-        "div",
-        {
-          onClickCapture: () => order.push("outer-capture"),
-          onClick: () => order.push("outer-bubble"),
-        },
-        createElement(
-          "button",
-          {
-            onClickCapture: () => order.push("inner-capture"),
-            onClick: () => order.push("inner-bubble"),
-          },
-          "click",
-        ),
-      ),
+      <div
+        onClickCapture={() => order.push("outer-capture")}
+        onClick={() => order.push("outer-bubble")}
+      >
+        <button
+          onClickCapture={() => order.push("inner-capture")}
+          onClick={() => order.push("inner-bubble")}
+        >
+          click
+        </button>
+      </div>,
       container,
     );
 
@@ -97,11 +90,9 @@ describe("event delegation", () => {
     });
 
     render(
-      createElement(
-        "div",
-        { onClick: outerClick },
-        createElement("button", { onClick: innerClick }, "click"),
-      ),
+      <div onClick={outerClick}>
+        <button onClick={innerClick}>click</button>
+      </div>,
       container,
     );
 
@@ -120,11 +111,11 @@ describe("event delegation", () => {
     const outerBubble = vi.fn();
 
     render(
-      createElement(
-        "div",
-        { onClickCapture: outerCapture, onClick: outerBubble },
-        createElement("button", { onClickCapture: innerCapture, onClick: innerBubble }, "click"),
-      ),
+      <div onClickCapture={outerCapture} onClick={outerBubble}>
+        <button onClickCapture={innerCapture} onClick={innerBubble}>
+          click
+        </button>
+      </div>,
       container,
     );
 
@@ -143,17 +134,15 @@ describe("event delegation", () => {
 
     // We'll use capture on outer and bubble on inner to test cross-phase
     render(
-      createElement(
-        "div",
-        {
-          onClickCapture: (e: { stopImmediatePropagation(): void }) => {
-            order.push("outer-capture");
-            e.stopImmediatePropagation();
-          },
-          onClick: () => order.push("outer-bubble"),
-        },
-        createElement("button", { onClick: () => order.push("inner-bubble") }, "click"),
-      ),
+      <div
+        onClickCapture={(e: { stopImmediatePropagation(): void }) => {
+          order.push("outer-capture");
+          e.stopImmediatePropagation();
+        }}
+        onClick={() => order.push("outer-bubble")}
+      >
+        <button onClick={() => order.push("inner-bubble")}>click</button>
+      </div>,
       container,
     );
 
@@ -168,16 +157,14 @@ describe("event delegation", () => {
     let defaultPrevented = false;
 
     render(
-      createElement(
-        "button",
-        {
-          onClick: (e: { preventDefault(): void; isDefaultPrevented(): boolean }) => {
-            e.preventDefault();
-            defaultPrevented = e.isDefaultPrevented();
-          },
-        },
-        "click",
-      ),
+      <button
+        onClick={(e: { preventDefault(): void; isDefaultPrevented(): boolean }) => {
+          e.preventDefault();
+          defaultPrevented = e.isDefaultPrevented();
+        }}
+      >
+        click
+      </button>,
       container,
     );
 
@@ -191,25 +178,21 @@ describe("event delegation", () => {
     const targets: Array<EventTarget | null> = [];
 
     render(
-      createElement(
-        "div",
-        {
-          id: "outer",
-          onClick: (e: { currentTarget: EventTarget | null }) => {
+      <div
+        id="outer"
+        onClick={(e: { currentTarget: EventTarget | null }) => {
+          targets.push(e.currentTarget);
+        }}
+      >
+        <button
+          id="inner"
+          onClick={(e: { currentTarget: EventTarget | null }) => {
             targets.push(e.currentTarget);
-          },
-        },
-        createElement(
-          "button",
-          {
-            id: "inner",
-            onClick: (e: { currentTarget: EventTarget | null }) => {
-              targets.push(e.currentTarget);
-            },
-          },
-          "click",
-        ),
-      ),
+          }}
+        >
+          click
+        </button>
+      </div>,
       container,
     );
 
@@ -230,19 +213,19 @@ describe("event delegation", () => {
       const [a, setA] = yield* useState(0);
       const [b, setB] = yield* useState(0);
       renderCount++;
-      return createElement(
-        "button",
-        {
-          onClick: () => {
+      return (
+        <button
+          onClick={() => {
             setA(a + 1);
             setB(b + 1);
-          },
-        },
-        `${a}-${b}`,
+          }}
+        >
+          {`${a}-${b}`}
+        </button>
       );
     }
 
-    render(createElement(Multi as never, {}), container);
+    render(<Multi />, container);
     expect(renderCount).toBe(1);
     expect(container.querySelector("button")?.textContent).toBe("0-0");
 
@@ -257,7 +240,7 @@ describe("event delegation", () => {
 
   it("scroll event is attached per-element (non-delegated)", () => {
     const onScroll = vi.fn();
-    render(createElement("div", { onScroll }, "content"), container);
+    render(<div onScroll={onScroll}>content</div>, container);
 
     const div = container.querySelector("div") as HTMLElement;
     const addSpy = vi.spyOn(div, "addEventListener");
@@ -268,7 +251,7 @@ describe("event delegation", () => {
     const containerAddSpy = vi.spyOn(container, "addEventListener");
 
     // Re-render to check that additional scroll elements don't add root listeners
-    render(createElement("div", { onScroll: vi.fn() }, "content2"), container);
+    render(<div onScroll={vi.fn()}>content2</div>, container);
 
     // Container should not get a "scroll" listener
     const scrollOnContainer = containerAddSpy.mock.calls.filter(([type]) => type === "scroll");
@@ -284,15 +267,13 @@ describe("event delegation", () => {
     let receivedEvent: Record<string, unknown> | null = null;
 
     render(
-      createElement(
-        "button",
-        {
-          onClick: (e: Record<string, unknown>) => {
-            receivedEvent = e;
-          },
-        },
-        "click",
-      ),
+      <button
+        onClick={(e: Record<string, unknown>) => {
+          receivedEvent = e;
+        }}
+      >
+        click
+      </button>,
       container,
     );
 
@@ -309,7 +290,7 @@ describe("event delegation", () => {
 
   it("onDoubleClick maps to dblclick DOM event", () => {
     const onDoubleClick = vi.fn();
-    render(createElement("button", { onDoubleClick }, "dblclick me"), container);
+    render(<button onDoubleClick={onDoubleClick}>dblclick me</button>, container);
 
     const btn = container.querySelector("button") as HTMLButtonElement;
     btn.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
@@ -319,7 +300,7 @@ describe("event delegation", () => {
 
   it("onFocus maps to focusin DOM event (delegated)", () => {
     const onFocus = vi.fn();
-    render(createElement("input", { onFocus }), container);
+    render(<input onFocus={onFocus} />, container);
 
     const input = container.querySelector("input") as HTMLInputElement;
     input.dispatchEvent(new FocusEvent("focusin", { bubbles: true }));
@@ -329,7 +310,7 @@ describe("event delegation", () => {
 
   it("onBlur maps to focusout DOM event (delegated)", () => {
     const onBlur = vi.fn();
-    render(createElement("input", { onBlur }), container);
+    render(<input onBlur={onBlur} />, container);
 
     const input = container.querySelector("input") as HTMLInputElement;
     input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
@@ -342,10 +323,10 @@ describe("event delegation", () => {
   it("works with components that rerender on click", () => {
     function* Counter() {
       const [count, setCount] = yield* useState(0);
-      return createElement("button", { onClick: () => setCount(count + 1) }, String(count));
+      return <button onClick={() => setCount(count + 1)}>{String(count)}</button>;
     }
 
-    render(createElement(Counter as never, {}), container);
+    render(<Counter />, container);
     expect(container.querySelector("button")?.textContent).toBe("0");
 
     container.querySelector("button")?.click();
@@ -364,10 +345,10 @@ describe("event delegation", () => {
         handlers.push(handler);
         setCount(count + 1);
       };
-      return createElement("button", { onClick: handler }, String(count));
+      return <button onClick={handler}>{String(count)}</button>;
     }
 
-    render(createElement(HandlerChanger as never, {}), container);
+    render(<HandlerChanger />, container);
     const btn = container.querySelector("button") as HTMLButtonElement;
 
     btn.click();
@@ -387,35 +368,15 @@ describe("event delegation", () => {
     const order: string[] = [];
 
     render(
-      createElement(
-        "div",
-        {
-          id: "level1",
-          onClick: () => order.push("level1"),
-        },
-        createElement(
-          "div",
-          {
-            id: "level2",
-            onClick: () => order.push("level2"),
-          },
-          createElement(
-            "div",
-            {
-              id: "level3",
-              onClick: () => order.push("level3"),
-            },
-            createElement(
-              "button",
-              {
-                id: "target",
-                onClick: () => order.push("target"),
-              },
-              "click",
-            ),
-          ),
-        ),
-      ),
+      <div id="level1" onClick={() => order.push("level1")}>
+        <div id="level2" onClick={() => order.push("level2")}>
+          <div id="level3" onClick={() => order.push("level3")}>
+            <button id="target" onClick={() => order.push("target")}>
+              click
+            </button>
+          </div>
+        </div>
+      </div>,
       container,
     );
 

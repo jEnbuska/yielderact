@@ -26,27 +26,32 @@ describe("render – HTML elements", () => {
   });
 
   it("renders a plain element", () => {
-    render(createElement("div", null), container);
+    render(<div />, container);
     expect(container.firstChild).toBeInstanceOf(HTMLDivElement);
   });
 
   it("renders a text child", () => {
-    render(createElement("p", null, "Hello World"), container);
+    render(<p>Hello World</p>, container);
     expect(container.querySelector("p")?.textContent).toBe("Hello World");
   });
 
   it("renders nested elements", () => {
-    render(createElement("div", null, createElement("span", null, "inner")), container);
+    render(
+      <div>
+        <span>inner</span>
+      </div>,
+      container,
+    );
     expect(container.querySelector("span")?.textContent).toBe("inner");
   });
 
   it("applies className", () => {
-    render(createElement("div", { className: "foo bar" }), container);
+    render(<div className="foo bar" />, container);
     expect((container.firstChild as HTMLElement).className).toBe("foo bar");
   });
 
   it("applies arbitrary attributes", () => {
-    render(createElement("input", { type: "text", placeholder: "name" }), container);
+    render(<input type="text" placeholder="name" />, container);
     const input = container.querySelector("input") as HTMLInputElement;
     expect(input.getAttribute("type")).toBe("text");
     expect(input.getAttribute("placeholder")).toBe("name");
@@ -54,7 +59,7 @@ describe("render – HTML elements", () => {
 
   it("applies event listeners and wraps in SyntheticEvent", () => {
     const onClick = vi.fn();
-    render(createElement("button", { onClick }, "click me"), container);
+    render(<button onClick={onClick}>click me</button>, container);
     container.querySelector("button")?.click();
     expect(onClick).toHaveBeenCalledTimes(1);
     // The handler receives a SyntheticEvent, not the raw native event
@@ -66,7 +71,7 @@ describe("render – HTML elements", () => {
   });
 
   it("applies inline styles", () => {
-    render(createElement("div", { style: { color: "red", fontSize: "14px" } }), container);
+    render(<div style={{ color: "red", fontSize: "14px" }} />, container);
     const el = container.firstChild as HTMLElement;
     expect(el.style.color).toBe("red");
     expect(el.style.fontSize).toBe("14px");
@@ -78,14 +83,14 @@ describe("render – HTML elements", () => {
     function* Styled() {
       const [style, ss] = yield* useState<Record<string, string>>({ color: "red" });
       setStyle = ss;
-      return createElement("div", { style });
+      return <div style={style} />;
     }
 
-    render(createElement(Styled as never, {}), container);
+    render(<Styled />, container);
     const el = container.querySelector("div") as HTMLElement;
     expect(el.style.color).toBe("red");
 
-    setStyle({ color: "blue" });
+    void setStyle({ color: "blue" });
     expect(el.style.color).toBe("blue");
   });
 
@@ -98,15 +103,15 @@ describe("render – HTML elements", () => {
         fontSize: "14px",
       });
       setStyle = ss;
-      return createElement("div", { style });
+      return <div style={style} />;
     }
 
-    render(createElement(Styled as never, {}), container);
+    render(<Styled />, container);
     const el = container.querySelector("div") as HTMLElement;
     expect(el.style.color).toBe("red");
     expect(el.style.fontSize).toBe("14px");
 
-    setStyle({ color: "blue" });
+    void setStyle({ color: "blue" });
     expect(el.style.color).toBe("blue");
     expect(el.style.fontSize).toBe("");
   });
@@ -122,28 +127,24 @@ describe("render – HTML elements", () => {
       return createElement("div", props);
     }
 
-    render(createElement(Styled as never, {}), container);
+    render(<Styled />, container);
     const el = container.querySelector("div") as HTMLElement;
     expect(el.style.color).toBe("red");
     expect(el.style.fontWeight).toBe("bold");
 
-    setProps({});
+    void setProps({});
     expect(el.style.color).toBe("");
     expect(el.style.fontWeight).toBe("");
   });
 
   it("renders a Fragment with multiple children", () => {
     render(
-      createElement(
-        "ul",
-        null,
-        createElement(
-          Fragment,
-          null,
-          createElement("li", null, "one"),
-          createElement("li", null, "two"),
-        ),
-      ),
+      <ul>
+        <Fragment>
+          <li>one</li>
+          <li>two</li>
+        </Fragment>
+      </ul>,
       container,
     );
     const items = container.querySelectorAll("li");
@@ -153,7 +154,14 @@ describe("render – HTML elements", () => {
   });
 
   it("skips null and undefined children", () => {
-    render(createElement("div", null, null, undefined, "visible"), container);
+    render(
+      <div>
+        {null}
+        {undefined}
+        {"visible"}
+      </div>,
+      container,
+    );
     expect(container.querySelector("div")?.textContent).toBe("visible");
   });
 
@@ -163,17 +171,17 @@ describe("render – HTML elements", () => {
     function* Controlled() {
       const [val, sv] = yield* useState("initial");
       setValue = sv;
-      return createElement("input", { type: "text", value: val });
+      return <input type="text" value={val} />;
     }
 
-    render(createElement(Controlled as never, {}), container);
+    render(<Controlled />, container);
     const input = container.querySelector("input") as HTMLInputElement;
     expect(input.value).toBe("initial");
 
-    setValue("updated");
+    void setValue("updated");
     expect(input.value).toBe("updated");
 
-    setValue("");
+    void setValue("");
     expect(input.value).toBe("");
   });
 
@@ -183,17 +191,17 @@ describe("render – HTML elements", () => {
     function* CheckBox() {
       const [checked, sc] = yield* useState(false);
       setChecked = sc;
-      return createElement("input", { type: "checkbox", checked });
+      return <input type="checkbox" checked={checked} />;
     }
 
-    render(createElement(CheckBox as never, {}), container);
+    render(<CheckBox />, container);
     const cb = container.querySelector("input") as HTMLInputElement;
     expect(cb.checked).toBe(false);
 
-    setChecked(true);
+    void setChecked(true);
     expect(cb.checked).toBe(true);
 
-    setChecked(false);
+    void setChecked(false);
     expect(cb.checked).toBe(false);
   });
 });
@@ -226,18 +234,22 @@ describe("buildNode", () => {
 
 describe("render – HTML defaults", () => {
   it('sets button type to "button" when not specified', () => {
-    const node = run(createElement("button", {}, "Click")) as HTMLButtonElement;
+    const node = run(<button>Click</button>) as HTMLButtonElement;
     expect(node.getAttribute("type")).toBe("button");
   });
 
   it("preserves explicit button type", () => {
-    const node = run(createElement("button", { type: "submit" }, "Submit")) as HTMLButtonElement;
+    const node = run(<button type="submit">Submit</button>) as HTMLButtonElement;
     expect(node.getAttribute("type")).toBe("submit");
   });
 
   it('warns when <a target="_blank"> has no rel', () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    run(createElement("a", { href: "https://example.com", target: "_blank" }, "link"));
+    run(
+      <a href="https://example.com" target="_blank">
+        link
+      </a>,
+    );
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("noopener"));
     warn.mockRestore();
   });
@@ -245,18 +257,14 @@ describe("render – HTML defaults", () => {
   it('does not warn when <a target="_blank"> has any rel value', () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     run(
-      createElement(
-        "a",
-        { href: "https://example.com", target: "_blank", rel: "noopener noreferrer" },
-        "link",
-      ),
+      <a href="https://example.com" target="_blank" rel="noopener noreferrer">
+        link
+      </a>,
     );
     run(
-      createElement(
-        "a",
-        { href: "https://example.com", target: "_blank", rel: "noreferrer" },
-        "link",
-      ),
+      <a href="https://example.com" target="_blank" rel="noreferrer">
+        link
+      </a>,
     );
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
@@ -264,7 +272,7 @@ describe("render – HTML defaults", () => {
 
   it('does not warn for <a> without target="_blank"', () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    run(createElement("a", { href: "https://example.com" }, "link"));
+    run(<a href="https://example.com">link</a>);
     expect(warn).not.toHaveBeenCalled();
     warn.mockRestore();
   });

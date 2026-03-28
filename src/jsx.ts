@@ -1,3 +1,4 @@
+import type { ContextEntry } from "./context";
 import type { ComponentGenerator, DependencyList } from "./hooks/types";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
 
@@ -29,22 +30,10 @@ export interface FrameworkProps {
   /** When false, the element/component is removed from the DOM. */
   $shown?: boolean;
   /**
-   * Controls DOM-update behaviour during a UI patch.
-   * - `'live'`: updates flush immediately, even during an active patch.
-   * - `'default'` (default): updates are deferred until the patch commits.
-   */
-  $patch?: "live" | "default";
-  /**
-   * Marks this subtree as deferred (lower priority).
+   * Marks this subtree as deferred.
    *
-   * Each `$deferred={true}` encountered increments the inherited priority
-   * level by 1. Priority 0 (default) is processed first, priority 1 next,
-   * etc. During initial mount, priority levels do not apply — the full tree
-   * mounts as one patch. Priority levels apply only to subsequent updates.
-   *
-   * `$deferred` propagates to all descendants via the framework's context
-   * mechanism. It is stripped from the component's props — components never
-   * see `$deferred` in their props object.
+   * Currently a no-op — the deferred rendering model is being redesigned
+   * (see issue #153). The prop is accepted but has no effect.
    */
   $deferred?: boolean;
   /**
@@ -58,15 +47,27 @@ export interface FrameworkProps {
    * only cares about a subset of values.
    */
   $deps?: DependencyList;
+  /**
+   * Provide context values to this element/component and its descendants.
+   *
+   * Accepts a single `ContextEntry` or an array for multiple contexts.
+   * Create entries by calling a context object: `MyCtx(value)`.
+   *
+   * @example
+   * const ThemeCtx = createContext<'light' | 'dark'>('light');
+   * <Child $context={ThemeCtx('dark')} />
+   * <div $context={[ThemeCtx('dark'), LocaleCtx('fi')]}>...</div>
+   */
+  $context?: ContextEntry | ContextEntry[];
 }
 
 /**
  * Full set of special props for intrinsic HTML/SVG elements.
  *
- * Extends {@link FrameworkProps} with `children` and `$ref`, which are
+ * Extends {@link FrameworkProps} with `children` and `ref`, which are
  * only available on elements and on components that explicitly declare them.
  *
- * @typeParam TRef - The concrete element type for `$ref`.
+ * @typeParam TRef - The concrete element type for `ref`.
  *   Narrowed to the specific `HTMLElement` / `SVGElement` subtype in
  *   per-element attribute interfaces.
  */
@@ -74,14 +75,14 @@ export interface SpecialProps<TRef = unknown> extends FrameworkProps {
   /** Nested children passed to the component or element. */
   children?: Child | Child[];
   /** Ref object — `.current` is set to the DOM element on mount, `undefined` on unmount. */
-  $ref?: { current: TRef | undefined };
+  ref?: { current: TRef | undefined };
 }
 
 /**
  * Props object as stored and passed internally by the framework.
  *
- * Combines the well-typed `$`-prefixed framework props (`SpecialProps`)
- * with an open string index for arbitrary user-defined props.
+ * Combines the well-typed framework props (`SpecialProps`) with an open
+ * string index for arbitrary user-defined props.
  *
  * Use this instead of raw `Record<string, unknown>` whenever a function
  * receives or returns a merged/internal props object.
@@ -124,12 +125,24 @@ export type Component<P extends InternalProps = InternalProps> = (
 ) => ComponentGenerator<Child>;
 
 /**
- * Fragment symbol – use instead of a wrapper element when you need to
+ * Internal raw fragment symbol — the primitive grouping mechanism used by
+ * `buildNode` and `flattenChildren`. Not part of the public API.
+ *
+ * @internal
+ */
+export const RawFragment: unique symbol = Symbol("RawFragment");
+
+/**
+ * Fragment component — use instead of a wrapper element when you need to
  * return multiple children.
+ *
+ * Framework directives (`$context`, `$deferred`) placed on a Fragment
+ * work correctly because Fragment is a real component that participates
+ * in the normal lifecycle (mount, reconcile, propagate).
  *
  * @example
  * function* List() {
- *   yield (
+ *   return (
  *     <>
  *       <li>One</li>
  *       <li>Two</li>
@@ -137,14 +150,17 @@ export type Component<P extends InternalProps = InternalProps> = (
  *   );
  * }
  */
-export const Fragment: unique symbol = Symbol("Fragment");
+export function* Fragment(props: InternalProps): ComponentGenerator<Child> {
+  const children = props.children as Child[] | undefined;
+  return { type: RawFragment, props: {}, children: children ?? [] } satisfies VNode;
+}
 
 /**
  * Portal symbol – used as the `type` of VNodes created by `createPortal`.
  *
  * Portal VNodes render their children into an arbitrary DOM container
  * outside the render root, while maintaining component-tree context
- * (Providers, `$patch`, `$deferred`).
+ * (`$context`, `$deferred`).
  */
 export const Portal: unique symbol = Symbol("Portal");
 
@@ -196,7 +212,7 @@ export function createElement<P extends InternalProps>(
   ...children: Child[]
 ): VNode;
 
-// Overload 3: symbol (Fragment)
+// Overload 3: symbol (RawFragment, Portal)
 export function createElement(type: symbol, props: null, ...children: Child[]): VNode;
 
 // Overload 4: escape-hatch (jsx-runtime, dynamic types)
@@ -242,8 +258,8 @@ declare global {
      * elements and custom components — without needing to be
      * declared in the component's own props type.
      *
-     * Only framework-level props (`key`, `$shown`, `$patch`, `$deferred`,
-     * `$deps`) are universally available. `children` and `$ref` must be
+     * Only framework-level props (`key`, `$shown`, `$deferred`,
+     * `$deps`, `$context`) are universally available. `children` and `ref` must be
      * explicitly declared in a component's props type to be accepted.
      */
     interface IntrinsicAttributes extends FrameworkProps {}

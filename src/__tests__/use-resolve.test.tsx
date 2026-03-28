@@ -1,6 +1,5 @@
 import { useMemo, useResolve, useResolveRaw, useState } from "../hooks";
 import type { Child } from "../jsx";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -27,15 +26,15 @@ describe("render – components with useResolve", () => {
       const data = yield* useResolve(
         {
           fn: (_signal) => promise,
-          loading: createElement("span", { id: "loading" }, "Loading…"),
-          error: createElement("span", { id: "error" }, "Error"),
+          loading: <span id="loading">Loading&hellip;</span>,
+          error: <span id="error">Error</span>,
         },
         [],
       );
-      return createElement("span", { id: "data" }, data);
+      return <span id="data">{data}</span>;
     }
 
-    render(createElement(DataComp as never, {}), container);
+    render(<DataComp />, container);
     expect(container.querySelector("#loading")).not.toBeNull();
     expect(container.querySelector("#data")).toBeNull();
 
@@ -57,15 +56,15 @@ describe("render – components with useResolve", () => {
       const data = yield* useResolve(
         {
           fn: (_signal) => promise,
-          loading: createElement("span", { id: "loading" }, "Loading…"),
-          error: createElement("span", { id: "error" }, "Error"),
+          loading: <span id="loading">Loading&hellip;</span>,
+          error: <span id="error">Error</span>,
         },
         [],
       );
-      return createElement("span", { id: "data" }, data);
+      return <span id="data">{data}</span>;
     }
 
-    render(createElement(DataComp as never, {}), container);
+    render(<DataComp />, container);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     rejectPromise(new Error("network error"));
@@ -88,15 +87,15 @@ describe("render – components with useResolve", () => {
       const data = yield* useResolve(
         {
           fn: (_signal) => promise,
-          loading: createElement("span", { id: "loading" }, "Loading…"),
-          error: createElement("span", null, "Error"),
+          loading: <span id="loading">Loading&hellip;</span>,
+          error: <span>Error</span>,
         },
         [],
       );
-      return createElement("p", { id: "result" }, `${label}:${data}`);
+      return <p id="result">{`${label}:${data}`}</p>;
     }
 
-    render(createElement(DataComp as never, {}), container);
+    render(<DataComp />, container);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     resolvePromise("world");
@@ -104,7 +103,7 @@ describe("render – components with useResolve", () => {
 
     expect(container.querySelector("#result")?.textContent).toBe("prefix:world");
 
-    setLabel("updated");
+    void setLabel("updated");
     expect(container.querySelector("#result")?.textContent).toBe("updated:world");
   });
 
@@ -121,19 +120,19 @@ describe("render – components with useResolve", () => {
       const data = yield* useResolve(
         {
           fn: (_signal) => promise,
-          loading: createElement("span", { id: "loading" }, "Loading…"),
-          error: createElement("span", null, "Error"),
+          loading: <span id="loading">Loading&hellip;</span>,
+          error: <span>Error</span>,
         },
         [],
       );
-      return createElement("p", { id: "result" }, `${label}:${data}`);
+      return <p id="result">{`${label}:${data}`}</p>;
     }
 
-    render(createElement(DataComp as never, {}), container);
+    render(<DataComp />, container);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Change state WHILE the promise is still pending
-    setLabel("updated");
+    void setLabel("updated");
     // Still loading, but label should be reflected after resolve
     expect(container.querySelector("#loading")).not.toBeNull();
 
@@ -166,15 +165,15 @@ describe("render – components with useResolve", () => {
             fetchCount++;
             return id === 1 ? firstPromise : secondPromise;
           },
-          loading: createElement("span", { id: "loading" }, "Loading…"),
-          error: createElement("span", null, "Error"),
+          loading: <span id="loading">Loading&hellip;</span>,
+          error: <span>Error</span>,
         },
         [id],
       );
-      return createElement("p", { id: "result" }, `${id}:${data}`);
+      return <p id="result">{`${id}:${data}`}</p>;
     }
 
-    render(createElement(DataComp as never, {}), container);
+    render(<DataComp />, container);
     expect(fetchCount).toBe(1);
     expect(container.querySelector("#loading")).not.toBeNull();
 
@@ -183,7 +182,7 @@ describe("render – components with useResolve", () => {
     expect(container.querySelector("#result")?.textContent).toBe("1:user1");
 
     // Change the dep – should re-run the promise
-    setId(2);
+    void setId(2);
     expect(fetchCount).toBe(2);
     expect(container.querySelector("#loading")).not.toBeNull();
 
@@ -210,19 +209,19 @@ describe("render – components with useResolve", () => {
       const data = yield* useResolve(
         {
           fn: (_signal) => (id === 1 ? firstPromise : secondPromise),
-          loading: createElement("span", { id: "loading" }, "Loading…"),
-          error: createElement("span", null, "Error"),
+          loading: <span id="loading">Loading&hellip;</span>,
+          error: <span>Error</span>,
         },
         [id],
       );
-      return createElement("p", { id: "result" }, `${id}:${data}`);
+      return <p id="result">{`${id}:${data}`}</p>;
     }
 
-    render(createElement(DataComp as never, {}), container);
+    render(<DataComp />, container);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Change dep before first promise resolves
-    setId(2);
+    void setId(2);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Resolve second promise first
@@ -249,19 +248,19 @@ describe("render – components with useResolve", () => {
             signal.addEventListener("abort", () => abortedSignals.push(signal));
             return new Promise(() => {}); // never resolves
           },
-          loading: createElement("span", { id: "loading" }, "Loading…"),
-          error: createElement("span", null, "Error"),
+          loading: <span id="loading">Loading&hellip;</span>,
+          error: <span>Error</span>,
         },
         [id],
       );
-      return createElement("span", {}, "done");
+      return <span>done</span>;
     }
 
-    render(createElement(DataComp as never, {}), container);
+    render(<DataComp />, container);
     expect(abortedSignals).toHaveLength(0);
 
     // Changing deps should abort the first signal and start a new fetch.
-    setId(2);
+    void setId(2);
     expect(abortedSignals).toHaveLength(1);
     expect(abortedSignals[0]?.aborted).toBe(true);
   });
@@ -277,25 +276,25 @@ describe("render – components with useResolve", () => {
             capturedSignal = signal;
             return new Promise(() => {}); // never resolves
           },
-          loading: createElement("span", { id: "loading" }, "Loading…"),
-          error: createElement("span", null, "Error"),
+          loading: <span id="loading">Loading&hellip;</span>,
+          error: <span>Error</span>,
         },
         [],
       );
-      return createElement("span", {}, "done");
+      return <span>done</span>;
     }
 
     function* Outer() {
       const [show, ss] = yield* useState(true);
       setShow = ss;
-      return show ? createElement(Inner as never, {}) : null;
+      return show ? <Inner /> : null;
     }
 
-    render(createElement(Outer as never, {}), container);
+    render(<Outer />, container);
     expect(capturedSignal.aborted).toBe(false);
 
     // Unmount Inner by hiding it – the AbortSignal should be aborted.
-    setShow(false);
+    void setShow(false);
     expect(capturedSignal.aborted).toBe(true);
   });
 });
@@ -321,11 +320,11 @@ describe("render – components with useResolveRaw", () => {
     function* DataComp() {
       const p = yield* useMemo(() => promise, []);
       const { data, loading } = yield* useResolveRaw<string>(p);
-      if (loading) return createElement("span", { id: "loading" }, "Loading…");
-      return createElement("span", { id: "data" }, data);
+      if (loading) return <span id="loading">Loading&hellip;</span>;
+      return <span id="data">{data}</span>;
     }
 
-    render(createElement(DataComp as never, {}), container);
+    render(<DataComp />, container);
     expect(container.querySelector("#loading")).not.toBeNull();
     expect(container.querySelector("#data")).toBeNull();
 
@@ -346,12 +345,12 @@ describe("render – components with useResolveRaw", () => {
     function* DataComp() {
       const p = yield* useMemo(() => promise, []);
       const { data, loading, error } = yield* useResolveRaw<string, Error>(p);
-      if (loading) return createElement("span", { id: "loading" }, "Loading…");
-      if (error) return createElement("span", { id: "error" }, error.message);
-      return createElement("span", { id: "data" }, data);
+      if (loading) return <span id="loading">Loading&hellip;</span>;
+      if (error) return <span id="error">{error.message}</span>;
+      return <span id="data">{data}</span>;
     }
 
-    render(createElement(DataComp as never, {}), container);
+    render(<DataComp />, container);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     rejectPromise(new Error("network error"));
@@ -378,18 +377,18 @@ describe("render – components with useResolveRaw", () => {
       setId = si;
       const p = yield* useMemo(() => (id === 1 ? firstPromise : secondPromise), [id]);
       const { data, loading } = yield* useResolveRaw<string>(p);
-      if (loading) return createElement("span", { id: "loading" }, "Loading…");
-      return createElement("p", { id: "result" }, `${id}:${data}`);
+      if (loading) return <span id="loading">Loading&hellip;</span>;
+      return <p id="result">{`${id}:${data}`}</p>;
     }
 
-    render(createElement(DataComp as never, {}), container);
+    render(<DataComp />, container);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     resolveFirst("user1");
     await firstPromise;
     expect(container.querySelector("#result")?.textContent).toBe("1:user1");
 
-    setId(2);
+    void setId(2);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     resolveSecond("user2");
@@ -413,13 +412,13 @@ describe("render – components with useResolveRaw", () => {
       setId = si;
       const p = yield* useMemo(() => (id === 1 ? firstPromise : secondPromise), [id]);
       const { data, loading } = yield* useResolveRaw<string>(p);
-      if (loading) return createElement("span", { id: "loading" }, "Loading…");
-      return createElement("p", { id: "result" }, `${id}:${data}`);
+      if (loading) return <span id="loading">Loading&hellip;</span>;
+      return <p id="result">{`${id}:${data}`}</p>;
     }
 
-    render(createElement(DataComp as never, {}), container);
+    render(<DataComp />, container);
 
-    setId(2);
+    void setId(2);
 
     resolveSecond("user2");
     await secondPromise;
@@ -458,27 +457,25 @@ describe("useResolve / useResolveRaw – unmount during pending (zombie rerender
           // Use <div> for loading — different tag from the resolved <span>,
           // so the zombie rerender forces a type-mismatch replace path that
           // crashes when endMarker.parentNode is null.
-          loading: createElement("div", { id: "loading" }, "Loading…"),
-          error: createElement("div", { id: "error" }, "Error"),
+          loading: <div id="loading">Loading&hellip;</div>,
+          error: <div id="error">Error</div>,
         },
         [],
       );
-      return createElement("span", { id: "data" }, data);
+      return <span id="data">{data}</span>;
     }
 
     function* Outer() {
       const [show, ss] = yield* useState(true);
       setShow = ss;
-      return show
-        ? (createElement(Inner as never, {}) as Child)
-        : createElement("span", { id: "empty" }, "gone");
+      return show ? ((<Inner />) as Child) : <span id="empty">gone</span>;
     }
 
-    render(createElement(Outer as never, {}), container);
+    render(<Outer />, container);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Unmount Inner while the promise is still pending
-    setShow(false);
+    void setShow(false);
     expect(container.querySelector("#empty")).not.toBeNull();
 
     // Resolve the promise AFTER unmount — must not crash
@@ -501,24 +498,22 @@ describe("useResolve / useResolveRaw – unmount during pending (zombie rerender
       const { data, loading, error } = yield* useResolveRaw<string, Error>(p);
       // Use <div> for loading/error, <span> for data — different tags
       // trigger the type-mismatch replace path in the zombie rerender.
-      if (loading) return createElement("div", { id: "loading" }, "Loading…");
-      if (error) return createElement("div", { id: "error" }, error.message);
-      return createElement("span", { id: "data" }, data);
+      if (loading) return <div id="loading">Loading&hellip;</div>;
+      if (error) return <div id="error">{error.message}</div>;
+      return <span id="data">{data}</span>;
     }
 
     function* Outer() {
       const [show, ss] = yield* useState(true);
       setShow = ss;
-      return show
-        ? (createElement(Inner as never, {}) as Child)
-        : createElement("span", { id: "empty" }, "gone");
+      return show ? ((<Inner />) as Child) : <span id="empty">gone</span>;
     }
 
-    render(createElement(Outer as never, {}), container);
+    render(<Outer />, container);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Unmount Inner
-    setShow(false);
+    void setShow(false);
     expect(container.querySelector("#empty")).not.toBeNull();
 
     // Reject the promise AFTER unmount — must not crash
@@ -540,23 +535,21 @@ describe("useResolve / useResolveRaw – unmount during pending (zombie rerender
       const { data, loading } = yield* useResolveRaw<string>(p);
       // Use <div> for loading, <span> for data — different tags
       // trigger the type-mismatch replace path in the zombie rerender.
-      if (loading) return createElement("div", { id: "loading" }, "Loading…");
-      return createElement("span", { id: "data" }, data);
+      if (loading) return <div id="loading">Loading&hellip;</div>;
+      return <span id="data">{data}</span>;
     }
 
     function* Outer() {
       const [show, ss] = yield* useState(true);
       setShow = ss;
-      return show
-        ? (createElement(Inner as never, {}) as Child)
-        : createElement("span", { id: "empty" }, "gone");
+      return show ? ((<Inner />) as Child) : <span id="empty">gone</span>;
     }
 
-    render(createElement(Outer as never, {}), container);
+    render(<Outer />, container);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Unmount Inner
-    setShow(false);
+    void setShow(false);
     expect(container.querySelector("#empty")).not.toBeNull();
 
     // Resolve the promise AFTER unmount — must not crash

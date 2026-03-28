@@ -1,5 +1,4 @@
 import { useId, useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -21,10 +20,10 @@ describe("useId", () => {
 
     function* Comp() {
       capturedId = yield* useId();
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(typeof capturedId).toBe("string");
     expect(capturedId.length).toBeGreaterThan(0);
   });
@@ -38,11 +37,11 @@ describe("useId", () => {
       setValue = sv;
       const id = yield* useId();
       ids.push(id);
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
-    setValue(1);
+    render(<Comp />, container);
+    void setValue(1);
 
     expect(ids).toHaveLength(2);
     expect(ids[0]).toBe(ids[1]);
@@ -55,10 +54,10 @@ describe("useId", () => {
     function* Comp() {
       id1 = yield* useId();
       id2 = yield* useId();
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(id1).not.toBe(id2);
   });
 });

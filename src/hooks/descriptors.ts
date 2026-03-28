@@ -24,8 +24,6 @@ export const $USE_RESOLVE = "$USE_RESOLVE" as const;
 /** @internal */
 export const $USE_RESOLVE_RAW = "$USE_RESOLVE_RAW" as const;
 /** @internal */
-export const $USE_UI_PATCH = "$USE_UI_PATCH" as const;
-/** @internal */
 export const $USE_SLOT_CONTENT = "$USE_SLOT_CONTENT" as const;
 /** @internal */
 export const $USE_SET_CONTEXT = "$USE_SET_CONTEXT" as const;
@@ -41,7 +39,6 @@ export type HookType =
   | typeof $USE_RENDER
   | typeof $USE_RESOLVE
   | typeof $USE_RESOLVE_RAW
-  | typeof $USE_UI_PATCH
   | typeof $USE_SLOT_CONTENT
   | typeof $USE_SET_CONTEXT;
 
@@ -59,7 +56,6 @@ export const HOOK_TYPES: ReadonlySet<HookType> = new Set<HookType>([
   $USE_RENDER,
   $USE_RESOLVE,
   $USE_RESOLVE_RAW,
-  $USE_UI_PATCH,
   $USE_SLOT_CONTENT,
   $USE_SET_CONTEXT,
 ]);
@@ -97,7 +93,7 @@ export interface EffectDescriptor {
 /** @internal */
 export interface ContextDescriptor {
   type: typeof $USE_CONTEXT;
-  ctx: Context<unknown>;
+  ctx: Context;
   selector?: (ctx: unknown) => unknown[];
   transform?: (...args: unknown[]) => unknown;
 }
@@ -118,10 +114,6 @@ export interface ResolveRawDescriptor {
   promise: Promise<unknown>;
 }
 /** @internal */
-export interface UIPatchDescriptor {
-  type: typeof $USE_UI_PATCH;
-}
-/** @internal */
 export interface SlotContentDescriptor {
   type: typeof $USE_SLOT_CONTENT;
   registryCtx: Context<unknown>;
@@ -130,7 +122,7 @@ export interface SlotContentDescriptor {
 /** @internal */
 export interface SetContextDescriptor {
   type: typeof $USE_SET_CONTEXT;
-  ctx: Context<unknown>;
+  ctx: Context;
   value: unknown;
 }
 
@@ -151,6 +143,5 @@ export type HookDescriptor =
   | RenderDescriptor
   | ResolveDescriptor
   | ResolveRawDescriptor
-  | UIPatchDescriptor
   | SlotContentDescriptor
   | SetContextDescriptor;

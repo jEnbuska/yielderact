@@ -1,6 +1,6 @@
 import { createContext, useContext } from "../context";
 import { useEffect, useState } from "../hooks";
-import { createElement, createPortal, Portal } from "../jsx";
+import { createPortal, Portal } from "../jsx";
 import { render } from "../render";
 
 describe("createPortal", () => {
@@ -23,10 +23,10 @@ describe("createPortal", () => {
 
   it("renders children into the portal container, not the source tree", () => {
     function* App() {
-      return createPortal(createElement("span", null, "portal content"), portalTarget);
+      return createPortal(<span>portal content</span>, portalTarget);
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
 
     expect(portalTarget.querySelector("span")?.textContent).toBe("portal content");
     expect(container.querySelector("span")).toBeNull();
@@ -36,16 +36,16 @@ describe("createPortal", () => {
 
   it("places a Comment placeholder in the source tree at the portal position", () => {
     function* App() {
-      return createElement(
-        "div",
-        null,
-        createElement("span", null, "before"),
-        createPortal(createElement("span", null, "portal"), portalTarget),
-        createElement("span", null, "after"),
+      return (
+        <div>
+          <span>before</span>
+          {createPortal(<span>portal</span>, portalTarget)}
+          <span>after</span>
+        </div>
       );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
 
     const div = container.querySelector("div");
     expect(div).not.toBeNull();
@@ -68,18 +68,14 @@ describe("createPortal", () => {
 
     function* Consumer() {
       const value = yield* useContext(Ctx);
-      return createElement("span", { className: "ctx-value" }, value);
+      return <span className="ctx-value">{value}</span>;
     }
 
     function* App() {
-      return createElement(
-        Ctx.Provider as never,
-        { value: "provided" },
-        createPortal(createElement(Consumer as never, {}), portalTarget),
-      );
+      return <div $context={Ctx("provided")}>{createPortal(<Consumer />, portalTarget)}</div>;
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
 
     const span = portalTarget.querySelector(".ctx-value");
     expect(span?.textContent).toBe("provided");
@@ -93,13 +89,13 @@ describe("createPortal", () => {
     function* App() {
       const [count, setCount] = yield* useState(0);
       setter = setCount as (v: number) => void;
-      return createPortal(createElement("span", null, `count:${count}`), portalTarget);
+      return createPortal(<span>{`count:${count}`}</span>, portalTarget);
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(portalTarget.querySelector("span")?.textContent).toBe("count:0");
 
-    setter(1);
+    void setter(1);
     expect(portalTarget.querySelector("span")?.textContent).toBe("count:1");
   });
 
@@ -112,15 +108,15 @@ describe("createPortal", () => {
       const [show, setShow] = yield* useState(true);
       setter = setShow as (v: boolean) => void;
       if (show) {
-        return createPortal(createElement("span", null, "portal"), portalTarget);
+        return createPortal(<span>portal</span>, portalTarget);
       }
-      return createElement("span", null, "no portal");
+      return <span>no portal</span>;
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(portalTarget.querySelector("span")?.textContent).toBe("portal");
 
-    setter(false);
+    void setter(false);
     expect(portalTarget.querySelector("span")).toBeNull();
     expect(container.querySelector("span")?.textContent).toBe("no portal");
   });
@@ -131,10 +127,10 @@ describe("createPortal", () => {
     const onClick = vi.fn();
 
     function* App() {
-      return createPortal(createElement("button", { onClick }, "click me"), portalTarget);
+      return createPortal(<button onClick={onClick}>click me</button>, portalTarget);
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     portalTarget.querySelector("button")?.click();
     expect(onClick).toHaveBeenCalledTimes(1);
   });
@@ -147,23 +143,21 @@ describe("createPortal", () => {
     function* App() {
       const [showSecond, setShowSecond] = yield* useState(true);
       setter = setShowSecond as (v: boolean) => void;
-      return createElement(
-        "div",
-        null,
-        createPortal(createElement("span", { className: "p1" }, "portal-1"), portalTarget),
-        showSecond
-          ? createPortal(createElement("span", { className: "p2" }, "portal-2"), portalTarget)
-          : null,
+      return (
+        <div>
+          {createPortal(<span className="p1">portal-1</span>, portalTarget)}
+          {showSecond ? createPortal(<span className="p2">portal-2</span>, portalTarget) : null}
+        </div>
       );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(portalTarget.querySelectorAll("span").length).toBe(2);
     expect(portalTarget.querySelector(".p1")?.textContent).toBe("portal-1");
     expect(portalTarget.querySelector(".p2")?.textContent).toBe("portal-2");
 
     // Remove second portal
-    setter(false);
+    void setter(false);
     expect(portalTarget.querySelectorAll("span").length).toBe(1);
     expect(portalTarget.querySelector(".p1")?.textContent).toBe("portal-1");
     expect(portalTarget.querySelector(".p2")).toBeNull();
@@ -177,24 +171,20 @@ describe("createPortal", () => {
     function* App() {
       const [items, setItems] = yield* useState(["a", "b", "c"]);
       setter = setItems as (v: string[]) => void;
-      return createElement(
-        "div",
-        null,
-        ...items.map((item) =>
-          createPortal(
-            createElement("span", { className: `item-${item}` }, item),
-            portalTarget,
-            item,
-          ),
-        ),
+      return (
+        <div>
+          {...items.map((item) =>
+            createPortal(<span className={`item-${item}`}>{item}</span>, portalTarget, item),
+          )}
+        </div>
       );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(portalTarget.querySelectorAll("span").length).toBe(3);
 
     // Reorder: reverse
-    setter(["c", "b", "a"]);
+    void setter(["c", "b", "a"]);
     expect(portalTarget.querySelectorAll("span").length).toBe(3);
     expect(portalTarget.querySelector(".item-a")?.textContent).toBe("a");
     expect(portalTarget.querySelector(".item-c")?.textContent).toBe("c");
@@ -211,14 +201,14 @@ describe("createPortal", () => {
     function* App() {
       const [target, setTarget] = yield* useState<Element>(portalTarget);
       setter = setTarget as (v: Element) => void;
-      return createPortal(createElement("span", null, "movable"), target);
+      return createPortal(<span>movable</span>, target);
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(portalTarget.querySelector("span")?.textContent).toBe("movable");
     expect(secondTarget.querySelector("span")).toBeNull();
 
-    setter(secondTarget);
+    void setter(secondTarget);
     expect(secondTarget.querySelector("span")?.textContent).toBe("movable");
     // Old container children are cleaned up by unmountSlot when the old portal
     // is replaced (the type is Portal but the container changed, so it's a fresh mount).
@@ -236,7 +226,7 @@ describe("createPortal", () => {
       yield* useEffect(() => {
         return cleanup;
       }, []);
-      return createElement("span", null, "effect child");
+      return <span>effect child</span>;
     }
 
     let setter: (v: boolean) => void = () => {};
@@ -245,16 +235,16 @@ describe("createPortal", () => {
       const [show, setShow] = yield* useState(true);
       setter = setShow as (v: boolean) => void;
       if (show) {
-        return createPortal(createElement(PortalChild as never, {}), portalTarget);
+        return createPortal(<PortalChild />, portalTarget);
       }
       return null;
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
     expect(portalTarget.querySelector("span")?.textContent).toBe("effect child");
     expect(cleanup).not.toHaveBeenCalled();
 
-    setter(false);
+    void setter(false);
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(portalTarget.querySelector("span")).toBeNull();
   });
@@ -267,17 +257,15 @@ describe("createPortal", () => {
 
     function* App() {
       return createPortal(
-        createElement(
-          "div",
-          { className: "outer" },
-          createElement("span", null, "outer content"),
-          createPortal(createElement("span", null, "inner content"), innerTarget),
-        ),
+        <div className="outer">
+          <span>outer content</span>
+          {createPortal(<span>inner content</span>, innerTarget)}
+        </div>,
         portalTarget,
       );
     }
 
-    render(createElement(App as never, {}), container);
+    render(<App />, container);
 
     // Outer portal content in portalTarget
     expect(portalTarget.querySelector(".outer span")?.textContent).toBe("outer content");
@@ -292,28 +280,25 @@ describe("createPortal", () => {
   // ── createPortal API ────────────────────────────────────────────────────
 
   it("returns a VNode with type Portal", () => {
-    const vnode = createPortal(createElement("span", null, "test"), portalTarget);
+    const vnode = createPortal(<span>test</span>, portalTarget);
     expect(vnode.type).toBe(Portal);
     expect(vnode.props["$portalContainer"]).toBe(portalTarget);
     expect(vnode.children).toHaveLength(1);
   });
 
   it("wraps single child in array", () => {
-    const vnode = createPortal(createElement("span", null, "single"), portalTarget);
+    const vnode = createPortal(<span>single</span>, portalTarget);
     expect(Array.isArray(vnode.children)).toBe(true);
     expect(vnode.children).toHaveLength(1);
   });
 
   it("accepts array of children", () => {
-    const vnode = createPortal(
-      [createElement("span", null, "a"), createElement("span", null, "b")],
-      portalTarget,
-    );
+    const vnode = createPortal([<span>a</span>, <span>b</span>], portalTarget);
     expect(vnode.children).toHaveLength(2);
   });
 
   it("sets key when key is provided", () => {
-    const vnode = createPortal(createElement("span", null, "test"), portalTarget, "my-key");
+    const vnode = createPortal(<span>test</span>, portalTarget, "my-key");
     expect(vnode.props.key).toBe("my-key");
   });
 });

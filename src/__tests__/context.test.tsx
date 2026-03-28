@@ -1,6 +1,5 @@
 import { createContext, useContext } from "../context";
 import { useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 // useContext is now a generator – components must call it with yield*
@@ -24,29 +23,22 @@ describe("createContext / useContext", () => {
 
     function* Consumer() {
       const value = yield* useContext(Ctx);
-      return createElement("span", null, value);
+      return <span>{value}</span>;
     }
 
-    render(createElement(Consumer as never, {}), container);
+    render(<Consumer />, container);
     expect(container.querySelector("span")?.textContent).toBe("default");
   });
 
-  it("passes a value through Context.Provider to a consumer component", () => {
+  it("passes a value through $context to a consumer component", () => {
     const Ctx = createContext("default");
 
     function* Consumer() {
       const value = yield* useContext(Ctx);
-      return createElement("span", null, value);
+      return <span>{value}</span>;
     }
 
-    render(
-      createElement(
-        Ctx.Provider as never,
-        { value: "provided" },
-        createElement(Consumer as never, {}),
-      ),
-      container,
-    );
+    render(<Consumer $context={Ctx("provided")} />, container);
     expect(container.querySelector("span")?.textContent).toBe("provided");
   });
 
@@ -55,23 +47,13 @@ describe("createContext / useContext", () => {
 
     function* Consumer() {
       const value = yield* useContext(Ctx);
-      return createElement("span", null, value);
+      return <span>{value}</span>;
     }
 
     render(
-      createElement(
-        Ctx.Provider as never,
-        { value: "outer" },
-        createElement(
-          "div",
-          null,
-          createElement(
-            Ctx.Provider as never,
-            { value: "inner" },
-            createElement(Consumer as never, {}),
-          ),
-        ),
-      ),
+      <div $context={Ctx("outer")}>
+        <Consumer $context={Ctx("inner")} />
+      </div>,
       container,
     );
     expect(container.querySelector("span")?.textContent).toBe("inner");
@@ -82,20 +64,16 @@ describe("createContext / useContext", () => {
 
     function* Consumer() {
       const val = yield* useContext(Ctx);
-      return createElement("span", null, String(val));
+      return <span>{String(val)}</span>;
     }
 
     render(
-      createElement(
-        "div",
-        null,
-        createElement(
-          Ctx.Provider as never,
-          { value: 99 },
-          createElement("span", { id: "inside" }, "ignored"),
-        ),
-        createElement(Consumer as never, {}),
-      ),
+      <div>
+        <span id="inside" $context={Ctx(99)}>
+          ignored
+        </span>
+        <Consumer />
+      </div>,
       container,
     );
     const spans = container.querySelectorAll("span");
@@ -109,23 +87,19 @@ describe("createContext / useContext", () => {
 
     function* Consumer() {
       const val = yield* useContext(Ctx);
-      return createElement("span", null, String(val));
+      return <span>{String(val)}</span>;
     }
 
     function* Parent() {
       const [theme, st] = yield* useState(7);
       setTheme = st;
-      return createElement(
-        Ctx.Provider as never,
-        { value: theme },
-        createElement(Consumer as never, {}),
-      );
+      return <Consumer $context={Ctx(theme)} />;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector("span")?.textContent).toBe("7");
 
-    setTheme(99);
+    void setTheme(99);
     expect(container.querySelector("span")?.textContent).toBe("99");
   });
 
@@ -142,28 +116,24 @@ describe("createContext / useContext", () => {
       const [count, setCount] = yield* useState(0);
       setChildCount = setCount;
       const ctxVal = yield* useContext(Ctx);
-      return createElement("div", { "data-testid": "child" }, `${ctxVal}:${count}`);
+      return <div data-testid="child">{`${ctxVal}:${count}`}</div>;
     }
 
     function* Parent() {
       const [val, setVal] = yield* useState("A");
       setCtxValue = setVal;
-      return createElement(
-        Ctx.Provider as never,
-        { value: val },
-        createElement(Child as never, {}),
-      );
+      return <Child $context={Ctx(val)} />;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("A:0");
 
     // Build up state in the child component
-    setChildCount(5);
+    void setChildCount(5);
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("A:5");
 
     // Change the context value – child state must NOT be reset
-    setCtxValue("B");
+    void setCtxValue("B");
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("B:5");
   });
 
@@ -175,28 +145,28 @@ describe("createContext / useContext", () => {
 
     function* Consumer() {
       const val = yield* useContext(Ctx);
-      return createElement("span", { "data-testid": "consumer" }, val);
+      return <span data-testid="consumer">{val}</span>;
     }
 
     // Middle does NOT consume Ctx but is in the subtree
     function* Middle() {
-      return createElement("div", null, createElement(Consumer as never, {}));
+      return (
+        <div>
+          <Consumer />
+        </div>
+      );
     }
 
     function* Root() {
       const [val, setVal] = yield* useState("first");
       setCtxValue = setVal;
-      return createElement(
-        Ctx.Provider as never,
-        { value: val },
-        createElement(Middle as never, {}),
-      );
+      return <Middle $context={Ctx(val)} />;
     }
 
-    render(createElement(Root as never, {}), container);
+    render(<Root />, container);
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("first");
 
-    setCtxValue("second");
+    void setCtxValue("second");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("second");
   });
 
@@ -209,12 +179,12 @@ describe("createContext / useContext", () => {
 
     function* ConsumerA() {
       const val = yield* useContext(Ctx);
-      return createElement("span", { "data-testid": "a" }, val);
+      return <span data-testid="a">{val}</span>;
     }
 
     function* ConsumerB() {
       const val = yield* useContext(Ctx);
-      return createElement("span", { "data-testid": "b" }, val);
+      return <span data-testid="b">{val}</span>;
     }
 
     function* Root() {
@@ -222,31 +192,23 @@ describe("createContext / useContext", () => {
       const [valB, sB] = yield* useState("B1");
       setA = sA;
       setB = sB;
-      return createElement(
-        "div",
-        null,
-        createElement(
-          Ctx.Provider as never,
-          { value: valA },
-          createElement(ConsumerA as never, {}),
-        ),
-        createElement(
-          Ctx.Provider as never,
-          { value: valB },
-          createElement(ConsumerB as never, {}),
-        ),
+      return (
+        <div>
+          <ConsumerA $context={Ctx(valA)} />
+          <ConsumerB $context={Ctx(valB)} />
+        </div>
       );
     }
 
-    render(createElement(Root as never, {}), container);
+    render(<Root />, container);
     expect(container.querySelector('[data-testid="a"]')?.textContent).toBe("A1");
     expect(container.querySelector('[data-testid="b"]')?.textContent).toBe("B1");
 
-    setA("A2");
+    void setA("A2");
     expect(container.querySelector('[data-testid="a"]')?.textContent).toBe("A2");
     expect(container.querySelector('[data-testid="b"]')?.textContent).toBe("B1");
 
-    setB("B2");
+    void setB("B2");
     expect(container.querySelector('[data-testid="a"]')?.textContent).toBe("A2");
     expect(container.querySelector('[data-testid="b"]')?.textContent).toBe("B2");
   });
@@ -259,34 +221,26 @@ describe("createContext / useContext", () => {
 
     function* Consumer() {
       const val = yield* useContext(Ctx);
-      return createElement("span", { "data-testid": "consumer" }, val);
+      return <span data-testid="consumer">{val}</span>;
     }
 
     // Middle re-provides a fixed inner value
     function* Middle() {
-      return createElement(
-        Ctx.Provider as never,
-        { value: "inner" },
-        createElement(Consumer as never, {}),
-      );
+      return <Consumer $context={Ctx("inner")} />;
     }
 
     function* Root() {
       const [outer, setOuter_] = yield* useState("outer-1");
       setOuter = setOuter_;
-      return createElement(
-        Ctx.Provider as never,
-        { value: outer },
-        createElement(Middle as never, {}),
-      );
+      return <Middle $context={Ctx(outer)} />;
     }
 
-    render(createElement(Root as never, {}), container);
-    // Consumer is inside Middle's inner provider → sees "inner"
+    render(<Root />, container);
+    // Consumer is inside Middle's inner provider -> sees "inner"
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("inner");
 
     // Change outer value – Consumer must still see "inner" (not the outer value)
-    setOuter("outer-2");
+    void setOuter("outer-2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("inner");
   });
 
@@ -298,34 +252,30 @@ describe("createContext / useContext", () => {
 
     function* Child() {
       const val = yield* useContext(Ctx);
-      return createElement("span", { "data-testid": "child" }, val);
+      return <span data-testid="child">{val}</span>;
     }
 
     function* Middle() {
       const outerVal = yield* useContext(Ctx);
-      return createElement(
-        "div",
-        null,
-        createElement("span", { "data-testid": "middle" }, outerVal),
-        createElement(Ctx.Provider as never, { value: "inner" }, createElement(Child as never, {})),
+      return (
+        <div>
+          <span data-testid="middle">{outerVal}</span>
+          <Child $context={Ctx("inner")} />
+        </div>
       );
     }
 
     function* Root() {
       const [val, setVal] = yield* useState("outer");
       setOuter = setVal;
-      return createElement(
-        Ctx.Provider as never,
-        { value: val },
-        createElement(Middle as never, {}),
-      );
+      return <Middle $context={Ctx(val)} />;
     }
 
-    render(createElement(Root as never, {}), container);
+    render(<Root />, container);
     expect(container.querySelector('[data-testid="middle"]')?.textContent).toBe("outer");
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("inner");
 
-    setOuter("outer-2");
+    void setOuter("outer-2");
     // Middle should see the new outer value
     expect(container.querySelector('[data-testid="middle"]')?.textContent).toBe("outer-2");
     // Child must still see "inner" (provided by Middle's inner Provider)
@@ -341,40 +291,36 @@ describe("createContext / useContext", () => {
 
     function* Consumer() {
       const val = yield* useContext(Ctx);
-      return createElement("span", { "data-testid": "consumer" }, val);
+      return <span data-testid="consumer">{val}</span>;
     }
 
     function* Middle() {
       const [count, setCount] = yield* useState(0);
       setMiddleCount = setCount;
-      return createElement(
-        "div",
-        null,
-        createElement("span", { "data-testid": "middle-count" }, String(count)),
-        createElement(Consumer as never, {}),
+      return (
+        <div>
+          <span data-testid="middle-count">{String(count)}</span>
+          <Consumer />
+        </div>
       );
     }
 
     function* Root() {
       const [val, setVal] = yield* useState("v1");
       setCtxValue = setVal;
-      return createElement(
-        Ctx.Provider as never,
-        { value: val },
-        createElement(Middle as never, {}),
-      );
+      return <Middle $context={Ctx(val)} />;
     }
 
-    render(createElement(Root as never, {}), container);
+    render(<Root />, container);
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("v1");
     expect(container.querySelector('[data-testid="middle-count"]')?.textContent).toBe("0");
 
     // Build state in the intermediate (non-consuming) component
-    setMiddleCount(7);
+    void setMiddleCount(7);
     expect(container.querySelector('[data-testid="middle-count"]')?.textContent).toBe("7");
 
     // Context changes – Middle's state (count=7) must be preserved
-    setCtxValue("v2");
+    void setCtxValue("v2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("v2");
     expect(container.querySelector('[data-testid="middle-count"]')?.textContent).toBe("7");
   });
@@ -390,7 +336,7 @@ describe("createContext / useContext", () => {
     function* Consumer() {
       const a = yield* useContext(CtxA);
       const b = yield* useContext(CtxB);
-      return createElement("span", { "data-testid": "consumer" }, `${a}|${b}`);
+      return <span data-testid="consumer">{`${a}|${b}`}</span>;
     }
 
     function* Root() {
@@ -398,24 +344,16 @@ describe("createContext / useContext", () => {
       const [valB, sB] = yield* useState("B1");
       setA = sA;
       setB = sB;
-      return createElement(
-        CtxA.Provider as never,
-        { value: valA },
-        createElement(
-          CtxB.Provider as never,
-          { value: valB },
-          createElement(Consumer as never, {}),
-        ),
-      );
+      return <Consumer $context={[CtxA(valA), CtxB(valB)]} />;
     }
 
-    render(createElement(Root as never, {}), container);
+    render(<Root />, container);
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("A1|B1");
 
-    setA("A2");
+    void setA("A2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("A2|B1");
 
-    setB("B2");
+    void setB("B2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("A2|B2");
   });
 
@@ -425,17 +363,10 @@ describe("createContext / useContext", () => {
 
       function* Consumer() {
         const val = yield* useContext(Ctx, (c) => [c.a]);
-        return createElement("span", null, `${val.a}:${val.b}`);
+        return <span>{`${val.a}:${val.b}`}</span>;
       }
 
-      render(
-        createElement(
-          Ctx.Provider as never,
-          { value: { a: 1, b: 2 } },
-          createElement(Consumer as never, {}),
-        ),
-        container,
-      );
+      render(<Consumer $context={Ctx({ a: 1, b: 2 })} />, container);
       expect(container.querySelector("span")?.textContent).toBe("1:2");
     });
 
@@ -447,24 +378,20 @@ describe("createContext / useContext", () => {
       function* Consumer() {
         yield* useContext(Ctx, (c) => [c.a]);
         renderCount++;
-        return createElement("span", null, String(renderCount));
+        return <span>{String(renderCount)}</span>;
       }
 
       function* Parent() {
         const [val, sv] = yield* useState({ a: 1, b: 1 });
         setVal = sv;
-        return createElement(
-          Ctx.Provider as never,
-          { value: val },
-          createElement(Consumer as never, {}),
-        );
+        return <Consumer $context={Ctx(val)} />;
       }
 
-      render(createElement(Parent as never, {}), container);
+      render(<Parent />, container);
       expect(renderCount).toBe(1);
 
       // Change only `b` — selector selects `a`, so Consumer should NOT rerender.
-      setVal({ a: 1, b: 99 });
+      void setVal({ a: 1, b: 99 });
       expect(renderCount).toBe(1);
       expect(container.querySelector("span")?.textContent).toBe("1");
     });
@@ -477,24 +404,20 @@ describe("createContext / useContext", () => {
       function* Consumer() {
         const val = yield* useContext(Ctx, (c) => [c.a]);
         renderCount++;
-        return createElement("span", null, String(val.a));
+        return <span>{String(val.a)}</span>;
       }
 
       function* Parent() {
         const [val, sv] = yield* useState({ a: 1, b: 1 });
         setVal = sv;
-        return createElement(
-          Ctx.Provider as never,
-          { value: val },
-          createElement(Consumer as never, {}),
-        );
+        return <Consumer $context={Ctx(val)} />;
       }
 
-      render(createElement(Parent as never, {}), container);
+      render(<Parent />, container);
       expect(renderCount).toBe(1);
 
       // Change `a` — selector selects `a`, so Consumer SHOULD rerender.
-      setVal({ a: 99, b: 1 });
+      void setVal({ a: 99, b: 1 });
       expect(renderCount).toBe(2);
       expect(container.querySelector("span")?.textContent).toBe("99");
     });
@@ -508,17 +431,10 @@ describe("createContext / useContext", () => {
           (c) => [c.name] as [string],
           (n) => n.toUpperCase(),
         );
-        return createElement("span", null, name);
+        return <span>{name}</span>;
       }
 
-      render(
-        createElement(
-          Ctx.Provider as never,
-          { value: { name: "Alice", age: 30 } },
-          createElement(Consumer as never, {}),
-        ),
-        container,
-      );
+      render(<Consumer $context={Ctx({ name: "Alice", age: 30 })} />, container);
       expect(container.querySelector("span")?.textContent).toBe("ALICE");
     });
 
@@ -534,24 +450,20 @@ describe("createContext / useContext", () => {
           (n) => n.toUpperCase(),
         );
         renderCount++;
-        return createElement("span", null, String(renderCount));
+        return <span>{String(renderCount)}</span>;
       }
 
       function* Parent() {
         const [val, sv] = yield* useState({ name: "Alice", count: 0 });
         setVal = sv;
-        return createElement(
-          Ctx.Provider as never,
-          { value: val },
-          createElement(Consumer as never, {}),
-        );
+        return <Consumer $context={Ctx(val)} />;
       }
 
-      render(createElement(Parent as never, {}), container);
+      render(<Parent />, container);
       expect(renderCount).toBe(1);
 
       // Change only `count` — selector tracks `name`, so no rerender.
-      setVal({ name: "Alice", count: 99 });
+      void setVal({ name: "Alice", count: 99 });
       expect(renderCount).toBe(1);
     });
 
@@ -564,26 +476,22 @@ describe("createContext / useContext", () => {
         yield* useContext(Ctx, (c) => [c.a]);
         const [local, sl] = yield* useState(42);
         setLocal = sl;
-        return createElement("span", null, String(local));
+        return <span>{String(local)}</span>;
       }
 
       function* Parent() {
         const [val, sv] = yield* useState({ a: 1, b: 1 });
         setVal = sv;
-        return createElement(
-          Ctx.Provider as never,
-          { value: val },
-          createElement(Consumer as never, {}),
-        );
+        return <Consumer $context={Ctx(val)} />;
       }
 
-      render(createElement(Parent as never, {}), container);
+      render(<Parent />, container);
       // Update local state in Consumer.
-      setLocal(100);
+      void setLocal(100);
       expect(container.querySelector("span")?.textContent).toBe("100");
 
       // Trigger a context change that should be suppressed (b changes, a stable).
-      setVal({ a: 1, b: 99 });
+      void setVal({ a: 1, b: 99 });
       // Consumer should NOT have remounted — local state preserved.
       expect(container.querySelector("span")?.textContent).toBe("100");
     });
@@ -596,26 +504,101 @@ describe("createContext / useContext", () => {
       function* Consumer() {
         const val = yield* useContext(Ctx);
         renderCount++;
-        return createElement("span", null, `${val.a}:${val.b}`);
+        return <span>{`${val.a}:${val.b}`}</span>;
       }
 
       function* Parent() {
         const [val, sv] = yield* useState({ a: 1, b: 1 });
         setVal = sv;
-        return createElement(
-          Ctx.Provider as never,
-          { value: val },
-          createElement(Consumer as never, {}),
-        );
+        return <Consumer $context={Ctx(val)} />;
       }
 
-      render(createElement(Parent as never, {}), container);
+      render(<Parent />, container);
       expect(renderCount).toBe(1);
 
       // Change only `b` — Consumer has no selector so it always rerenders.
-      setVal({ a: 1, b: 99 });
+      void setVal({ a: 1, b: 99 });
       expect(renderCount).toBe(2);
       expect(container.querySelector("span")?.textContent).toBe("1:99");
+    });
+  });
+
+  describe("conditional $context", () => {
+    it("switching between branches with different $context values", () => {
+      const CtxA = createContext("defaultA");
+      const CtxB = createContext("defaultB");
+
+      function* Consumer() {
+        const a = yield* useContext(CtxA);
+        const b = yield* useContext(CtxB);
+        return <span>{`${a}:${b}`}</span>;
+      }
+
+      let setMode!: (v: number) => void;
+
+      function* Parent() {
+        const [mode, _setMode] = yield* useState(0);
+        setMode = _setMode;
+
+        if (mode === 0) {
+          return (
+            <div $context={[CtxA("A0"), CtxB("B0")]}>
+              <Consumer />
+            </div>
+          );
+        }
+        if (mode === 1) {
+          return (
+            <div $context={CtxA("A1")}>
+              <Consumer />
+            </div>
+          );
+        }
+        return (
+          <div>
+            <Consumer />
+          </div>
+        );
+      }
+
+      render(<Parent />, container);
+      expect(container.querySelector("span")?.textContent).toBe("A0:B0");
+
+      void setMode(1);
+      expect(container.querySelector("span")?.textContent).toBe("A1:defaultB");
+
+      void setMode(2);
+      expect(container.querySelector("span")?.textContent).toBe("defaultA:defaultB");
+
+      void setMode(0);
+      expect(container.querySelector("span")?.textContent).toBe("A0:B0");
+    });
+
+    it("switching $context on a Fragment between branches", () => {
+      const Ctx = createContext("default");
+
+      function* Consumer() {
+        const v = yield* useContext(Ctx);
+        return <span>{v}</span>;
+      }
+
+      let setMode!: (v: number) => void;
+
+      function* Parent() {
+        const [mode, _setMode] = yield* useState(0);
+        setMode = _setMode;
+
+        return <div>{mode === 0 ? <Consumer $context={Ctx("provided")} /> : <Consumer />}</div>;
+      }
+
+      render(<Parent />, container);
+      expect(container.querySelector("span")?.textContent).toBe("provided");
+
+      void setMode(1);
+      expect(container.querySelector("span")?.textContent).toBe("default");
+
+      void setMode(0);
+      expect(container.querySelector("span")?.textContent).toBe("provided");
     });
   });
 });

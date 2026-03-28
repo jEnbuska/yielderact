@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 describe("stop-render-on-update", () => {
@@ -22,10 +21,10 @@ describe("stop-render-on-update", () => {
       const [n, setN] = yield* useState(0);
       setter = setN;
       renderCount++;
-      return createElement("span", null, String(n));
+      return <span>{String(n)}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(renderCount).toBe(1);
     expect(container.querySelector("span")?.textContent).toBe("0");
 
@@ -54,10 +53,10 @@ describe("stop-render-on-update", () => {
         }
       }, [n]);
 
-      return createElement("span", null, String(n));
+      return <span>{String(n)}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
 
     // First render: n=0, useMemo calls setN(1) synchronously.
     // This should queue a rerender (pendingRerender=true), abort the first
@@ -90,10 +89,10 @@ describe("stop-render-on-update", () => {
         }
       }, [a, b]);
 
-      return createElement("span", null, `${a}:${b}`);
+      return <span>{`${a}:${b}`}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
 
     // Initial render: cancelled after first setState
     // Follow-up render: committed with a=10, b=20 (sa(10) and sb(20) both applied)
@@ -118,13 +117,13 @@ describe("stop-render-on-update", () => {
       }, [n]);
 
       yield* useMemo(() => {
-        if (n === 0) setN(1);
+        if (n === 0) void setN(1);
       }, [n]);
 
-      return createElement("span", null, String(n));
+      return <span>{String(n)}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
 
     // The render with n=0 was cancelled, so its useEffect should NOT fire
     // (and therefore its cleanup never runs either).
@@ -151,10 +150,10 @@ describe("stop-render-on-update", () => {
         }
       }, [name]);
 
-      return createElement("span", null, name);
+      return <span>{name}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
 
     // Synchronous part: memo ran with 'joona', setName('JOONA') was called
     // (synchronously, before the first await in the async factory), which
@@ -194,10 +193,10 @@ describe("stop-render-on-update", () => {
         }
       }, [label]);
 
-      return createElement("span", null, derived);
+      return <span>{derived}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
 
     // Run 1 (cancelled, label='a'): memoRuns++ (→1), setLabel('b') queued
     // Run 2 (committed, label='b'): memoRuns++ (→2) because deps changed
@@ -225,10 +224,10 @@ describe("stop-render-on-update", () => {
         }
       }, [val]);
 
-      return createElement("span", null, val);
+      return <span>{val}</span>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     // Synchronous: val='start', setVal('middle') called → queued, render cancelled
     // Committed: val='middle'
     expect(container.querySelector("span")?.textContent).toBe("middle");

@@ -1,10 +1,9 @@
 import { useRef, useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
 
-describe("$ref", () => {
+describe("ref", () => {
   let container: HTMLElement;
 
   beforeEach(() => {
@@ -22,10 +21,10 @@ describe("$ref", () => {
     function* Comp() {
       const ref = yield* useRef(42);
       capturedRef = ref;
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(capturedRef.current).toBe(42);
   });
 
@@ -38,11 +37,11 @@ describe("$ref", () => {
       setValue = sv;
       const ref = yield* useRef(0);
       refInstances.push(ref);
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
-    setValue(1);
+    render(<Comp />, container);
+    void setValue(1);
 
     expect(refInstances).toHaveLength(2);
     expect(refInstances[0]).toBe(refInstances[1]);
@@ -56,10 +55,10 @@ describe("$ref", () => {
       renderCount++;
       const ref = yield* useRef(0);
       capturedRef = ref;
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(renderCount).toBe(1);
 
     capturedRef.current = 99;

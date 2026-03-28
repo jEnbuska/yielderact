@@ -1,5 +1,4 @@
 import { useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -25,15 +24,15 @@ describe("useState", () => {
       const [v, sv] = yield* useState(init);
       capturedValue = v;
       setValue = sv;
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(init).toHaveBeenCalledTimes(1);
     expect(capturedValue).toBe(42);
 
     // Re-render should not call the initializer again
-    setValue(99);
+    void setValue(99);
     expect(init).toHaveBeenCalledTimes(1);
     expect(capturedValue).toBe(99);
   });
@@ -46,10 +45,10 @@ describe("useState", () => {
       const [v, sv] = yield* useState(0);
       values.push(v);
       setValue = sv;
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(values).toEqual([0]);
 
     setValue((prev) => prev + 5);

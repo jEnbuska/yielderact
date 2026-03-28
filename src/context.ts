@@ -1,7 +1,6 @@
-import { $USE_CONTEXT, $USE_SET_CONTEXT, type ContextDescriptor } from "./hooks/descriptors";
+import { $USE_CONTEXT, type ContextDescriptor } from "./hooks/descriptors";
 import type { ComponentGenerator } from "./hooks/types";
 import { depsChanged } from "./hooks/types";
-import { type Child, type Component, createElement, Fragment, type InternalProps } from "./jsx";
 
 // ---------------------------------------------------------------------------
 // Public types
@@ -10,22 +9,37 @@ import { type Child, type Component, createElement, Fragment, type InternalProps
 /**
  * A context object. Holds only the default value.
  *
- * Internal contexts (like `BatchContext` and `PriorityContext`) use this
- * minimal shape — they have no Provider component.
+ * Internal contexts use this
+ * minimal shape — they are not callable.
  */
-export interface Context<T> {
-  readonly _defaultValue: T;
+export interface Context<T = unknown> {
+  readonly defaultValue: T;
 }
 
 /**
- * A context object returned by `createContext`.
- * Use `Context.Provider` to supply a value, `useContext` to consume it.
+ * A context entry produced by calling a context object with a value.
+ * Passed to the `$context` framework prop to provide context to a subtree.
  *
- * Extends the minimal `Context<T>` with a `Provider` symbol that can be
- * used as a VNode type in JSX.
+ * @example
+ * const ThemeCtx = createContext<'light' | 'dark'>('light');
+ * <Child $context={ThemeCtx('dark')} />
+ */
+export interface ContextEntry<T = unknown> {
+  readonly ctx: Context<T>;
+  readonly value: T;
+}
+
+/**
+ * A callable context object returned by `createContext`.
+ * Call it with a value to produce a `ContextEntry` for the `$context` prop.
+ * Use `useContext` to consume the value.
+ *
+ * @example
+ * const ThemeCtx = createContext<'light' | 'dark'>('light');
+ * <Child $context={ThemeCtx('dark')} />
  */
 export interface PublicContext<T> extends Context<T> {
-  readonly Provider: Component<InternalProps & { value: T; children?: Child[] }>;
+  (value: T): ContextEntry<T>;
 }
 
 // ---------------------------------------------------------------------------
@@ -35,7 +49,7 @@ export interface PublicContext<T> extends Context<T> {
 /** @internal */
 interface UseContextDescriptor {
   type: typeof $USE_CONTEXT;
-  ctx: Context<unknown>;
+  ctx: Context;
   selector?: (ctx: unknown) => unknown[];
   transform?: (...args: unknown[]) => unknown;
 }
@@ -47,16 +61,15 @@ interface UseContextDescriptor {
 /**
  * Create a new context with a default value.
  *
+ * Call the returned context with a value to produce a `ContextEntry`
+ * for the `$context` prop. Use `useContext` to consume the value.
+ *
  * @example
  * const ThemeCtx = createContext<'light' | 'dark'>('light');
  *
  * function* App() {
  *   const [theme] = yield* useState<'light' | 'dark'>('light');
- *   return (
- *     <ThemeCtx.Provider value={theme}>
- *       <Child />
- *     </ThemeCtx.Provider>
- *   );
+ *   return <Child $context={ThemeCtx(theme)} />;
  * }
  *
  * function* Child() {
@@ -65,21 +78,9 @@ interface UseContextDescriptor {
  * }
  */
 export function createContext<T>(defaultValue: T): PublicContext<T> {
-  const ctx: PublicContext<T> = {
-    _defaultValue: defaultValue,
-    Provider: undefined as never,
-  };
-
-  function* ContextProvider(
-    props: InternalProps & { value: T; children?: Child[] },
-  ): ComponentGenerator<Child> {
-    yield { type: $USE_SET_CONTEXT, ctx, value: props.value };
-    return createElement(Fragment, null, ...(props.children ?? []));
-  }
-
-  (ctx as { Provider: Component<InternalProps & { value: T; children?: Child[] }> }).Provider =
-    ContextProvider;
-
+  const ctx: PublicContext<T> = Object.assign((value: T): ContextEntry<T> => ({ ctx, value }), {
+    defaultValue: defaultValue,
+  } satisfies Context<T>);
   return ctx;
 }
 
@@ -129,7 +130,7 @@ export function* useContext<T, D extends unknown[], R>(
 ): ComponentGenerator<T | R> {
   const value = yield {
     type: $USE_CONTEXT,
-    ctx: ctx as Context<unknown>,
+    ctx: ctx as Context,
     selector: selector as UseContextDescriptor["selector"],
     transform: transform as UseContextDescriptor["transform"],
   };
@@ -152,7 +153,7 @@ export function* useContext<T, D extends unknown[], R>(
 export type UseContextState = {
   kind: typeof $USE_CONTEXT;
   /** The context object this hook subscribes to. */
-  ctx: Context<unknown>;
+  ctx: Context;
   /** Optional selector function — extracts deps from the context value. */
   selector?: (ctx: unknown) => unknown[];
   /** Optional transform function — computes the returned value from deps. */
@@ -169,7 +170,7 @@ export function processContext(
   prev: UseContextState | undefined,
   rawValue: unknown,
 ): UseContextState {
-  const context = descriptor.ctx as Context<unknown>;
+  const context = descriptor.ctx as Context;
   const selector = descriptor.selector as UseContextDescriptor["selector"];
   const transform = descriptor.transform as UseContextDescriptor["transform"];
 
@@ -198,75 +199,12 @@ export function processContext(
 
 /**
  * Resolve the effective value for `ctx` from `map`, falling back to the
- * context's `_defaultValue` when no Provider has supplied a value.
+ * context's `defaultValue` when no Provider has supplied a value.
  *
  * TODO: eliminate in favor of `yield* getContext()` in generator code.
  * Kept for synchronous code that cannot yield (hooks, helpers, scheduler).
  * @internal
  */
-export function resolveCtx<T>(map: ReadonlyMap<Context<unknown>, unknown>, ctx: Context<T>): T {
-  return (map.has(ctx) ? map.get(ctx) : ctx._defaultValue) as T;
-}
-
-// ---------------------------------------------------------------------------
-// Internal batch context – propagates `$patch` behaviour through ctxMap
-// ---------------------------------------------------------------------------
-
-/**
- * Internal context for the `$patch` batch behaviour.
- * Used by the renderer to propagate `$patch` through the context map,
- * just like application-level contexts.
- *
- * @internal
- */
-export const BatchContext: Context<"live" | "default"> = {
-  _defaultValue: "default",
-};
-
-/**
- * Return a context map with the batch behaviour set to `batch`.
- * If the existing batch already matches, returns the same map (no allocation).
- * @internal
- */
-export function withBatch(
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-  batch: "live" | "default",
-): ReadonlyMap<Context<unknown>, unknown> {
-  if (resolveCtx(ctxMap, BatchContext) === batch) return ctxMap;
-  const newMap = new Map(ctxMap);
-  newMap.set(BatchContext, batch);
-  return newMap;
-}
-
-// ---------------------------------------------------------------------------
-// Internal priority context – propagates `$deferred` priority through ctxMap
-// ---------------------------------------------------------------------------
-
-/**
- * Internal context for the `$deferred` priority level.
- * Used by the renderer to propagate `$deferred` through the context map,
- * just like application-level contexts.
- *
- * The default priority is 0 (highest priority). Each `$deferred={true}`
- * increments the priority by 1.
- *
- * @internal
- */
-export const PriorityContext: Context<number> = {
-  _defaultValue: 0,
-};
-
-/**
- * Return a context map with the priority set to `priority`.
- * If the existing priority already matches, returns the same map (no allocation).
- * @internal
- */
-export function withPriority(
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-  priority: number,
-): ReadonlyMap<Context<unknown>, unknown> {
-  if (resolveCtx(ctxMap, PriorityContext) === priority) return ctxMap;
-  const newMap = new Map(ctxMap);
-  newMap.set(PriorityContext, priority);
-  return newMap;
+export function resolveCtx<T>(map: ReadonlyMap<Context, unknown>, ctx: Context<T>): T {
+  return (map.has(ctx) ? map.get(ctx) : ctx.defaultValue) as T;
 }

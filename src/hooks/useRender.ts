@@ -1,5 +1,5 @@
-import { createContext, useContext } from "../context";
-import { type Child, createElement } from "../jsx";
+import { type ContextEntry, createContext, useContext } from "../context";
+import type { Child, VNode } from "../jsx";
 import type { HookState } from "../render/types";
 import { $USE_RENDER, type RenderDescriptor } from "./descriptors";
 import type { ComponentGenerator, DependencyList } from "./types";
@@ -29,7 +29,7 @@ export type UseRenderState<T> = {
 };
 
 // Internal context propagating the resume callback to child components.
-const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
+const resumeCtx = createContext<((value: unknown) => void) | null>(null);
 
 /**
  * Interactive render hook for components.
@@ -104,17 +104,15 @@ export function* useRender<T>(
   };
 
   const isInline = typeof fnOrChild === "function";
+  const resumeEntry = resumeCtx(resumeCallback as (value: unknown) => void);
 
   while (slot.status === "waiting") {
     const rawChild = isInline
       ? (fnOrChild as UseRenderFn<T>)({ resume: resumeCallback })
       : (fnOrChild as Child);
-    // Wrap in the internal resume context so nested components can access `resume` via useResume().
-    yield createElement(
-      _resumeCtx.Provider,
-      { value: resumeCallback as (value: unknown) => void },
-      rawChild,
-    );
+    // Attach resume context via $context on the child VNode so nested
+    // components can access `resume` via useResume().
+    yield withContextEntry(rawChild, resumeEntry);
   }
 
   return slot.value as T;
@@ -154,15 +152,31 @@ export function* useRender<T>(
  * }
  */
 export function* useResume<T>(): ComponentGenerator<(value: T) => void> {
-  const fn = yield* useContext(_resumeCtx);
+  const fn = yield* useContext(resumeCtx);
   if (fn === null) {
     throw new Error("useResume must be called inside a component rendered by useRender");
   }
   return fn as (value: T) => void;
 }
 
+function isVNode(child: Child): child is VNode {
+  return child !== null && child !== undefined && typeof child === "object";
+}
+
+/** Merge a ContextEntry into a child's $context prop. */
+function withContextEntry(child: Child, entry: ContextEntry): Child {
+  if (!isVNode(child)) return child;
+  const existing = child.props.$context;
+  const merged = existing ? [...(Array.isArray(existing) ? existing : [existing]), entry] : entry;
+  return {
+    type: child.type,
+    props: { ...child.props, $context: merged },
+    children: child.children,
+  };
+}
+
 /** @internal */
-export function _processRender(
+export function processRender(
   descriptor: RenderDescriptor,
   prev: UseRenderState<unknown> | undefined,
   hookStates: HookState[],

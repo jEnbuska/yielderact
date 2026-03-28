@@ -1,5 +1,4 @@
 import { useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -18,9 +17,9 @@ describe("render – components", () => {
 
   it("renders a component that returns JSX", () => {
     function* Greeting({ name }: { name: string }) {
-      return createElement("h2", null, `Hi, ${name}!`);
+      return <h2>{`Hi, ${name}!`}</h2>;
     }
-    render(createElement(Greeting as never, { name: "Alice" }), container);
+    render(<Greeting name="Alice" />, container);
     expect(container.querySelector("h2")?.textContent).toBe("Hi, Alice!");
   });
 
@@ -30,34 +29,34 @@ describe("render – components", () => {
     function* Counter() {
       const [count, sc] = yield* useState(0);
       setCount = sc;
-      return createElement("button", {}, String(count));
+      return <button>{String(count)}</button>;
     }
 
-    render(createElement(Counter as never, {}), container);
+    render(<Counter />, container);
     expect(container.querySelector("button")?.textContent).toBe("0");
 
-    setCount(1);
+    void setCount(1);
     expect(container.querySelector("button")?.textContent).toBe("1");
 
-    setCount(5);
+    void setCount(5);
     expect(container.querySelector("button")?.textContent).toBe("5");
   });
 
   it("rerenders when rerender() is called directly from an event handler", () => {
     function* Counter(_props: Record<string, unknown>, _rerender: () => void) {
       const [count, setCount] = yield* useState(0);
-      return createElement(
-        "button",
-        {
-          onClick: () => {
+      return (
+        <button
+          onClick={() => {
             setCount(count + 1);
-          },
-        },
-        String(count),
+          }}
+        >
+          {String(count)}
+        </button>
       );
     }
 
-    render(createElement(Counter as never, {}), container);
+    render(<Counter />, container);
 
     expect(container.querySelector("button")?.textContent).toBe("0");
     container.querySelector("button")?.click();
@@ -68,15 +67,13 @@ describe("render – components", () => {
 
   it("renders components nested inside HTML elements", () => {
     function* Label({ text }: { text: string }) {
-      return createElement("span", null, text);
+      return <span>{text}</span>;
     }
 
     render(
-      createElement(
-        "div",
-        { className: "wrapper" },
-        createElement(Label as never, { text: "nested" }),
-      ),
+      <div className="wrapper">
+        <Label text="nested" />
+      </div>,
       container,
     );
 
@@ -85,11 +82,13 @@ describe("render – components", () => {
 
   it("passes children in props", () => {
     function* Wrapper({ children }: { children: unknown }) {
-      return createElement("section", null, ...(children as never[]));
+      return <section>{...(children as never[])}</section>;
     }
 
     render(
-      createElement(Wrapper as never, {}, createElement("p", null, "child content")),
+      <Wrapper>
+        <p>child content</p>
+      </Wrapper>,
       container,
     );
 
@@ -115,16 +114,16 @@ describe("render – components with useState", () => {
     function* Label() {
       const [text, st] = yield* useState("initial");
       setLabel = st;
-      return createElement("p", null, text);
+      return <p>{text}</p>;
     }
 
-    render(createElement(Label as never, {}), container);
+    render(<Label />, container);
     expect(container.querySelector("p")?.textContent).toBe("initial");
 
-    setLabel("updated");
+    void setLabel("updated");
     expect(container.querySelector("p")?.textContent).toBe("updated");
 
-    setLabel("again");
+    void setLabel("again");
     expect(container.querySelector("p")?.textContent).toBe("again");
   });
 
@@ -137,16 +136,16 @@ describe("render – components with useState", () => {
       const [b, sb] = yield* useState(0);
       setA = sa;
       setB = sb;
-      return createElement("p", null, `${a}-${b}`);
+      return <p>{`${a}-${b}`}</p>;
     }
 
-    render(createElement(Multi as never, {}), container);
+    render(<Multi />, container);
     expect(container.querySelector("p")?.textContent).toBe("hello-0");
 
-    setA("world");
+    void setA("world");
     expect(container.querySelector("p")?.textContent).toBe("world-0");
 
-    setB(42);
+    void setB(42);
     expect(container.querySelector("p")?.textContent).toBe("world-42");
   });
 });

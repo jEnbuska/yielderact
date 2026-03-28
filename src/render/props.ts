@@ -7,19 +7,7 @@ import {
   unregisterHandler,
 } from "./delegation";
 import { addNonDelegatedListener, removeNonDelegatedListener } from "./events";
-import { requireActiveCtx } from "./state";
-
-// ── Ref helpers ─────────────────────────────────────────────────────────────
-
-/** Attach a $ref object to a DOM element. */
-function setRef(ref: { current: unknown } | undefined, el: Element): void {
-  if (ref) ref.current = el;
-}
-
-/** Clear a $ref object (set .current to undefined). */
-export function clearRef(ref: { current: unknown } | undefined): void {
-  if (ref) ref.current = undefined;
-}
+import { requireActiveRenderCtx } from "./state";
 
 // ── Event registration helpers ─────────────────────────────────────────────
 
@@ -27,7 +15,7 @@ export function clearRef(ref: { current: unknown } | undefined): void {
  * Register an event handler for an element, using either delegation or
  * per-element attachment depending on the event type.
  */
-function _registerEvent(
+function registerEvent(
   el: HTMLElement,
   propKey: string,
   handler: (e: SyntheticEvent) => void,
@@ -37,14 +25,14 @@ function _registerEvent(
     addNonDelegatedListener(el, domEvent, handler);
   } else {
     registerHandler(el, domEvent, handler, isCapture);
-    requireActiveCtx().delegationRoot?.ensureListening(domEvent);
+    requireActiveRenderCtx().delegationRoot?.ensureListening(domEvent);
   }
 }
 
 /**
  * Unregister an event handler from an element.
  */
-function _unregisterEvent(el: HTMLElement, propKey: string): void {
+function unregisterEvent(el: HTMLElement, propKey: string): void {
   const { domEvent, isCapture } = resolveEventProp(propKey);
   if (NON_DELEGATED_EVENTS.has(domEvent)) {
     removeNonDelegatedListener(el, domEvent);
@@ -69,8 +57,8 @@ function _unregisterEvent(el: HTMLElement, propKey: string): void {
  *   encountered and a fresh element is created.
  *
  * **Prop handling rules:**
- * - All `$`-prefixed props are skipped (framework-internal special props).
- * - `onXxx` props → delegated or per-element via `_registerEvent`.
+ * - All `$`-prefixed props, `ref`, and `children` are skipped.
+ * - `onXxx` props → delegated or per-element via `registerEvent`.
  * - `className` → `el.className`.
  * - `htmlFor` → `el.setAttribute('for', …)`.
  * - `style` (object) → `Object.assign(el.style, …)`.
@@ -89,9 +77,9 @@ function _unregisterEvent(el: HTMLElement, propKey: string): void {
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: prop type dispatch with many branches
 export function applyProps(el: HTMLElement, props: InternalProps): void {
   for (const [key, value] of Object.entries(props)) {
-    if (key.startsWith("$")) continue;
+    if (key === "ref" || key === "children" || key.startsWith("$")) continue;
     if (key.startsWith("on") && typeof value === "function") {
-      _registerEvent(el, key, value as (e: SyntheticEvent) => void);
+      registerEvent(el, key, value as (e: SyntheticEvent) => void);
     } else if (key === "className") {
       el.className = String(value);
     } else if (key === "htmlFor") {
@@ -118,8 +106,8 @@ export function applyProps(el: HTMLElement, props: InternalProps): void {
     }
   }
 
-  // Handle $ref on initial mount
-  setRef(props.$ref, el);
+  // Handle ref on initial mount
+  if (props.ref) props.ref.current = el;
 
   // Default <button> type to "button" to prevent accidental form submission.
   // The HTML default is "submit", which is almost never the intended behaviour.
@@ -148,8 +136,7 @@ export function applyProps(el: HTMLElement, props: InternalProps): void {
  * (compared via `Object.is`). This avoids unnecessary DOM writes.
  *
  * **Called by:** `reconcileOneGen` in `reconciler.ts` — when an HTML element
- * at the same position has the same tag but different props. Not called
- * when `liveOnlyMode` is true and the current batch is not `'live'`.
+ * at the same position has the same tag but different props.
  *
  * Uses the same prop-handling rules as `applyProps` (event listeners,
  * className, style, value/checked DOM properties, etc.).
@@ -166,10 +153,10 @@ export function updateProps(
 ): void {
   // 1. Remove props that no longer exist in nextProps
   for (const key in prevProps) {
-    if (key.startsWith("$")) continue;
+    if (key === "ref" || key === "children" || key.startsWith("$")) continue;
     if (key in nextProps) continue;
     if (key.startsWith("on") && typeof prevProps[key] === "function") {
-      _unregisterEvent(el, key);
+      unregisterEvent(el, key);
     } else if (key === "className") {
       el.className = "";
     } else if (key === "htmlFor") {
@@ -183,14 +170,14 @@ export function updateProps(
 
   // 2. Add or update props that changed
   for (const key in nextProps) {
-    if (key.startsWith("$")) continue;
+    if (key === "ref" || key === "children" || key.startsWith("$")) continue;
     const next = nextProps[key];
     const prev = prevProps[key];
     if (Object.is(next, prev)) continue;
 
     if (key.startsWith("on") && typeof next === "function") {
-      if (typeof prev === "function") _unregisterEvent(el, key);
-      _registerEvent(el, key, next as (e: SyntheticEvent) => void);
+      if (typeof prev === "function") unregisterEvent(el, key);
+      registerEvent(el, key, next as (e: SyntheticEvent) => void);
     } else if (key === "style" && typeof next === "object" && next !== null) {
       // Clear removed style properties, then apply current ones
       if (typeof prev === "object" && prev !== null) {
@@ -221,11 +208,11 @@ export function updateProps(
     }
   }
 
-  // 3. Handle $ref changes
-  const prevRef = prevProps.$ref;
-  const nextRef = nextProps.$ref;
+  // 3. Handle ref changes
+  const { ref: prevRef } = prevProps;
+  const { ref: nextRef } = nextProps;
   if (!Object.is(prevRef, nextRef)) {
-    clearRef(prevRef);
-    setRef(nextRef, el);
+    if (prevRef) prevRef.current = undefined;
+    if (nextRef) nextRef.current = el;
   }
 }

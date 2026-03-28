@@ -10,7 +10,7 @@ import type { ComponentGenerator } from "./types";
 /**
  * Auto-incrementing counter for stable unique IDs produced by `useId`.
  *
- * Incremented by `_processId`. Each `useId()` call gets
+ * Incremented by `processId`. Each `useId()` call gets
  * `":r<N>:"` where N is the counter value at first mount.
  */
 let idCounter = 0;
@@ -46,7 +46,7 @@ export function* useId(): ComponentGenerator<string> {
 }
 
 /** @internal */
-export function _processId(prev?: IdHookState): IdHookState {
+export function processId(prev?: IdHookState): IdHookState {
   if (prev !== undefined) return prev;
   return { kind: $USE_ID, id: nextId() };
 }

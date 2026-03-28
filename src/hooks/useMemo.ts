@@ -36,7 +36,7 @@ export function* useMemo<T>(
 }
 
 /** @internal */
-export function _processMemo(descriptor: MemoDescriptor, prev?: MemoHookState): MemoHookState {
+export function processMemo(descriptor: MemoDescriptor, prev?: MemoHookState): MemoHookState {
   if (prev !== undefined && !depsChanged(prev.deps, descriptor.deps)) return prev;
   return {
     kind: $USE_MEMO,

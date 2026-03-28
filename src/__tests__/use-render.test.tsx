@@ -1,5 +1,4 @@
 import { useRender, useResume, useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -23,13 +22,13 @@ describe("useRender (Variant 2 – inline function)", () => {
     function* Comp() {
       const answer = yield* useRender<string>(({ resume }) => {
         capturedResume = resume;
-        return createElement("span", null, "waiting");
+        return <span>waiting</span>;
       }, []);
       finalText = answer;
-      return createElement("p", null, answer);
+      return <p>{answer}</p>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
 
     // While waiting the dialog is shown
     expect(container.querySelector("span")?.textContent).toBe("waiting");
@@ -50,14 +49,14 @@ describe("useRender (Variant 2 – inline function)", () => {
     function* Comp() {
       const v = yield* useRender<number>(({ resume }) => {
         capturedResume = resume;
-        return createElement("span", null);
+        return <span />;
       }, []);
       resolveCount++;
       finalValue = v;
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     capturedResume(1);
     capturedResume(2); // second call ignored
 
@@ -76,16 +75,16 @@ describe("useRender (Variant 2 – inline function)", () => {
       yield* useRender<boolean>(({ resume }) => {
         renderCount++;
         capturedResume = resume;
-        return createElement("span", null);
+        return <span />;
       }, []);
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(renderCount).toBe(1);
 
     // Trigger a rerender while waiting
-    setVal(1);
+    void setVal(1);
     expect(renderCount).toBe(2);
 
     // The generator is still waiting – resolve it now
@@ -104,22 +103,22 @@ describe("useRender (Variant 2 – inline function)", () => {
       yield* useRender<string>(
         ({ resume }) => {
           capturedResume = resume;
-          return createElement("span", null, String(dep));
+          return <span>{String(dep)}</span>;
         },
         [dep],
       );
       resolveCount++;
-      return createElement("div", null);
+      return <div />;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
 
     // Resolve first interaction
     capturedResume("first");
     expect(resolveCount).toBe(1);
 
     // Change dep → should reset and show dialog again
-    setDep(1);
+    void setDep(1);
     expect(container.querySelector("span")).not.toBeNull();
 
     capturedResume("second");
@@ -146,16 +145,16 @@ describe("useRender (Variant 1 – JSX child with useResume)", () => {
     function* Dialog() {
       const resume = yield* useResume<string>();
       capturedResume = resume;
-      return createElement("span", null, "dialog");
+      return <span>dialog</span>;
     }
 
     function* Parent() {
-      const answer = yield* useRender<string>(createElement(Dialog as never, {}));
+      const answer = yield* useRender<string>(<Dialog />);
       finalAnswer = answer;
-      return createElement("p", null, answer);
+      return <p>{answer}</p>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     expect(container.querySelector("span")?.textContent).toBe("dialog");
     expect(finalAnswer).toBeNull();
@@ -175,21 +174,21 @@ describe("useRender (Variant 1 – JSX child with useResume)", () => {
       mountCount++;
       const resume = yield* useResume<string>();
       capturedResume = resume;
-      return createElement("span", null, "dialog");
+      return <span>dialog</span>;
     }
 
     function* Parent() {
       const [, sv] = yield* useState(0);
       setVal = sv;
-      yield* useRender<string>(createElement(Dialog as never, {}));
-      return createElement("div", null);
+      yield* useRender<string>(<Dialog />);
+      return <div />;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(mountCount).toBe(1);
 
     // Trigger a parent rerender while the dialog is still open
-    setVal(1);
+    void setVal(1);
     expect(mountCount).toBe(1); // Dialog must NOT remount
 
     // Resolve still works after the rerender
@@ -217,16 +216,16 @@ describe("useRender – multiple sequential calls", () => {
     function* Wizard() {
       const name = yield* useRender<string>(({ resume }) => {
         resumeFirst = resume;
-        return createElement("span", null, "step-1");
+        return <span>step-1</span>;
       }, []);
       const age = yield* useRender<number>(({ resume }) => {
         resumeSecond = resume;
-        return createElement("span", null, "step-2");
+        return <span>step-2</span>;
       }, []);
-      return createElement("p", null, `${name}:${age}`);
+      return <p>{`${name}:${age}`}</p>;
     }
 
-    render(createElement(Wizard as never, {}), container);
+    render(<Wizard />, container);
     expect(container.querySelector("span")?.textContent).toBe("step-1");
 
     resumeFirst("Alice");
@@ -243,22 +242,22 @@ describe("useRender – multiple sequential calls", () => {
     function* StepOne() {
       const resume = yield* useResume<string>();
       resumeFirst = resume;
-      return createElement("span", null, "step-1");
+      return <span>step-1</span>;
     }
 
     function* StepTwo() {
       const resume = yield* useResume<string>();
       resumeSecond = resume;
-      return createElement("span", null, "step-2");
+      return <span>step-2</span>;
     }
 
     function* Wizard() {
-      const a = yield* useRender<string>(createElement(StepOne as never, {}));
-      const b = yield* useRender<string>(createElement(StepTwo as never, {}));
-      return createElement("p", null, `${a}+${b}`);
+      const a = yield* useRender<string>(<StepOne />);
+      const b = yield* useRender<string>(<StepTwo />);
+      return <p>{`${a}+${b}`}</p>;
     }
 
-    render(createElement(Wizard as never, {}), container);
+    render(<Wizard />, container);
     expect(container.querySelector("span")?.textContent).toBe("step-1");
 
     resumeFirst("X");
@@ -274,20 +273,20 @@ describe("useRender – multiple sequential calls", () => {
     function* Multi() {
       const a = yield* useRender<number>(({ resume }) => {
         resumes[0] = resume;
-        return createElement("span", null, "s1");
+        return <span>s1</span>;
       }, []);
       const b = yield* useRender<number>(({ resume }) => {
         resumes[1] = resume;
-        return createElement("span", null, "s2");
+        return <span>s2</span>;
       }, []);
       const c = yield* useRender<number>(({ resume }) => {
         resumes[2] = resume;
-        return createElement("span", null, "s3");
+        return <span>s3</span>;
       }, []);
-      return createElement("p", null, `${a}+${b}+${c}`);
+      return <p>{`${a}+${b}+${c}`}</p>;
     }
 
-    render(createElement(Multi as never, {}), container);
+    render(<Multi />, container);
     expect(container.querySelector("span")?.textContent).toBe("s1");
 
     resumes[0]?.(1);
@@ -308,16 +307,16 @@ describe("useRender – multiple sequential calls", () => {
       const [count] = yield* useState(0);
       const a = yield* useRender<string>(({ resume }) => {
         resumeFirst = resume;
-        return createElement("span", null, `waiting-1:${count}`);
+        return <span>{`waiting-1:${count}`}</span>;
       }, []);
       const b = yield* useRender<string>(({ resume }) => {
         resumeSecond = resume;
-        return createElement("span", null, `waiting-2:${count}`);
+        return <span>{`waiting-2:${count}`}</span>;
       }, []);
-      return createElement("p", null, `${a}-${b}-${count}`);
+      return <p>{`${a}-${b}-${count}`}</p>;
     }
 
-    render(createElement(Comp as never, {}), container);
+    render(<Comp />, container);
     expect(container.querySelector("span")?.textContent).toBe("waiting-1:0");
 
     resumeFirst("A");
@@ -343,10 +342,10 @@ describe("useResume", () => {
   it("throws when called outside a useRender context", () => {
     function* Comp() {
       yield* useResume();
-      return createElement("div", null);
+      return <div />;
     }
 
-    expect(() => render(createElement(Comp as never, {}), container)).toThrow(
+    expect(() => render(<Comp />, container)).toThrow(
       "useResume must be called inside a component rendered by useRender",
     );
   });

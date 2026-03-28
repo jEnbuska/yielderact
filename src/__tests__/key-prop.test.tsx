@@ -1,5 +1,4 @@
 import { useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 describe("key prop – keyed reconciliation", () => {
@@ -25,17 +24,17 @@ describe("key prop – keyed reconciliation", () => {
     function* ItemA() {
       renderCountA++;
       const [count] = yield* useState(10);
-      return createElement("div", { className: "a" }, `A:${count}`);
+      return <div className="a">{`A:${count}`}</div>;
     }
     function* ItemB() {
       renderCountB++;
       const [count] = yield* useState(20);
-      return createElement("div", { className: "b" }, `B:${count}`);
+      return <div className="b">{`B:${count}`}</div>;
     }
     function* ItemC() {
       renderCountC++;
       const [count] = yield* useState(30);
-      return createElement("div", { className: "c" }, `C:${count}`);
+      return <div className="c">{`C:${count}`}</div>;
     }
 
     const components: Record<string, never> = {
@@ -47,14 +46,17 @@ describe("key prop – keyed reconciliation", () => {
     function* Parent() {
       const [order, so] = yield* useState(["a", "b", "c"]);
       setOrder = so;
-      return createElement(
-        "div",
-        { id: "list" },
-        ...order.map((k) => createElement(components[k] as never, { key: k })),
+      return (
+        <div id="list">
+          {order.map((k) => {
+            const Comp = components[k] as never;
+            return <Comp key={k} />;
+          })}
+        </div>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     const list = container.querySelector("#list") as HTMLElement;
     expect(list.children).toHaveLength(3);
     expect(list.children[0]?.textContent).toBe("A:10");
@@ -71,7 +73,7 @@ describe("key prop – keyed reconciliation", () => {
     renderCountC = 0;
 
     // Reverse order
-    setOrder(["c", "b", "a"]);
+    void setOrder(["c", "b", "a"]);
 
     // DOM nodes should be MOVED, not recreated
     expect(list.children).toHaveLength(3);
@@ -94,22 +96,16 @@ describe("key prop – keyed reconciliation", () => {
     let setItems: (v: (string | null)[]) => void = () => {};
 
     function* Item({ label }: { label: string }) {
-      return createElement("span", null, label);
+      return <span>{label}</span>;
     }
 
     function* Parent() {
       const [items, si] = yield* useState<(string | null)[]>(["a", null, "b", null, "c"]);
       setItems = si;
-      return createElement(
-        "div",
-        null,
-        ...items.map((item) =>
-          item ? createElement(Item as never, { key: item, label: item }) : null,
-        ),
-      );
+      return <div>{items.map((item) => (item ? <Item key={item} label={item} /> : null))}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     const div = container.querySelector("div") as HTMLElement;
     const spans = div.querySelectorAll("span");
     expect(spans).toHaveLength(3);
@@ -122,7 +118,7 @@ describe("key prop – keyed reconciliation", () => {
     const spanC = spans[2];
 
     // Reorder with different falsy positions
-    setItems([null, "c", "a", null, "b"]);
+    void setItems([null, "c", "a", null, "b"]);
 
     const newSpans = div.querySelectorAll("span");
     expect(newSpans).toHaveLength(3);
@@ -142,10 +138,10 @@ describe("key prop – keyed reconciliation", () => {
     let setOrder: (v: string[]) => void = () => {};
 
     function* ItemX() {
-      return createElement("li", null, "X");
+      return <li>X</li>;
     }
     function* ItemY() {
-      return createElement("li", null, "Y");
+      return <li>Y</li>;
     }
 
     const components: Record<string, never> = {
@@ -156,14 +152,17 @@ describe("key prop – keyed reconciliation", () => {
     function* Parent() {
       const [order, so] = yield* useState(["x", "y"]);
       setOrder = so;
-      return createElement(
-        "ul",
-        null,
-        ...order.map((k) => createElement(components[k] as never, { key: k })),
+      return (
+        <ul>
+          {order.map((k) => {
+            const Comp = components[k] as never;
+            return <Comp key={k} />;
+          })}
+        </ul>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     const ul = container.querySelector("ul") as HTMLElement;
     expect(ul.children[0]?.textContent).toBe("X");
     expect(ul.children[1]?.textContent).toBe("Y");
@@ -172,7 +171,7 @@ describe("key prop – keyed reconciliation", () => {
     const nodeY = ul.children[1];
 
     // Reverse
-    setOrder(["y", "x"]);
+    void setOrder(["y", "x"]);
 
     expect(ul.children[0]?.textContent).toBe("Y");
     expect(ul.children[1]?.textContent).toBe("X");
@@ -184,29 +183,23 @@ describe("key prop – keyed reconciliation", () => {
     let setItems: (v: (string | null)[]) => void = () => {};
 
     function* Tag({ label }: { label: string }) {
-      return createElement("b", null, label);
+      return <b>{label}</b>;
     }
 
     function* Parent() {
       const [items, si] = yield* useState<(string | null)[]>(["p", null, "q"]);
       setItems = si;
-      return createElement(
-        "div",
-        null,
-        ...items.map((item) =>
-          item ? createElement(Tag as never, { key: item, label: item }) : false,
-        ),
-      );
+      return <div>{items.map((item) => (item ? <Tag key={item} label={item} /> : false))}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     const div = container.querySelector("div") as HTMLElement;
     const bs = div.querySelectorAll("b");
     expect(bs).toHaveLength(2);
     const bP = bs[0];
     const bQ = bs[1];
 
-    setItems([null, "q", null, "p"]);
+    void setItems([null, "q", null, "p"]);
     const newBs = div.querySelectorAll("b");
     expect(newBs).toHaveLength(2);
     expect(newBs[0]).toBe(bQ);
@@ -221,14 +214,16 @@ describe("key prop – keyed reconciliation", () => {
     function* Parent() {
       const [order, so] = yield* useState(["first", "second", "third"]);
       setOrder = so;
-      return createElement(
-        "ul",
-        null,
-        ...order.map((text) => createElement("li", { key: text }, text)),
+      return (
+        <ul>
+          {order.map((text) => (
+            <li key={text}>{text}</li>
+          ))}
+        </ul>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     const ul = container.querySelector("ul") as HTMLElement;
     expect(ul.children).toHaveLength(3);
 
@@ -237,7 +232,7 @@ describe("key prop – keyed reconciliation", () => {
     const li3 = ul.children[2];
 
     // Reverse
-    setOrder(["third", "second", "first"]);
+    void setOrder(["third", "second", "first"]);
 
     expect(ul.children[0]?.textContent).toBe("third");
     expect(ul.children[1]?.textContent).toBe("second");
@@ -253,20 +248,16 @@ describe("key prop – keyed reconciliation", () => {
     function* Parent() {
       const [items, si] = yield* useState<(string | null)[]>(["a", null, "b"]);
       setItems = si;
-      return createElement(
-        "div",
-        null,
-        ...items.map((item) => (item ? createElement("span", { key: item }, item) : null)),
-      );
+      return <div>{items.map((item) => (item ? <span key={item}>{item}</span> : null))}</div>;
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     const div = container.querySelector("div") as HTMLElement;
     const spans = div.querySelectorAll("span");
     const spanA = spans[0];
     const spanB = spans[1];
 
-    setItems(["b", null, null, "a"]);
+    void setItems(["b", null, null, "a"]);
     const newSpans = div.querySelectorAll("span");
     expect(newSpans).toHaveLength(2);
     expect(newSpans[0]).toBe(spanB);
@@ -282,20 +273,22 @@ describe("key prop – keyed reconciliation", () => {
     function* Counter({ id }: { id: string }) {
       const [count, setCount] = yield* useState(0);
       setters[id] = setCount;
-      return createElement("div", { "data-id": id }, `${id}:${count}`);
+      return <div data-id={id}>{`${id}:${count}`}</div>;
     }
 
     function* Parent() {
       const [order, so] = yield* useState(["x", "y", "z"]);
       setOrder = so;
-      return createElement(
-        "div",
-        null,
-        ...order.map((id) => createElement(Counter as never, { key: id, id })),
+      return (
+        <div>
+          {order.map((id) => (
+            <Counter key={id} id={id} />
+          ))}
+        </div>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     // Increment x to 5
     setters["x"]?.(5);
@@ -306,7 +299,7 @@ describe("key prop – keyed reconciliation", () => {
     expect(container.querySelector('[data-id="y"]')?.textContent).toBe("y:3");
 
     // Reorder: z, x, y
-    setOrder(["z", "x", "y"]);
+    void setOrder(["z", "x", "y"]);
 
     // State preserved after reorder
     expect(container.querySelector('[data-id="x"]')?.textContent).toBe("x:5");
@@ -330,7 +323,7 @@ describe("key prop – keyed reconciliation", () => {
 
     function* Child({ label }: { label: string }) {
       renderCount++;
-      return createElement("span", null, label);
+      return <span>{label}</span>;
     }
 
     function* Parent() {
@@ -338,16 +331,20 @@ describe("key prop – keyed reconciliation", () => {
       const [label, sl] = yield* useState("hello");
       setKey = sk;
       setLabel = sl;
-      return createElement("div", null, createElement(Child as never, { key: key, label }));
+      return (
+        <div>
+          <Child key={key} label={label} />
+        </div>
+      );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(renderCount).toBe(1);
     expect(container.querySelector("span")?.textContent).toBe("hello");
 
     // Change only the key — content props unchanged
     renderCount = 0;
-    setKey("key-2");
+    void setKey("key-2");
 
     // The child should NOT rerender since label didn't change
     // (key change means it's a "new" slot, but same type + same props = skip)
@@ -359,7 +356,7 @@ describe("key prop – keyed reconciliation", () => {
     expect(span.textContent).toBe("hello");
 
     // Verify it still works: changing label causes update
-    setLabel("world");
+    void setLabel("world");
     expect(container.querySelector("span")?.textContent).toBe("world");
   });
 
@@ -374,22 +371,24 @@ describe("key prop – keyed reconciliation", () => {
     function* Counter({ id }: { id: string }) {
       const [count, setCount] = yield* useState(0);
       setters[id] = setCount;
-      return createElement("div", { "data-id": id }, `${id}:${count}`);
+      return <div data-id={id}>{`${id}:${count}`}</div>;
     }
 
     function* Parent() {
       const [order, so] = yield* useState(["x", "y"]);
       setOrder = so;
-      return createElement(
-        "div",
-        null,
-        createElement(Counter as never, { id: "before" }),
-        ...order.map((id) => createElement(Counter as never, { key: id, id })),
-        createElement(Counter as never, { id: "after" }),
+      return (
+        <div>
+          <Counter id="before" />
+          {order.map((id) => (
+            <Counter key={id} id={id} />
+          ))}
+          <Counter id="after" />
+        </div>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
 
     // Build up state on all components
     setters["before"]?.(10);
@@ -403,7 +402,7 @@ describe("key prop – keyed reconciliation", () => {
     expect(container.querySelector('[data-id="after"]')?.textContent).toBe("after:40");
 
     // Reverse keyed children
-    setOrder(["y", "x"]);
+    void setOrder(["y", "x"]);
 
     // All state must be preserved — keyed and non-keyed alike
     expect(container.querySelector('[data-id="before"]')?.textContent).toBe("before:10");
@@ -434,7 +433,7 @@ describe("key prop – keyed reconciliation", () => {
     let setLabelFor: (id: string, label: string) => void = () => {};
 
     function* Item({ id, label }: { id: string; label: string }) {
-      return createElement("span", { "data-id": id }, label);
+      return <span data-id={id}>{label}</span>;
     }
 
     function* Parent() {
@@ -445,24 +444,26 @@ describe("key prop – keyed reconciliation", () => {
       });
       setOrder = so;
       setLabelFor = (id: string, label: string) => setLabels({ ...labels, [id]: label });
-      return createElement(
-        "div",
-        null,
-        ...order.map((id) => createElement(Item as never, { key: id, id, label: labels[id] })),
+      return (
+        <div>
+          {order.map((id) => (
+            <Item key={id} id={id} label={labels[id]} />
+          ))}
+        </div>
       );
     }
 
-    render(createElement(Parent as never, {}), container);
+    render(<Parent />, container);
     expect(container.querySelector('[data-id="a"]')?.textContent).toBe("Alpha");
     expect(container.querySelector('[data-id="b"]')?.textContent).toBe("Beta");
 
     // Reorder
-    setOrder(["b", "a"]);
+    void setOrder(["b", "a"]);
     expect(container.querySelector("div")?.children[0]?.getAttribute("data-id")).toBe("b");
     expect(container.querySelector("div")?.children[1]?.getAttribute("data-id")).toBe("a");
 
     // Update label after reorder
-    setLabelFor("a", "Alpha Updated");
+    void setLabelFor("a", "Alpha Updated");
     expect(container.querySelector('[data-id="a"]')?.textContent).toBe("Alpha Updated");
   });
 });

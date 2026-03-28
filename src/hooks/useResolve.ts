@@ -122,7 +122,7 @@ export function* useResolve<T>(
 }
 
 /** @internal */
-export function _processResolveRaw(
+export function processResolveRaw(
   descriptor: ResolveRawDescriptor,
   prev?: ResolveRawHookState,
 ): { state: ResolveRawHookState; isNew: boolean } {
@@ -136,7 +136,7 @@ export function _processResolveRaw(
 }
 
 /** @internal */
-export function _processResolve(
+export function processResolve(
   descriptor: ResolveDescriptor,
   prev?: ResolveHookState,
 ): { state: ResolveHookState; isNew: boolean } {

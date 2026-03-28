@@ -1,10 +1,10 @@
-import { type Context, PriorityContext, resolveCtx, withBatch, withPriority } from "../context";
+import { type Context, type ContextEntry, resolveCtx } from "../context";
 import type { Renderable } from "../hooks";
 import {
   type Child,
   type Component,
-  Fragment,
   type InternalProps,
+  RawFragment,
   type SpecialProps,
   type VNode,
 } from "../jsx";
@@ -36,32 +36,11 @@ export function shallowEqual(a: InternalProps, b: InternalProps): boolean {
   return aKeys.every((k) => Object.is(a[k], b[k]));
 }
 
-/**
- * Returns true when `a` and `b` differ only in the `$patch` prop.
- *
- * Enables skipping a rerender when only `$patch` changed -- the value is
- * forwarded for `shouldDefer` checks without re-executing the generator.
- */
-export function onlyPatchChanged(a: InternalProps, b: InternalProps): boolean {
-  const aKeys = Object.keys(a);
-  if (aKeys.length !== Object.keys(b).length) return false;
-  let patchDiffers = false;
-  for (const k of aKeys) {
-    if (Object.is(a[k], b[k])) continue;
-    if (k === "$patch") {
-      patchDiffers = true;
-      continue;
-    }
-    return false; // content prop differs
-  }
-  return patchDiffers;
-}
-
-/** Recursively flatten Fragment VNodes into a flat list of non-Fragment children. */
+/** Recursively flatten RawFragment VNodes into a flat list of non-fragment children. */
 export function flattenChildren(children: Child[]): Child[] {
   const result: Child[] = [];
   for (const child of children) {
-    if (isVNode(child) && child.type === Fragment) {
+    if (isVNode(child) && child.type === RawFragment) {
       result.push(...flattenChildren(child.children));
     } else {
       result.push(child);
@@ -83,20 +62,42 @@ export function mergedProps(vnode: VNode): InternalProps {
 }
 
 /**
- * Build a child context map from a parent map, applying `$patch` and
- * `$deferred` from the given props.
+ * Apply `$context` entries to a context map, skipping entries whose value
+ * is already the same. Returns the original map if nothing changed.
+ */
+function withContextEntries(
+  map: ReadonlyMap<Context, unknown>,
+  ctxProp: ContextEntry | ContextEntry[],
+): ReadonlyMap<Context, unknown> {
+  const entries = Array.isArray(ctxProp) ? ctxProp : [ctxProp];
+  let newMap: Map<Context, unknown> | undefined;
+  for (const entry of entries) {
+    if (!Object.is(resolveCtx(newMap ?? map, entry.ctx), entry.value)) {
+      if (!newMap) newMap = new Map(map);
+      newMap.set(entry.ctx, entry.value);
+    }
+  }
+  return newMap ?? map;
+}
+
+/**
+ * Build a child context map from a parent map, applying framework
+ * directives (`$context`) from the given props.
  *
- * Returns the parent map unchanged if neither directive is set.
+ * Returns the parent map unchanged if no directive is set.
  */
 export function childContextMap(
-  parentMap: ReadonlyMap<Context<unknown>, unknown>,
+  parentMap: ReadonlyMap<Context, unknown>,
   props: SpecialProps,
-): ReadonlyMap<Context<unknown>, unknown> {
-  let map = parentMap;
-  const batch = props.$patch;
-  if (batch !== undefined) map = withBatch(map, batch);
-  if (props.$deferred) map = withPriority(map, resolveCtx(map, PriorityContext) + 1);
-  return map;
+): ReadonlyMap<Context, unknown> {
+  if (props.$context) return withContextEntries(parentMap, props.$context);
+  return parentMap;
+}
+
+/** Normalize a `$context` prop to an array of entries. */
+export function contextEntries(ctxProp: ContextEntry | ContextEntry[] | undefined): ContextEntry[] {
+  if (!ctxProp) return [];
+  return Array.isArray(ctxProp) ? ctxProp : [ctxProp];
 }
 
 /**
@@ -108,8 +109,8 @@ export function childContextMap(
  * directive is present (no allocation).
  */
 export function stripFrameworkDirectives(props: InternalProps): InternalProps {
-  if (!("$deferred" in props) && !("$deps" in props)) return props;
-  const { $deferred: _d, $deps: _p, ...rest } = props;
+  if (!("$deferred" in props) && !("$deps" in props) && !("$context" in props)) return props;
+  const { $deferred: _d, $deps: _p, $context: _c, ...rest } = props;
   return rest satisfies InternalProps;
 }
 
@@ -123,7 +124,7 @@ export function stripFrameworkDirectives(props: InternalProps): InternalProps {
  * If `$deferred` is not present, returns the original object (no allocation).
  */
 export function stripDeferred(props: InternalProps): InternalProps {
-  if (!("$deferred" in props)) return props;
-  const { $deferred: _, ...rest } = props;
+  if (!("$deferred" in props) && !("$context" in props)) return props;
+  const { $deferred: _d, $context: _c, ...rest } = props;
   return rest satisfies InternalProps;
 }

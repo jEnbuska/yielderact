@@ -37,4 +37,3 @@ export {
   useResolveRaw,
 } from "./useResolve";
 export { useState } from "./useState";
-export { useUIPatch } from "./useUIPatch";

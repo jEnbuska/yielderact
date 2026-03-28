@@ -61,9 +61,7 @@ export function* ThemeDemo() {
       >
         Toggle theme (current: {theme})
       </button>
-      <ThemeContext.Provider value={theme}>
-        <ThemedCard />
-      </ThemeContext.Provider>
+      <ThemedCard $context={ThemeContext(theme)} />
     </section>
   );
 }

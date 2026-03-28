@@ -1,5 +1,4 @@
 import { useState } from "../hooks";
-import { createElement } from "../jsx";
 import { render } from "../render";
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -17,33 +16,35 @@ describe("shown prop", () => {
   });
 
   it("renders an HTML element when shown is true", () => {
-    render(createElement("div", { $shown: true }, "visible"), container);
+    render(<div $shown={true}>visible</div>, container);
     expect(container.querySelector("div")).not.toBeNull();
     expect(container.querySelector("div")?.textContent).toBe("visible");
   });
 
   it("does not render an HTML element when shown is false", () => {
-    render(createElement("div", { $shown: false }, "hidden"), container);
+    render(<div $shown={false}>hidden</div>, container);
     expect(container.querySelector("div")).toBeNull();
   });
 
   it("renders an HTML element when shown is omitted (defaults to shown)", () => {
-    render(createElement("div", null, "visible"), container);
+    render(<div>visible</div>, container);
     expect(container.querySelector("div")).not.toBeNull();
   });
 
   it("does not set shown as a DOM attribute", () => {
-    render(createElement("div", { $shown: true }, "visible"), container);
+    render(<div $shown={true}>visible</div>, container);
     const el = container.querySelector("div") as HTMLElement;
     expect(el.hasAttribute("$shown")).toBe(false);
   });
 
   it("renders a component when shown is true (no hooks)", () => {
     function* Greeting() {
-      return createElement("p", null, "hello");
+      return <p>hello</p>;
     }
     render(
-      createElement("div", null, createElement(Greeting as never, { $shown: true })),
+      <div>
+        <Greeting $shown={true} />
+      </div>,
       container,
     );
     expect(container.querySelector("p")).not.toBeNull();
@@ -51,10 +52,12 @@ describe("shown prop", () => {
 
   it("does not render a component when shown is false (no hooks)", () => {
     function* Greeting() {
-      return createElement("p", null, "hello");
+      return <p>hello</p>;
     }
     render(
-      createElement("div", null, createElement(Greeting as never, { $shown: false })),
+      <div>
+        <Greeting $shown={false} />
+      </div>,
       container,
     );
     expect(container.querySelector("p")).toBeNull();
@@ -62,10 +65,12 @@ describe("shown prop", () => {
 
   it("renders a component when shown is true", () => {
     function* Counter() {
-      return createElement("p", null, "counter");
+      return <p>counter</p>;
     }
     render(
-      createElement("div", null, createElement(Counter as never, { $shown: true })),
+      <div>
+        <Counter $shown={true} />
+      </div>,
       container,
     );
     expect(container.querySelector("p")).not.toBeNull();
@@ -73,10 +78,12 @@ describe("shown prop", () => {
 
   it("does not render a component when shown is false", () => {
     function* Counter() {
-      return createElement("p", null, "counter");
+      return <p>counter</p>;
     }
     render(
-      createElement("div", null, createElement(Counter as never, { $shown: false })),
+      <div>
+        <Counter $shown={false} />
+      </div>,
       container,
     );
     expect(container.querySelector("p")).toBeNull();
@@ -88,13 +95,13 @@ describe("shown prop", () => {
     function* Wrapper() {
       const [$shown, setS] = yield* useState(true);
       setShown = setS;
-      return createElement("div", { $shown }, "content");
+      return <div $shown={$shown}>content</div>;
     }
 
-    render(createElement(Wrapper as never, {}), container);
+    render(<Wrapper />, container);
     expect(container.querySelector("div")).not.toBeNull();
 
-    setShown(false);
+    void setShown(false);
     expect(container.querySelector("div")).toBeNull();
   });
 
@@ -104,13 +111,13 @@ describe("shown prop", () => {
     function* Wrapper() {
       const [$shown, setS] = yield* useState(false);
       setShown = setS;
-      return createElement("div", { $shown }, "content");
+      return <div $shown={$shown}>content</div>;
     }
 
-    render(createElement(Wrapper as never, {}), container);
+    render(<Wrapper />, container);
     expect(container.querySelector("div")).toBeNull();
 
-    setShown(true);
+    void setShown(true);
     expect(container.querySelector("div")).not.toBeNull();
     expect(container.querySelector("div")?.textContent).toBe("content");
   });
@@ -119,19 +126,19 @@ describe("shown prop", () => {
     let setShown: (v: boolean) => void = () => {};
 
     function* Inner() {
-      return createElement("p", null, "inner");
+      return <p>inner</p>;
     }
 
     function* Wrapper() {
       const [$shown, setS] = yield* useState(true);
       setShown = setS;
-      return createElement(Inner as never, { $shown });
+      return <Inner $shown={$shown} />;
     }
 
-    render(createElement(Wrapper as never, {}), container);
+    render(<Wrapper />, container);
     expect(container.querySelector("p")).not.toBeNull();
 
-    setShown(false);
+    void setShown(false);
     expect(container.querySelector("p")).toBeNull();
   });
 
@@ -139,19 +146,19 @@ describe("shown prop", () => {
     let setShown: (v: boolean) => void = () => {};
 
     function* Inner() {
-      return createElement("p", null, "inner");
+      return <p>inner</p>;
     }
 
     function* Wrapper() {
       const [$shown, setS] = yield* useState(false);
       setShown = setS;
-      return createElement(Inner as never, { $shown });
+      return <Inner $shown={$shown} />;
     }
 
-    render(createElement(Wrapper as never, {}), container);
+    render(<Wrapper />, container);
     expect(container.querySelector("p")).toBeNull();
 
-    setShown(true);
+    void setShown(true);
     expect(container.querySelector("p")).not.toBeNull();
     expect(container.querySelector("p")?.textContent).toBe("inner");
   });

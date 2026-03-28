@@ -167,7 +167,7 @@ function* App() {
 
 ### Priority propagation
 
-Priority propagates through the context system, just like `$patch`. The
+Priority propagates through the context system. The
 internal `PriorityContext` tracks the current priority level. Each
 `$deferred={true}` increments the priority by 1:
 
@@ -184,9 +184,8 @@ PriorityContext default = 0
 ```
 
 When a component mounts, it captures its priority from the context map
-via `_resolveCtxValue(ctxMap, PriorityContext)` and stores it in
-`instance.priority`. This value is used by the scheduler to place the
-instance in the correct priority queue.
+via `resolveCtx(ctxMap, PriorityContext)`. This priority-based scheduling
+has been temporarily removed — see issue #153 for the redesign plan.
 
 ### Priority levels and ordering
 
@@ -308,6 +307,10 @@ executes with all accumulated state changes applied.
 
 ## Interaction with UI patches
 
+> **Disabled:** The `$patch` / UI patch feature is temporarily removed. See issue #163 for restoration plan.
+
+<!-- UI patches interaction disabled content start (#163)
+
 The scheduler's batched commits (`beginPatch`/`commitPatch`) are separate from
 the UI patch system (`startUIPatch`/`commitUIPatch` and `useUIPatch`). They
 serve different purposes:
@@ -335,6 +338,8 @@ VNodes are flushed.
 Components with `$patch="live"` bypass deferral and update immediately
 regardless of active patches.
 
+UI patches interaction disabled content end (#163) -->
+
 ---
 
 ## Key source files
@@ -346,5 +351,5 @@ regardless of active patches.
 | `src/render/mount.ts`       | `commitOrDefer`, `executeRerender`, `rerenderInstance`     |
 | `src/render/driver.ts`      | Generator driver with context scoping                      |
 | `src/render/state.ts`       | `RenderContext` and active context pointer                  |
-| `src/context.ts`            | `PriorityContext`, `_withPriority`, `_resolveCtxValue`     |
+| `src/context.ts`            | `resolveCtx`                                               |
 | `src/render/helpers.ts`     | `stripFrameworkDirectives` — removes `$deferred` / `$deps` from component props |

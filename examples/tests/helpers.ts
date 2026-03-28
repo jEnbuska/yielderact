@@ -17,7 +17,7 @@ const tabIds: Record<string, string> = {
   "$shown prop": "tab-shown",
   useRender: "tab-confirm",
   useEffect: "tab-effect",
-  "UI Patch": "tab-transition",
+  // "UI Patch": "tab-transition", // TODO: Restore when $patch is re-implemented (#163)
   "Context Scoping": "tab-context",
   "Lazy Context": "tab-lazy-ctx",
   "AbortSignal Effect": "tab-abort-signal",

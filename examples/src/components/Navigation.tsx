@@ -1,3 +1,5 @@
+// TODO: Restore when $patch is re-implemented (#163)
+/*
 import type { Page } from "../types";
 
 export function* Navigation({
@@ -37,3 +39,4 @@ export function* Navigation({
     </nav>
   );
 }
+*/

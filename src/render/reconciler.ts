@@ -10,38 +10,38 @@
  * `reconcileSlots` drains them immediately via `runToCompletion`.
  *
  * Context is obtained via `yield* getContextMap()`. Subtrees needing a
- * different context (e.g. `$patch` or `$deferred`) run in an isolated
- * scope via `runToCompletion(gen, childCtxMap)`.
+ * different context (e.g. `$context`) run in an isolated scope via
+ * `runToCompletion(gen, childCtxMap)`.
  */
 
-import { BatchContext, type Context, resolveCtx, withBatch } from "../context";
+import { type Context, resolveCtx } from "../context";
 import { depsChanged } from "../hooks";
 import { $USE_CONTEXT } from "../hooks/descriptors";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
 import { Portal } from "../jsx";
-import { acquirePortalDelegation } from "./delegation";
-import { drive, getContext, getContextMap } from "./driver";
-import {
-  childContextMap,
-  flattenChildren,
-  isComponentNode,
-  isElementNode,
-  isVNode,
-  mergedProps,
-  onlyPatchChanged,
-  shallowEqual,
-  stripDeferred,
-  stripFrameworkDirectives,
-} from "./helpers";
-import { unmountSlot } from "./hooks-runtime";
-import { buildNode, mountComponent } from "./mount";
 import {
   domAppendChild,
   domEnqueue,
   domInsertBefore,
   domRemoveChild,
   domSetText,
-} from "./patch-queue";
+} from "./commit-queue";
+import { acquirePortalDelegation } from "./delegation";
+import { drive, getContextMap } from "./driver";
+import {
+  childContextMap,
+  contextEntries,
+  flattenChildren,
+  isComponentNode,
+  isElementNode,
+  isVNode,
+  mergedProps,
+  shallowEqual,
+  stripDeferred,
+  stripFrameworkDirectives,
+} from "./helpers";
+import { propagateContextUpdate, unmountSlot } from "./hooks-runtime";
+import { buildNode, mountComponent } from "./mount";
 import { applyProps, updateProps } from "./props";
 import { RenderCtx } from "./state";
 import type { ComponentInstance, Slot } from "./types";
@@ -54,7 +54,7 @@ import type { ComponentInstance, Slot } from "./types";
  */
 function runToCompletion<T>(
   gen: Generator<unknown, T, unknown>,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
+  ctxMap: ReadonlyMap<Context, unknown>,
 ): T {
   return drive(ctxMap, gen).value;
 }
@@ -63,7 +63,7 @@ function runToCompletion<T>(
  * Recursively remove all DOM nodes owned by a slot from the given parent.
  *
  * For component slots, this removes all output nodes (tracked in
- * `componentInstance.slots`) and the slot's own node (the endMarker Comment).
+ * `instance.slots`) and the slot's own node (the endMarker Comment).
  * For Provider slots, this removes all child nodes (tracked in `childSlots`)
  * and the slot's own node (the endMarker Comment).
  * For HTML element and text slots, this simply removes `slot.node`.
@@ -130,9 +130,9 @@ function collectSlotDOMNodes(slot: Slot): Node[] {
   if (slot.portalContainer) {
     return [slot.node];
   }
-  if (slot.componentInstance) {
+  if (slot.instance) {
     const nodes: Node[] = [];
-    for (const child of slot.componentInstance.slots) {
+    for (const child of slot.instance.slots) {
       nodes.push(...collectSlotDOMNodes(child));
     }
     nodes.push(slot.node);
@@ -168,7 +168,8 @@ function* reconcileKeyedSlotsGen(
   flatNext: Child[],
   beforeAnchor: Node | undefined,
 ): Generator<unknown, Slot[], unknown> {
-  const rctx = yield* getContext(RenderCtx);
+  const ctxMap = yield* getContextMap();
+  const rctx = ctxMap.get(RenderCtx);
   // Build key → prevIndex map for keyed prev slots,
   // and collect non-keyed prev slot indices for positional matching.
   const prevKeyMap = new Map<string | number, number>();
@@ -273,7 +274,8 @@ export function* reconcileSlotsGen(
   nextVNodes: Child[],
   beforeAnchor: Node | undefined,
 ): Generator<unknown, Slot[], unknown> {
-  const rctx = yield* getContext(RenderCtx);
+  const ctxMap = yield* getContextMap();
+  const rctx = ctxMap.get(RenderCtx);
   // Flatten fragments before reconciling so each child has a stable index.
   const flatNext = flattenChildren(nextVNodes);
 
@@ -327,23 +329,6 @@ export function* reconcileSlotsGen(
   return nextSlots;
 }
 
-/**
- * Synchronous wrapper around `reconcileSlotsGen`.
- *
- * Used by `flushPendingVNodes` in `patch.ts` when committing deferred
- * updates. The generator-based `reconcileSlotsGen` is used directly
- * by `mount.ts` via `driveWithContext`.
- */
-export function reconcileSlots(
-  parent: HTMLElement | Node,
-  prevSlots: Slot[],
-  nextVNodes: Child[],
-  beforeAnchor: Node | undefined,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-): Slot[] {
-  return runToCompletion(reconcileSlotsGen(parent, prevSlots, nextVNodes, beforeAnchor), ctxMap);
-}
-
 // ── Single-slot reconciliation (generator) ──────────────────────────────────
 
 /**
@@ -363,29 +348,16 @@ function* reconcileOneGen(
   nextChild: Child,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
-  const rctx = yield* getContext(RenderCtx);
+  const rctx = ctxMap.get(RenderCtx);
 
   // ════════════════════════════════════════════════════════════════════════
   // SECTION: Empty / null
   // Handles: null, undefined, false → empty text node placeholder.
   // ════════════════════════════════════════════════════════════════════════
   if (nextChild == null || nextChild === false) {
-    // In live-only mode, skip removal unless we're in a live context OR the
-    // existing slot is a $patch="live" component (it knows it's live).
-    if (rctx.liveOnlyMode && prevSlot) {
-      const prevIsLive = prevSlot.componentInstance
-        ? (prevSlot.componentInstance.props.$patch ??
-            resolveCtx(prevSlot.componentInstance.capturedCtx, BatchContext)) === "live"
-        : false;
-      if ((yield* getContext(BatchContext)) !== "live" && !prevIsLive) {
-        return { slot: prevSlot, node: prevSlot.node, replaced: false };
-      }
-    }
-    // Already empty → reuse.
     if (prevSlot?.type === "empty") {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
-    // Different type was here before → replace with empty placeholder.
     const node = document.createTextNode("");
     return {
       slot: { type: "empty", node, props: {}, childSlots: [] },
@@ -401,23 +373,12 @@ function* reconcileOneGen(
   if (typeof nextChild === "string" || typeof nextChild === "number") {
     const text = String(nextChild);
     if (prevSlot?.type === "text" && prevSlot.node instanceof Text) {
-      // Same type (text) → update content in place.
-      // In live-only mode, only update when the current batch is live.
-      const liveOnlyDefault =
-        (yield* getContext(RenderCtx)).liveOnlyMode && (yield* getContext(BatchContext)) !== "live";
-      if (!liveOnlyDefault && prevSlot.node.textContent !== text) {
+      if (prevSlot.node.textContent !== text) {
         domSetText(prevSlot.node, text, rctx.ops);
         prevSlot.props = { text };
       }
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
-    // In live-only default mode, don't insert new text nodes.
-    const liveOnlyDefaultText =
-      (yield* getContext(RenderCtx)).liveOnlyMode && (yield* getContext(BatchContext)) !== "live";
-    if (liveOnlyDefaultText && prevSlot) {
-      return { slot: prevSlot, node: prevSlot.node, replaced: false };
-    }
-    // Different type was here → replace with new TextNode.
     const node = document.createTextNode(text);
     return {
       slot: { type: "text", node, props: { text }, childSlots: [] },
@@ -436,13 +397,6 @@ function* reconcileOneGen(
   // ════════════════════════════════════════════════════════════════════════
   const allPropsForShown = mergedProps(vnode);
   if (allPropsForShown.$shown === false) {
-    // In live-only mode, only hide when the effective batch is live.
-    if (rctx.liveOnlyMode) {
-      const effectiveBatch = allPropsForShown.$patch ?? (yield* getContext(BatchContext));
-      if (effectiveBatch !== "live" && prevSlot) {
-        return { slot: prevSlot, node: prevSlot.node, replaced: false };
-      }
-    }
     if (prevSlot?.type === "empty") {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
@@ -492,7 +446,7 @@ function* reconcileOneGen(
 /**
  * Reconcile a component (or context Provider).
  *
- * Handles same-type updates (props diff, context propagation, live-only skip),
+ * Handles same-type updates (props diff, context propagation),
  * Provider in-place reconciliation, generator rerenders, and fresh mounts.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: component reconciliation with provider and rerender paths
@@ -502,18 +456,15 @@ function* reconcileComponent(
   allPropsForShown: InternalProps,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
-  const rctx = yield* getContext(RenderCtx);
   const allPropsRaw = allPropsForShown;
   // allProps: what the component sees (no $deferred, no $deps)
   const allProps = stripFrameworkDirectives(allPropsRaw);
   // slotProps: what Slot.props stores (keeps $deps for next comparison, strips $deferred)
   const slotProps = stripDeferred(allPropsRaw);
-  const component = vnode.type;
+  const { type: component } = vnode;
   const newDeps = allPropsRaw.$deps;
 
   const childCtxMap = childContextMap(ctxMap, allPropsRaw);
-
-  const currentBatch = resolveCtx(childCtxMap, BatchContext);
 
   // ── Same component type at same position ──
   if (prevSlot?.type === vnode.type) {
@@ -521,32 +472,25 @@ function* reconcileComponent(
     const propsUnchanged = newDeps
       ? !depsChanged(prevSlot.props.$deps, newDeps)
       : shallowEqual(prevSlot.props, allProps);
-    const patchOnly = !propsUnchanged && !newDeps && onlyPatchChanged(prevSlot.props, allProps);
-    if (propsUnchanged || patchOnly) {
-      const inst = prevSlot.componentInstance;
+    if (propsUnchanged) {
+      const { instance } = prevSlot;
       // When $deps says "unchanged", still update prevSlot.props so next
       // comparison uses the fresh deps array reference.
       if (newDeps) prevSlot.props = slotProps;
-      if (patchOnly && inst) {
-        // Forward the new $patch value so shouldDefer reads it correctly.
-        inst.props["$patch"] = allProps["$patch"];
-        if (inst.consumedContexts.has(BatchContext)) {
-          prevSlot.props = slotProps;
-          inst.capturedCtx = withBatch(inst.capturedCtx, currentBatch);
-          void inst.rerender();
-          return { slot: prevSlot, node: prevSlot.node, replaced: false };
+      if (instance) {
+        // Update providedContexts from $context prop.
+        const entries = contextEntries(allPropsRaw.$context);
+        instance.providedContexts.clear();
+        for (const entry of entries) {
+          instance.providedContexts.add(entry.ctx);
         }
-      }
-      if (patchOnly) {
-        prevSlot.props = slotProps;
-      }
-      if (inst) {
+
         // Check if any consumed context value differs from capturedCtx.
         let contextChanged = false;
-        for (const ctx of inst.consumedContexts) {
+        for (const ctx of instance.consumedContexts) {
           const currentVal = resolveCtx(childCtxMap, ctx);
-          if (!Object.is(currentVal, resolveCtx(inst.capturedCtx, ctx))) {
-            if (!_hasStableContextSelectors(inst, ctx, currentVal)) {
+          if (!Object.is(currentVal, resolveCtx(instance.capturedCtx, ctx))) {
+            if (!hasStableContextSelectors(instance, ctx, currentVal)) {
               contextChanged = true;
               break;
             }
@@ -554,73 +498,51 @@ function* reconcileComponent(
         }
 
         if (contextChanged) {
-          inst.capturedCtx = childCtxMap;
-          void inst.rerender();
+          instance.capturedCtx = childCtxMap;
+          void instance.rerender();
         } else {
-          inst.capturedCtx = withBatch(inst.capturedCtx, currentBatch);
+          // Detect $context value changes that need propagation to descendants.
+          const { capturedCtx: prevCtx } = instance;
+          instance.capturedCtx = childCtxMap;
+          for (const entry of entries) {
+            const prevVal = resolveCtx(prevCtx, entry.ctx);
+            if (!Object.is(prevVal, entry.value)) {
+              propagateContextUpdate(entry.ctx, entry.value, instance.slots);
+            }
+          }
         }
       }
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
 
-    // Live-only mode: skip non-live components
-    if (rctx.liveOnlyMode) {
-      const effectiveBatch = allProps.$patch ?? currentBatch;
-      if (effectiveBatch !== "live") {
-        if (prevSlot.componentInstance) {
-          prevSlot.componentInstance.capturedCtx = withBatch(
-            prevSlot.componentInstance.capturedCtx,
-            currentBatch,
-          );
-          prevSlot.componentInstance.props["$patch"] = allProps["$patch"];
-        }
-        const hasContentChange = Object.keys({ ...prevSlot.props, ...allProps }).some(
-          (k) => k !== "$patch" && k !== "$shown" && !Object.is(prevSlot.props[k], allProps[k]),
-        );
-        if (!hasContentChange) prevSlot.props = slotProps;
-        return { slot: prevSlot, node: prevSlot.node, replaced: false };
-      }
-    }
-
     // Component with changed props → rerender in place
-    if (prevSlot.componentInstance) {
-      prevSlot.componentInstance.props = allProps;
-      prevSlot.componentInstance.capturedCtx = withBatch(
-        prevSlot.componentInstance.capturedCtx,
-        currentBatch,
-      );
-      void prevSlot.componentInstance.rerender();
+    if (prevSlot.instance) {
+      prevSlot.instance.props = allProps;
+      prevSlot.instance.capturedCtx = childCtxMap;
+      const entries = contextEntries(allPropsRaw.$context);
+      prevSlot.instance.providedContexts.clear();
+      for (const entry of entries) {
+        prevSlot.instance.providedContexts.add(entry.ctx);
+      }
+      void prevSlot.instance.rerender();
       prevSlot.props = slotProps;
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
   }
 
-  // Live-only mode: structural changes (type mismatch / no prevSlot)
-  if (rctx.liveOnlyMode && prevSlot?.type !== vnode.type) {
-    const effectiveBatch = allProps.$patch ?? currentBatch;
-    if (effectiveBatch !== "live") {
-      if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
-      const node = document.createTextNode("");
-      return {
-        slot: { type: "empty", node, props: {}, childSlots: [] },
-        node,
-        replaced: true,
-      };
-    }
-  }
-
   // Mount fresh component
-  const { fragment, componentInstance } = drive(
-    childCtxMap,
-    mountComponent(component, allProps),
-  ).value;
+  const { fragment, instance } = drive(childCtxMap, mountComponent(component, allProps)).value;
+  const entries = contextEntries(allPropsRaw.$context);
+  for (const entry of entries) {
+    instance.providedContexts.add(entry.ctx);
+  }
   return {
     slot: {
       type: vnode.type,
-      node: componentInstance.endMarker,
+      node: instance.endMarker,
       props: slotProps,
       childSlots: [],
-      componentInstance,
+      instance,
     },
     node: fragment,
     replaced: true,
@@ -636,7 +558,7 @@ function* reconcileHTMLElement(
   vnode: VNode<string>,
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
-  const rctx = yield* getContext(RenderCtx);
+  const rctx = ctxMap.get(RenderCtx);
   const childCtxMap = childContextMap(ctxMap, vnode.props);
 
   if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
@@ -647,16 +569,12 @@ function* reconcileHTMLElement(
       prevSlot.props = vnode.props;
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
-    const liveOnlyDefault =
-      (yield* getContext(RenderCtx)).liveOnlyMode && (yield* getContext(BatchContext)) !== "live";
-    if (!liveOnlyDefault) {
-      const prevProps = prevSlot.props;
-      domEnqueue(
-        () => updateProps(prevSlot.node as HTMLElement, prevProps, vnode.props),
-        prevSlot.node,
-        rctx.ops,
-      );
-    }
+    const { props: prevProps } = prevSlot;
+    domEnqueue(
+      () => updateProps(prevSlot.node as HTMLElement, prevProps, vnode.props),
+      prevSlot.node,
+      rctx.ops,
+    );
     prevSlot.props = vnode.props;
     prevSlot.childSlots = runToCompletion(
       reconcileSlotsGen(prevSlot.node, prevSlot.childSlots, vnode.children, undefined),
@@ -665,23 +583,10 @@ function* reconcileHTMLElement(
     return { slot: prevSlot, node: prevSlot.node, replaced: false };
   }
   // Different tag → build fresh element
-  const liveOnlyDefaultEl =
-    (yield* getContext(RenderCtx)).liveOnlyMode && (yield* getContext(BatchContext)) !== "live";
-  if (liveOnlyDefaultEl) {
-    if (prevSlot) return { slot: prevSlot, node: prevSlot.node, replaced: false };
-    const empty = document.createTextNode("");
-    return {
-      slot: { type: "empty", node: empty, props: {}, childSlots: [] },
-      node: empty,
-      replaced: true,
-    };
-  }
   const el = document.createElement(vnode.type);
   applyProps(el, vnode.props);
   const flatChildren = flattenChildren(vnode.children);
   const childSlots: Slot[] = [];
-  const prevLiveOnly = rctx.liveOnlyMode;
-  rctx.liveOnlyMode = false;
   for (const child of flatChildren) {
     const { slot: childSlot, node: childNode } = runToCompletion(
       reconcileOneGen(undefined, child),
@@ -690,7 +595,6 @@ function* reconcileHTMLElement(
     childSlots.push(childSlot);
     el.appendChild(childNode);
   }
-  rctx.liveOnlyMode = prevLiveOnly;
   return {
     slot: {
       type: vnode.type,
@@ -722,7 +626,7 @@ function* reconcilePortal(
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
   const portalContainer = vnode.props["$portalContainer"] as Element;
-  const rctx = yield* getContext(RenderCtx);
+  const rctx = ctxMap.get(RenderCtx);
 
   // Same portal at same position, same container → reconcile children in place
   if (
@@ -732,7 +636,7 @@ function* reconcilePortal(
     prevSlot.portalDelegationRoot
   ) {
     // Swap delegation root so event registration targets the portal container
-    const prevDelegation = rctx.delegationRoot;
+    const { delegationRoot: prevDelegation } = rctx;
     rctx.delegationRoot = prevSlot.portalDelegationRoot;
     try {
       prevSlot.childSlots = runToCompletion(
@@ -757,12 +661,10 @@ function* reconcilePortal(
   portalContainer.appendChild(endMarker);
 
   const delegation = acquirePortalDelegation(portalContainer, rctx);
-  const prevDelegation = rctx.delegationRoot;
+  const { delegationRoot: prevDelegation } = rctx;
   rctx.delegationRoot = delegation;
 
   let childSlots: Slot[];
-  const prevLiveOnly = rctx.liveOnlyMode;
-  rctx.liveOnlyMode = false;
   try {
     childSlots = runToCompletion(
       reconcileSlotsGen(portalContainer, [], vnode.children, endMarker),
@@ -770,7 +672,6 @@ function* reconcilePortal(
     );
   } finally {
     rctx.delegationRoot = prevDelegation;
-    rctx.liveOnlyMode = prevLiveOnly;
   }
 
   return {
@@ -794,9 +695,9 @@ function* reconcilePortal(
  *
  * **Called by:** the props-unchanged path in `reconcileComponent`.
  */
-function _hasStableContextSelectors(
+function hasStableContextSelectors(
   inst: ComponentInstance,
-  ctx: Context<unknown>,
+  ctx: Context,
   newValue: unknown,
 ): boolean {
   for (const s of inst.hookStates) {

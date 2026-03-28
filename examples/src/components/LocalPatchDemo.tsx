@@ -1,3 +1,5 @@
+// TODO: Restore when $patch is re-implemented (#163)
+/*
 import { useState, useUIPatch } from "yract";
 import type { Page } from "../types";
 import { sleep } from "../utils";
@@ -12,15 +14,15 @@ export function* LocalPatchDemo() {
   const [log, setLog] = yield* useState<string[]>([]);
 
   const navigate = async (next: Page) => {
-    setIsPending(true);
+    void setIsPending(true);
     const commit = startPatch();
     try {
-      setLog((prev) => [...prev, `[local] navigating to ${next}...`]);
+      void setLog((prev) => [...prev, `[local] navigating to ${next}...`]);
       await sleep(5000);
-      setPage(next);
-      setLog((prev) => [...prev, `[local] arrived at ${next}`]);
+      void setPage(next);
+      void setLog((prev) => [...prev, `[local] arrived at ${next}`]);
     } finally {
-      setIsPending(false);
+      void setIsPending(false);
       commit();
     }
   };
@@ -71,3 +73,4 @@ export function* LocalPatchDemo() {
     </div>
   );
 }
+*/
