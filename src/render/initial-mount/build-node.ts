@@ -41,7 +41,7 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   if (!child.type) {
     throw new InvalidChildError(child);
   }
-  const { $shown, $context, $deferred, $deps, ...props } = child.props;
+  const { $shown, $context, $deferred: _deferred, $deps: _deps, ...props } = child.props;
   if ($shown === false) return document.createTextNode("");
   if ($context) {
     const entries: ContextEntry[] = Array.isArray($context) ? $context : [$context];
