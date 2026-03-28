@@ -2,13 +2,20 @@ import type { Context } from "../context";
 import { useState } from "../hooks";
 import { createElement, Fragment } from "../jsx";
 import { buildNode, render } from "../render";
-import { drive } from "../render/driver";
-import { createRenderContext, RenderCtx } from "../render/state";
+import { driveWithContext } from "../render/driver";
+import { createRenderContext, RenderCtx, setActiveRenderCtx } from "../render/state";
 
 function run(child: Parameters<typeof buildNode>[0]) {
-  const map: Map<Context<unknown>, unknown> = new Map();
-  map.set(RenderCtx as Context<unknown>, createRenderContext());
-  return drive(map, buildNode(child)).value;
+  const map: Map<Context, unknown> = new Map();
+  const rctx = createRenderContext();
+  map.set(RenderCtx as Context, rctx);
+  setActiveRenderCtx(rctx);
+  const wrapped = driveWithContext(map, buildNode(child));
+  let result = wrapped.next();
+  while (!result.done) {
+    result = wrapped.next(undefined);
+  }
+  return result.value;
 }
 
 // jsdom is provided by vitest (see vitest.config.ts)

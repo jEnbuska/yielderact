@@ -2,12 +2,34 @@ import type { Context } from "../context";
 import type { VNode } from "../jsx";
 import { DelegationRoot } from "./delegation";
 import { dispatchDelegatedEvent } from "./dispatch";
-import { drive } from "./driver";
+import { driveWithContext, type RenderGenerator } from "./driver";
 import { buildNode } from "./initial-mount";
-import { createRenderContext, RenderCtx } from "./state";
+import { createRenderContext, RenderCtx, setActiveRenderCtx } from "./state";
+import type { RenderContext } from "./types";
 
 export { buildNode } from "./initial-mount";
 export { flushSync } from "./scheduler";
+
+/**
+ * Run a render generator synchronously to completion.
+ *
+ * Used only for initial mount (`render()` / `createRoot().render()`).
+ * After initial mount, all work goes through the scheduler.
+ */
+function runInitialMount<T>(
+  initialCtxMap: ReadonlyMap<Context, unknown>,
+  gen: RenderGenerator<T>,
+): T {
+  const rctx = initialCtxMap.get(RenderCtx as Context) as RenderContext;
+  setActiveRenderCtx(rctx);
+
+  const wrapped = driveWithContext(initialCtxMap, gen);
+  let result = wrapped.next();
+  while (!result.done) {
+    result = wrapped.next(undefined);
+  }
+  return result.value;
+}
 
 /**
  * Render a VNode tree into a DOM container (simple one-shot mount).
@@ -31,7 +53,7 @@ export function render(vnode: VNode, container: Element): void {
   initialMap.set(RenderCtx as Context, rctx);
   rctx.isInitialMount = true;
   try {
-    container.appendChild(drive(initialMap, buildNode(vnode)).value);
+    container.appendChild(runInitialMount(initialMap, buildNode(vnode)));
   } finally {
     rctx.isInitialMount = false;
   }
@@ -69,7 +91,7 @@ export function createRoot(container: Element): Root {
       initialMap.set(RenderCtx as Context, rctx);
       rctx.isInitialMount = true;
       try {
-        container.appendChild(drive(initialMap, buildNode(vnode)).value);
+        container.appendChild(runInitialMount(initialMap, buildNode(vnode)));
       } finally {
         rctx.isInitialMount = false;
       }
