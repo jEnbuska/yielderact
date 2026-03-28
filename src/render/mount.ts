@@ -9,7 +9,7 @@
  * `<span>` elements.
  */
 
-import { BatchContext, PriorityContext } from "../context";
+import type { ContextEntry } from "../context";
 import { type Child, Portal, RawFragment } from "../jsx";
 import { mountComponent } from "./component";
 import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "./driver";
@@ -37,12 +37,10 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   if (!child.type) {
     throw new InvalidChildError(child);
   }
-  const { $shown, $patch, $deferred, $context } = child.props;
+  const { $shown, $context } = child.props;
   if ($shown === false) return document.createTextNode("");
-  if ($patch) yield* setContext(BatchContext, () => $patch);
-  if ($deferred) yield* setContext(PriorityContext, (current) => current + 1);
   if ($context) {
-    const entries = Array.isArray($context) ? $context : [$context];
+    const entries: ContextEntry[] = Array.isArray($context) ? $context : [$context];
     for (const entry of entries) {
       yield* setContext(entry.ctx, () => entry.value);
     }

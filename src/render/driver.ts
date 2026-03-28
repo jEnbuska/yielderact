@@ -14,7 +14,7 @@
 
 import type { Context } from "../context";
 import { HOOK_TYPES, type HookDescriptor, type HookType } from "../hooks/descriptors";
-import { RenderCtx, setActiveCtx } from "./state";
+import { RenderCtx, setActiveRenderCtx } from "./state";
 import type { CtxMap, RenderContext } from "./types";
 
 // ── Yield protocol ───────────────────────────────────────────────────────
@@ -40,12 +40,6 @@ export function* setContext<T>(
 /** Yield to read the full current context map. */
 export function* getContextMap(): RenderGenerator<CtxMap> {
   return (yield { op: $GET_CONTEXT_MAP }) as CtxMap;
-}
-
-/** Yield to read a single context value. */
-export function* getContext<T>(ctx: { readonly defaultValue: T }): RenderGenerator<T> {
-  const map = yield* getContextMap();
-  return (map.has(ctx) ? map.get(ctx) : ctx.defaultValue) as T;
 }
 
 // ── Type guards ──────────────────────────────────────────────────────────
@@ -78,7 +72,7 @@ function isHookDescriptor(v: unknown): v is HookDescriptor {
 
 // ── Driver ───────────────────────────────────────────────────────────────
 
-type BaseCtxMap = ReadonlyMap<Context<unknown>, unknown>;
+type BaseCtxMap = ReadonlyMap<Context, unknown>;
 
 interface DriveResult<T> {
   value: T;
@@ -99,10 +93,10 @@ export function drive<T>(
   gen: RenderGenerator<T>,
   onHook?: (descriptor: HookDescriptor) => unknown,
 ): DriveResult<T> {
-  // Set _activeCtx for synchronous leaf code (patch-queue, props) that
+  // Set _activeCtx for synchronous leaf code (commit-queue, props) that
   // cannot yield and therefore cannot access the ctxMap via the driver.
-  const rctx = initialCtxMap.get(RenderCtx as Context<unknown>) as RenderContext | undefined;
-  if (rctx) setActiveCtx(rctx);
+  const rctx = initialCtxMap.get(RenderCtx as Context) as RenderContext | undefined;
+  if (rctx) setActiveRenderCtx(rctx);
 
   let ctxMap: BaseCtxMap = initialCtxMap;
   let result = gen.next();

@@ -34,7 +34,7 @@ interface HandlerEntry {
  * Outer key: DOM element. Inner key: lowercase DOM event name (e.g. `"click"`).
  * Inner value: handlers for that event (bubble and/or capture).
  */
-const _handlerRegistry = new WeakMap<Element, Map<string, HandlerEntry>>();
+const handlerRegistry = new WeakMap<Element, Map<string, HandlerEntry>>();
 
 /**
  * Register a handler for a DOM event on an element.
@@ -47,10 +47,10 @@ export function registerHandler(
   handler: (e: SyntheticEvent) => void,
   isCapture: boolean,
 ): void {
-  let map = _handlerRegistry.get(el);
+  let map = handlerRegistry.get(el);
   if (!map) {
     map = new Map();
-    _handlerRegistry.set(el, map);
+    handlerRegistry.set(el, map);
   }
   let entry = map.get(domEvent);
   if (!entry) {
@@ -70,7 +70,7 @@ export function registerHandler(
  * Called by `updateProps` when a handler is removed or replaced.
  */
 export function unregisterHandler(el: Element, domEvent: string, isCapture: boolean): void {
-  const map = _handlerRegistry.get(el);
+  const map = handlerRegistry.get(el);
   if (!map) return;
   const entry = map.get(domEvent);
   if (!entry) return;
@@ -90,7 +90,7 @@ export function unregisterHandler(el: Element, domEvent: string, isCapture: bool
  * Called by the dispatch algorithm during the capture/bubble walk.
  */
 export function getHandlers(el: Element, domEvent: string): HandlerEntry | undefined {
-  return _handlerRegistry.get(el)?.get(domEvent);
+  return handlerRegistry.get(el)?.get(domEvent);
 }
 
 // ---------------------------------------------------------------------------
@@ -228,14 +228,14 @@ export class DelegationRoot {
 // ---------------------------------------------------------------------------
 
 /** Ref-counted DelegationRoot entries for portal containers. */
-const _portalDelegationRoots = new Map<Element, { root: DelegationRoot; refCount: number }>();
+const portalDelegationRoots = new Map<Element, { root: DelegationRoot; refCount: number }>();
 
 /**
  * Acquire a DelegationRoot for a portal container. Multiple portals
  * targeting the same container share one DelegationRoot (ref-counted).
  */
 export function acquirePortalDelegation(container: Element, rctx: RenderContext): DelegationRoot {
-  const existing = _portalDelegationRoots.get(container);
+  const existing = portalDelegationRoots.get(container);
   if (existing) {
     existing.refCount++;
     return existing.root;
@@ -245,7 +245,7 @@ export function acquirePortalDelegation(container: Element, rctx: RenderContext)
     (nativeEvent, domEvent) => dispatchDelegatedEvent(nativeEvent, container, domEvent, rctx),
     true, // stop native propagation at portal boundary
   );
-  _portalDelegationRoots.set(container, { root, refCount: 1 });
+  portalDelegationRoots.set(container, { root, refCount: 1 });
   return root;
 }
 
@@ -254,11 +254,11 @@ export function acquirePortalDelegation(container: Element, rctx: RenderContext)
  * When refCount hits 0, the root is disposed and removed.
  */
 export function releasePortalDelegation(container: Element): void {
-  const entry = _portalDelegationRoots.get(container);
+  const entry = portalDelegationRoots.get(container);
   if (!entry) return;
   entry.refCount--;
   if (entry.refCount <= 0) {
     entry.root.dispose();
-    _portalDelegationRoots.delete(container);
+    portalDelegationRoots.delete(container);
   }
 }

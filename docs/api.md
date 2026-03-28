@@ -21,15 +21,15 @@
    - [useResolveRaw](#useresolveraw)
    - [useRender](#userender)
    - [useResume](#useresume)
-   - [useUIPatch](#useuipatch)
-   - [usePatchContext](#usepatchcontext)
+   - [useUIPatch](#useuipatch) *(disabled — #163)*
+   - [usePatchContext](#usepatchcontext) *(disabled — #163)*
 6. [Context](#context)
    - [createContext](#createcontext)
    - [useContext](#usecontext)
 7. [Portals](#portals)
    - [createPortal](#createportal)
-8. [UI patches](#ui-patches)
-   - [startUIPatch / commitUIPatch](#startuipatch--commituipatch)
+8. [UI patches](#ui-patches) *(disabled — #163)*
+   - [startUIPatch / commitUIPatch](#startuipatch--commituipatch) *(disabled — #163)*
 9. [Special props](#special-props)
 10. [Events](#events)
 11. [Design decisions](#design-decisions)
@@ -124,7 +124,7 @@ No manual imports needed for JSX.
 
 ### `createRoot(container)`
 
-Creates a root for rendering a component tree into a DOM element. This is the recommended way to bootstrap your application. The root sets `$patch="default"` as the starting context for the entire tree, so every component can always rely on `$patch` being defined.
+Creates a root for rendering a component tree into a DOM element. This is the recommended way to bootstrap your application.
 
 ```ts
 import { createRoot } from 'yract';
@@ -493,6 +493,10 @@ function* Modal() {
 
 ### `useUIPatch`
 
+> **Disabled:** The `$patch` feature is temporarily removed. See issue #163 for restoration plan.
+
+<!-- useUIPatch disabled content start (#163)
+
 ```ts
 const startPatch = yield * useUIPatch();
 ```
@@ -526,9 +530,15 @@ function* PageContent() {
 
 > See also: [`startUIPatch` / `commitUIPatch`](#startuipatch--commituipatch) for a global patch that freezes the entire tree.
 
+useUIPatch disabled content end (#163) -->
+
 ---
 
 ### `usePatchContext`
+
+> **Disabled:** The `$patch` feature is temporarily removed. See issue #163 for restoration plan.
+
+<!-- usePatchContext disabled content start (#163)
 
 ```ts
 const batch = yield * usePatchContext();
@@ -555,6 +565,8 @@ function* App() {
   );
 }
 ```
+
+usePatchContext disabled content end (#163) -->
 
 ---
 
@@ -714,11 +726,15 @@ function* App() {
 > **Notes:**
 > - A comment node placeholder is inserted in the original DOM position for reconciliation tracking.
 > - Event delegation works inside portals — `onClick` and other delegated events fire normally.
-> - `$patch`, `$deferred`, and `$shown` props work on portal children as expected.
+> - `$deferred` and `$shown` props work on portal children as expected. <!-- $patch also worked here but is temporarily disabled (#163) -->
 
 ---
 
 ## UI patches
+
+> **Disabled:** The `$patch` feature is temporarily removed. See issue #163 for restoration plan.
+
+<!-- UI patches disabled content start (#163)
 
 UI patches let you freeze DOM updates while async work runs, then apply all changes atomically. Components still execute their generators, process hooks, and update internal state during a patch — only the final DOM write is deferred.
 
@@ -751,6 +767,8 @@ async function navigate(next: string) {
 Components with `$patch="live"` update immediately even during a global patch.
 
 > See also: [`useUIPatch`](#useuipatch) for a local patch scoped to a specific component's subtree.
+
+UI patches disabled content end (#163) -->
 
 ---
 
@@ -818,6 +836,10 @@ function* Parent() {
 
 ### `$patch`
 
+> **Disabled:** The `$patch` feature is temporarily removed. See issue #163 for restoration plan.
+
+<!-- $patch disabled content start (#163)
+
 ```tsx
 <Component $patch="live" />
 <div $patch="live">...</div>
@@ -845,6 +867,8 @@ function* App() {
 ```
 
 `$patch` is never set as a DOM attribute — it is a renderer-only instruction.
+
+$patch disabled content end (#163) -->
 
 ### `$deferred`
 

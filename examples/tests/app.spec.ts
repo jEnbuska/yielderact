@@ -19,7 +19,8 @@ test.describe("App shell", () => {
     await expect(page.getByTestId("tab-shown")).toBeVisible();
     await expect(page.getByTestId("tab-confirm")).toBeVisible();
     await expect(page.getByTestId("tab-effect")).toBeVisible();
-    await expect(page.getByTestId("tab-transition")).toBeVisible();
+    // TODO: Restore when $patch is re-implemented (#163)
+    // await expect(page.getByTestId("tab-transition")).toBeVisible();
     await expect(page.getByTestId("tab-context")).toBeVisible();
     await expect(page.getByTestId("tab-lazy-ctx")).toBeVisible();
     await expect(page.getByTestId("tab-abort-signal")).toBeVisible();

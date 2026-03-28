@@ -1,11 +1,4 @@
-import {
-  type Context,
-  type ContextEntry,
-  PriorityContext,
-  resolveCtx,
-  withBatch,
-  withPriority,
-} from "../context";
+import { type Context, type ContextEntry, resolveCtx } from "../context";
 import type { Renderable } from "../hooks";
 import {
   type Child,
@@ -43,27 +36,6 @@ export function shallowEqual(a: InternalProps, b: InternalProps): boolean {
   return aKeys.every((k) => Object.is(a[k], b[k]));
 }
 
-/**
- * Returns true when `a` and `b` differ only in the `$patch` prop.
- *
- * Enables skipping a rerender when only `$patch` changed -- the value is
- * forwarded for `shouldDefer` checks without re-executing the generator.
- */
-export function onlyPatchChanged(a: InternalProps, b: InternalProps): boolean {
-  const aKeys = Object.keys(a);
-  if (aKeys.length !== Object.keys(b).length) return false;
-  let patchDiffers = false;
-  for (const k of aKeys) {
-    if (Object.is(a[k], b[k])) continue;
-    if (k === "$patch") {
-      patchDiffers = true;
-      continue;
-    }
-    return false; // content prop differs
-  }
-  return patchDiffers;
-}
-
 /** Recursively flatten RawFragment VNodes into a flat list of non-fragment children. */
 export function flattenChildren(children: Child[]): Child[] {
   const result: Child[] = [];
@@ -94,11 +66,11 @@ export function mergedProps(vnode: VNode): InternalProps {
  * is already the same. Returns the original map if nothing changed.
  */
 function withContextEntries(
-  map: ReadonlyMap<Context<unknown>, unknown>,
+  map: ReadonlyMap<Context, unknown>,
   ctxProp: ContextEntry | ContextEntry[],
-): ReadonlyMap<Context<unknown>, unknown> {
+): ReadonlyMap<Context, unknown> {
   const entries = Array.isArray(ctxProp) ? ctxProp : [ctxProp];
-  let newMap: Map<Context<unknown>, unknown> | undefined;
+  let newMap: Map<Context, unknown> | undefined;
   for (const entry of entries) {
     if (!Object.is(resolveCtx(newMap ?? map, entry.ctx), entry.value)) {
       if (!newMap) newMap = new Map(map);
@@ -110,19 +82,16 @@ function withContextEntries(
 
 /**
  * Build a child context map from a parent map, applying framework
- * directives (`$patch`, `$deferred`, `$context`) from the given props.
+ * directives (`$context`) from the given props.
  *
  * Returns the parent map unchanged if no directive is set.
  */
 export function childContextMap(
-  parentMap: ReadonlyMap<Context<unknown>, unknown>,
+  parentMap: ReadonlyMap<Context, unknown>,
   props: SpecialProps,
-): ReadonlyMap<Context<unknown>, unknown> {
-  let map = parentMap;
-  if (props.$patch !== undefined) map = withBatch(map, props.$patch);
-  if (props.$deferred) map = withPriority(map, resolveCtx(map, PriorityContext) + 1);
-  if (props.$context) map = withContextEntries(map, props.$context);
-  return map;
+): ReadonlyMap<Context, unknown> {
+  if (props.$context) return withContextEntries(parentMap, props.$context);
+  return parentMap;
 }
 
 /** Normalize a `$context` prop to an array of entries. */

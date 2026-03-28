@@ -10,18 +10,14 @@ import type { Child } from "../../jsx";
 import { driveWithContext, getContextMap, type RenderGenerator } from "../driver";
 import { flushEffects } from "../hooks-runtime";
 import { reconcileSlotsGen } from "../reconciler";
-import { RenderCtx } from "../state";
-import type { ComponentInstance, RenderContext } from "../types";
+import type { ComponentInstance } from "../types";
 import { drainResolvers, revertPendingEffects, runComponentRender } from "./lifecycle";
 import { executeComponentRerender } from "./rerender";
 
 /** Retry rendering until a non-cancelled result is produced. */
-function* renderUntilSuccess(
-  instance: ComponentInstance,
-  rctx: RenderContext,
-): RenderGenerator<Child> {
+function* renderUntilSuccess(instance: ComponentInstance): RenderGenerator<Child> {
   while (true) {
-    const { vnode, cancelled } = yield* runComponentRender(instance, rctx);
+    const { vnode, cancelled } = yield* runComponentRender(instance);
     if (!cancelled) return vnode;
     revertPendingEffects(instance);
   }
@@ -37,26 +33,22 @@ export function* initialComponentRender(
   instance: ComponentInstance,
 ): RenderGenerator<DocumentFragment> {
   const ctx = yield* getContextMap();
-  const rctx = ctx.get(RenderCtx);
-  const vnode = yield* renderUntilSuccess(instance, rctx);
+  const vnode = yield* renderUntilSuccess(instance);
 
   // Commit to fragment
   const fragment = document.createDocumentFragment();
   fragment.appendChild(instance.endMarker);
-  const { liveOnlyMode: prevLiveOnly } = rctx;
-  rctx.liveOnlyMode = false;
   instance.slots = yield* driveWithContext(
     ctx,
     reconcileSlotsGen(fragment, [], [vnode] satisfies Child[], instance.endMarker),
   );
-  rctx.liveOnlyMode = prevLiveOnly;
   instance.mounted = true;
   flushEffects(instance);
   drainResolvers(instance);
 
   if (instance.pendingRerender) {
     instance.pendingRerender = false;
-    yield* executeComponentRerender(instance, rctx);
+    yield* executeComponentRerender(instance);
   }
   return fragment;
 }

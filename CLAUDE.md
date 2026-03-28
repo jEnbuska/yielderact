@@ -121,9 +121,9 @@ function* Counter(_props: object) {
 | `render/hooks-runtime.ts` | Hook descriptor dispatch, effect flushing, unmount                      |
 | `render/helpers.ts`       | Type guards, shallow equality, props merging, `flattenChildren`         |
 | `render/props.ts`         | `applyProps`, `updateProps`                                             |
-| `render/scheduler.ts`     | Priority-aware cooperative scheduler                                    |
-| `render/patch-queue.ts`   | Atomic DOM commit queue                                                 |
-| `render/patch.ts`         | Global/local UI patch (`startUIPatch`/`commitUIPatch`)                  |
+| `render/scheduler.ts`     | Cooperative scheduler                                                   |
+| `render/commit-queue.ts`  | Atomic DOM commit queue                                                 |
+| `render/patch.ts`         | Placeholder — `$patch` feature temporarily removed (#163)               |
 | `render/delegation.ts`    | Handler registry, `DelegationRoot`, prop→event mapping                  |
 | `render/dispatch.ts`      | Delegated event dispatch (capture→bubble phases)                        |
 | `render/events.ts`        | Per-element listeners for non-delegated events                          |
@@ -143,8 +143,8 @@ function* Counter(_props: object) {
 - **Special Props:** Always support the `$shown={boolean}` prop.
 - **Dependencies:** Zero-dependency goal.
 - **JSX Config:** The library build uses the classic `react` transform (`jsxFactory: "createElement"`). Consumers (including `examples/`) use `react-jsx` with `jsxImportSource: "yract"`, backed by `src/jsx-runtime.ts`.
-- **Multi-root:** Each `render()`/`createRoot()` creates an independent `RenderContext` with its own state (patch depth, dirty instances, scheduler queue, context map, DOM ops queue). The global `idCounter` is the only shared state (IDs must be globally unique).
-- **Prefer Destructuring:** Use destructuring when extracting properties from objects (e.g., `const { gen } = instance` instead of `const gen = instance.gen`). For save/restore patterns use destructuring with rename (e.g., `const { liveOnlyMode: prevLiveOnly } = rctx`).
+- **Multi-root:** Each `render()`/`createRoot()` creates an independent `RenderContext` with its own state (scheduler queue, context map, DOM ops queue). The global `idCounter` is the only shared state (IDs must be globally unique).
+- **Prefer Destructuring:** Use destructuring when extracting properties from objects (e.g., `const { gen } = instance` instead of `const gen = instance.gen`). For save/restore patterns use destructuring with rename (e.g., `const { activePriority: prevPriority } = rctx`).
 - **Shorthand Properties:** Always use shorthand property syntax in object literals when the key matches the variable name (e.g., `{ instance }` instead of `{ instance: instance }`).
 - **Guard Clauses:** Always prefer guard clauses (early returns) over nested conditionals. Return early when a condition short-circuits the rest of the logic.
 - **Flat Code:** Avoid deeply nested blocks (`if` inside `if`, `try` inside `if`, etc.). Extract nested logic into separate functions, use early returns, or restructure to keep indentation shallow. Flat code is easier to read and maintain.
@@ -161,11 +161,11 @@ function* Counter(_props: object) {
 
 Example components live in `examples/src/components/`. The app entry point is `examples/src/main.tsx`, which renders a tabbed view of all demos.
 
-**Top-level demos** (each a tab in main.tsx): `Counter`, `TodoList`, `ThemeDemo`, `DataFetcher`/`ResolveRawDemo`, `HooksShowcase`, `ShownDemo`, `ConfirmDialog`, `EffectDemo`, `TransitionDemo`, `ContextDemo`, `LazyContextDemo`, `AbortSignalEffectDemo`, `KeyShuffleDemo`, `DepsDemo`, `PortalDemo`.
+**Top-level demos** (each a tab in main.tsx): `Counter`, `TodoList`, `ThemeDemo`, `DataFetcher`/`ResolveRawDemo`, `HooksShowcase`, `ShownDemo`, `ConfirmDialog`, `EffectDemo`, `TransitionDemo` *(disabled — #163)*, `ContextDemo`, `LazyContextDemo`, `AbortSignalEffectDemo`, `KeyShuffleDemo`, `DepsDemo`, `PortalDemo`.
 
 **Multi-file demos** split one-component-per-file:
 
-- **TransitionDemo:** Root imports `GlobalPatchDemo`, `LocalPatchDemo`, `GlobalVisibilityDemo`, `LocalVisibilityDemo`. Sub-components: `Navigation`, `Clocks` (→ `LiveClock`), `PageStubs`, `VisibilityTarget`.
+- **TransitionDemo:** *(Disabled — `$patch` feature temporarily removed, see #163.)* Root imports `GlobalPatchDemo`, `LocalPatchDemo`, `GlobalVisibilityDemo`, `LocalVisibilityDemo`. Sub-components: `Navigation`, `Clocks` (→ `LiveClock`), `PageStubs`, `VisibilityTarget`.
 - **ContextDemo:** Shared context definitions in `ContextDemo.shared.ts`. Leaf components: `ThemeBadge`, `LocaleBadge`, `BothBadge`, `StatefulConsumer`, `SiblingProvidersDemo`.
 - **LazyContextDemo:** Shared context in `LazyContextDemo.shared.ts`. Consumers: `NoSelectorConsumer`, `SelectorConsumer`, `TransformConsumer`. Shared utility: `RenderBadge`.
 

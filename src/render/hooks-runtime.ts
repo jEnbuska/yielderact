@@ -21,24 +21,20 @@ import {
   $USE_RESOLVE_RAW,
   $USE_SET_CONTEXT,
   $USE_STATE,
-  $USE_UI_PATCH,
   HOOK_TYPES,
   type HookDescriptor,
   type HookType,
 } from "../hooks/descriptors";
 import { depsChanged } from "../hooks/types";
-import { _processEffect } from "../hooks/useEffect";
-import { _processId } from "../hooks/useId";
-import { _processMemo } from "../hooks/useMemo";
-import { _processRef } from "../hooks/useRef";
-import { _processRender } from "../hooks/useRender";
+import { processEffect } from "../hooks/useEffect";
+import { processId } from "../hooks/useId";
+import { processMemo } from "../hooks/useMemo";
+import { processRef } from "../hooks/useRef";
+import { processRender } from "../hooks/useRender";
 import type { ResolveRawResult } from "../hooks/useResolve";
-import { _processResolve, _processResolveRaw } from "../hooks/useResolve";
-import { _createStateSetter, _processState } from "../hooks/useState";
-import { _processUIPatch } from "../hooks/useUIPatch";
-
+import { processResolve, processResolveRaw } from "../hooks/useResolve";
+import { createStateSetter, processState } from "../hooks/useState";
 import { releasePortalDelegation } from "./delegation";
-import { flushPendingVNodes } from "./patch";
 import { RenderCtx } from "./state";
 import type { ComponentInstance, HookState, Slot } from "./types";
 
@@ -106,7 +102,7 @@ export function flushEffects(instance: ComponentInstance): void {
  * Recursively tear down a slot and all its descendants.
  *
  * Calls every cleanup function registered by hooks and removes the
- * instance from `renderCtx.dirtyInstances` and scheduler queues.
+ * instance from the scheduler queue.
  */
 export function unmountSlot(slot: Slot): void {
   for (const child of slot.childSlots) {
@@ -123,16 +119,10 @@ export function unmountSlot(slot: Slot): void {
     for (const fn of slot.instance.cleanupFns) {
       fn?.();
     }
-    // Remove from dirty set so commitUIPatch skips unmounted instances.
-    // localPatchRefCount is intentionally left as-is; the local patch commit()
-    // checks pendingVNode === undefined and skips accordingly.
-    const rctx = resolveCtx(slot.instance.capturedCtx, RenderCtx);
-    rctx.dirtyInstances.delete(slot.instance);
     // Remove from scheduler queue so pending async callbacks (useResolveRaw
     // promise handlers) don't trigger a zombie rerender.
-    for (const [, set] of rctx.pendingUpdates) {
-      set.delete(slot.instance);
-    }
+    const rctx = resolveCtx(slot.instance.capturedCtx, RenderCtx);
+    rctx.pendingUpdates.delete(slot.instance);
   }
   // Portal cleanup: release the ref-counted delegation root.
   if (slot.portalContainer) {
@@ -140,34 +130,8 @@ export function unmountSlot(slot: Slot): void {
   }
 }
 
-/**
- * Collect all descendant `ComponentInstance`s reachable from `instance.slots`
- * via a depth-first traversal.
- *
- * **Called by:** `_processUIPatch` — `useUIPatch`'s `startPatch()` function
- * snapshots all current descendants at the moment the patch begins.
- *
- * @param instance - The root instance whose descendants to collect.
- * @returns A flat array of all descendant `ComponentInstance`s (not including
- *   the root itself).
- */
-function collectDescendants(instance: ComponentInstance): ComponentInstance[] {
-  const result: ComponentInstance[] = [];
-  function walk(slots: Slot[]): void {
-    for (const slot of slots) {
-      if (slot.instance) {
-        result.push(slot.instance);
-        walk(slot.instance.slots);
-      }
-      walk(slot.childSlots);
-    }
-  }
-  walk(instance.slots);
-  return result;
-}
-
 /** Derive the `ResolveRawResult` from the current hook state. */
-function _deriveResolveRawResult(s: HookState | undefined): ResolveRawResult<unknown> {
+function deriveResolveRawResult(s: HookState | undefined): ResolveRawResult<unknown> {
   if (s !== undefined && s.kind === $USE_RESOLVE_RAW) {
     if (s.status === "resolved") return { data: s.data, loading: false, error: undefined };
     if (s.status === "rejected") return { data: undefined, loading: false, error: s.error };
@@ -192,37 +156,37 @@ export function processOneDescriptor(
   descriptor: HookDescriptor,
   hookIndex: number,
   instance: ComponentInstance,
-  ctx: ReadonlyMap<Context<unknown>, unknown>,
+  ctx: ReadonlyMap<Context, unknown>,
 ): unknown {
   const { hookStates, cleanupFns, pendingEffects, rerender, resume } = instance;
   switch (descriptor.type) {
     case $USE_STATE: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_STATE, instance);
-      const state = _processState(descriptor, prev);
+      const state = processState(descriptor, prev);
       hookStates[hookIndex] = state;
-      return [state.value, _createStateSetter(state, rerender)];
+      return [state.value, createStateSetter(state, rerender)];
     }
     case $USE_REF: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_REF, instance);
-      const state = _processRef(descriptor, prev);
+      const state = processRef(descriptor, prev);
       hookStates[hookIndex] = state;
       return state;
     }
     case $USE_ID: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_ID, instance);
-      const state = _processId(prev);
+      const state = processId(prev);
       hookStates[hookIndex] = state;
       return state.id;
     }
     case $USE_MEMO: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_MEMO, instance);
-      const state = _processMemo(descriptor, prev);
+      const state = processMemo(descriptor, prev);
       hookStates[hookIndex] = state;
       return state.value;
     }
     case $USE_EFFECT: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_EFFECT, instance);
-      const { state, isNew } = _processEffect(descriptor, prev);
+      const { state, isNew } = processEffect(descriptor, prev);
       hookStates[hookIndex] = state;
       if (isNew) {
         pendingEffects.push({ hookIndex, fn: descriptor.fn, controller: state.controller });
@@ -243,7 +207,7 @@ export function processOneDescriptor(
     }
     case $USE_RESOLVE_RAW: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_RESOLVE_RAW, instance);
-      const { state, isNew } = _processResolveRaw(descriptor, prev);
+      const { state, isNew } = processResolveRaw(descriptor, prev);
       hookStates[hookIndex] = state;
       if (isNew) {
         descriptor.promise.then(
@@ -271,11 +235,11 @@ export function processOneDescriptor(
           },
         );
       }
-      return _deriveResolveRawResult(hookStates[hookIndex]);
+      return deriveResolveRawResult(hookStates[hookIndex]);
     }
     case $USE_RESOLVE: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_RESOLVE, instance);
-      const { state, isNew } = _processResolve(descriptor, prev);
+      const { state, isNew } = processResolve(descriptor, prev);
       hookStates[hookIndex] = state;
       if (isNew) {
         cleanupFns[hookIndex] = () => state.controller.abort();
@@ -284,15 +248,9 @@ export function processOneDescriptor(
     }
     case $USE_RENDER: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_RENDER, instance);
-      const state = _processRender(descriptor, prev, hookStates, hookIndex, resume);
+      const state = processRender(descriptor, prev, hookStates, hookIndex, resume);
       hookStates[hookIndex] = state;
       return { slot: state, resumeCallback: state.resumeCallback };
-    }
-    case $USE_UI_PATCH: {
-      const prev = getTypedPrev(hookStates, hookIndex, $USE_UI_PATCH, instance);
-      const state = _processUIPatch(prev, instance, collectDescendants, flushPendingVNodes);
-      hookStates[hookIndex] = state;
-      return state.startPatch;
     }
     case $USE_SET_CONTEXT: {
       const prevValue = resolveCtx(instance.capturedCtx, descriptor.ctx);
@@ -328,11 +286,7 @@ export function processOneDescriptor(
  * @param newValue - The new value supplied by the Provider.
  * @returns `true` if no rerender is needed (all selectors stable or context not consumed).
  */
-function _hasStableSelectors(
-  inst: ComponentInstance,
-  ctx: Context<unknown>,
-  newValue: unknown,
-): boolean {
+function hasStableSelectors(inst: ComponentInstance, ctx: Context, newValue: unknown): boolean {
   for (const s of inst.hookStates) {
     if (s === undefined || s.kind !== $USE_CONTEXT) continue;
     if (s.ctx !== ctx) continue;
@@ -350,11 +304,7 @@ function _hasStableSelectors(
  * selectors are not stable under the new value. Stops at inner Providers
  * for the same context.
  */
-export function propagateContextUpdate(
-  ctx: Context<unknown>,
-  newValue: unknown,
-  slots: Slot[],
-): void {
+export function propagateContextUpdate(ctx: Context, newValue: unknown, slots: Slot[]): void {
   for (const slot of slots) {
     const { instance } = slot;
     // Stop at an inner Provider for the same context — it overrides the outer value.
@@ -368,7 +318,7 @@ export function propagateContextUpdate(
       updated.set(ctx, newValue);
       instance.capturedCtx = updated;
 
-      if (instance.consumedContexts.has(ctx) && !_hasStableSelectors(instance, ctx, newValue)) {
+      if (instance.consumedContexts.has(ctx) && !hasStableSelectors(instance, ctx, newValue)) {
         // Re-render this consumer.  rerender() calls reconcileSlots on its
         // children with the updated capturedCtx, so we don't recurse further.
         void instance.rerender();

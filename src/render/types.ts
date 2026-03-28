@@ -7,7 +7,6 @@ import type {
   $USE_RESOLVE,
   $USE_RESOLVE_RAW,
   $USE_STATE,
-  $USE_UI_PATCH,
 } from "../hooks/descriptors";
 import type { ComponentGenerator, DependencyList } from "../hooks/types";
 import type { UseRenderState } from "../hooks/useRender";
@@ -23,9 +22,9 @@ import type { DelegationRoot } from "./delegation";
  * `createRoot()` and preserved through all derived maps. The overloaded
  * `get` returns `RenderContext` directly for `Context<RenderContext>` keys.
  */
-export interface CtxMap extends ReadonlyMap<Context<unknown>, unknown> {
+export interface CtxMap extends ReadonlyMap<Context, unknown> {
   get(key: Context<RenderContext>): RenderContext;
-  get(key: Context<unknown>): unknown | undefined;
+  get(key: Context): unknown | undefined;
 }
 
 // ── Render context ─────────────────────────────────────────────────────────
@@ -43,21 +42,14 @@ export interface CtxMap extends ReadonlyMap<Context<unknown>, unknown> {
  */
 export interface RenderContext {
   // ── From state.ts (persistent per-root) ──
-  patchDepth: number;
-  dirtyInstances: Set<ComponentInstance>;
   isInitialMount: boolean;
 
-  // ── From state.ts (rendering-phase temporary) ──
-  liveOnlyMode: boolean;
-  renderingPriority?: number;
-
-  // ── From patch-queue.ts ──
+  // ── From commit-queue.ts ──
   ops?: (() => void)[];
 
   // ── From scheduler.ts ──
-  pendingUpdates: Map<number, Set<ComponentInstance>>;
+  pendingUpdates: Set<ComponentInstance>;
   isProcessing: boolean;
-  activePriority?: number;
   syncMode: boolean;
 
   // ── From delegation.ts ──
@@ -127,12 +119,6 @@ export interface ResolveHookState {
   controller: AbortController;
 }
 
-/** Persistent state for a `useUIPatch` hook. */
-export interface UIPatchHookState {
-  kind: typeof $USE_UI_PATCH;
-  startPatch: () => () => void;
-}
-
 /**
  * Discriminated union of all possible hook state values.
  *
@@ -149,8 +135,7 @@ export type HookState =
   | UseContextState
   | ResolveRawHookState
   | ResolveHookState
-  | UseRenderState<unknown>
-  | UIPatchHookState;
+  | UseRenderState<unknown>;
 
 /**
  * A **Slot** tracks one reconciled position in the rendered DOM tree.
@@ -255,7 +240,7 @@ export interface ComponentInstance {
    * The component's current props.
    *
    * Written by the reconciler (on prop changes) and read by `executeRerender`
-   * (to create the generator) and `commitOrDefer` (for `shouldDefer` checks).
+   * (to create the generator).
    */
   props: InternalProps;
 
@@ -271,13 +256,11 @@ export interface ComponentInstance {
 
   /**
    * Snapshot of the context map from the component's parent, representing
-   * inherited batch behaviour and ancestor Provider values.
+   * ancestor Provider values.
    *
-   * Does NOT include the component's own `$patch` prop -- that is applied
-   * dynamically via `effectiveCtxMap`. Updated by the reconciler and
-   * `propagateContextUpdate`.
+   * Updated by the reconciler and `propagateContextUpdate`.
    */
-  capturedCtx: ReadonlyMap<Context<unknown>, unknown>;
+  capturedCtx: ReadonlyMap<Context, unknown>;
 
   /**
    * Set of contexts consumed via `useContext` during the last render pass.
@@ -286,10 +269,10 @@ export interface ComponentInstance {
    * cycle. Read by the reconciler and `propagateContextUpdate` to determine
    * whether a context change requires a rerender.
    */
-  consumedContexts: Set<Context<unknown>>;
+  consumedContexts: Set<Context>;
 
   /** Contexts provided via `useSetContext` during the last render. */
-  providedContexts: Set<Context<unknown>>;
+  providedContexts: Set<Context>;
 
   /**
    * Reconciled Slot tree for this component's last rendered output.
@@ -327,29 +310,6 @@ export interface ComponentInstance {
     fn: (signal: AbortSignal) => (() => void) | undefined;
     controller: AbortController;
   }>;
-
-  /**
-   * The VNode produced by the last render that hasn't been committed to the
-   * DOM yet. Set when inside an active UI patch and `shouldDefer` is true.
-   * Cleared by `flushPendingVNodes` on commit or by `commitOrDefer` on
-   * immediate commit.
-   */
-  pendingVNode?: Child;
-
-  /**
-   * Number of active local patches (`useUIPatch`) whose snapshot includes
-   * this instance.
-   *
-   * > 0 means this instance's DOM writes are deferred (similar to global
-   * `patchDepth > 0`, but scoped to a subtree).
-   *
-   * **Incremented by:** `useUIPatch`'s `startPatch()` — for the root
-   *   instance and all its snapshotted descendants.
-   * **Decremented by:** `useUIPatch`'s `commit()` — the returned cleanup function.
-   * **Read by:** `executeRerender` / `resume` — included in the
-   *   `shouldDefer` check: `(patchDepth > 0 || localPatchRefCount > 0)`.
-   */
-  localPatchRefCount: number;
 
   /** True after the initial render has been committed to the DOM. */
   mounted: boolean;

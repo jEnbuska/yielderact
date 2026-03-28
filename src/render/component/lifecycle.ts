@@ -5,31 +5,16 @@
  * rerender, and resume. No dependency on any specific lifecycle function.
  */
 
-import { BatchContext, type Context, PriorityContext, withBatch } from "../../context";
+import type { Context } from "../../context";
 import type { HookDescriptor } from "../../hooks/descriptors";
 import { $USE_EFFECT, $USE_SET_CONTEXT } from "../../hooks/descriptors";
 import type { Child } from "../../jsx";
-import {
-  driveWithContext,
-  getContext,
-  getContextMap,
-  type RenderGenerator,
-  setContext,
-} from "../driver";
+import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "../driver";
 import { flushEffects, isHookDescriptor, processOneDescriptor } from "../hooks-runtime";
 import { reconcileSlotsGen } from "../reconciler";
-import { RenderCtx } from "../state";
-import type { ComponentInstance, RenderContext } from "../types";
+import type { ComponentInstance } from "../types";
 
 // ── Instance helpers ─────────────────────────────────────────────────────
-
-/** Compute the effective context map for a component's children. */
-export function effectiveCtxMap(
-  instance: ComponentInstance,
-): ReadonlyMap<Context<unknown>, unknown> {
-  const { $patch } = instance.props;
-  return $patch ? withBatch(instance.capturedCtx, $patch) : instance.capturedCtx;
-}
 
 /** Validate that the hook count matches across renders. */
 export function validateHookCount(instance: ComponentInstance, hookIndex: number): void {
@@ -70,7 +55,7 @@ export function drainResolvers(instance: ComponentInstance): void {
  */
 export function* processHookDescriptors(
   instance: ComponentInstance,
-  ctx: ReadonlyMap<Context<unknown>, unknown>,
+  ctx: ReadonlyMap<Context, unknown>,
   startIndex: number,
   checkCancel: boolean,
 ): RenderGenerator<{
@@ -88,7 +73,7 @@ export function* processHookDescriptors(
     const descriptor = result.value as HookDescriptor;
     const hookResult = processOneDescriptor(descriptor, hookIndex++, instance, ctx);
     if (descriptor.type === $USE_SET_CONTEXT) {
-      const { ctx, value } = descriptor as { ctx: Context<unknown>; value: unknown };
+      const { ctx, value } = descriptor as { ctx: Context; value: unknown };
       yield* setContext(ctx, () => value);
     }
     if (checkCancel && instance.pendingRerender) {
@@ -104,50 +89,30 @@ export function* processHookDescriptors(
 // ── Commit ───────────────────────────────────────────────────────────────
 
 /**
- * Commit or defer a VNode during a UI patch.
- *
- * When a patch is active and the component is not `$patch="live"`, stores
- * the VNode as `pendingVNode` and runs a live-only reconcile pass.
- * Otherwise commits immediately and flushes effects.
+ * Commit a VNode: reconcile the DOM and flush effects.
  */
-export function* commitOrDefer(instance: ComponentInstance, vnode: Child): RenderGenerator<void> {
+export function* commitRender(instance: ComponentInstance, vnode: Child): RenderGenerator<void> {
   const ctx = yield* getContextMap();
-  const rctx = ctx.get(RenderCtx);
   const parent = instance.endMarker.parentNode as HTMLElement;
-  const batch = yield* getContext(BatchContext);
-  const shouldDefer = (rctx.patchDepth > 0 || instance.localPatchRefCount > 0) && batch !== "live";
 
-  if (shouldDefer) {
-    instance.pendingVNode = vnode;
-    rctx.dirtyInstances.add(instance);
-  } else {
-    instance.pendingVNode = undefined;
-  }
-
-  const { liveOnlyMode: prevLiveOnly } = rctx;
-  if (shouldDefer) rctx.liveOnlyMode = true;
   instance.slots = yield* driveWithContext(
     ctx,
     reconcileSlotsGen(parent, instance.slots, [vnode], instance.endMarker),
   );
-  rctx.liveOnlyMode = prevLiveOnly;
 
-  if (!shouldDefer) flushEffects(instance);
+  flushEffects(instance);
 }
 
 // ── Shared render step ───────────────────────────────────────────────────
 
 /**
- * Run hooks on a fresh component generator, handling priority and cancellation.
+ * Run hooks on a fresh component generator, handling cancellation.
  *
  * Shared setup for `initialComponentRender` and `executeComponentRerender`.
  * Resets instance state, creates the generator, processes hook descriptors,
  * and returns the result.
  */
-export function* runComponentRender(
-  instance: ComponentInstance,
-  rctx: RenderContext,
-): RenderGenerator<{
+export function* runComponentRender(instance: ComponentInstance): RenderGenerator<{
   vnode: Child;
   cancelled: boolean;
 }> {
@@ -156,16 +121,12 @@ export function* runComponentRender(
   instance.consumedContexts.clear();
   instance.providedContexts.clear();
 
-  const ctx = effectiveCtxMap(instance);
+  const ctx = instance.capturedCtx;
   instance.gen = instance.component(instance.props, instance.rerender);
-
-  const { renderingPriority: prevRenderingPriority } = rctx;
-  rctx.renderingPriority = yield* getContext(PriorityContext);
 
   const { hookIndex, result, cancelled } = yield* processHookDescriptors(instance, ctx, 0, true);
 
   instance.isRendering = false;
-  rctx.renderingPriority = prevRenderingPriority;
   instance.resumeHookIndex = hookIndex;
 
   if (!cancelled && result.done) validateHookCount(instance, hookIndex);

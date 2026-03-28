@@ -1,3 +1,5 @@
+// TODO: Restore when $patch is re-implemented (#163)
+/*
 import { commitUIPatch, startUIPatch, useState } from "yract";
 import type { Page } from "../types";
 import { sleep } from "../utils";
@@ -72,3 +74,4 @@ export function* GlobalPatchDemo() {
     </div>
   );
 }
+*/

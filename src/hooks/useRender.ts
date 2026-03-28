@@ -29,7 +29,7 @@ export type UseRenderState<T> = {
 };
 
 // Internal context propagating the resume callback to child components.
-const _resumeCtx = createContext<((value: unknown) => void) | null>(null);
+const resumeCtx = createContext<((value: unknown) => void) | null>(null);
 
 /**
  * Interactive render hook for components.
@@ -104,7 +104,7 @@ export function* useRender<T>(
   };
 
   const isInline = typeof fnOrChild === "function";
-  const resumeEntry = _resumeCtx(resumeCallback as (value: unknown) => void);
+  const resumeEntry = resumeCtx(resumeCallback as (value: unknown) => void);
 
   while (slot.status === "waiting") {
     const rawChild = isInline
@@ -152,7 +152,7 @@ export function* useRender<T>(
  * }
  */
 export function* useResume<T>(): ComponentGenerator<(value: T) => void> {
-  const fn = yield* useContext(_resumeCtx);
+  const fn = yield* useContext(resumeCtx);
   if (fn === null) {
     throw new Error("useResume must be called inside a component rendered by useRender");
   }
@@ -176,7 +176,7 @@ function withContextEntry(child: Child, entry: ContextEntry): Child {
 }
 
 /** @internal */
-export function _processRender(
+export function processRender(
   descriptor: RenderDescriptor,
   prev: UseRenderState<unknown> | undefined,
   hookStates: HookState[],

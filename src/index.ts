@@ -46,7 +46,6 @@ export {
   useResolveRaw,
   useResume,
   useState,
-  useUIPatch,
 } from "./hooks";
 export type {
   Child,
@@ -103,4 +102,4 @@ export type {
   VideoHTMLAttributes,
 } from "./jsx-types";
 export type { Root } from "./render";
-export { commitUIPatch, createRoot, flushSync, render, startUIPatch } from "./render";
+export { createRoot, flushSync, render } from "./render";

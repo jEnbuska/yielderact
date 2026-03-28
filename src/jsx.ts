@@ -30,22 +30,10 @@ export interface FrameworkProps {
   /** When false, the element/component is removed from the DOM. */
   $shown?: boolean;
   /**
-   * Controls DOM-update behaviour during a UI patch.
-   * - `'live'`: updates flush immediately, even during an active patch.
-   * - `'default'` (default): updates are deferred until the patch commits.
-   */
-  $patch?: "live" | "default";
-  /**
-   * Marks this subtree as deferred (lower priority).
+   * Marks this subtree as deferred.
    *
-   * Each `$deferred={true}` encountered increments the inherited priority
-   * level by 1. Priority 0 (default) is processed first, priority 1 next,
-   * etc. During initial mount, priority levels do not apply — the full tree
-   * mounts as one patch. Priority levels apply only to subsequent updates.
-   *
-   * `$deferred` propagates to all descendants via the framework's context
-   * mechanism. It is stripped from the component's props — components never
-   * see `$deferred` in their props object.
+   * Currently a no-op — the deferred rendering model is being redesigned
+   * (see issue #153). The prop is accepted but has no effect.
    */
   $deferred?: boolean;
   /**
@@ -148,9 +136,9 @@ export const RawFragment: unique symbol = Symbol("RawFragment");
  * Fragment component — use instead of a wrapper element when you need to
  * return multiple children.
  *
- * Framework directives (`$context`, `$patch`, `$deferred`) placed on a
- * Fragment work correctly because Fragment is a real component that
- * participates in the normal lifecycle (mount, reconcile, propagate).
+ * Framework directives (`$context`, `$deferred`) placed on a Fragment
+ * work correctly because Fragment is a real component that participates
+ * in the normal lifecycle (mount, reconcile, propagate).
  *
  * @example
  * function* List() {
@@ -172,7 +160,7 @@ export function* Fragment(props: InternalProps): ComponentGenerator<Child> {
  *
  * Portal VNodes render their children into an arbitrary DOM container
  * outside the render root, while maintaining component-tree context
- * (`$context`, `$patch`, `$deferred`).
+ * (`$context`, `$deferred`).
  */
 export const Portal: unique symbol = Symbol("Portal");
 
@@ -270,7 +258,7 @@ declare global {
      * elements and custom components — without needing to be
      * declared in the component's own props type.
      *
-     * Only framework-level props (`key`, `$shown`, `$patch`, `$deferred`,
+     * Only framework-level props (`key`, `$shown`, `$deferred`,
      * `$deps`, `$context`) are universally available. `children` and `ref` must be
      * explicitly declared in a component's props type to be accepted.
      */

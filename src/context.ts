@@ -9,10 +9,10 @@ import { depsChanged } from "./hooks/types";
 /**
  * A context object. Holds only the default value.
  *
- * Internal contexts (like `BatchContext` and `PriorityContext`) use this
+ * Internal contexts use this
  * minimal shape — they are not callable.
  */
-export interface Context<T> {
+export interface Context<T = unknown> {
   readonly defaultValue: T;
 }
 
@@ -49,7 +49,7 @@ export interface PublicContext<T> extends Context<T> {
 /** @internal */
 interface UseContextDescriptor {
   type: typeof $USE_CONTEXT;
-  ctx: Context<unknown>;
+  ctx: Context;
   selector?: (ctx: unknown) => unknown[];
   transform?: (...args: unknown[]) => unknown;
 }
@@ -130,7 +130,7 @@ export function* useContext<T, D extends unknown[], R>(
 ): ComponentGenerator<T | R> {
   const value = yield {
     type: $USE_CONTEXT,
-    ctx: ctx as Context<unknown>,
+    ctx: ctx as Context,
     selector: selector as UseContextDescriptor["selector"],
     transform: transform as UseContextDescriptor["transform"],
   };
@@ -153,7 +153,7 @@ export function* useContext<T, D extends unknown[], R>(
 export type UseContextState = {
   kind: typeof $USE_CONTEXT;
   /** The context object this hook subscribes to. */
-  ctx: Context<unknown>;
+  ctx: Context;
   /** Optional selector function — extracts deps from the context value. */
   selector?: (ctx: unknown) => unknown[];
   /** Optional transform function — computes the returned value from deps. */
@@ -170,7 +170,7 @@ export function processContext(
   prev: UseContextState | undefined,
   rawValue: unknown,
 ): UseContextState {
-  const context = descriptor.ctx as Context<unknown>;
+  const context = descriptor.ctx as Context;
   const selector = descriptor.selector as UseContextDescriptor["selector"];
   const transform = descriptor.transform as UseContextDescriptor["transform"];
 
@@ -205,69 +205,6 @@ export function processContext(
  * Kept for synchronous code that cannot yield (hooks, helpers, scheduler).
  * @internal
  */
-export function resolveCtx<T>(map: ReadonlyMap<Context<unknown>, unknown>, ctx: Context<T>): T {
+export function resolveCtx<T>(map: ReadonlyMap<Context, unknown>, ctx: Context<T>): T {
   return (map.has(ctx) ? map.get(ctx) : ctx.defaultValue) as T;
-}
-
-// ---------------------------------------------------------------------------
-// Internal batch context – propagates `$patch` behaviour through ctxMap
-// ---------------------------------------------------------------------------
-
-/**
- * Internal context for the `$patch` batch behaviour.
- * Used by the renderer to propagate `$patch` through the context map,
- * just like application-level contexts.
- *
- * @internal
- */
-export const BatchContext: Context<"live" | "default"> = {
-  defaultValue: "default",
-};
-
-/**
- * Return a context map with the batch behaviour set to `batch`.
- * If the existing batch already matches, returns the same map (no allocation).
- * @internal
- */
-export function withBatch(
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-  batch: "live" | "default",
-): ReadonlyMap<Context<unknown>, unknown> {
-  if (resolveCtx(ctxMap, BatchContext) === batch) return ctxMap;
-  const newMap = new Map(ctxMap);
-  newMap.set(BatchContext, batch);
-  return newMap;
-}
-
-// ---------------------------------------------------------------------------
-// Internal priority context – propagates `$deferred` priority through ctxMap
-// ---------------------------------------------------------------------------
-
-/**
- * Internal context for the `$deferred` priority level.
- * Used by the renderer to propagate `$deferred` through the context map,
- * just like application-level contexts.
- *
- * The default priority is 0 (highest priority). Each `$deferred={true}`
- * increments the priority by 1.
- *
- * @internal
- */
-export const PriorityContext: Context<number> = {
-  defaultValue: 0,
-};
-
-/**
- * Return a context map with the priority set to `priority`.
- * If the existing priority already matches, returns the same map (no allocation).
- * @internal
- */
-export function withPriority(
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
-  priority: number,
-): ReadonlyMap<Context<unknown>, unknown> {
-  if (resolveCtx(ctxMap, PriorityContext) === priority) return ctxMap;
-  const newMap = new Map(ctxMap);
-  newMap.set(PriorityContext, priority);
-  return newMap;
 }

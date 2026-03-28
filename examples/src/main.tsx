@@ -18,7 +18,9 @@ import { PortalDemo } from "./components/PortalDemo";
 import { ShownDemo } from "./components/ShownDemo";
 import { ThemeDemo } from "./components/ThemeDemo";
 import { TodoList } from "./components/TodoList";
-import { TransitionDemo } from "./components/TransitionDemo";
+
+// TODO: Restore when $patch is re-implemented (#163)
+// import { TransitionDemo } from "./components/TransitionDemo";
 
 type Tab =
   | "counter"
@@ -30,7 +32,7 @@ type Tab =
   | "shown"
   | "confirm"
   | "effect"
-  | "transition"
+  // | "transition" // TODO: Restore when $patch is re-implemented (#163)
   | "context"
   | "lazy-ctx"
   | "abort-signal"
@@ -48,7 +50,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "shown", label: "$shown prop" },
   { id: "confirm", label: "useRender" },
   { id: "effect", label: "useEffect" },
-  { id: "transition", label: "UI Patch" },
+  // { id: "transition", label: "UI Patch" }, // TODO: Restore when $patch is re-implemented (#163)
   { id: "context", label: "Context Scoping" },
   { id: "lazy-ctx", label: "Lazy Context" },
   { id: "abort-signal", label: "AbortSignal Effect" },
@@ -107,7 +109,8 @@ function* App() {
         <ShownDemo $shown={activeTab === "shown"} />
         <ConfirmDialog $shown={activeTab === "confirm"} />
         <EffectDemo $shown={activeTab === "effect"} />
-        <TransitionDemo $shown={activeTab === "transition"} />
+        {/* TODO: Restore when $patch is re-implemented (#163) */}
+        {/* <TransitionDemo $shown={activeTab === "transition"} /> */}
         <ContextDemo $shown={activeTab === "context"} />
         <LazyContextDemo $shown={activeTab === "lazy-ctx"} />
         <AbortSignalEffectDemo $shown={activeTab === "abort-signal"} />

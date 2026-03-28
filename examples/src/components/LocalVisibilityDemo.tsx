@@ -1,3 +1,5 @@
+// TODO: Restore when $patch is re-implemented (#163)
+/*
 import { useRef, useState, useUIPatch } from "yract";
 import { VisibilityTarget } from "./VisibilityTarget";
 
@@ -67,3 +69,4 @@ export function* LocalVisibilityDemo() {
     </div>
   );
 }
+*/
