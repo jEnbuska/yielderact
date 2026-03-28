@@ -19,6 +19,13 @@ import { depsChanged } from "../hooks";
 import { $USE_CONTEXT } from "../hooks/descriptors";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
 import { Portal } from "../jsx";
+import {
+  domAppendChild,
+  domEnqueue,
+  domInsertBefore,
+  domRemoveChild,
+  domSetText,
+} from "./commit-queue";
 import { acquirePortalDelegation } from "./delegation";
 import { drive, getContextMap } from "./driver";
 import {
@@ -35,13 +42,6 @@ import {
 } from "./helpers";
 import { propagateContextUpdate, unmountSlot } from "./hooks-runtime";
 import { buildNode, mountComponent } from "./mount";
-import {
-  domAppendChild,
-  domEnqueue,
-  domInsertBefore,
-  domRemoveChild,
-  domSetText,
-} from "./patch-queue";
 import { applyProps, updateProps } from "./props";
 import { RenderCtx } from "./state";
 import type { ComponentInstance, Slot } from "./types";
@@ -54,7 +54,7 @@ import type { ComponentInstance, Slot } from "./types";
  */
 function runToCompletion<T>(
   gen: Generator<unknown, T, unknown>,
-  ctxMap: ReadonlyMap<Context<unknown>, unknown>,
+  ctxMap: ReadonlyMap<Context, unknown>,
 ): T {
   return drive(ctxMap, gen).value;
 }
@@ -490,7 +490,7 @@ function* reconcileComponent(
         for (const ctx of instance.consumedContexts) {
           const currentVal = resolveCtx(childCtxMap, ctx);
           if (!Object.is(currentVal, resolveCtx(instance.capturedCtx, ctx))) {
-            if (!_hasStableContextSelectors(instance, ctx, currentVal)) {
+            if (!hasStableContextSelectors(instance, ctx, currentVal)) {
               contextChanged = true;
               break;
             }
@@ -695,9 +695,9 @@ function* reconcilePortal(
  *
  * **Called by:** the props-unchanged path in `reconcileComponent`.
  */
-function _hasStableContextSelectors(
+function hasStableContextSelectors(
   inst: ComponentInstance,
-  ctx: Context<unknown>,
+  ctx: Context,
   newValue: unknown,
 ): boolean {
   for (const s of inst.hookStates) {

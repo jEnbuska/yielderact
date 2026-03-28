@@ -6,7 +6,7 @@ import type { RenderContext } from "./types";
 // This is a plain context key
 // stored in the ctxMap so that generators can access the render context
 // via `yield* getContextMap()` + `resolveCtx(ctxMap, RenderCtx)`
-// instead of relying on the module-level `_activeCtx` pointer.
+// instead of relying on the module-level `activeRenderCtx` pointer.
 //
 // It has no Provider component — the render entry points set it directly
 // in the initial ctxMap passed to `drive()`.
@@ -44,42 +44,44 @@ export function createRenderContext(): RenderContext {
 //
 // Generator code (mount.ts, reconciler.ts) accesses the RenderContext via
 // the ctxMap (`resolveCtx(ctxMap, RenderCtx)`). This module-level
-// pointer exists solely for synchronous leaf functions (patch-queue.ts,
+// pointer exists solely for synchronous leaf functions (commit-queue.ts,
 // props.ts, patch.ts) that cannot yield into the driver to read the ctxMap.
 //
-// `drive()` sets `_activeCtx` from the ctxMap at the start of each call,
+// `drive()` sets `activeRenderCtx` from the ctxMap at the start of each call,
 // so the value is always fresh during generator execution.
 
-let _activeCtx: RenderContext | undefined;
+let activeRenderCtx: RenderContext | undefined;
 
 /**
  * Return the currently active render context.
  *
  * **Precondition:** Must only be called while a rendering operation is in
- * progress (i.e. `setActiveCtx` was called with a defined context).
+ * progress (i.e. `setActiveRenderCtx` was called with a defined context).
  * @internal
  */
-export function requireActiveCtx(): RenderContext {
-  if (!_activeCtx) {
-    throw new Error("No active render context — requireActiveCtx called outside a render pass");
+export function requireActiveRenderCtx(): RenderContext {
+  if (!activeRenderCtx) {
+    throw new Error(
+      "No active render context — requireActiveRenderCtx called outside a render pass",
+    );
   }
-  return _activeCtx;
+  return activeRenderCtx;
 }
 
 /**
  * Set (or clear) the active render context.
  *
  * Used by synchronous leaf code that cannot access the ctxMap via the
- * generator driver (patch-queue, props, patch, scheduler, dispatch).
+ * generator driver (commit-queue, props, patch, scheduler, dispatch).
  *
  * **Called by:**
  * - `drive()` in `driver.ts` — reads `RenderCtx` from the ctxMap and sets
- *   `_activeCtx` so synchronous helpers invoked during generation have access.
+ *   `activeRenderCtx` so synchronous helpers invoked during generation have access.
  * - `scheduleUpdate` / `_runLoop` in `scheduler.ts` — before processing work.
  * - `_yieldToBrowser` in `scheduler.ts` — on resume after yield.
  * - `dispatchDelegatedEvent` in `dispatch.ts` — before dispatching events.
  * @internal
  */
-export function setActiveCtx(ctx: RenderContext | undefined): void {
-  _activeCtx = ctx;
+export function setActiveRenderCtx(ctx: RenderContext | undefined): void {
+  activeRenderCtx = ctx;
 }

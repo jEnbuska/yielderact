@@ -27,8 +27,8 @@ export function render(vnode: VNode, container: Element): void {
   rctx.delegationRoot = new DelegationRoot(container, (nativeEvent, domEvent) =>
     dispatchDelegatedEvent(nativeEvent, container, domEvent, rctx),
   );
-  const initialMap: Map<Context<unknown>, unknown> = new Map();
-  initialMap.set(RenderCtx as Context<unknown>, rctx);
+  const initialMap: Map<Context, unknown> = new Map();
+  initialMap.set(RenderCtx as Context, rctx);
   rctx.isInitialMount = true;
   try {
     container.appendChild(drive(initialMap, buildNode(vnode)).value);
@@ -65,8 +65,8 @@ export function createRoot(container: Element): Root {
   );
   return {
     render(vnode: VNode): void {
-      const initialMap: Map<Context<unknown>, unknown> = new Map();
-      initialMap.set(RenderCtx as Context<unknown>, rctx);
+      const initialMap: Map<Context, unknown> = new Map();
+      initialMap.set(RenderCtx as Context, rctx);
       rctx.isInitialMount = true;
       try {
         container.appendChild(drive(initialMap, buildNode(vnode)).value);

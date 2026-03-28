@@ -55,7 +55,7 @@ export function drainResolvers(instance: ComponentInstance): void {
  */
 export function* processHookDescriptors(
   instance: ComponentInstance,
-  ctx: ReadonlyMap<Context<unknown>, unknown>,
+  ctx: ReadonlyMap<Context, unknown>,
   startIndex: number,
   checkCancel: boolean,
 ): RenderGenerator<{
@@ -73,7 +73,7 @@ export function* processHookDescriptors(
     const descriptor = result.value as HookDescriptor;
     const hookResult = processOneDescriptor(descriptor, hookIndex++, instance, ctx);
     if (descriptor.type === $USE_SET_CONTEXT) {
-      const { ctx, value } = descriptor as { ctx: Context<unknown>; value: unknown };
+      const { ctx, value } = descriptor as { ctx: Context; value: unknown };
       yield* setContext(ctx, () => value);
     }
     if (checkCancel && instance.pendingRerender) {

@@ -5,7 +5,7 @@
  * to a single pending set.
  *
  * The scheduler processes all pending work in a single
- * `beginPatch()`/`commitPatch()` cycle so DOM mutations are applied
+ * `beginBatch()`/`commitBatch()` cycle so DOM mutations are applied
  * atomically.
  *
  * **Time-slicing (async mode):** The scheduler yields to the browser
@@ -16,12 +16,12 @@
  */
 
 import { resolveCtx } from "../context";
-import { beginPatch, commitPatch } from "./patch-queue";
-import { RenderCtx, requireActiveCtx, setActiveCtx } from "./state";
+import { beginBatch, commitBatch } from "./commit-queue";
+import { RenderCtx, requireActiveRenderCtx, setActiveRenderCtx } from "./state";
 import type { ComponentInstance, RenderContext } from "./types";
 
 /** Time budget per work chunk in milliseconds. */
-const _timeSlice = 5;
+const timeSlice = 5;
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
@@ -40,8 +40,8 @@ export function scheduleUpdate(instance: ComponentInstance): void {
 
   if (!rctx.isProcessing) {
     rctx.isProcessing = true;
-    setActiveCtx(rctx);
-    _runLoop(rctx);
+    setActiveRenderCtx(rctx);
+    runLoop(rctx);
   }
 }
 
@@ -56,7 +56,7 @@ export function scheduleUpdate(instance: ComponentInstance): void {
  * are batched into a single processing pass.
  */
 export function flushSync(fn?: () => void): void {
-  const rctx = requireActiveCtx();
+  const rctx = requireActiveRenderCtx();
   const { syncMode: prevSync } = rctx;
   rctx.syncMode = true;
 
@@ -73,7 +73,7 @@ export function flushSync(fn?: () => void): void {
 
   if (!rctx.isProcessing && rctx.pendingUpdates.size > 0) {
     rctx.isProcessing = true;
-    _runLoop(rctx);
+    runLoop(rctx);
   }
 
   rctx.syncMode = prevSync;
@@ -90,11 +90,11 @@ export function flushSync(fn?: () => void): void {
  *
  * @internal
  */
-export function _flushPendingWork(rctx: RenderContext): void {
+export function flushPendingWork(rctx: RenderContext): void {
   if (rctx.pendingUpdates.size > 0) {
-    setActiveCtx(rctx);
+    setActiveRenderCtx(rctx);
     rctx.isProcessing = true;
-    _runLoop(rctx);
+    runLoop(rctx);
   }
 }
 
@@ -102,16 +102,16 @@ export function _flushPendingWork(rctx: RenderContext): void {
 
 /**
  * The main work loop. Processes all pending instances in a single
- * `beginPatch()`/`commitPatch()` cycle for atomic DOM commits.
+ * `beginBatch()`/`commitBatch()` cycle for atomic DOM commits.
  *
  * Handles:
  * - Resume after yield (continues partially-processed set).
  * - Time-slicing (yields to browser in async mode).
  */
-function _runLoop(rctx: RenderContext): void {
-  const deadline = performance.now() + _timeSlice;
+function runLoop(rctx: RenderContext): void {
+  const deadline = performance.now() + timeSlice;
 
-  beginPatch();
+  beginBatch();
 
   while (rctx.pendingUpdates.size > 0) {
     // SAFETY: size > 0 guarantees .next().value is defined
@@ -122,14 +122,14 @@ function _runLoop(rctx: RenderContext): void {
 
     // Time-slicing (async mode only): yield to browser if deadline exceeded.
     if (!rctx.syncMode && rctx.pendingUpdates.size > 0 && performance.now() >= deadline) {
-      commitPatch();
-      _yieldToBrowser(rctx);
-      return; // exit — the MessageChannel callback resumes via _runLoop
+      commitBatch();
+      yieldToBrowser(rctx);
+      return; // exit — the MessageChannel callback resumes via runLoop
     }
   }
 
   // All instances processed — commit the batch.
-  commitPatch();
+  commitBatch();
   rctx.isProcessing = false;
 }
 
@@ -139,19 +139,19 @@ function _runLoop(rctx: RenderContext): void {
  * Uses `MessageChannel` for minimal-latency scheduling (same technique
  * as React's scheduler).
  */
-function _yieldToBrowser(rctx: RenderContext): void {
+function yieldToBrowser(rctx: RenderContext): void {
   if (typeof MessageChannel !== "undefined") {
     const mc = new MessageChannel();
     mc.port1.onmessage = () => {
-      setActiveCtx(rctx);
-      _runLoop(rctx);
+      setActiveRenderCtx(rctx);
+      runLoop(rctx);
     };
     mc.port2.postMessage(null);
   } else {
     // Fallback for environments without MessageChannel.
     setTimeout(() => {
-      setActiveCtx(rctx);
-      _runLoop(rctx);
+      setActiveRenderCtx(rctx);
+      runLoop(rctx);
     }, 0);
   }
 }

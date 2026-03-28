@@ -49,7 +49,7 @@ export function* useRef<T>(initialValue?: T): ComponentGenerator<RefObject<T | u
 }
 
 /** @internal */
-export function _processRef(descriptor: RefDescriptor, prev?: RefHookState): RefHookState {
+export function processRef(descriptor: RefDescriptor, prev?: RefHookState): RefHookState {
   if (prev !== undefined) return prev;
   return { kind: $USE_REF, current: descriptor.initialValue };
 }

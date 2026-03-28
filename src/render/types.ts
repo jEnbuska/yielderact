@@ -22,9 +22,9 @@ import type { DelegationRoot } from "./delegation";
  * `createRoot()` and preserved through all derived maps. The overloaded
  * `get` returns `RenderContext` directly for `Context<RenderContext>` keys.
  */
-export interface CtxMap extends ReadonlyMap<Context<unknown>, unknown> {
+export interface CtxMap extends ReadonlyMap<Context, unknown> {
   get(key: Context<RenderContext>): RenderContext;
-  get(key: Context<unknown>): unknown | undefined;
+  get(key: Context): unknown | undefined;
 }
 
 // ── Render context ─────────────────────────────────────────────────────────
@@ -44,7 +44,7 @@ export interface RenderContext {
   // ── From state.ts (persistent per-root) ──
   isInitialMount: boolean;
 
-  // ── From patch-queue.ts ──
+  // ── From commit-queue.ts ──
   ops?: (() => void)[];
 
   // ── From scheduler.ts ──
@@ -260,7 +260,7 @@ export interface ComponentInstance {
    *
    * Updated by the reconciler and `propagateContextUpdate`.
    */
-  capturedCtx: ReadonlyMap<Context<unknown>, unknown>;
+  capturedCtx: ReadonlyMap<Context, unknown>;
 
   /**
    * Set of contexts consumed via `useContext` during the last render pass.
@@ -269,10 +269,10 @@ export interface ComponentInstance {
    * cycle. Read by the reconciler and `propagateContextUpdate` to determine
    * whether a context change requires a rerender.
    */
-  consumedContexts: Set<Context<unknown>>;
+  consumedContexts: Set<Context>;
 
   /** Contexts provided via `useSetContext` during the last render. */
-  providedContexts: Set<Context<unknown>>;
+  providedContexts: Set<Context>;
 
   /**
    * Reconciled Slot tree for this component's last rendered output.

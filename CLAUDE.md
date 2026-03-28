@@ -122,7 +122,7 @@ function* Counter(_props: object) {
 | `render/helpers.ts`       | Type guards, shallow equality, props merging, `flattenChildren`         |
 | `render/props.ts`         | `applyProps`, `updateProps`                                             |
 | `render/scheduler.ts`     | Cooperative scheduler                                                   |
-| `render/patch-queue.ts`   | Atomic DOM commit queue                                                 |
+| `render/commit-queue.ts`  | Atomic DOM commit queue                                                 |
 | `render/patch.ts`         | Placeholder — `$patch` feature temporarily removed (#163)               |
 | `render/delegation.ts`    | Handler registry, `DelegationRoot`, prop→event mapping                  |
 | `render/dispatch.ts`      | Delegated event dispatch (capture→bubble phases)                        |

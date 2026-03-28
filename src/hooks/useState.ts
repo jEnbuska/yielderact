@@ -38,7 +38,7 @@ export function* useState<T>(
 }
 
 /** @internal */
-export function _processState(descriptor: StateDescriptor, prev?: StateHookState): StateHookState {
+export function processState(descriptor: StateDescriptor, prev?: StateHookState): StateHookState {
   if (prev !== undefined) return prev;
   return {
     kind: $USE_STATE,
@@ -50,7 +50,7 @@ export function _processState(descriptor: StateDescriptor, prev?: StateHookState
 }
 
 /** @internal */
-export function _createStateSetter(
+export function createStateSetter(
   state: StateHookState,
   rerender: () => Promise<void>,
 ): (newValue: unknown) => Promise<void> {

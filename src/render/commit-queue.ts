@@ -1,5 +1,5 @@
 /**
- * patch-queue.ts — Collects DOM operations during reconciliation for atomic commit.
+ * commit-queue.ts — Collects DOM operations during reconciliation for atomic commit.
  *
  * During a render pass, all mutations to the **live** DOM are collected into a
  * queue instead of being applied immediately. After reconciliation completes
@@ -13,17 +13,17 @@
  * - `reconcileSlotsGen` / `reconcileOneGen` in `reconciler.ts` — DOM inserts,
  *   removes, text updates, prop updates.
  * - `removeSlotNodes` in `reconciler.ts` — DOM removals.
- * - The scheduler — `beginPatch()` before a priority pass, `commitPatch()`
+ * - The scheduler — `beginBatch()` before a priority pass, `commitBatch()`
  *   after reconciliation completes for that priority level.
  */
 
-import { requireActiveCtx } from "./state";
+import { requireActiveRenderCtx } from "./state";
 
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /** Begin collecting DOM operations for a new priority pass. */
-export function beginPatch(): void {
-  requireActiveCtx().ops = [];
+export function beginBatch(): void {
+  requireActiveRenderCtx().ops = [];
 }
 
 /**
@@ -32,10 +32,10 @@ export function beginPatch(): void {
  * The commit is a plain `for` loop — synchronous and uninterruptible — so the
  * browser never paints an intermediate visual state.
  *
- * Resets the queue to `undefined` (no active patch) after committing.
+ * Resets the queue to `undefined` (no active commit) after committing.
  */
-export function commitPatch(): void {
-  const ctx = requireActiveCtx();
+export function commitBatch(): void {
+  const ctx = requireActiveRenderCtx();
   if (!ctx.ops) return;
   const { ops } = ctx;
   ctx.ops = undefined;
@@ -44,13 +44,13 @@ export function commitPatch(): void {
 
 // ── DOM operation wrappers ───────────────────────────────────────────────────
 //
-// Each wrapper checks whether a patch is active AND the target node is
+// Each wrapper checks whether a commit is active AND the target node is
 // connected to the document (live DOM). If both conditions hold, the operation
 // is enqueued for later commit. Otherwise it executes immediately.
 
 /**
  * Wrapper for `parent.insertBefore(node, ref)`.
- * Defers insertion when the parent is in the live DOM and a patch is active.
+ * Defers insertion when the parent is in the live DOM and a commit is active.
  */
 export function domInsertBefore(
   parent: Node,
@@ -67,7 +67,7 @@ export function domInsertBefore(
 
 /**
  * Wrapper for `parent.appendChild(node)`.
- * Defers when the parent is in the live DOM and a patch is active.
+ * Defers when the parent is in the live DOM and a commit is active.
  */
 export function domAppendChild(parent: Node, node: Node, ops: (() => void)[] | undefined): void {
   if (!ops || !parent.isConnected) {
@@ -79,7 +79,7 @@ export function domAppendChild(parent: Node, node: Node, ops: (() => void)[] | u
 
 /**
  * Wrapper for `parent.removeChild(node)`.
- * Defers when the node is in the live DOM and a patch is active.
+ * Defers when the node is in the live DOM and a commit is active.
  * Includes a safety check at commit time in case the node was already removed.
  */
 export function domRemoveChild(parent: Node, node: Node, ops: (() => void)[] | undefined): void {
@@ -94,7 +94,7 @@ export function domRemoveChild(parent: Node, node: Node, ops: (() => void)[] | u
 
 /**
  * Wrapper for setting `textNode.textContent`.
- * Defers when the text node is in the live DOM and a patch is active.
+ * Defers when the text node is in the live DOM and a commit is active.
  */
 export function domSetText(node: Text, text: string, ops: (() => void)[] | undefined): void {
   if (!ops || !node.isConnected) {
@@ -108,7 +108,7 @@ export function domSetText(node: Text, text: string, ops: (() => void)[] | undef
 
 /**
  * Enqueue an arbitrary DOM operation.
- * If a patch is active, the operation is deferred. Otherwise it runs immediately.
+ * If a commit is active, the operation is deferred. Otherwise it runs immediately.
  *
  * Use this for operations that don't fit the specific wrappers above
  * (e.g., `updateProps` on a live element).
@@ -116,7 +116,7 @@ export function domSetText(node: Text, text: string, ops: (() => void)[] | undef
  * @param op       - The DOM operation to enqueue.
  * @param liveNode - A node used to check connectivity. If connected, the op
  *                   is deferred. If not connected (or omitted), the op runs now.
- * @param ops      - The current patch ops queue, or `undefined` if no patch is active.
+ * @param ops      - The current commit ops queue, or `undefined` if no commit is active.
  */
 export function domEnqueue(
   op: () => void,

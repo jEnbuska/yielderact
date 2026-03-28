@@ -41,7 +41,7 @@ export function* useEffect(
 }
 
 /** @internal */
-export function _processEffect(
+export function processEffect(
   descriptor: EffectDescriptor,
   prev?: EffectHookState,
 ): { state: EffectHookState; isNew: boolean } {

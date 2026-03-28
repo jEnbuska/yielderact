@@ -89,7 +89,7 @@ export interface EffectDescriptor {
 /** @internal */
 export interface ContextDescriptor {
   type: typeof $USE_CONTEXT;
-  ctx: Context<unknown>;
+  ctx: Context;
   selector?: (ctx: unknown) => unknown[];
   transform?: (...args: unknown[]) => unknown;
 }
@@ -112,7 +112,7 @@ export interface ResolveRawDescriptor {
 /** @internal */
 export interface SetContextDescriptor {
   type: typeof $USE_SET_CONTEXT;
-  ctx: Context<unknown>;
+  ctx: Context;
   value: unknown;
 }
 

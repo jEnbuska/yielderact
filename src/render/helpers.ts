@@ -66,11 +66,11 @@ export function mergedProps(vnode: VNode): InternalProps {
  * is already the same. Returns the original map if nothing changed.
  */
 function withContextEntries(
-  map: ReadonlyMap<Context<unknown>, unknown>,
+  map: ReadonlyMap<Context, unknown>,
   ctxProp: ContextEntry | ContextEntry[],
-): ReadonlyMap<Context<unknown>, unknown> {
+): ReadonlyMap<Context, unknown> {
   const entries = Array.isArray(ctxProp) ? ctxProp : [ctxProp];
-  let newMap: Map<Context<unknown>, unknown> | undefined;
+  let newMap: Map<Context, unknown> | undefined;
   for (const entry of entries) {
     if (!Object.is(resolveCtx(newMap ?? map, entry.ctx), entry.value)) {
       if (!newMap) newMap = new Map(map);
@@ -87,9 +87,9 @@ function withContextEntries(
  * Returns the parent map unchanged if no directive is set.
  */
 export function childContextMap(
-  parentMap: ReadonlyMap<Context<unknown>, unknown>,
+  parentMap: ReadonlyMap<Context, unknown>,
   props: SpecialProps,
-): ReadonlyMap<Context<unknown>, unknown> {
+): ReadonlyMap<Context, unknown> {
   if (props.$context) return withContextEntries(parentMap, props.$context);
   return parentMap;
 }
