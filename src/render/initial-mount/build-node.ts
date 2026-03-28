@@ -13,10 +13,11 @@
  */
 
 import type { ContextEntry } from "../../context";
+import type { InternalProps } from "../../jsx";
 import { type Child, Portal, RawFragment } from "../../jsx";
 import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "../driver";
 import { InvalidChildError } from "../errors";
-import { isComponentNode, propsWithChildren, stripFrameworkDirectives } from "../helpers";
+import { isComponentNode } from "../helpers";
 import { applyProps } from "../props";
 import { mountComponent } from "./mount-component";
 
@@ -40,7 +41,7 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   if (!child.type) {
     throw new InvalidChildError(child);
   }
-  const { $shown, $context } = child.props;
+  const { $shown, $context, $deferred, $deps, ...props } = child.props;
   if ($shown === false) return document.createTextNode("");
   if ($context) {
     const entries: ContextEntry[] = Array.isArray($context) ? $context : [$context];
@@ -68,7 +69,8 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   }
 
   if (isComponentNode(child)) {
-    const allProps = stripFrameworkDirectives(propsWithChildren(child));
+    const allProps: InternalProps =
+      child.children.length > 0 ? { ...props, children: child.children } : props;
     return (yield* mountComponent(child.type, allProps)).fragment;
   }
 
