@@ -11,7 +11,7 @@
 import type { Child, Component, InternalProps, VNode } from "../../jsx";
 import { Portal } from "../../jsx";
 import { acquirePortalDelegation } from "../delegation";
-import { drive, getContextMap, type RenderGenerator } from "../driver";
+import { driveWithContext, getContextMap, type RenderGenerator } from "../driver";
 import {
   childContextMap,
   contextEntries,
@@ -100,7 +100,7 @@ function* buildOneSlot(nextChild: Child): RenderGenerator<{ slot: Slot; node: No
   }
 
   // Fallback (Fragment or unknown)
-  const node = drive(ctxMap, buildNode(nextChild)).value;
+  const node = yield* driveWithContext(ctxMap, buildNode(nextChild));
   return { slot: { type: nextChild.type, node, props: {}, childSlots: [] }, node };
 }
 
@@ -114,10 +114,10 @@ function* buildComponentSlot(
   const slotProps = stripDeferred(allPropsRaw);
   const childCtxMap = childContextMap(ctxMap, allPropsRaw);
 
-  const { fragment, instance } = drive(
+  const { fragment, instance } = yield* driveWithContext(
     childCtxMap,
     mountComponent(vnode.type, componentProps),
-  ).value;
+  );
   const entries = contextEntries(allPropsRaw.$context);
   for (const entry of entries) {
     instance.providedContexts.add(entry.ctx);
@@ -143,7 +143,10 @@ function* buildElementSlot(vnode: VNode<string>): RenderGenerator<{ slot: Slot; 
   applyProps(el, vnode.props);
   const childSlots: Slot[] = [];
   for (const child of flattenChildren(vnode.children)) {
-    const { slot: childSlot, node: childNode } = drive(childCtxMap, buildOneSlot(child)).value;
+    const { slot: childSlot, node: childNode } = yield* driveWithContext(
+      childCtxMap,
+      buildOneSlot(child),
+    );
     childSlots.push(childSlot);
     el.appendChild(childNode);
   }
@@ -170,7 +173,7 @@ function* buildPortalSlot(vnode: VNode): RenderGenerator<{ slot: Slot; node: Nod
   const childSlots: Slot[] = [];
   try {
     for (const child of flattenChildren(vnode.children)) {
-      const { slot, node } = drive(ctxMap, buildOneSlot(child)).value;
+      const { slot, node } = yield* driveWithContext(ctxMap, buildOneSlot(child));
       childSlots.push(slot);
       portalContainer.insertBefore(node, endMarker);
     }
