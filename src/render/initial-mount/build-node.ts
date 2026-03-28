@@ -49,7 +49,6 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
     }
   }
 
-  const effectiveProps = isComponentNode(child) ? mergedProps(child) : child.props;
   const map = yield* getContextMap();
 
   if (child.type === Portal) {
@@ -69,7 +68,7 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   }
 
   if (isComponentNode(child)) {
-    const allProps = stripFrameworkDirectives(effectiveProps);
+    const allProps = stripFrameworkDirectives(mergedProps(child));
     return (yield* mountComponent(child.type, allProps)).fragment;
   }
 
