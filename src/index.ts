@@ -103,3 +103,4 @@ export type {
 } from "./jsx-types";
 export type { Root } from "./render";
 export { createRoot, flushSync, render } from "./render";
+export { SetStateDuringRenderError } from "./render/errors";

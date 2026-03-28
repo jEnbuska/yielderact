@@ -7,11 +7,12 @@
 
 import type { Context } from "../../context";
 import type { HookDescriptor } from "../../hooks/descriptors";
-import { $USE_EFFECT, $USE_SET_CONTEXT } from "../../hooks/descriptors";
+import { $USE_SET_CONTEXT } from "../../hooks/descriptors";
 import type { Child } from "../../jsx";
 import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "../driver";
 import { flushEffects, isHookDescriptor, processOneDescriptor } from "../hooks-runtime";
 import { reconcileSlotsGen } from "../reconciler";
+import { RenderCtx } from "../state";
 import type { ComponentInstance } from "../types";
 
 // ── Instance helpers ─────────────────────────────────────────────────────
@@ -27,23 +28,6 @@ export function validateHookCount(instance: ComponentInstance, hookIndex: number
   instance.finalHookCount = hookIndex;
 }
 
-/** Revert pending effect deps after a mid-render cancellation. */
-export function revertPendingEffects(instance: ComponentInstance): void {
-  for (const pe of instance.pendingEffects) {
-    const state = instance.hookStates[pe.hookIndex];
-    if (state !== undefined && state.kind === $USE_EFFECT) {
-      state.deps = [];
-    }
-  }
-  instance.pendingRerender = false;
-}
-
-/** Drain and resolve all queued setState promise resolvers. */
-export function drainResolvers(instance: ComponentInstance): void {
-  const resolvers = instance.renderResolvers.splice(0);
-  for (const resolve of resolvers) resolve();
-}
-
 // ── Hook processing ──────────────────────────────────────────────────────
 
 /**
@@ -57,17 +41,14 @@ export function* processHookDescriptors(
   instance: ComponentInstance,
   ctx: ReadonlyMap<Context, unknown>,
   startIndex: number,
-  checkCancel: boolean,
 ): RenderGenerator<{
   hookIndex: number;
   result: IteratorResult<unknown, Child>;
-  cancelled: boolean;
 }> {
   const { gen } = instance;
   if (!gen) throw new Error("processHookDescriptors called without an active generator");
   let hookIndex = startIndex;
   let result = gen.next();
-  let cancelled = false;
 
   while (!result.done && isHookDescriptor(result.value)) {
     const descriptor = result.value as HookDescriptor;
@@ -76,14 +57,10 @@ export function* processHookDescriptors(
       const { ctx, value } = descriptor as { ctx: Context; value: unknown };
       yield* setContext(ctx, () => value);
     }
-    if (checkCancel && instance.pendingRerender) {
-      cancelled = true;
-      break;
-    }
     result = gen.next(hookResult);
   }
 
-  return { hookIndex, result, cancelled };
+  return { hookIndex, result };
 }
 
 // ── Commit ───────────────────────────────────────────────────────────────
@@ -106,17 +83,15 @@ export function* commitRender(instance: ComponentInstance, vnode: Child): Render
 // ── Shared render step ───────────────────────────────────────────────────
 
 /**
- * Run hooks on a fresh component generator, handling cancellation.
+ * Run hooks on a fresh component generator.
  *
  * Shared setup for `initialComponentRender` and `executeComponentRerender`.
  * Resets instance state, creates the generator, processes hook descriptors,
- * and returns the result.
+ * and returns the resulting VNode.
  */
-export function* runComponentRender(instance: ComponentInstance): RenderGenerator<{
-  vnode: Child;
-  cancelled: boolean;
-}> {
-  instance.isRendering = true;
+export function* runComponentRender(instance: ComponentInstance): RenderGenerator<Child> {
+  const rctx = (yield* getContextMap()).get(RenderCtx);
+  rctx.renderingInstance = instance;
   instance.pendingEffects.length = 0;
   instance.consumedContexts.clear();
   instance.providedContexts.clear();
@@ -124,15 +99,13 @@ export function* runComponentRender(instance: ComponentInstance): RenderGenerato
   const ctx = instance.capturedCtx;
   instance.gen = instance.component(instance.props, instance.rerender);
 
-  const { hookIndex, result, cancelled } = yield* processHookDescriptors(instance, ctx, 0, true);
+  const { hookIndex, result } = yield* processHookDescriptors(instance, ctx, 0);
 
-  instance.isRendering = false;
+  rctx.renderingInstance = undefined;
   instance.resumeHookIndex = hookIndex;
 
-  if (!cancelled && result.done) validateHookCount(instance, hookIndex);
+  if (result.done) validateHookCount(instance, hookIndex);
+  if (result.done) instance.gen = undefined;
 
-  const vnode: Child = cancelled ? null : ((result.value as Child) ?? null);
-  if (cancelled || result.done) instance.gen = undefined;
-
-  return { vnode, cancelled };
+  return (result.value as Child) ?? null;
 }
