@@ -291,30 +291,32 @@ export function* reconcileSlotsGen(
     const { slot, node, replaced } = yield* reconcileOneGen(prevSlot, flatNext[i]);
     nextSlots.push(slot);
 
-    if (replaced) {
-      if (prevSlot) {
-        // Grab the insertion reference BEFORE removing the old nodes.
-        // For component slots, slot.node is the endMarker — its nextSibling
-        // is the first node after this component's region.
-        const insertRef = prevSlot.node.parentNode === parent ? prevSlot.node.nextSibling : null;
-        unmountSlot(prevSlot);
-        removeSlotNodes(parent, prevSlot, rctx.ops);
-        // Insert the new node at the old slot's position.
-        domInsertBefore(parent, node, insertRef, rctx.ops);
-      } else if (beforeAnchor !== undefined) {
-        // No previous slot at this position — insert before the anchor.
-        domInsertBefore(parent, node, beforeAnchor, rctx.ops);
+    if (!replaced) {
+      yield;
+      continue;
+    }
+
+    if (prevSlot) {
+      // Grab the insertion reference BEFORE removing the old nodes.
+      // For component slots, slot.node is the endMarker — its nextSibling
+      // is the first node after this component's region.
+      const insertRef = prevSlot.node.parentNode === parent ? prevSlot.node.nextSibling : null;
+      unmountSlot(prevSlot);
+      removeSlotNodes(parent, prevSlot, rctx.ops);
+      // Insert the new node at the old slot's position.
+      domInsertBefore(parent, node, insertRef, rctx.ops);
+    } else if (beforeAnchor !== undefined) {
+      // No previous slot at this position — insert before the anchor.
+      domInsertBefore(parent, node, beforeAnchor, rctx.ops);
+    } else {
+      // No previous slot and no anchor — use positional fallback.
+      const ref = parent.childNodes[i] ?? null;
+      if (ref) {
+        domInsertBefore(parent, node, ref, rctx.ops);
       } else {
-        // No previous slot and no anchor — use positional fallback.
-        const ref = parent.childNodes[i] ?? null;
-        if (ref) {
-          domInsertBefore(parent, node, ref, rctx.ops);
-        } else {
-          domAppendChild(parent, node, rctx.ops);
-        }
+        domAppendChild(parent, node, rctx.ops);
       }
     }
-    // If not replaced, the existing node is already in the correct place.
     yield;
   }
 

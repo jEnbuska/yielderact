@@ -19,8 +19,8 @@ import {
   type RenderGenerator,
 } from "../driver";
 import { flushEffects } from "../hooks-runtime";
-import { reconcileSlotsGen } from "../reconciler";
 import type { ComponentInstance } from "../types";
+import { buildInitialSlotsGen } from "./build-slots";
 
 /**
  * Create a `ComponentInstance` with bound lifecycle closures.
@@ -75,7 +75,7 @@ export function* mountComponent(
   fragment.appendChild(instance.endMarker);
   instance.slots = yield* driveWithContext(
     ctx,
-    reconcileSlotsGen(fragment, [], [vnode], instance.endMarker),
+    buildInitialSlotsGen(fragment, [vnode], instance.endMarker),
   );
   instance.mounted = true;
   flushEffects(instance);
