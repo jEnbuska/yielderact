@@ -8,7 +8,7 @@
  * `component/rerender.ts` via the scheduler.
  */
 
-import type { Child, Component, InternalProps } from "../../jsx";
+import type { Component, InternalProps } from "../../jsx";
 import { runComponentRender } from "../component/lifecycle";
 import { executeComponentRerender, rerenderInstance, resumeInstance } from "../component/rerender";
 import {
@@ -75,7 +75,7 @@ export function* mountComponent(
   fragment.appendChild(instance.endMarker);
   instance.slots = yield* driveWithContext(
     ctx,
-    reconcileSlotsGen(fragment, [], [vnode] satisfies Child[], instance.endMarker),
+    reconcileSlotsGen(fragment, [], [vnode], instance.endMarker),
   );
   instance.mounted = true;
   flushEffects(instance);

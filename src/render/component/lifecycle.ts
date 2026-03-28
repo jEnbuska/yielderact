@@ -7,9 +7,8 @@
 
 import type { Context } from "../../context";
 import type { HookDescriptor } from "../../hooks/descriptors";
-import { $USE_SET_CONTEXT } from "../../hooks/descriptors";
 import type { Child } from "../../jsx";
-import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "../driver";
+import { driveWithContext, getContextMap, type RenderGenerator } from "../driver";
 import { flushEffects, isHookDescriptor, processOneDescriptor } from "../hooks-runtime";
 import { reconcileSlotsGen } from "../reconciler";
 import { RenderCtx } from "../state";
@@ -53,10 +52,6 @@ export function* processHookDescriptors(
   while (!result.done && isHookDescriptor(result.value)) {
     const descriptor = result.value as HookDescriptor;
     const hookResult = processOneDescriptor(descriptor, hookIndex++, instance, ctx);
-    if (descriptor.type === $USE_SET_CONTEXT) {
-      const { ctx, value } = descriptor as { ctx: Context; value: unknown };
-      yield* setContext(ctx, () => value);
-    }
     result = gen.next(hookResult);
   }
 
