@@ -53,10 +53,7 @@ export interface RenderContext {
 
   // ── From scheduler.ts ──
   pendingUpdates: Set<ComponentInstance>;
-  workQueue: Array<{
-    gen: Generator<unknown, void, unknown>;
-    ctxMap: ReadonlyMap<Context, unknown>;
-  }>;
+  workQueue: Array<Generator<unknown, void, unknown>>;
   isProcessing: boolean;
   syncMode: boolean;
 

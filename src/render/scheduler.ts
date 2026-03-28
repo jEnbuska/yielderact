@@ -25,26 +25,23 @@ import type { ComponentInstance, RenderContext } from "./types";
 /** Time budget per work chunk in milliseconds. */
 const timeSlice = 5;
 
-/** A unit of work: a generator with its context map. */
-interface WorkItem {
-  gen: RenderGenerator<void>;
-  ctxMap: ReadonlyMap<Context, unknown>;
-}
-
 // ── Public API ───────────────────────────────────────────────────────────────
 
 /**
  * Submit a generator as work to the scheduler.
  *
- * The scheduler will drive the generator step-by-step, checking time
- * budgets between yields. If the scheduler isn't running, it starts.
+ * The generator is immediately wrapped with `driveWithContext` so context
+ * ops are handled transparently. The scheduler steps through the wrapped
+ * generator, checking time budgets between yields.
+ *
+ * If the scheduler isn't running, it starts.
  */
 export function scheduleWork(
   gen: RenderGenerator<void>,
   ctxMap: ReadonlyMap<Context, unknown>,
 ): void {
   const rctx = resolveCtx(ctxMap, RenderCtx);
-  rctx.workQueue.push({ gen, ctxMap });
+  rctx.workQueue.push(driveWithContext(ctxMap, gen));
 
   if (!rctx.isProcessing) {
     rctx.isProcessing = true;
@@ -159,25 +156,20 @@ function runLoop(rctx: RenderContext): void {
 
     if (rctx.workQueue.length === 0) break;
 
-    const work = rctx.workQueue[0] as WorkItem;
-
-    // Step through the generator via driveWithContext.
-    // driveWithContext handles context ops internally and yields
-    // undefined for scheduling pauses.
-    const wrapped = driveWithContext(work.ctxMap, work.gen);
-    let result = wrapped.next();
+    // The generator is already wrapped with driveWithContext (done at
+    // submission time in scheduleWork), so context ops are handled
+    // transparently. We just step through it.
+    const gen = rctx.workQueue[0] as Generator<unknown, void, unknown>;
+    let result = gen.next();
 
     while (!result.done) {
       // Time-slicing: yield to browser if deadline exceeded.
       if (!rctx.syncMode && performance.now() >= deadline) {
-        // Save the partially-driven wrapper back into the work item
-        // so we can resume it later.
-        rctx.workQueue[0] = { gen: wrapped, ctxMap: work.ctxMap };
         commitBatch();
         yieldToBrowser(rctx);
         return;
       }
-      result = wrapped.next();
+      result = gen.next();
     }
 
     // This work item is done — remove it from the queue.
