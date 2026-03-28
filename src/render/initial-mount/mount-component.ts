@@ -51,7 +51,7 @@ function createComponentInstance(
       drive(instance.capturedCtx, executeComponentRerender(instance));
       return Promise.resolve();
     },
-    rerender: () => rerenderInstance(instance),
+    scheduleRerender: () => rerenderInstance(instance),
   };
 
   return instance;

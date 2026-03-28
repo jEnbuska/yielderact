@@ -157,13 +157,13 @@ export function processOneDescriptor(
   instance: ComponentInstance,
   ctx: ReadonlyMap<Context, unknown>,
 ): unknown {
-  const { hookStates, cleanupFns, pendingEffects, rerender, resume } = instance;
+  const { hookStates, cleanupFns, pendingEffects, scheduleRerender, resume } = instance;
   switch (descriptor.type) {
     case $USE_STATE: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_STATE, instance);
       const state = processState(descriptor, prev);
       hookStates[hookIndex] = state;
-      return [state.value, createStateSetter(state, rerender)];
+      return [state.value, createStateSetter(state, scheduleRerender)];
     }
     case $USE_REF: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_REF, instance);
@@ -218,7 +218,7 @@ export function processOneDescriptor(
                 status: "resolved",
                 data,
               };
-              void rerender();
+              void scheduleRerender();
             }
           },
           (error: unknown) => {
@@ -229,7 +229,7 @@ export function processOneDescriptor(
                 status: "rejected",
                 error,
               };
-              void rerender();
+              void scheduleRerender();
             }
           },
         );
@@ -309,7 +309,7 @@ export function propagateContextUpdate(ctx: Context, newValue: unknown, slots: S
       if (instance.consumedContexts.has(ctx) && !hasStableSelectors(instance, ctx, newValue)) {
         // Re-render this consumer.  rerender() calls reconcileSlots on its
         // children with the updated capturedCtx, so we don't recurse further.
-        void instance.rerender();
+        void instance.scheduleRerender();
       } else {
         // This component doesn't consume the context (or all its selectors
         // are stable), but its rendered children might.  Recurse into its

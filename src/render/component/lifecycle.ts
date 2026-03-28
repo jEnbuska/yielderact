@@ -92,7 +92,7 @@ export function* runComponentRender(instance: ComponentInstance): RenderGenerato
   instance.providedContexts.clear();
 
   const ctx = instance.capturedCtx;
-  instance.gen = instance.component(instance.props, instance.rerender);
+  instance.gen = instance.component(instance.props, instance.scheduleRerender);
 
   const { hookIndex, result } = yield* processHookDescriptors(instance, ctx, 0);
 

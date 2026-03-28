@@ -197,7 +197,7 @@ export interface Slot {
    * The running instance, present only for component slots. Absent for
    * all other slot types (HTML elements, text, empty, Providers).
    *
-   * Lets the reconciler call `inst.rerender()` when props or context change,
+   * Lets the reconciler call `inst.scheduleRerender()` when props or context change,
    * read `inst.consumedContexts` for selective context updates, and access
    * `inst.slots` for subtree walks.
    */
@@ -345,10 +345,10 @@ export interface ComponentInstance {
   executeRerender: () => Promise<void>;
 
   /**
-   * Triggers a re-render. Bound closure over `rerenderInstance`.
+   * Request a re-render. Bound closure over `rerenderInstance`.
    *
    * Called by useState setters, the reconciler (on prop/context changes),
-   * and `propagateContextUpdate`.
+   * and `propagateContextUpdate`. Submits work to the scheduler.
    */
-  rerender: () => Promise<void>;
+  scheduleRerender: () => Promise<void>;
 }

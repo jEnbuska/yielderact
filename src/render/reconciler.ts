@@ -490,7 +490,7 @@ function* reconcileComponent(
 
         if (contextChanged) {
           instance.capturedCtx = childCtxMap;
-          void instance.rerender();
+          void instance.scheduleRerender();
         } else {
           // Detect $context value changes that need propagation to descendants.
           const { capturedCtx: prevCtx } = instance;
@@ -515,7 +515,7 @@ function* reconcileComponent(
       for (const entry of entries) {
         prevSlot.instance.providedContexts.add(entry.ctx);
       }
-      void prevSlot.instance.rerender();
+      void prevSlot.instance.scheduleRerender();
       prevSlot.props = slotProps;
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
     }
