@@ -53,6 +53,10 @@ export interface RenderContext {
 
   // ── From scheduler.ts ──
   pendingUpdates: Set<ComponentInstance>;
+  workQueue: Array<{
+    gen: Generator<unknown, void, unknown>;
+    ctxMap: ReadonlyMap<Context, unknown>;
+  }>;
   isProcessing: boolean;
   syncMode: boolean;
 
@@ -338,11 +342,11 @@ export interface ComponentInstance {
    */
   finalHookCount?: number;
 
-  /** Resume a paused generator. Bound closure over `resumeInstance`. */
+  /** Resume a paused generator. Submits work to the scheduler. */
   resume: () => void;
 
-  /** Execute a rerender directly, bypassing scheduling. Called by the priority scheduler. */
-  executeRerender: () => Promise<void>;
+  /** Execute a rerender. Submits work to the scheduler. */
+  executeRerender: () => void;
 
   /**
    * Request a re-render. Bound closure over `rerenderInstance`.

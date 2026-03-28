@@ -11,14 +11,9 @@
 import type { Component, InternalProps } from "../../jsx";
 import { runComponentRender } from "../component/lifecycle";
 import { executeComponentRerender, rerenderInstance, resumeInstance } from "../component/rerender";
-import {
-  type CtxMap,
-  drive,
-  driveWithContext,
-  getContextMap,
-  type RenderGenerator,
-} from "../driver";
+import { type CtxMap, driveWithContext, getContextMap, type RenderGenerator } from "../driver";
 import { flushEffects } from "../hooks-runtime";
+import { scheduleWork } from "../scheduler";
 import type { ComponentInstance } from "../types";
 import { buildInitialSlotsGen } from "./build-slots";
 
@@ -45,11 +40,10 @@ function createComponentInstance(
     consumedContexts: new Set(),
     providedContexts: new Set(),
     resume: () => {
-      drive(instance.capturedCtx, resumeInstance(instance));
+      scheduleWork(resumeInstance(instance), instance.capturedCtx);
     },
     executeRerender: () => {
-      drive(instance.capturedCtx, executeComponentRerender(instance));
-      return Promise.resolve();
+      scheduleWork(executeComponentRerender(instance), instance.capturedCtx);
     },
     scheduleRerender: () => rerenderInstance(instance),
   };

@@ -1,12 +1,12 @@
 /**
  * scheduler.ts — Cooperative scheduler for rendering.
  *
- * Work is queued via `scheduleUpdate(instance)` which adds the instance
- * to a single pending set.
+ * All rendering work after initial mount flows through the scheduler.
+ * Work is submitted via `scheduleWork(gen, ctxMap)` or
+ * `scheduleUpdate(instance)` and processed in batches.
  *
- * The scheduler processes all pending work in a single
- * `beginBatch()`/`commitBatch()` cycle so DOM mutations are applied
- * atomically.
+ * The scheduler drives generators step-by-step, handling context ops
+ * via `driveWithContext` and checking time budgets between yields.
  *
  * **Time-slicing (async mode):** The scheduler yields to the browser
  * every ~5ms via `MessageChannel`, keeping the UI responsive.
@@ -15,27 +15,53 @@
  * yielding, preserving synchronous rendering for tests and simple apps.
  */
 
+import type { Context } from "../context";
 import { resolveCtx } from "../context";
 import { beginBatch, commitBatch } from "./commit-queue";
+import { driveWithContext, type RenderGenerator } from "./driver";
 import { RenderCtx, requireActiveRenderCtx, setActiveRenderCtx } from "./state";
 import type { ComponentInstance, RenderContext } from "./types";
 
 /** Time budget per work chunk in milliseconds. */
 const timeSlice = 5;
 
+/** A unit of work: a generator with its context map. */
+interface WorkItem {
+  gen: RenderGenerator<void>;
+  ctxMap: ReadonlyMap<Context, unknown>;
+}
+
 // ── Public API ───────────────────────────────────────────────────────────────
+
+/**
+ * Submit a generator as work to the scheduler.
+ *
+ * The scheduler will drive the generator step-by-step, checking time
+ * budgets between yields. If the scheduler isn't running, it starts.
+ */
+export function scheduleWork(
+  gen: RenderGenerator<void>,
+  ctxMap: ReadonlyMap<Context, unknown>,
+): void {
+  const rctx = resolveCtx(ctxMap, RenderCtx);
+  rctx.workQueue.push({ gen, ctxMap });
+
+  if (!rctx.isProcessing) {
+    rctx.isProcessing = true;
+    setActiveRenderCtx(rctx);
+    runLoop(rctx);
+  }
+}
 
 /**
  * Schedule a rerender for `instance`.
  *
- * If the scheduler is already processing, the instance is queued and will
- * be picked up by the running work loop.
+ * Creates the rerender generator and submits it to the scheduler.
  *
  * @param instance - The ComponentInstance to rerender.
  */
 export function scheduleUpdate(instance: ComponentInstance): void {
   const rctx = resolveCtx(instance.capturedCtx, RenderCtx);
-
   rctx.pendingUpdates.add(instance);
 
   if (!rctx.isProcessing) {
@@ -61,7 +87,6 @@ export function flushSync(fn?: () => void): void {
   rctx.syncMode = true;
 
   if (fn) {
-    // Suppress immediate processing during fn so all setState calls batch.
     const { isProcessing: wasProcessing } = rctx;
     rctx.isProcessing = true;
     try {
@@ -71,7 +96,7 @@ export function flushSync(fn?: () => void): void {
     }
   }
 
-  if (!rctx.isProcessing && rctx.pendingUpdates.size > 0) {
+  if (!rctx.isProcessing && hasPendingWork(rctx)) {
     rctx.isProcessing = true;
     runLoop(rctx);
   }
@@ -83,52 +108,82 @@ export function flushSync(fn?: () => void): void {
  * Flush any pending work for a specific render context.
  *
  * Called by the event dispatch system after a delegated event has been
- * fully dispatched. Unlike `flushSync()`, this takes an explicit
- * `RenderContext` rather than reading the active context pointer, which
- * is important when an event handler in root A might have changed the
- * active context to root B.
+ * fully dispatched.
  *
  * @internal
  */
 export function flushPendingWork(rctx: RenderContext): void {
-  if (rctx.pendingUpdates.size > 0) {
+  if (hasPendingWork(rctx)) {
     setActiveRenderCtx(rctx);
     rctx.isProcessing = true;
     runLoop(rctx);
   }
 }
 
+// ── Internal ─────────────────────────────────────────────────────────────────
+
+function hasPendingWork(rctx: RenderContext): boolean {
+  return rctx.pendingUpdates.size > 0 || rctx.workQueue.length > 0;
+}
+
+/**
+ * Drain `pendingUpdates` into `workQueue` by calling each instance's
+ * `executeRerender()` which now pushes a generator onto the work queue.
+ */
+function drainPendingUpdates(rctx: RenderContext): void {
+  if (rctx.pendingUpdates.size === 0) return;
+  const instances = [...rctx.pendingUpdates];
+  rctx.pendingUpdates.clear();
+  for (const instance of instances) {
+    instance.executeRerender();
+  }
+}
+
 // ── Work loop ────────────────────────────────────────────────────────────────
 
 /**
- * The main work loop. Processes all pending instances in a single
- * `beginBatch()`/`commitBatch()` cycle for atomic DOM commits.
+ * The main work loop. Processes all work items by stepping through
+ * generators one yield at a time, checking the time budget between steps.
  *
- * Handles:
- * - Resume after yield (continues partially-processed set).
- * - Time-slicing (yields to browser in async mode).
+ * DOM mutations are collected via `beginBatch()`/`commitBatch()` for
+ * atomic commits.
  */
 function runLoop(rctx: RenderContext): void {
   const deadline = performance.now() + timeSlice;
 
   beginBatch();
 
-  while (rctx.pendingUpdates.size > 0) {
-    // SAFETY: size > 0 guarantees .next().value is defined
-    const instance = rctx.pendingUpdates.values().next().value as ComponentInstance;
-    rctx.pendingUpdates.delete(instance);
+  while (true) {
+    // Convert pending instance updates into work items.
+    drainPendingUpdates(rctx);
 
-    void instance.executeRerender();
+    if (rctx.workQueue.length === 0) break;
 
-    // Time-slicing (async mode only): yield to browser if deadline exceeded.
-    if (!rctx.syncMode && rctx.pendingUpdates.size > 0 && performance.now() >= deadline) {
-      commitBatch();
-      yieldToBrowser(rctx);
-      return; // exit — the MessageChannel callback resumes via runLoop
+    const work = rctx.workQueue[0] as WorkItem;
+
+    // Step through the generator via driveWithContext.
+    // driveWithContext handles context ops internally and yields
+    // undefined for scheduling pauses.
+    const wrapped = driveWithContext(work.ctxMap, work.gen);
+    let result = wrapped.next();
+
+    while (!result.done) {
+      // Time-slicing: yield to browser if deadline exceeded.
+      if (!rctx.syncMode && performance.now() >= deadline) {
+        // Save the partially-driven wrapper back into the work item
+        // so we can resume it later.
+        rctx.workQueue[0] = { gen: wrapped, ctxMap: work.ctxMap };
+        commitBatch();
+        yieldToBrowser(rctx);
+        return;
+      }
+      result = wrapped.next();
     }
+
+    // This work item is done — remove it from the queue.
+    rctx.workQueue.shift();
   }
 
-  // All instances processed — commit the batch.
   commitBatch();
   rctx.isProcessing = false;
 }
@@ -148,7 +203,6 @@ function yieldToBrowser(rctx: RenderContext): void {
     };
     mc.port2.postMessage(null);
   } else {
-    // Fallback for environments without MessageChannel.
     setTimeout(() => {
       setActiveRenderCtx(rctx);
       runLoop(rctx);

@@ -35,6 +35,7 @@ export function createRenderContext(): RenderContext {
   return {
     isInitialMount: false,
     pendingUpdates: new Set(),
+    workQueue: [],
     isProcessing: false,
     syncMode: true,
   };
