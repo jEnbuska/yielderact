@@ -44,6 +44,10 @@ export interface RenderContext {
   // ── From state.ts (persistent per-root) ──
   isInitialMount: boolean;
 
+  // ── From lifecycle.ts (rendering-phase temporary) ──
+  /** The component currently executing its generator body, or `undefined` if idle. */
+  renderingInstance?: ComponentInstance;
+
   // ── From commit-queue.ts ──
   ops?: (() => void)[];
 
@@ -313,29 +317,6 @@ export interface ComponentInstance {
 
   /** True after the initial render has been committed to the DOM. */
   mounted: boolean;
-
-  /**
-   * True while the component's generator body is executing synchronously.
-   *
-   * Guards against recursive re-renders: `rerenderInstance` sets
-   * `pendingRerender` instead of re-entering when this is true.
-   */
-  isRendering: boolean;
-
-  /**
-   * True when at least one rerender was requested while `isRendering` was true.
-   *
-   * `runHooks` exits early with `cancelled: true` when this is set,
-   * and `runComponentRender` retries with the accumulated latest state.
-   */
-  pendingRerender: boolean;
-
-  /**
-   * Promise resolver callbacks for `setState` calls queued during an
-   * active render. Drained after a successful commit so `await setState()`
-   * resumes.
-   */
-  renderResolvers: Array<() => void>;
 
   /**
    * Hook index at which the generator last paused (yielded a non-descriptor,

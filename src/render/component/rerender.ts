@@ -5,16 +5,16 @@
  * `rerenderInstance`) and resuming paused generators (`resumeInstance`).
  */
 
+import { resolveCtx } from "../../context";
 import type { Child } from "../../jsx";
 import type { RenderGenerator } from "../driver";
-import { createResolvable } from "../promise";
+import { SetStateDuringRenderError } from "../errors";
 import { scheduleUpdate } from "../scheduler";
+import { RenderCtx } from "../state";
 import type { ComponentInstance } from "../types";
 import {
   commitRender,
-  drainResolvers,
   processHookDescriptors,
-  revertPendingEffects,
   runComponentRender,
   validateHookCount,
 } from "./lifecycle";
@@ -35,7 +35,6 @@ export function* resumeInstance(instance: ComponentInstance): RenderGenerator<vo
     instance,
     ctx,
     instance.resumeHookIndex,
-    false,
   );
 
   instance.resumeHookIndex = hookIndex;
@@ -50,41 +49,23 @@ export function* resumeInstance(instance: ComponentInstance): RenderGenerator<vo
 
 /**
  * Re-render a mounted component: run hooks, commit via `commitRender`.
- *
- * Loops when `pendingRerender` is set (mid-render setState).
  */
 export function* executeComponentRerender(instance: ComponentInstance): RenderGenerator<void> {
-  while (true) {
-    const { vnode, cancelled } = yield* runComponentRender(instance);
-    if (cancelled) {
-      revertPendingEffects(instance);
-      continue;
-    }
-
-    yield* commitRender(instance, vnode);
-    drainResolvers(instance);
-
-    if (!instance.endMarker.parentNode) return;
-    if (instance.pendingRerender) {
-      instance.pendingRerender = false;
-      continue;
-    }
-    return;
-  }
+  const vnode = yield* runComponentRender(instance);
+  yield* commitRender(instance, vnode);
 }
 
 /**
  * Trigger a re-render of this component.
  *
- * If a render is already in progress, queues the rerender for after the
- * current cycle. Otherwise, schedules via the scheduler.
+ * Throws if called during any component's render phase.
+ * Otherwise, schedules via the scheduler.
  */
 export function rerenderInstance(instance: ComponentInstance): Promise<void> {
-  if (instance.isRendering) {
-    instance.pendingRerender = true;
-    const { promise, resolve } = createResolvable<void>();
-    instance.renderResolvers.push(resolve);
-    return promise;
+  const rctx = resolveCtx(instance.capturedCtx, RenderCtx);
+  const { renderingInstance } = rctx;
+  if (renderingInstance) {
+    throw new SetStateDuringRenderError(renderingInstance.component.name, instance.component.name);
   }
   if (!instance.endMarker.parentNode) return Promise.resolve();
   scheduleUpdate(instance);
