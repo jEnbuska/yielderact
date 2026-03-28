@@ -1,3 +1,5 @@
+// TODO: Restore when $patch is re-implemented (#163)
+/*
 export function* HomePage() {
   return (
     <div data-testid="page-home">
@@ -24,3 +26,4 @@ export function* ContactPage() {
     </div>
   );
 }
+*/

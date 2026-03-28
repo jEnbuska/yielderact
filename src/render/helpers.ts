@@ -1,11 +1,4 @@
-import {
-  type Context,
-  type ContextEntry,
-  PriorityContext,
-  resolveCtx,
-  withBatch,
-  withPriority,
-} from "../context";
+import { type Context, type ContextEntry, resolveCtx } from "../context";
 import type { Renderable } from "../hooks";
 import {
   type Child,
@@ -41,27 +34,6 @@ export function shallowEqual(a: InternalProps, b: InternalProps): boolean {
   const aKeys = Object.keys(a);
   if (aKeys.length !== Object.keys(b).length) return false;
   return aKeys.every((k) => Object.is(a[k], b[k]));
-}
-
-/**
- * Returns true when `a` and `b` differ only in the `$patch` prop.
- *
- * Enables skipping a rerender when only `$patch` changed -- the value is
- * forwarded for `shouldDefer` checks without re-executing the generator.
- */
-export function onlyPatchChanged(a: InternalProps, b: InternalProps): boolean {
-  const aKeys = Object.keys(a);
-  if (aKeys.length !== Object.keys(b).length) return false;
-  let patchDiffers = false;
-  for (const k of aKeys) {
-    if (Object.is(a[k], b[k])) continue;
-    if (k === "$patch") {
-      patchDiffers = true;
-      continue;
-    }
-    return false; // content prop differs
-  }
-  return patchDiffers;
 }
 
 /** Recursively flatten RawFragment VNodes into a flat list of non-fragment children. */
@@ -110,7 +82,7 @@ function withContextEntries(
 
 /**
  * Build a child context map from a parent map, applying framework
- * directives (`$patch`, `$deferred`, `$context`) from the given props.
+ * directives (`$context`) from the given props.
  *
  * Returns the parent map unchanged if no directive is set.
  */
@@ -118,11 +90,8 @@ export function childContextMap(
   parentMap: ReadonlyMap<Context<unknown>, unknown>,
   props: SpecialProps,
 ): ReadonlyMap<Context<unknown>, unknown> {
-  let map = parentMap;
-  if (props.$patch !== undefined) map = withBatch(map, props.$patch);
-  if (props.$deferred) map = withPriority(map, resolveCtx(map, PriorityContext) + 1);
-  if (props.$context) map = withContextEntries(map, props.$context);
-  return map;
+  if (props.$context) return withContextEntries(parentMap, props.$context);
+  return parentMap;
 }
 
 /** Normalize a `$context` prop to an array of entries. */

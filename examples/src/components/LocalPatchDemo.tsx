@@ -1,3 +1,5 @@
+// TODO: Restore when $patch is re-implemented (#163)
+/*
 import { useState, useUIPatch } from "yract";
 import type { Page } from "../types";
 import { sleep } from "../utils";
@@ -71,3 +73,4 @@ export function* LocalPatchDemo() {
     </div>
   );
 }
+*/

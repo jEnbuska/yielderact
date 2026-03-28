@@ -3,7 +3,7 @@ import type { RenderContext } from "./types";
 
 // ── RenderCtx — context key for the per-root RenderContext ───────────────
 //
-// This is a plain context key (like `BatchContext` / `PriorityContext`)
+// This is a plain context key
 // stored in the ctxMap so that generators can access the render context
 // via `yield* getContextMap()` + `resolveCtx(ctxMap, RenderCtx)`
 // instead of relying on the module-level `_activeCtx` pointer.
@@ -33,11 +33,8 @@ export const RenderCtx: Context<RenderContext> = {
  */
 export function createRenderContext(): RenderContext {
   return {
-    patchDepth: 0,
-    dirtyInstances: new Set(),
     isInitialMount: false,
-    liveOnlyMode: false,
-    pendingUpdates: new Map(),
+    pendingUpdates: new Set(),
     isProcessing: false,
     syncMode: true,
   };

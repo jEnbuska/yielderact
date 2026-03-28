@@ -1,3 +1,8 @@
+// TODO: Restore when $patch is re-implemented (#163)
+// All tests in this file are disabled until the $patch feature is restored.
+describe.skip("$patch tests (disabled — #163)", () => {});
+
+/*
 import { useState, useUIPatch } from "../hooks";
 import { commitUIPatch, render, startUIPatch } from "../render";
 
@@ -1184,3 +1189,4 @@ describe("child component prop updates apply correctly after local patch commit"
     expect(container.querySelector("#status")?.textContent).toBe("loading");
   });
 });
+*/

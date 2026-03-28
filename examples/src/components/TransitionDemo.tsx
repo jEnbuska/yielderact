@@ -1,3 +1,5 @@
+// TODO: Restore when $patch is re-implemented (#163)
+/*
 import { GlobalPatchDemo } from "./GlobalPatchDemo";
 import { GlobalVisibilityDemo } from "./GlobalVisibilityDemo";
 import { LocalPatchDemo } from "./LocalPatchDemo";
@@ -25,3 +27,4 @@ export function* TransitionDemo() {
     </div>
   );
 }
+*/

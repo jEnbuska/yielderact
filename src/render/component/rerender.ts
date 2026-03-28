@@ -6,16 +6,13 @@
  */
 
 import type { Child } from "../../jsx";
-import { drive, getContextMap, type RenderGenerator } from "../driver";
-import { isPatchActive } from "../patch-queue";
+import type { RenderGenerator } from "../driver";
 import { createResolvable } from "../promise";
 import { scheduleUpdate } from "../scheduler";
-import { RenderCtx } from "../state";
-import type { ComponentInstance, RenderContext } from "../types";
+import type { ComponentInstance } from "../types";
 import {
-  commitOrDefer,
+  commitRender,
   drainResolvers,
-  effectiveCtxMap,
   processHookDescriptors,
   revertPendingEffects,
   runComponentRender,
@@ -26,13 +23,13 @@ import {
  * Resume a paused generator (e.g. after `useResolve` or `useRender`).
  *
  * Advances the generator past the resolved hook and reconciles the
- * resulting VNode via `commitOrDefer`.
+ * resulting VNode via `commitRender`.
  */
 export function* resumeInstance(instance: ComponentInstance): RenderGenerator<void> {
   if (!instance.gen) return;
   if (!instance.endMarker.parentNode) return;
 
-  const ctx = effectiveCtxMap(instance);
+  const ctx = instance.capturedCtx;
 
   const { hookIndex, result } = yield* processHookDescriptors(
     instance,
@@ -48,28 +45,23 @@ export function* resumeInstance(instance: ComponentInstance): RenderGenerator<vo
   }
 
   const vnode: Child = (result.value as Child) ?? null;
-  yield* commitOrDefer(instance, vnode);
+  yield* commitRender(instance, vnode);
 }
 
 /**
- * Re-render a mounted component: run hooks, commit via `commitOrDefer`.
+ * Re-render a mounted component: run hooks, commit via `commitRender`.
  *
  * Loops when `pendingRerender` is set (mid-render setState).
  */
-export function* executeComponentRerender(
-  instance: ComponentInstance,
-  rctx?: RenderContext,
-): RenderGenerator<void> {
-  const resolvedRctx = rctx ?? (yield* getContextMap()).get(RenderCtx);
-
+export function* executeComponentRerender(instance: ComponentInstance): RenderGenerator<void> {
   while (true) {
-    const { vnode, cancelled } = yield* runComponentRender(instance, resolvedRctx);
+    const { vnode, cancelled } = yield* runComponentRender(instance);
     if (cancelled) {
       revertPendingEffects(instance);
       continue;
     }
 
-    yield* commitOrDefer(instance, vnode);
+    yield* commitRender(instance, vnode);
     drainResolvers(instance);
 
     if (!instance.endMarker.parentNode) return;
@@ -85,9 +77,7 @@ export function* executeComponentRerender(
  * Trigger a re-render of this component.
  *
  * If a render is already in progress, queues the rerender for after the
- * current cycle. If a UI patch is active, executes synchronously to
- * collect DOM ops in the same batch. Otherwise, schedules via the
- * priority-aware scheduler.
+ * current cycle. Otherwise, schedules via the scheduler.
  */
 export function rerenderInstance(instance: ComponentInstance): Promise<void> {
   if (instance.isRendering) {
@@ -97,10 +87,6 @@ export function rerenderInstance(instance: ComponentInstance): Promise<void> {
     return promise;
   }
   if (!instance.endMarker.parentNode) return Promise.resolve();
-  if (isPatchActive()) {
-    drive(effectiveCtxMap(instance), executeComponentRerender(instance));
-    return Promise.resolve();
-  }
   scheduleUpdate(instance);
   return Promise.resolve();
 }

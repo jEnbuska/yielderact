@@ -1,4 +1,3 @@
-import { BatchContext, useContext } from "../context";
 import { useState } from "../hooks";
 import { createRoot } from "../render";
 
@@ -35,44 +34,44 @@ describe("createRoot", () => {
     expect(container.textContent).toBe("0");
   });
 
-  it('sets $patch context to "default" for the rendered tree', () => {
-    let capturedBatch: string | undefined;
+  // TODO: Restore when $patch is re-implemented (#163)
+  // it('sets $patch context to "default" for the rendered tree', () => {
+  //   let capturedBatch: string | undefined;
+  //
+  //   function* Comp() {
+  //     capturedBatch = yield* useContext(BatchContext);
+  //     return <div />;
+  //   }
+  //
+  //   const root = createRoot(container);
+  //   root.render(<Comp />);
+  //   expect(capturedBatch).toBe("default");
+  // });
 
-    function* Comp() {
-      capturedBatch = yield* useContext(BatchContext);
-      return <div />;
-    }
-
-    const root = createRoot(container);
-    root.render(<Comp />);
-    expect(capturedBatch).toBe("default");
-  });
-
-  it("context map does not leak between independent roots", () => {
-    // After render completes, each root's context map is independent.
-    // Verify by checking that a second root doesn't inherit values from the first.
-    let capturedBatch1: string | undefined;
-    let capturedBatch2: string | undefined;
-
-    function* Comp1() {
-      capturedBatch1 = yield* useContext(BatchContext);
-      return <div />;
-    }
-    function* Comp2() {
-      capturedBatch2 = yield* useContext(BatchContext);
-      return <div />;
-    }
-
-    const container2 = document.createElement("div");
-    document.body.appendChild(container2);
-    const root1 = createRoot(container);
-    const root2 = createRoot(container2);
-    root1.render(<Comp1 />);
-    root2.render(<Comp2 />);
-    expect(capturedBatch1).toBe("default");
-    expect(capturedBatch2).toBe("default");
-    document.body.removeChild(container2);
-  });
+  // TODO: Restore when $patch is re-implemented (#163)
+  // it("context map does not leak between independent roots", () => {
+  //   let capturedBatch1: string | undefined;
+  //   let capturedBatch2: string | undefined;
+  //
+  //   function* Comp1() {
+  //     capturedBatch1 = yield* useContext(BatchContext);
+  //     return <div />;
+  //   }
+  //   function* Comp2() {
+  //     capturedBatch2 = yield* useContext(BatchContext);
+  //     return <div />;
+  //   }
+  //
+  //   const container2 = document.createElement("div");
+  //   document.body.appendChild(container2);
+  //   const root1 = createRoot(container);
+  //   const root2 = createRoot(container2);
+  //   root1.render(<Comp1 />);
+  //   root2.render(<Comp2 />);
+  //   expect(capturedBatch1).toBe("default");
+  //   expect(capturedBatch2).toBe("default");
+  //   document.body.removeChild(container2);
+  // });
 
   it("two independent createRoot calls do not share state", () => {
     const container2 = document.createElement("div");

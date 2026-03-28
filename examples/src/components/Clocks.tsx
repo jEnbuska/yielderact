@@ -1,3 +1,5 @@
+// TODO: Restore when $patch is re-implemented (#163)
+/*
 import { useEffect, useState } from "yract";
 import { LiveClock } from "./LiveClock";
 
@@ -29,3 +31,4 @@ export function* Clocks() {
     </div>
   );
 }
+*/

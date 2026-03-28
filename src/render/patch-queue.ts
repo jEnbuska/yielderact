@@ -42,35 +42,6 @@ export function commitPatch(): void {
   for (let i = 0; i < ops.length; i++) ops[i]?.();
 }
 
-/** Returns `true` while a patch is being collected. */
-export function isPatchActive(): boolean {
-  return requireActiveCtx().ops !== undefined;
-}
-
-/**
- * Save the current patch ops (for preemption).
- * Returns the ops array and resets the queue to empty (ready for higher-priority work).
- */
-export function savePatchOps(): (() => void)[] {
-  const ctx = requireActiveCtx();
-  const ops = ctx.ops ?? [];
-  ctx.ops = [];
-  return ops;
-}
-
-/**
- * Prepend previously saved ops before the current ops (for resuming after preemption).
- * The saved ops come first since they were collected before the preemption.
- */
-export function restorePatchOps(saved: (() => void)[]): void {
-  const ctx = requireActiveCtx();
-  if (!ctx.ops) {
-    ctx.ops = saved;
-    return;
-  }
-  ctx.ops = [...saved, ...ctx.ops];
-}
-
 // ── DOM operation wrappers ───────────────────────────────────────────────────
 //
 // Each wrapper checks whether a patch is active AND the target node is

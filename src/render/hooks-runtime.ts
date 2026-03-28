@@ -21,7 +21,6 @@ import {
   $USE_RESOLVE_RAW,
   $USE_SET_CONTEXT,
   $USE_STATE,
-  $USE_UI_PATCH,
   HOOK_TYPES,
   type HookDescriptor,
   type HookType,
@@ -35,10 +34,7 @@ import { _processRender } from "../hooks/useRender";
 import type { ResolveRawResult } from "../hooks/useResolve";
 import { _processResolve, _processResolveRaw } from "../hooks/useResolve";
 import { _createStateSetter, _processState } from "../hooks/useState";
-import { _processUIPatch } from "../hooks/useUIPatch";
-
 import { releasePortalDelegation } from "./delegation";
-import { flushPendingVNodes } from "./patch";
 import { RenderCtx } from "./state";
 import type { ComponentInstance, HookState, Slot } from "./types";
 
@@ -123,47 +119,15 @@ export function unmountSlot(slot: Slot): void {
     for (const fn of slot.instance.cleanupFns) {
       fn?.();
     }
-    // Remove from dirty set so commitUIPatch skips unmounted instances.
-    // localPatchRefCount is intentionally left as-is; the local patch commit()
-    // checks pendingVNode === undefined and skips accordingly.
-    const rctx = resolveCtx(slot.instance.capturedCtx, RenderCtx);
-    rctx.dirtyInstances.delete(slot.instance);
     // Remove from scheduler queue so pending async callbacks (useResolveRaw
     // promise handlers) don't trigger a zombie rerender.
-    for (const [, set] of rctx.pendingUpdates) {
-      set.delete(slot.instance);
-    }
+    const rctx = resolveCtx(slot.instance.capturedCtx, RenderCtx);
+    rctx.pendingUpdates.delete(slot.instance);
   }
   // Portal cleanup: release the ref-counted delegation root.
   if (slot.portalContainer) {
     releasePortalDelegation(slot.portalContainer);
   }
-}
-
-/**
- * Collect all descendant `ComponentInstance`s reachable from `instance.slots`
- * via a depth-first traversal.
- *
- * **Called by:** `_processUIPatch` — `useUIPatch`'s `startPatch()` function
- * snapshots all current descendants at the moment the patch begins.
- *
- * @param instance - The root instance whose descendants to collect.
- * @returns A flat array of all descendant `ComponentInstance`s (not including
- *   the root itself).
- */
-function collectDescendants(instance: ComponentInstance): ComponentInstance[] {
-  const result: ComponentInstance[] = [];
-  function walk(slots: Slot[]): void {
-    for (const slot of slots) {
-      if (slot.instance) {
-        result.push(slot.instance);
-        walk(slot.instance.slots);
-      }
-      walk(slot.childSlots);
-    }
-  }
-  walk(instance.slots);
-  return result;
 }
 
 /** Derive the `ResolveRawResult` from the current hook state. */
@@ -287,12 +251,6 @@ export function processOneDescriptor(
       const state = _processRender(descriptor, prev, hookStates, hookIndex, resume);
       hookStates[hookIndex] = state;
       return { slot: state, resumeCallback: state.resumeCallback };
-    }
-    case $USE_UI_PATCH: {
-      const prev = getTypedPrev(hookStates, hookIndex, $USE_UI_PATCH, instance);
-      const state = _processUIPatch(prev, instance, collectDescendants, flushPendingVNodes);
-      hookStates[hookIndex] = state;
-      return state.startPatch;
     }
     case $USE_SET_CONTEXT: {
       const prevValue = resolveCtx(instance.capturedCtx, descriptor.ctx);

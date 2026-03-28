@@ -7,16 +7,12 @@ import { buildNode } from "./mount";
 import { createRenderContext, RenderCtx } from "./state";
 
 export { buildNode } from "./mount";
-export { commitUIPatch, startUIPatch } from "./patch";
 export { flushSync } from "./scheduler";
 
 /**
  * Render a VNode tree into a DOM container (simple one-shot mount).
  *
  * This is the minimal entry point — it builds the DOM and appends it.
- * Unlike `createRoot`, it does **not** establish a `$patch="default"`
- * batch context, so `usePatchContext` will return the context's default
- * value (`'default'`) unless a `$patch` prop is set somewhere in the tree.
  *
  * **Called by:** Application code for simple mounts, and test helpers.
  *
@@ -43,22 +39,15 @@ export function render(vnode: VNode, container: Element): void {
 
 /**
  * A root created by `createRoot`. Holds a reference to the container
- * element and provides a `render` method that establishes the top-level
- * `$patch="default"` batch context for the entire component tree.
+ * element and provides a `render` method.
  */
 export interface Root {
-  /** Mount a VNode tree into the container with `$patch="default"` context. */
+  /** Mount a VNode tree into the container. */
   render(vnode: VNode): void;
 }
 
 /**
  * Create a root for rendering into the given DOM container.
- *
- * The root provides `$patch="default"` as a top-level batch context for
- * the entire component tree, using the same context-map mechanism as
- * application contexts created with `createContext`. This means
- * `usePatchContext()` returns `'default'` by default, and components
- * can override it with `$patch="live"`.
  *
  * **Called by:** Application code — the recommended way to mount an app.
  *

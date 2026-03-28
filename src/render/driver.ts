@@ -42,12 +42,6 @@ export function* getContextMap(): RenderGenerator<CtxMap> {
   return (yield { op: $GET_CONTEXT_MAP }) as CtxMap;
 }
 
-/** Yield to read a single context value. */
-export function* getContext<T>(ctx: { readonly defaultValue: T }): RenderGenerator<T> {
-  const map = yield* getContextMap();
-  return (map.has(ctx) ? map.get(ctx) : ctx.defaultValue) as T;
-}
-
 // ── Type guards ──────────────────────────────────────────────────────────
 
 function isSetContext(v: unknown): v is {

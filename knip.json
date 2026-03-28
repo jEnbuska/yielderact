@@ -5,14 +5,28 @@
     ".": {
       "entry": ["src/index.ts", "src/jsx-runtime.ts"],
       "project": ["src/**/*.ts", "src/**/*.tsx"],
-      "ignore": ["src/__tests__/**"]
+      "ignore": ["src/__tests__/**", "src/render/patch.ts"]
     },
     "examples": {
       "entry": ["src/main.tsx"],
       "project": ["src/**/*.ts", "src/**/*.tsx"],
       "playwright": false,
       "vite": false,
-      "ignoreDependencies": ["yract"]
+      "ignoreDependencies": ["yract"],
+      "ignore": [
+        "src/components/TransitionDemo.tsx",
+        "src/components/GlobalPatchDemo.tsx",
+        "src/components/LocalPatchDemo.tsx",
+        "src/components/GlobalVisibilityDemo.tsx",
+        "src/components/LocalVisibilityDemo.tsx",
+        "src/components/Clocks.tsx",
+        "src/components/LiveClock.tsx",
+        "src/components/Navigation.tsx",
+        "src/components/PageStubs.tsx",
+        "src/components/VisibilityTarget.tsx",
+        "src/utils.ts",
+        "src/types.ts"
+      ]
     }
   }
 }

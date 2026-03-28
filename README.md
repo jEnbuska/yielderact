@@ -95,7 +95,7 @@ function* Timer() {
 }
 ```
 
-Available hooks: `useState`, `useEffect`, `useRef`, `useId`, `useMemo`, `useResolve`, `useResolveRaw`, `useRender`, `useResume`, `useUIPatch`, `usePatchContext`.
+Available hooks: `useState`, `useEffect`, `useRef`, `useId`, `useMemo`, `useResolve`, `useResolveRaw`, `useRender`, `useResume`.
 
 ### Context
 
@@ -177,6 +177,23 @@ function* App() {
 
 Context and events flow through the component tree, not the DOM tree.
 
+### Deferred rendering
+
+Use `$deferred` to mark lower-priority subtrees for the cooperative scheduler:
+
+```tsx
+function* App() {
+  return (
+    <div>
+      <Header /> {/* priority 0 — renders first */}
+      <HeavyList $deferred={true} /> {/* priority 1 — renders after */}
+    </div>
+  );
+}
+```
+
+<!-- UI patches (transitions) section disabled — $patch feature temporarily removed. See issue #163 for restoration plan.
+
 ### UI patches (transitions)
 
 Freeze DOM updates during async work, then apply all changes at once:
@@ -195,7 +212,9 @@ async function navigate(next: string) {
 }
 ```
 
-Use `$patch="live"` on subtrees that should keep updating during a patch (e.g. clocks, animations). Use `useUIPatch` for component-scoped patches. Use `$deferred` to mark lower-priority subtrees for the cooperative scheduler.
+Use `$patch="live"` on subtrees that should keep updating during a patch (e.g. clocks, animations). Use `useUIPatch` for component-scoped patches.
+
+UI patches disabled content end (#163) -->
 
 ---
 

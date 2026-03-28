@@ -10,7 +10,6 @@ import type { Component, InternalProps } from "../../jsx";
 import { type CtxMap, drive, getContextMap, type RenderGenerator } from "../driver";
 import type { ComponentInstance } from "../types";
 import { initialComponentRender } from "./initial";
-import { effectiveCtxMap } from "./lifecycle";
 import { executeComponentRerender, rerenderInstance, resumeInstance } from "./rerender";
 
 /**
@@ -31,7 +30,6 @@ function createComponentInstance(
     hookStates: [],
     cleanupFns: [],
     pendingEffects: [],
-    localPatchRefCount: 0,
     mounted: false,
     isRendering: false,
     pendingRerender: false,
@@ -40,10 +38,10 @@ function createComponentInstance(
     consumedContexts: new Set(),
     providedContexts: new Set(),
     resume: () => {
-      drive(effectiveCtxMap(instance), resumeInstance(instance));
+      drive(instance.capturedCtx, resumeInstance(instance));
     },
     executeRerender: () => {
-      drive(effectiveCtxMap(instance), executeComponentRerender(instance));
+      drive(instance.capturedCtx, executeComponentRerender(instance));
       return Promise.resolve();
     },
     rerender: () => rerenderInstance(instance),
