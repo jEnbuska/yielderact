@@ -9,8 +9,7 @@ import { resolveCtx } from "../../context";
 import type { Child } from "../../jsx";
 import type { RenderGenerator } from "../driver";
 import { SetStateDuringRenderError } from "../errors";
-import { scheduleUpdate } from "../scheduler";
-import { RenderCtx } from "../state";
+import { SchedulerCtx } from "../scheduler";
 import type { ComponentInstance } from "../types";
 import {
   commitRender,
@@ -62,12 +61,12 @@ export function* executeComponentRerender(instance: ComponentInstance): RenderGe
  * Otherwise, schedules via the scheduler.
  */
 export function rerenderInstance(instance: ComponentInstance): Promise<void> {
-  const rctx = resolveCtx(instance.capturedCtx, RenderCtx);
-  const { renderingInstance } = rctx;
+  const scheduler = resolveCtx(instance.capturedCtx, SchedulerCtx);
+  const { renderingInstance } = scheduler;
   if (renderingInstance) {
     throw new SetStateDuringRenderError(renderingInstance.component.name, instance.component.name);
   }
   if (!instance.endMarker.parentNode) return Promise.resolve();
-  scheduleUpdate(instance);
+  scheduler.scheduleUpdate(instance);
   return Promise.resolve();
 }

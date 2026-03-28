@@ -8,12 +8,13 @@
  * `component/rerender.ts` via the scheduler.
  */
 
+import { resolveCtx } from "../../context";
 import type { Component, InternalProps } from "../../jsx";
 import { runComponentRender } from "../component/lifecycle";
 import { executeComponentRerender, rerenderInstance, resumeInstance } from "../component/rerender";
 import { type CtxMap, driveWithContext, getContextMap, type RenderGenerator } from "../driver";
 import { flushEffects } from "../hooks-runtime";
-import { scheduleWork } from "../scheduler";
+import { SchedulerCtx } from "../scheduler";
 import type { ComponentInstance } from "../types";
 import { buildInitialSlotsGen } from "./build-slots";
 
@@ -40,10 +41,12 @@ function createComponentInstance(
     consumedContexts: new Set(),
     providedContexts: new Set(),
     resume: () => {
-      scheduleWork(resumeInstance(instance), instance.capturedCtx);
+      const scheduler = resolveCtx(instance.capturedCtx, SchedulerCtx);
+      scheduler.submit(resumeInstance(instance), instance.capturedCtx);
     },
     executeRerender: () => {
-      scheduleWork(executeComponentRerender(instance), instance.capturedCtx);
+      const scheduler = resolveCtx(instance.capturedCtx, SchedulerCtx);
+      scheduler.submit(executeComponentRerender(instance), instance.capturedCtx);
     },
     scheduleRerender: () => rerenderInstance(instance),
   };

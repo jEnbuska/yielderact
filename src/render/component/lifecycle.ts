@@ -11,7 +11,7 @@ import type { Child } from "../../jsx";
 import { driveWithContext, getContextMap, type RenderGenerator } from "../driver";
 import { flushEffects, isHookDescriptor, processOneDescriptor } from "../hooks-runtime";
 import { reconcileSlotsGen } from "../reconciler";
-import { RenderCtx } from "../state";
+import { SchedulerCtx } from "../scheduler";
 import type { ComponentInstance } from "../types";
 
 // ── Instance helpers ─────────────────────────────────────────────────────
@@ -85,8 +85,8 @@ export function* commitRender(instance: ComponentInstance, vnode: Child): Render
  * and returns the resulting VNode.
  */
 export function* runComponentRender(instance: ComponentInstance): RenderGenerator<Child> {
-  const rctx = (yield* getContextMap()).get(RenderCtx);
-  rctx.renderingInstance = instance;
+  const scheduler = (yield* getContextMap()).get(SchedulerCtx);
+  scheduler.renderingInstance = instance;
   instance.pendingEffects.length = 0;
   instance.consumedContexts.clear();
   instance.providedContexts.clear();
@@ -96,7 +96,7 @@ export function* runComponentRender(instance: ComponentInstance): RenderGenerato
 
   const { hookIndex, result } = yield* processHookDescriptors(instance, ctx, 0);
 
-  rctx.renderingInstance = undefined;
+  scheduler.renderingInstance = undefined;
   instance.resumeHookIndex = hookIndex;
 
   if (result.done) validateHookCount(instance, hookIndex);

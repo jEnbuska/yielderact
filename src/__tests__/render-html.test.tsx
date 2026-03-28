@@ -3,13 +3,12 @@ import { useState } from "../hooks";
 import { createElement, Fragment } from "../jsx";
 import { buildNode, render } from "../render";
 import { driveWithContext } from "../render/driver";
-import { createRenderContext, RenderCtx, setActiveRenderCtx } from "../render/state";
+import { Scheduler, SchedulerCtx } from "../render/scheduler";
 
 function run(child: Parameters<typeof buildNode>[0]) {
   const map: Map<Context, unknown> = new Map();
-  const rctx = createRenderContext();
-  map.set(RenderCtx as Context, rctx);
-  setActiveRenderCtx(rctx);
+  const scheduler = new Scheduler();
+  map.set(SchedulerCtx as Context, scheduler);
   const wrapped = driveWithContext(map, buildNode(child));
   let result = wrapped.next();
   while (!result.done) {

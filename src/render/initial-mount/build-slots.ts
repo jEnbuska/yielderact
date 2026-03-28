@@ -23,7 +23,7 @@ import {
   stripFrameworkDirectives,
 } from "../helpers";
 import { applyProps } from "../props";
-import { RenderCtx } from "../state";
+import { SchedulerCtx } from "../scheduler";
 import type { Slot } from "../types";
 import { buildNode } from "./build-node";
 import { mountComponent } from "./mount-component";
@@ -139,8 +139,9 @@ function* buildElementSlot(vnode: VNode<string>): RenderGenerator<{ slot: Slot; 
   const ctxMap = yield* getContextMap();
   const childCtxMap = childContextMap(ctxMap, vnode.props);
 
+  const scheduler = ctxMap.get(SchedulerCtx);
   const el = document.createElement(vnode.type);
-  applyProps(el, vnode.props);
+  applyProps(el, vnode.props, scheduler.delegationRoot);
   const childSlots: Slot[] = [];
   for (const child of flattenChildren(vnode.children)) {
     const { slot: childSlot, node: childNode } = yield* driveWithContext(
@@ -159,16 +160,16 @@ function* buildElementSlot(vnode: VNode<string>): RenderGenerator<{ slot: Slot; 
 /** Build a fresh portal slot. */
 function* buildPortalSlot(vnode: VNode): RenderGenerator<{ slot: Slot; node: Node }> {
   const ctxMap = yield* getContextMap();
-  const rctx = ctxMap.get(RenderCtx);
+  const scheduler = ctxMap.get(SchedulerCtx);
   const portalContainer = vnode.props["$portalContainer"] as Element;
 
   const placeholder = document.createComment("portal");
   const endMarker = document.createComment("");
   portalContainer.appendChild(endMarker);
 
-  const delegation = acquirePortalDelegation(portalContainer, rctx);
-  const { delegationRoot: prevDelegation } = rctx;
-  rctx.delegationRoot = delegation;
+  const delegation = acquirePortalDelegation(portalContainer, scheduler);
+  const { delegationRoot: prevDelegation } = scheduler;
+  scheduler.delegationRoot = delegation;
 
   const childSlots: Slot[] = [];
   try {
@@ -178,7 +179,7 @@ function* buildPortalSlot(vnode: VNode): RenderGenerator<{ slot: Slot; node: Nod
       portalContainer.insertBefore(node, endMarker);
     }
   } finally {
-    rctx.delegationRoot = prevDelegation;
+    scheduler.delegationRoot = prevDelegation;
   }
 
   return {

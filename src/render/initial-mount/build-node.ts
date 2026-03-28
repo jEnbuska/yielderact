@@ -19,6 +19,7 @@ import { driveWithContext, getContextMap, type RenderGenerator, setContext } fro
 import { InvalidChildError } from "../errors";
 import { isComponentNode } from "../helpers";
 import { applyProps } from "../props";
+import { SchedulerCtx } from "../scheduler";
 import { mountComponent } from "./mount-component";
 
 /**
@@ -76,7 +77,8 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
 
   // HTML element
   const el = document.createElement(child.type as string);
-  applyProps(el, child.props);
+  const { delegationRoot } = map.get(SchedulerCtx);
+  applyProps(el, child.props, delegationRoot);
   for (const c of child.children) {
     el.appendChild(yield* driveWithContext(map, buildNode(c)));
   }

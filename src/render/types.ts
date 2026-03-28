@@ -12,58 +12,20 @@ import type { ComponentGenerator, DependencyList } from "../hooks/types";
 import type { UseRenderState } from "../hooks/useRender";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
 import type { DelegationRoot } from "./delegation";
+import type { Scheduler } from "./scheduler";
 
 // ── Context map ─────────────────────────────────────────────────────────────
 
 /**
  * Typed context map returned by `getContextMap()`.
  *
- * Always contains a `RenderContext` entry — seeded by `render()` /
+ * Always contains a `Scheduler` entry — seeded by `render()` /
  * `createRoot()` and preserved through all derived maps. The overloaded
- * `get` returns `RenderContext` directly for `Context<RenderContext>` keys.
+ * `get` returns `Scheduler` directly for `Context<Scheduler>` keys.
  */
 export interface CtxMap extends ReadonlyMap<Context, unknown> {
-  get(key: Context<RenderContext>): RenderContext;
+  get(key: Context<Scheduler>): Scheduler;
   get(key: Context): unknown | undefined;
-}
-
-// ── Render context ─────────────────────────────────────────────────────────
-//
-// Per-root mutable state. Each `createRoot()` (or `render()`) creates its
-// own `RenderContext`. During rendering the "active" context is set so that
-// all internal modules can read/write the correct root's state.
-
-/**
- * Per-root render state.
- *
- * Stored on each `ComponentInstance.renderCtx` so that closures and hook
- * handlers can reach it without global lookups. The context map is
- * threaded through the generator driver, not stored here.
- */
-export interface RenderContext {
-  // ── From state.ts (persistent per-root) ──
-  isInitialMount: boolean;
-
-  // ── From lifecycle.ts (rendering-phase temporary) ──
-  /** The component currently executing its generator body, or `undefined` if idle. */
-  renderingInstance?: ComponentInstance;
-
-  // ── From commit-queue.ts ──
-  ops?: (() => void)[];
-
-  // ── From scheduler.ts ──
-  pendingUpdates: Set<ComponentInstance>;
-  workQueue: Array<Generator<unknown, void, unknown>>;
-  isProcessing: boolean;
-  syncMode: boolean;
-
-  // ── From delegation.ts ──
-  /**
-   * The delegation root for this render context, created by `render()` /
-   * `createRoot()` and used by `applyProps` / `updateProps` to register
-   * handlers and lazily attach root listeners.
-   */
-  delegationRoot?: DelegationRoot;
 }
 
 // ── Hook state discriminated union ──────────────────────────────────────────

@@ -17,31 +17,6 @@
  *   after reconciliation completes for that priority level.
  */
 
-import { requireActiveRenderCtx } from "./state";
-
-// ── Public API ───────────────────────────────────────────────────────────────
-
-/** Begin collecting DOM operations for a new priority pass. */
-export function beginBatch(): void {
-  requireActiveRenderCtx().ops = [];
-}
-
-/**
- * Commit all collected DOM operations synchronously.
- *
- * The commit is a plain `for` loop — synchronous and uninterruptible — so the
- * browser never paints an intermediate visual state.
- *
- * Resets the queue to `undefined` (no active commit) after committing.
- */
-export function commitBatch(): void {
-  const ctx = requireActiveRenderCtx();
-  if (!ctx.ops) return;
-  const { ops } = ctx;
-  ctx.ops = undefined;
-  for (let i = 0; i < ops.length; i++) ops[i]?.();
-}
-
 // ── DOM operation wrappers ───────────────────────────────────────────────────
 //
 // Each wrapper checks whether a commit is active AND the target node is

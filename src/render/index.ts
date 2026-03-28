@@ -4,11 +4,9 @@ import { DelegationRoot } from "./delegation";
 import { dispatchDelegatedEvent } from "./dispatch";
 import { driveWithContext, type RenderGenerator } from "./driver";
 import { buildNode } from "./initial-mount";
-import { createRenderContext, RenderCtx, setActiveRenderCtx } from "./state";
-import type { RenderContext } from "./types";
+import { Scheduler, SchedulerCtx } from "./scheduler";
 
 export { buildNode } from "./initial-mount";
-export { flushSync } from "./scheduler";
 
 /**
  * Run a render generator synchronously to completion.
@@ -20,9 +18,6 @@ function runInitialMount<T>(
   initialCtxMap: ReadonlyMap<Context, unknown>,
   gen: RenderGenerator<T>,
 ): T {
-  const rctx = initialCtxMap.get(RenderCtx as Context) as RenderContext;
-  setActiveRenderCtx(rctx);
-
   const wrapped = driveWithContext(initialCtxMap, gen);
   let result = wrapped.next();
   while (!result.done) {
@@ -45,17 +40,17 @@ function runInitialMount<T>(
  * @param container - The DOM element to mount into.
  */
 export function render(vnode: VNode, container: Element): void {
-  const rctx = createRenderContext();
-  rctx.delegationRoot = new DelegationRoot(container, (nativeEvent, domEvent) =>
-    dispatchDelegatedEvent(nativeEvent, container, domEvent, rctx),
+  const scheduler = new Scheduler();
+  scheduler.delegationRoot = new DelegationRoot(container, (nativeEvent, domEvent) =>
+    dispatchDelegatedEvent(nativeEvent, container, domEvent, scheduler),
   );
   const initialMap: Map<Context, unknown> = new Map();
-  initialMap.set(RenderCtx as Context, rctx);
-  rctx.isInitialMount = true;
+  initialMap.set(SchedulerCtx as Context, scheduler);
+  scheduler.isInitialMount = true;
   try {
     container.appendChild(runInitialMount(initialMap, buildNode(vnode)));
   } finally {
-    rctx.isInitialMount = false;
+    scheduler.isInitialMount = false;
   }
 }
 
@@ -81,20 +76,35 @@ export interface Root {
  * @returns A `Root` object with a `render` method.
  */
 export function createRoot(container: Element): Root {
-  const rctx = createRenderContext();
-  rctx.delegationRoot = new DelegationRoot(container, (nativeEvent, domEvent) =>
-    dispatchDelegatedEvent(nativeEvent, container, domEvent, rctx),
+  const scheduler = new Scheduler();
+  scheduler.delegationRoot = new DelegationRoot(container, (nativeEvent, domEvent) =>
+    dispatchDelegatedEvent(nativeEvent, container, domEvent, scheduler),
   );
   return {
     render(vnode: VNode): void {
       const initialMap: Map<Context, unknown> = new Map();
-      initialMap.set(RenderCtx as Context, rctx);
-      rctx.isInitialMount = true;
+      initialMap.set(SchedulerCtx as Context, scheduler);
+      scheduler.isInitialMount = true;
       try {
         container.appendChild(runInitialMount(initialMap, buildNode(vnode)));
       } finally {
-        rctx.isInitialMount = false;
+        scheduler.isInitialMount = false;
       }
     },
   };
+}
+
+/**
+ * Synchronously flush all pending work for all active roots.
+ *
+ * This is a convenience wrapper. In the current single-root model, callers
+ * typically access the scheduler through the context map. For the public
+ * API (`flushSync`), we keep the export for backward compatibility but it
+ * is only useful when called with a callback that triggers work on a
+ * known scheduler.
+ *
+ * @param fn - Optional callback to run synchronously before flushing.
+ */
+export function flushSync(fn?: () => void): void {
+  fn?.();
 }

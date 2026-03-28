@@ -1,13 +1,13 @@
 import type { SyntheticEvent } from "../events";
 import type { InternalProps } from "../jsx";
 import {
+  type DelegationRoot,
   NON_DELEGATED_EVENTS,
   registerHandler,
   resolveEventProp,
   unregisterHandler,
 } from "./delegation";
 import { addNonDelegatedListener, removeNonDelegatedListener } from "./events";
-import { requireActiveRenderCtx } from "./state";
 
 // ── Event registration helpers ─────────────────────────────────────────────
 
@@ -19,13 +19,14 @@ function registerEvent(
   el: HTMLElement,
   propKey: string,
   handler: (e: SyntheticEvent) => void,
+  delegationRoot: DelegationRoot | undefined,
 ): void {
   const { domEvent, isCapture } = resolveEventProp(propKey);
   if (NON_DELEGATED_EVENTS.has(domEvent)) {
     addNonDelegatedListener(el, domEvent, handler);
   } else {
     registerHandler(el, domEvent, handler, isCapture);
-    requireActiveRenderCtx().delegationRoot?.ensureListening(domEvent);
+    delegationRoot?.ensureListening(domEvent);
   }
 }
 
@@ -71,15 +72,20 @@ function unregisterEvent(el: HTMLElement, propKey: string): void {
  * `type` (prevents accidental form submission), and warns about
  * `<a target="_blank">` without `rel`.
  *
- * @param el    - The freshly-created DOM element.
- * @param props - The VNode's props object.
+ * @param el             - The freshly-created DOM element.
+ * @param props          - The VNode's props object.
+ * @param delegationRoot - The delegation root for event registration.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: prop type dispatch with many branches
-export function applyProps(el: HTMLElement, props: InternalProps): void {
+export function applyProps(
+  el: HTMLElement,
+  props: InternalProps,
+  delegationRoot?: DelegationRoot,
+): void {
   for (const [key, value] of Object.entries(props)) {
     if (key === "ref" || key === "children" || key.startsWith("$")) continue;
     if (key.startsWith("on") && typeof value === "function") {
-      registerEvent(el, key, value as (e: SyntheticEvent) => void);
+      registerEvent(el, key, value as (e: SyntheticEvent) => void, delegationRoot);
     } else if (key === "className") {
       el.className = String(value);
     } else if (key === "htmlFor") {
@@ -141,15 +147,17 @@ export function applyProps(el: HTMLElement, props: InternalProps): void {
  * Uses the same prop-handling rules as `applyProps` (event listeners,
  * className, style, value/checked DOM properties, etc.).
  *
- * @param el        - The existing DOM element to update.
- * @param prevProps - The props from the previous render (stored in `Slot.props`).
- * @param nextProps - The props from the new VNode.
+ * @param el             - The existing DOM element to update.
+ * @param prevProps      - The props from the previous render (stored in `Slot.props`).
+ * @param nextProps      - The props from the new VNode.
+ * @param delegationRoot - The delegation root for event registration.
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: prop type dispatch with many branches
 export function updateProps(
   el: HTMLElement,
   prevProps: InternalProps,
   nextProps: InternalProps,
+  delegationRoot?: DelegationRoot,
 ): void {
   // 1. Remove props that no longer exist in nextProps
   for (const key in prevProps) {
@@ -177,7 +185,7 @@ export function updateProps(
 
     if (key.startsWith("on") && typeof next === "function") {
       if (typeof prev === "function") unregisterEvent(el, key);
-      registerEvent(el, key, next as (e: SyntheticEvent) => void);
+      registerEvent(el, key, next as (e: SyntheticEvent) => void, delegationRoot);
     } else if (key === "style" && typeof next === "object" && next !== null) {
       // Clear removed style properties, then apply current ones
       if (typeof prev === "object" && prev !== null) {

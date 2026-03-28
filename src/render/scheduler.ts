@@ -1,203 +1,193 @@
 /**
- * scheduler.ts — Cooperative scheduler for rendering.
+ * scheduler.ts — Per-root scheduler that owns all rendering state.
  *
- * All rendering work after initial mount flows through the scheduler.
- * Work is submitted via `scheduleWork(gen, ctxMap)` or
- * `scheduleUpdate(instance)` and processed in batches.
+ * Each `createRoot()` creates a Scheduler. It manages:
+ * - Work queue of generator-based render tasks
+ * - DOM operation batching (ops queue)
+ * - Event delegation root
+ * - Time-sliced cooperative scheduling
  *
- * The scheduler drives generators step-by-step, handling context ops
- * via `driveWithContext` and checking time budgets between yields.
- *
- * **Time-slicing (async mode):** The scheduler yields to the browser
- * every ~5ms via `MessageChannel`, keeping the UI responsive.
- *
- * **Sync mode** (default): The work loop runs to completion without
- * yielding, preserving synchronous rendering for tests and simple apps.
+ * Stored in the context map via `SchedulerCtx` so generators can
+ * access it via `yield* getContextMap()`.
  */
 
 import type { Context } from "../context";
-import { resolveCtx } from "../context";
-import { beginBatch, commitBatch } from "./commit-queue";
+import type { DelegationRoot } from "./delegation";
 import { driveWithContext, type RenderGenerator } from "./driver";
-import { RenderCtx, requireActiveRenderCtx, setActiveRenderCtx } from "./state";
-import type { ComponentInstance, RenderContext } from "./types";
+import type { ComponentInstance } from "./types";
 
 /** Time budget per work chunk in milliseconds. */
-const timeSlice = 5;
-
-// ── Public API ───────────────────────────────────────────────────────────────
+const TIME_SLICE = 5;
 
 /**
- * Submit a generator as work to the scheduler.
+ * Context key for the per-root Scheduler.
  *
- * The generator is immediately wrapped with `driveWithContext` so context
- * ops are handled transparently. The scheduler steps through the wrapped
- * generator, checking time budgets between yields.
- *
- * If the scheduler isn't running, it starts.
+ * Set by `render()` / `createRoot()` in the initial ctxMap.
+ * Read by generator code via `resolveCtx(ctxMap, SchedulerCtx)`.
  */
-export function scheduleWork(
-  gen: RenderGenerator<void>,
-  ctxMap: ReadonlyMap<Context, unknown>,
-): void {
-  const rctx = resolveCtx(ctxMap, RenderCtx);
-  rctx.workQueue.push(driveWithContext(ctxMap, gen));
-
-  if (!rctx.isProcessing) {
-    rctx.isProcessing = true;
-    setActiveRenderCtx(rctx);
-    runLoop(rctx);
-  }
-}
+export const SchedulerCtx: Context<Scheduler> = {
+  defaultValue: undefined as never,
+};
 
 /**
- * Schedule a rerender for `instance`.
+ * Per-root scheduler and render state.
  *
- * Creates the rerender generator and submits it to the scheduler.
- *
- * @param instance - The ComponentInstance to rerender.
+ * Created by `createRoot()` / `render()`. Manages the work queue,
+ * DOM batching, event delegation, and cooperative time-slicing.
  */
-export function scheduleUpdate(instance: ComponentInstance): void {
-  const rctx = resolveCtx(instance.capturedCtx, RenderCtx);
-  rctx.pendingUpdates.add(instance);
+export class Scheduler {
+  /** True during the initial synchronous mount. */
+  isInitialMount = false;
 
-  if (!rctx.isProcessing) {
-    rctx.isProcessing = true;
-    setActiveRenderCtx(rctx);
-    runLoop(rctx);
-  }
-}
+  /** The component currently executing its generator body. */
+  renderingInstance?: ComponentInstance;
 
-/**
- * Run all pending work synchronously, ignoring time slicing.
- *
- * Essential for tests and for event handlers that need immediate DOM
- * updates. Optionally accepts a function to execute before flushing
- * (e.g., a click that triggers a setState).
- *
- * During `fn`, processing is suppressed so multiple setState calls
- * are batched into a single processing pass.
- */
-export function flushSync(fn?: () => void): void {
-  const rctx = requireActiveRenderCtx();
-  const { syncMode: prevSync } = rctx;
-  rctx.syncMode = true;
+  /** Queued DOM operations for atomic commit. */
+  ops?: (() => void)[];
 
-  if (fn) {
-    const { isProcessing: wasProcessing } = rctx;
-    rctx.isProcessing = true;
-    try {
-      fn();
-    } finally {
-      rctx.isProcessing = wasProcessing;
-    }
+  /** Event delegation root for this render root. */
+  delegationRoot?: DelegationRoot;
+
+  private readonly workQueue: Generator<unknown, void, unknown>[] = [];
+  private readonly pendingUpdates = new Set<ComponentInstance>();
+  private isProcessing = false;
+  private syncMode = true;
+
+  /**
+   * Submit a generator as work.
+   *
+   * The generator is wrapped with `driveWithContext` so context ops are
+   * handled transparently. If the scheduler isn't running, it starts.
+   */
+  submit(gen: RenderGenerator<void>, ctxMap: ReadonlyMap<Context, unknown>): void {
+    this.workQueue.push(driveWithContext(ctxMap, gen));
+    this.start();
   }
 
-  if (!rctx.isProcessing && hasPendingWork(rctx)) {
-    rctx.isProcessing = true;
-    runLoop(rctx);
+  /**
+   * Schedule a rerender for a component instance.
+   */
+  scheduleUpdate(instance: ComponentInstance): void {
+    this.pendingUpdates.add(instance);
+    this.start();
   }
 
-  rctx.syncMode = prevSync;
-}
-
-/**
- * Flush any pending work for a specific render context.
- *
- * Called by the event dispatch system after a delegated event has been
- * fully dispatched.
- *
- * @internal
- */
-export function flushPendingWork(rctx: RenderContext): void {
-  if (hasPendingWork(rctx)) {
-    setActiveRenderCtx(rctx);
-    rctx.isProcessing = true;
-    runLoop(rctx);
+  /**
+   * Remove an instance from the pending set (e.g. on unmount).
+   */
+  removePending(instance: ComponentInstance): void {
+    this.pendingUpdates.delete(instance);
   }
-}
 
-// ── Internal ─────────────────────────────────────────────────────────────────
+  /**
+   * Run all pending work synchronously, ignoring time slicing.
+   */
+  flushSync(fn?: () => void): void {
+    const { syncMode: prevSync } = this;
+    this.syncMode = true;
 
-function hasPendingWork(rctx: RenderContext): boolean {
-  return rctx.pendingUpdates.size > 0 || rctx.workQueue.length > 0;
-}
-
-/**
- * Drain `pendingUpdates` into `workQueue` by calling each instance's
- * `executeRerender()` which now pushes a generator onto the work queue.
- */
-function drainPendingUpdates(rctx: RenderContext): void {
-  if (rctx.pendingUpdates.size === 0) return;
-  const instances = [...rctx.pendingUpdates];
-  rctx.pendingUpdates.clear();
-  for (const instance of instances) {
-    instance.executeRerender();
-  }
-}
-
-// ── Work loop ────────────────────────────────────────────────────────────────
-
-/**
- * The main work loop. Processes all work items by stepping through
- * generators one yield at a time, checking the time budget between steps.
- *
- * DOM mutations are collected via `beginBatch()`/`commitBatch()` for
- * atomic commits.
- */
-function runLoop(rctx: RenderContext): void {
-  const deadline = performance.now() + timeSlice;
-
-  beginBatch();
-
-  while (true) {
-    // Convert pending instance updates into work items.
-    drainPendingUpdates(rctx);
-
-    if (rctx.workQueue.length === 0) break;
-
-    // The generator is already wrapped with driveWithContext (done at
-    // submission time in scheduleWork), so context ops are handled
-    // transparently. We just step through it.
-    const gen = rctx.workQueue[0] as Generator<unknown, void, unknown>;
-    let result = gen.next();
-
-    while (!result.done) {
-      // Time-slicing: yield to browser if deadline exceeded.
-      if (!rctx.syncMode && performance.now() >= deadline) {
-        commitBatch();
-        yieldToBrowser(rctx);
-        return;
+    if (fn) {
+      const { isProcessing: wasProcessing } = this;
+      this.isProcessing = true;
+      try {
+        fn();
+      } finally {
+        this.isProcessing = wasProcessing;
       }
-      result = gen.next();
     }
 
-    // This work item is done — remove it from the queue.
-    rctx.workQueue.shift();
+    if (!this.isProcessing && this.hasPendingWork()) {
+      this.isProcessing = true;
+      this.runLoop();
+    }
+
+    this.syncMode = prevSync;
   }
 
-  commitBatch();
-  rctx.isProcessing = false;
-}
+  /**
+   * Flush any pending work. Called by event dispatch after a delegated
+   * event has been fully dispatched.
+   */
+  flush(): void {
+    if (!this.hasPendingWork()) return;
+    this.isProcessing = true;
+    this.runLoop();
+  }
 
-/**
- * Yield to the browser, then resume the work loop.
- *
- * Uses `MessageChannel` for minimal-latency scheduling (same technique
- * as React's scheduler).
- */
-function yieldToBrowser(rctx: RenderContext): void {
-  if (typeof MessageChannel !== "undefined") {
-    const mc = new MessageChannel();
-    mc.port1.onmessage = () => {
-      setActiveRenderCtx(rctx);
-      runLoop(rctx);
-    };
-    mc.port2.postMessage(null);
-  } else {
-    setTimeout(() => {
-      setActiveRenderCtx(rctx);
-      runLoop(rctx);
-    }, 0);
+  /** Begin collecting DOM operations for atomic commit. */
+  beginBatch(): void {
+    this.ops = [];
+  }
+
+  /** Commit all collected DOM operations synchronously. */
+  commitBatch(): void {
+    if (!this.ops) return;
+    const { ops } = this;
+    this.ops = undefined;
+    for (let i = 0; i < ops.length; i++) ops[i]?.();
+  }
+
+  // ── Private ──────────────────────────────────────────────────────────
+
+  private start(): void {
+    if (this.isProcessing) return;
+    this.isProcessing = true;
+    this.runLoop();
+  }
+
+  private hasPendingWork(): boolean {
+    return this.pendingUpdates.size > 0 || this.workQueue.length > 0;
+  }
+
+  private drainPendingUpdates(): void {
+    if (this.pendingUpdates.size === 0) return;
+    const instances = [...this.pendingUpdates];
+    this.pendingUpdates.clear();
+    for (const instance of instances) {
+      instance.executeRerender();
+    }
+  }
+
+  private runLoop(): void {
+    const deadline = performance.now() + TIME_SLICE;
+
+    this.beginBatch();
+
+    while (true) {
+      this.drainPendingUpdates();
+
+      if (this.workQueue.length === 0) break;
+
+      const gen = this.workQueue[0] as Generator<unknown, void, unknown>;
+      let result = gen.next();
+
+      while (!result.done) {
+        if (!this.syncMode && performance.now() >= deadline) {
+          this.commitBatch();
+          this.yieldToBrowser();
+          return;
+        }
+        result = gen.next();
+      }
+
+      this.workQueue.shift();
+    }
+
+    this.commitBatch();
+    this.isProcessing = false;
+  }
+
+  private yieldToBrowser(): void {
+    if (typeof MessageChannel !== "undefined") {
+      const mc = new MessageChannel();
+      mc.port1.onmessage = () => {
+        this.runLoop();
+      };
+      mc.port2.postMessage(null);
+    } else {
+      setTimeout(() => {
+        this.runLoop();
+      }, 0);
+    }
   }
 }
