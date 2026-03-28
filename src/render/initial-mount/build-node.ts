@@ -16,7 +16,7 @@ import type { ContextEntry } from "../../context";
 import { type Child, Portal, RawFragment } from "../../jsx";
 import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "../driver";
 import { InvalidChildError } from "../errors";
-import { isComponentNode, mergedProps, stripFrameworkDirectives } from "../helpers";
+import { isComponentNode, propsWithChildren, stripFrameworkDirectives } from "../helpers";
 import { applyProps } from "../props";
 import { mountComponent } from "./mount-component";
 
@@ -68,7 +68,7 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   }
 
   if (isComponentNode(child)) {
-    const allProps = stripFrameworkDirectives(mergedProps(child));
+    const allProps = stripFrameworkDirectives(propsWithChildren(child));
     return (yield* mountComponent(child.type, allProps)).fragment;
   }
 

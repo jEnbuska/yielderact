@@ -35,7 +35,7 @@ import {
   isComponentNode,
   isElementNode,
   isVNode,
-  mergedProps,
+  propsWithChildren,
   shallowEqual,
   stripDeferred,
   stripFrameworkDirectives,
@@ -395,7 +395,7 @@ function* reconcileOneGen(
   // When the $shown prop is explicitly false, unmount and render an empty
   // placeholder (same as null/false above).
   // ════════════════════════════════════════════════════════════════════════
-  const allPropsForShown = mergedProps(vnode);
+  const allPropsForShown = propsWithChildren(vnode);
   if (allPropsForShown.$shown === false) {
     if (prevSlot?.type === "empty") {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
