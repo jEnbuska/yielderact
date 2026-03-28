@@ -194,20 +194,11 @@ const [data, setData] = yield * useState(() => expensiveCompute());
 
 // Functional updater — receives previous state:
 setCount((prev) => prev + 1);
-
-// Await inside an async useMemo factory:
-yield *
-  useMemo(async () => {
-    if (name !== name.toUpperCase()) {
-      await setName(name.toUpperCase()); // resolves after DOM commit
-      console.log('name is now uppercase in the DOM');
-    }
-  }, [name]);
 ```
 
 > **Note:** Like React, any function passed as `initialValue` or to the setter is treated as a lazy initialiser / updater. To store a function as state, wrap it: `useState(() => myFn)`.
 >
-> **Multiple setters during one render are batched:** if two `setValue` calls happen synchronously during the same render, only a single follow-up render is executed with both values applied.
+> **setState cannot be called during render.** Calling a setter from inside a component's generator body (or from a synchronous `useMemo` callback during render) throws a `SetStateDuringRenderError`. State updates must be triggered from event handlers, effects, or other asynchronous callbacks. This restriction ensures predictable rendering order and enables the deferred rendering model.
 
 ---
 
