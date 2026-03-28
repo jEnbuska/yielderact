@@ -27,7 +27,7 @@ import {
   domSetText,
 } from "./commit-queue";
 import { acquirePortalDelegation } from "./delegation";
-import { drive, getContextMap } from "./driver";
+import { driveWithContext, getContextMap } from "./driver";
 import {
   childContextMap,
   contextEntries,
@@ -35,29 +35,18 @@ import {
   isComponentNode,
   isElementNode,
   isVNode,
-  mergedProps,
+  propsWithChildren,
   shallowEqual,
   stripDeferred,
   stripFrameworkDirectives,
 } from "./helpers";
 import { propagateContextUpdate, unmountSlot } from "./hooks-runtime";
-import { buildNode, mountComponent } from "./mount";
+import { buildNode, mountComponent } from "./initial-mount";
 import { applyProps, updateProps } from "./props";
 import { RenderCtx } from "./state";
 import type { ComponentInstance, Slot } from "./types";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-/**
- * Drain a generator synchronously, handling context ops along the way.
- * Supports both `void` yields (scheduling pauses) and context descriptors.
- */
-function runToCompletion<T>(
-  gen: Generator<unknown, T, unknown>,
-  ctxMap: ReadonlyMap<Context, unknown>,
-): T {
-  return drive(ctxMap, gen).value;
-}
 
 /**
  * Recursively remove all DOM nodes owned by a slot from the given parent.
@@ -291,30 +280,32 @@ export function* reconcileSlotsGen(
     const { slot, node, replaced } = yield* reconcileOneGen(prevSlot, flatNext[i]);
     nextSlots.push(slot);
 
-    if (replaced) {
-      if (prevSlot) {
-        // Grab the insertion reference BEFORE removing the old nodes.
-        // For component slots, slot.node is the endMarker — its nextSibling
-        // is the first node after this component's region.
-        const insertRef = prevSlot.node.parentNode === parent ? prevSlot.node.nextSibling : null;
-        unmountSlot(prevSlot);
-        removeSlotNodes(parent, prevSlot, rctx.ops);
-        // Insert the new node at the old slot's position.
-        domInsertBefore(parent, node, insertRef, rctx.ops);
-      } else if (beforeAnchor !== undefined) {
-        // No previous slot at this position — insert before the anchor.
-        domInsertBefore(parent, node, beforeAnchor, rctx.ops);
+    if (!replaced) {
+      yield;
+      continue;
+    }
+
+    if (prevSlot) {
+      // Grab the insertion reference BEFORE removing the old nodes.
+      // For component slots, slot.node is the endMarker — its nextSibling
+      // is the first node after this component's region.
+      const insertRef = prevSlot.node.parentNode === parent ? prevSlot.node.nextSibling : null;
+      unmountSlot(prevSlot);
+      removeSlotNodes(parent, prevSlot, rctx.ops);
+      // Insert the new node at the old slot's position.
+      domInsertBefore(parent, node, insertRef, rctx.ops);
+    } else if (beforeAnchor !== undefined) {
+      // No previous slot at this position — insert before the anchor.
+      domInsertBefore(parent, node, beforeAnchor, rctx.ops);
+    } else {
+      // No previous slot and no anchor — use positional fallback.
+      const ref = parent.childNodes[i] ?? null;
+      if (ref) {
+        domInsertBefore(parent, node, ref, rctx.ops);
       } else {
-        // No previous slot and no anchor — use positional fallback.
-        const ref = parent.childNodes[i] ?? null;
-        if (ref) {
-          domInsertBefore(parent, node, ref, rctx.ops);
-        } else {
-          domAppendChild(parent, node, rctx.ops);
-        }
+        domAppendChild(parent, node, rctx.ops);
       }
     }
-    // If not replaced, the existing node is already in the correct place.
     yield;
   }
 
@@ -395,7 +386,7 @@ function* reconcileOneGen(
   // When the $shown prop is explicitly false, unmount and render an empty
   // placeholder (same as null/false above).
   // ════════════════════════════════════════════════════════════════════════
-  const allPropsForShown = mergedProps(vnode);
+  const allPropsForShown = propsWithChildren(vnode);
   if (allPropsForShown.$shown === false) {
     if (prevSlot?.type === "empty") {
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -433,7 +424,7 @@ function* reconcileOneGen(
   // SECTION: Fallback (Fragment or unknown)
   // Full rebuild via buildNode.
   // ════════════════════════════════════════════════════════════════════════
-  const node = drive(ctxMap, buildNode(nextChild)).value;
+  const node = yield* driveWithContext(ctxMap, buildNode(nextChild));
   return {
     slot: { type: vnode.type, node, props: {}, childSlots: [] },
     node,
@@ -531,7 +522,10 @@ function* reconcileComponent(
   }
 
   // Mount fresh component
-  const { fragment, instance } = drive(childCtxMap, mountComponent(component, allProps)).value;
+  const { fragment, instance } = yield* driveWithContext(
+    childCtxMap,
+    mountComponent(component, allProps),
+  );
   const entries = contextEntries(allPropsRaw.$context);
   for (const entry of entries) {
     instance.providedContexts.add(entry.ctx);
@@ -576,9 +570,9 @@ function* reconcileHTMLElement(
       rctx.ops,
     );
     prevSlot.props = vnode.props;
-    prevSlot.childSlots = runToCompletion(
-      reconcileSlotsGen(prevSlot.node, prevSlot.childSlots, vnode.children, undefined),
+    prevSlot.childSlots = yield* driveWithContext(
       childCtxMap,
+      reconcileSlotsGen(prevSlot.node, prevSlot.childSlots, vnode.children, undefined),
     );
     return { slot: prevSlot, node: prevSlot.node, replaced: false };
   }
@@ -588,9 +582,9 @@ function* reconcileHTMLElement(
   const flatChildren = flattenChildren(vnode.children);
   const childSlots: Slot[] = [];
   for (const child of flatChildren) {
-    const { slot: childSlot, node: childNode } = runToCompletion(
-      reconcileOneGen(undefined, child),
+    const { slot: childSlot, node: childNode } = yield* driveWithContext(
       childCtxMap,
+      reconcileOneGen(undefined, child),
     );
     childSlots.push(childSlot);
     el.appendChild(childNode);
@@ -639,14 +633,14 @@ function* reconcilePortal(
     const { delegationRoot: prevDelegation } = rctx;
     rctx.delegationRoot = prevSlot.portalDelegationRoot;
     try {
-      prevSlot.childSlots = runToCompletion(
+      prevSlot.childSlots = yield* driveWithContext(
+        ctxMap,
         reconcileSlotsGen(
           portalContainer,
           prevSlot.childSlots,
           vnode.children,
           prevSlot.portalEndMarker,
         ),
-        ctxMap,
       );
     } finally {
       rctx.delegationRoot = prevDelegation;
@@ -666,9 +660,9 @@ function* reconcilePortal(
 
   let childSlots: Slot[];
   try {
-    childSlots = runToCompletion(
-      reconcileSlotsGen(portalContainer, [], vnode.children, endMarker),
+    childSlots = yield* driveWithContext(
       ctxMap,
+      reconcileSlotsGen(portalContainer, [], vnode.children, endMarker),
     );
   } finally {
     rctx.delegationRoot = prevDelegation;

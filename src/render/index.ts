@@ -3,10 +3,10 @@ import type { VNode } from "../jsx";
 import { DelegationRoot } from "./delegation";
 import { dispatchDelegatedEvent } from "./dispatch";
 import { drive } from "./driver";
-import { buildNode } from "./mount";
+import { buildNode } from "./initial-mount";
 import { createRenderContext, RenderCtx } from "./state";
 
-export { buildNode } from "./mount";
+export { buildNode } from "./initial-mount";
 export { flushSync } from "./scheduler";
 
 /**
