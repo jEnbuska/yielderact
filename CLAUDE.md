@@ -116,7 +116,8 @@ function* Counter(_props: object) {
 | `render/state.ts`         | `createRenderContext()`, active context pointer                         |
 | `render/driver.ts`        | Generator driver: context scoping, yield protocol, `drive`, `driveWithContext` |
 | `render/index.ts`         | `render()`, `createRoot()` entry points                                 |
-| `render/mount.ts`         | DOM construction & component lifecycle                                  |
+| `render/initial-mount/`   | Initial root mount: `buildNode`, `mountComponent`, `createComponentInstance` |
+| `render/component/`       | Rerender & resume: `executeComponentRerender`, `resumeInstance`, `rerenderInstance` |
 | `render/reconciler.ts`    | Positional reconciliation (diff + patch)                                |
 | `render/hooks-runtime.ts` | Hook descriptor dispatch, effect flushing, unmount                      |
 | `render/helpers.ts`       | Type guards, shallow equality, props merging, `flattenChildren`         |

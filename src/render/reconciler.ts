@@ -41,7 +41,7 @@ import {
   stripFrameworkDirectives,
 } from "./helpers";
 import { propagateContextUpdate, unmountSlot } from "./hooks-runtime";
-import { buildNode, mountComponent } from "./mount";
+import { buildNode, mountComponent } from "./initial-mount";
 import { applyProps, updateProps } from "./props";
 import { RenderCtx } from "./state";
 import type { ComponentInstance, Slot } from "./types";

@@ -1,5 +1,5 @@
 /**
- * mount.ts — DOM construction from VNode trees.
+ * build-node.ts — DOM construction from VNode trees during initial mount.
  *
  * Builds real DOM nodes from VNodes: null/boolean → empty TextNode,
  * string/number → TextNode, Fragment/Portal → DocumentFragment,
@@ -7,15 +7,18 @@
  *
  * Components use end-marker Comment nodes as insertion anchors — no wrapper
  * `<span>` elements.
+ *
+ * Only used during initial mount (`render()` / `createRoot().render()`).
+ * Rerenders go through the reconciler instead.
  */
 
-import type { ContextEntry } from "../context";
-import { type Child, Portal, RawFragment } from "../jsx";
-import { mountComponent } from "./component";
-import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "./driver";
-import { InvalidChildError } from "./errors";
-import { isComponentNode, mergedProps, stripFrameworkDirectives } from "./helpers";
-import { applyProps } from "./props";
+import type { ContextEntry } from "../../context";
+import { type Child, Portal, RawFragment } from "../../jsx";
+import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "../driver";
+import { InvalidChildError } from "../errors";
+import { isComponentNode, mergedProps, stripFrameworkDirectives } from "../helpers";
+import { applyProps } from "../props";
+import { mountComponent } from "./mount-component";
 
 /**
  * Build a single real DOM node from a VNode (or primitive).
@@ -78,5 +81,3 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   }
   return el;
 }
-
-export { mountComponent } from "./component";

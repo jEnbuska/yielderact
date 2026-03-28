@@ -1,16 +1,26 @@
 /**
- * component/index.ts — Component instance creation and mounting.
+ * mount-component.ts — Component instance creation and initial render.
  *
- * Public entry points:
- * - `createComponentInstance` — create a ComponentInstance with bound lifecycle closures.
- * - `mountComponent` — create the instance and run its initial render.
+ * Creates a `ComponentInstance` with bound lifecycle closures and runs
+ * the initial render, committing output to a DocumentFragment.
+ *
+ * Only used during initial mount. Rerenders go through
+ * `component/rerender.ts` via the scheduler.
  */
 
-import type { Component, InternalProps } from "../../jsx";
-import { type CtxMap, drive, getContextMap, type RenderGenerator } from "../driver";
+import type { Child, Component, InternalProps } from "../../jsx";
+import { runComponentRender } from "../component/lifecycle";
+import { executeComponentRerender, rerenderInstance, resumeInstance } from "../component/rerender";
+import {
+  type CtxMap,
+  drive,
+  driveWithContext,
+  getContextMap,
+  type RenderGenerator,
+} from "../driver";
+import { flushEffects } from "../hooks-runtime";
+import { reconcileSlotsGen } from "../reconciler";
 import type { ComponentInstance } from "../types";
-import { initialComponentRender } from "./initial";
-import { executeComponentRerender, rerenderInstance, resumeInstance } from "./rerender";
 
 /**
  * Create a `ComponentInstance` with bound lifecycle closures.
@@ -59,6 +69,16 @@ export function* mountComponent(
 ): RenderGenerator<{ fragment: DocumentFragment; instance: ComponentInstance }> {
   const ctx = yield* getContextMap();
   const instance = createComponentInstance(component, props, ctx);
-  const fragment = yield* initialComponentRender(instance);
+  const vnode = yield* runComponentRender(instance);
+
+  const fragment = document.createDocumentFragment();
+  fragment.appendChild(instance.endMarker);
+  instance.slots = yield* driveWithContext(
+    ctx,
+    reconcileSlotsGen(fragment, [], [vnode] satisfies Child[], instance.endMarker),
+  );
+  instance.mounted = true;
+  flushEffects(instance);
+
   return { fragment, instance };
 }
