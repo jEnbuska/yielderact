@@ -51,6 +51,12 @@ export function* resumeInstance(instance: ComponentInstance): RenderGenerator<vo
  * Re-render a mounted component: run hooks, commit via `commitRender`.
  */
 export function* executeComponentRerender(instance: ComponentInstance): RenderGenerator<void> {
+  // Remove from pending updates before rendering — if the parent's
+  // reconciler also schedules this child (props/context changed),
+  // this render already picks up the latest state.
+  const scheduler = resolveCtx(instance.capturedCtx, SchedulerCtx);
+  scheduler.removePending(instance);
+
   const vnode = yield* runComponentRender(instance);
   yield* commitRender(instance, vnode);
   drainStateResolvers(instance);

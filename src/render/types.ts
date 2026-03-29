@@ -206,6 +206,16 @@ export interface ComponentInstance {
   gen?: ComponentGenerator<Child>;
 
   /**
+   * The component's position in the tree, assigned at mount and never updated.
+   *
+   * Encodes the path from root: `[]` for root, `[0]` for first child,
+   * `[1, 2]` for the third child of the second child, etc.
+   *
+   * Used by the scheduler's WorkQueue to process parents before children.
+   */
+  slotId: number[];
+
+  /**
    * The component's current props.
    *
    * Written by the reconciler (on prop changes) and read by `executeRerender`

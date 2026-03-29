@@ -26,9 +26,11 @@ function createComponentInstance(
   component: Component,
   props: InternalProps,
   ctx: CtxMap,
+  slotId: number[],
 ): ComponentInstance {
   const instance: ComponentInstance = {
     component,
+    slotId,
     props,
     endMarker: document.createComment(""),
     capturedCtx: ctx,
@@ -42,11 +44,11 @@ function createComponentInstance(
     providedContexts: new Set(),
     resume: () => {
       const scheduler = resolveCtx(instance.capturedCtx, SchedulerCtx);
-      scheduler.submit(resumeInstance(instance), instance.capturedCtx);
+      scheduler.submit(resumeInstance(instance), instance.capturedCtx, instance.slotId);
     },
     executeRerender: () => {
       const scheduler = resolveCtx(instance.capturedCtx, SchedulerCtx);
-      scheduler.submit(executeComponentRerender(instance), instance.capturedCtx);
+      scheduler.submit(executeComponentRerender(instance), instance.capturedCtx, instance.slotId);
     },
     scheduleRerender: () => rerenderInstance(instance),
   };
@@ -63,16 +65,17 @@ function createComponentInstance(
 export function* mountComponent(
   component: Component,
   props: InternalProps,
+  slotId: number[],
 ): RenderGenerator<{ fragment: DocumentFragment; instance: ComponentInstance }> {
   const ctx = yield* getContextMap();
-  const instance = createComponentInstance(component, props, ctx);
+  const instance = createComponentInstance(component, props, ctx, slotId);
   const vnode = yield* runComponentRender(instance);
 
   const fragment = document.createDocumentFragment();
   fragment.appendChild(instance.endMarker);
   instance.slots = yield* driveWithContext(
     ctx,
-    buildInitialSlotsGen(fragment, [vnode], instance.endMarker),
+    buildInitialSlotsGen(fragment, [vnode], instance.endMarker, slotId),
   );
   instance.mounted = true;
   flushEffects(instance);

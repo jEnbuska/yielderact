@@ -154,11 +154,9 @@ describe("setState promise behavior", () => {
     expect(parentRenderCount).toBe(2);
     expect(container.querySelector("#parent")?.textContent).toBe("2");
 
-    // TODO: Currently child renders twice — once from its own setState
-    // (processed before parent since it was queued first), and once from
-    // parent's reconciliation (props changed). Should be optimized to one
-    // render by processing parents before children in the scheduler.
-    expect(childRenderCount).toBe(3);
+    // Child renders once — parent is processed first (lower slotId),
+    // so the child's rerender picks up both new props and new state.
+    expect(childRenderCount).toBe(2);
     expect(container.querySelector("#child")?.textContent).toBe("p2:1");
   });
 });

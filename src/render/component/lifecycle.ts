@@ -69,7 +69,7 @@ export function* commitRender(instance: ComponentInstance, vnode: Child): Render
 
   instance.slots = yield* driveWithContext(
     ctx,
-    reconcileSlotsGen(parent, instance.slots, [vnode], instance.endMarker),
+    reconcileSlotsGen(parent, instance.slots, [vnode], instance.endMarker, instance.slotId),
   );
 
   flushEffects(instance);

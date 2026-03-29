@@ -19,7 +19,30 @@ import type { Context } from "../context";
 import type { DelegationRoot } from "./delegation";
 import { driveWithContext, type RenderGenerator } from "./driver";
 import { createResolvable } from "./promise";
+import { TreeSet } from "./tree-set";
 import type { ComponentInstance } from "./types";
+
+/** A unit of work in the scheduler's queue. */
+interface WorkItem {
+  slotId: number[];
+  gen: Generator<unknown, void, unknown>;
+}
+
+/**
+ * Compare two slotId paths for depth-first tree ordering.
+ *
+ * Compares element-by-element. Shorter paths that are prefixes sort
+ * before longer ones (parent before child). At the same depth, lower
+ * index sorts first (left-to-right).
+ */
+function compareSlotId(a: WorkItem, b: WorkItem): number {
+  const minLen = Math.min(a.slotId.length, b.slotId.length);
+  for (let i = 0; i < minLen; i++) {
+    const diff = (a.slotId[i] as number) - (b.slotId[i] as number);
+    if (diff !== 0) return diff;
+  }
+  return a.slotId.length - b.slotId.length;
+}
 
 /** Time budget per work chunk in milliseconds. */
 const TIME_SLICE = 5;
@@ -53,7 +76,7 @@ export class Scheduler {
   /** Event delegation root for this render root. */
   delegationRoot?: DelegationRoot;
 
-  private readonly workQueue: Generator<unknown, void, unknown>[] = [];
+  private readonly workQueue = new TreeSet<WorkItem>(compareSlotId);
   private readonly pendingUpdates = new Set<ComponentInstance>();
   private isProcessing = false;
   private syncMode = true;
@@ -70,8 +93,12 @@ export class Scheduler {
    * handled transparently. Does not synchronously enter the run loop —
    * resolves the trigger promise so the loop picks it up on the next microtask.
    */
-  submit(gen: RenderGenerator<void>, ctxMap: ReadonlyMap<Context, unknown>): void {
-    this.workQueue.push(driveWithContext(ctxMap, gen));
+  submit(
+    gen: RenderGenerator<void>,
+    ctxMap: ReadonlyMap<Context, unknown>,
+    slotId: number[],
+  ): void {
+    this.workQueue.add({ slotId, gen: driveWithContext(ctxMap, gen) });
     this.notify();
   }
 
@@ -149,7 +176,7 @@ export class Scheduler {
   }
 
   private hasPendingWork(): boolean {
-    return this.pendingUpdates.size > 0 || this.workQueue.length > 0;
+    return this.pendingUpdates.size > 0 || !this.workQueue.isEmpty();
   }
 
   private drainPendingUpdates(): void {
@@ -190,23 +217,24 @@ export class Scheduler {
     this.beginBatch();
 
     while (true) {
-      this.drainPendingUpdates();
+      if (this.workQueue.isEmpty()) {
+        this.drainPendingUpdates();
+        if (this.workQueue.isEmpty()) break;
+      }
 
-      if (this.workQueue.length === 0) break;
-
-      const gen = this.workQueue[0] as Generator<unknown, void, unknown>;
-      let result = gen.next();
+      const work = this.workQueue.next() as WorkItem;
+      let result = work.gen.next();
 
       while (!result.done) {
         if (!this.syncMode && performance.now() >= deadline) {
+          // Re-add partially-processed work item for later resumption
+          this.workQueue.add(work);
           this.commitBatch();
           this.yieldToBrowser();
           return;
         }
-        result = gen.next();
+        result = work.gen.next();
       }
-
-      this.workQueue.shift();
     }
 
     this.commitBatch();

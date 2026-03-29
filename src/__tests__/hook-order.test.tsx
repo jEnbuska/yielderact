@@ -15,7 +15,7 @@ async function captureAsyncError(fn: () => void): Promise<Error | undefined> {
   fn();
   await Promise.resolve();
   // Give the scheduler's async loop time to propagate the error
-  await new Promise((rXF) => setTimeout(r, 10));
+  await new Promise((r) => setTimeout(r, 10));
   process.removeListener("unhandledRejection", handler);
   return captured;
 }
