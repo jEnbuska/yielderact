@@ -44,11 +44,11 @@ function createComponentInstance(
     providedContexts: new Set(),
     resume: () => {
       const scheduler = resolveCtx(instance.capturedCtx, SchedulerCtx);
-      scheduler.submit(resumeInstance(instance), instance.capturedCtx, instance.slotId);
+      scheduler.submit(instance, resumeInstance(instance));
     },
     executeRerender: () => {
       const scheduler = resolveCtx(instance.capturedCtx, SchedulerCtx);
-      scheduler.submit(executeComponentRerender(instance), instance.capturedCtx, instance.slotId);
+      scheduler.submit(instance, executeComponentRerender(instance));
     },
     scheduleRerender: () => rerenderInstance(instance),
   };

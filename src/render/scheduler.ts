@@ -24,24 +24,28 @@ import type { ComponentInstance } from "./types";
 
 /** A unit of work in the scheduler's queue. */
 interface WorkItem {
-  slotId: number[];
-  gen: Generator<unknown, void, unknown>;
+  instance: ComponentInstance;
+  gen: RenderGenerator<void>;
+  /** Set when the generator has been wrapped and partially driven. */
+  wrapped?: Generator<unknown, void, unknown>;
 }
 
 /**
- * Compare two slotId paths for depth-first tree ordering.
+ * Compare two work items by slotId for depth-first tree ordering.
  *
  * Compares element-by-element. Shorter paths that are prefixes sort
  * before longer ones (parent before child). At the same depth, lower
  * index sorts first (left-to-right).
  */
-function compareSlotId(a: WorkItem, b: WorkItem): number {
-  const minLen = Math.min(a.slotId.length, b.slotId.length);
+function compareBySlotId(a: WorkItem, b: WorkItem): number {
+  const aId = a.instance.slotId;
+  const bId = b.instance.slotId;
+  const minLen = Math.min(aId.length, bId.length);
   for (let i = 0; i < minLen; i++) {
-    const diff = (a.slotId[i] as number) - (b.slotId[i] as number);
+    const diff = (aId[i] as number) - (bId[i] as number);
     if (diff !== 0) return diff;
   }
-  return a.slotId.length - b.slotId.length;
+  return aId.length - bId.length;
 }
 
 /** Time budget per work chunk in milliseconds. */
@@ -76,7 +80,7 @@ export class Scheduler {
   /** Event delegation root for this render root. */
   delegationRoot?: DelegationRoot;
 
-  private readonly workQueue = new TreeSet<WorkItem>(compareSlotId);
+  private readonly workQueue = new TreeSet<WorkItem>(compareBySlotId);
   private readonly pendingUpdates = new Set<ComponentInstance>();
   private isProcessing = false;
   private syncMode = true;
@@ -89,16 +93,12 @@ export class Scheduler {
   /**
    * Submit a generator as work.
    *
-   * The generator is wrapped with `driveWithContext` so context ops are
-   * handled transparently. Does not synchronously enter the run loop —
-   * resolves the trigger promise so the loop picks it up on the next microtask.
+   * The generator is NOT wrapped yet — wrapping with `driveWithContext`
+   * happens at execution time using the instance's current `capturedCtx`,
+   * ensuring context changes from parent rerenders are picked up.
    */
-  submit(
-    gen: RenderGenerator<void>,
-    ctxMap: ReadonlyMap<Context, unknown>,
-    slotId: number[],
-  ): void {
-    this.workQueue.add({ slotId, gen: driveWithContext(ctxMap, gen) });
+  submit(instance: ComponentInstance, gen: RenderGenerator<void>): void {
+    this.workQueue.add({ instance, gen });
     this.notify();
   }
 
@@ -223,17 +223,22 @@ export class Scheduler {
       }
 
       const work = this.workQueue.next() as WorkItem;
-      let result = work.gen.next();
+
+      // Wrap with driveWithContext at execution time (not submission time)
+      // so the generator uses the instance's current capturedCtx,
+      // picking up any context changes from parent rerenders.
+      const wrapped = work.wrapped ?? driveWithContext(work.instance.capturedCtx, work.gen);
+      let result = wrapped.next();
 
       while (!result.done) {
         if (!this.syncMode && performance.now() >= deadline) {
           // Re-add partially-processed work item for later resumption
-          this.workQueue.add(work);
+          this.workQueue.add({ ...work, wrapped });
           this.commitBatch();
           this.yieldToBrowser();
           return;
         }
-        result = work.gen.next();
+        result = wrapped.next();
       }
     }
 
