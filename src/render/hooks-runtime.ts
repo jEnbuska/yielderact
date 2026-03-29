@@ -98,6 +98,21 @@ export function flushEffects(instance: ComponentInstance): void {
 }
 
 /**
+ * Resolve all pending setState promises on this instance.
+ *
+ * Called after the scheduler commits work. Each useState hook slot
+ * may have a `pendingResolve` from the latest setState call. Resolving
+ * it fulfills the promise returned by the setter.
+ */
+export function drainStateResolvers(instance: ComponentInstance): void {
+  for (const state of instance.hookStates) {
+    if (state !== undefined && state.kind === $USE_STATE) {
+      state.pendingResolve();
+    }
+  }
+}
+
+/**
  * Recursively tear down a slot and all its descendants.
  *
  * Calls every cleanup function registered by hooks and removes the

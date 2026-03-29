@@ -121,7 +121,7 @@ export type InternalProps = SpecialProps & Record<string, unknown>;
  */
 export type Component<P extends InternalProps = InternalProps> = (
   props: P,
-  rerender: () => Promise<void>,
+  rerender: () => void,
 ) => ComponentGenerator<Child>;
 
 /**

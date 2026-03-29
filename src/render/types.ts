@@ -38,6 +38,8 @@ export interface CtxMap extends ReadonlyMap<Context, unknown> {
 export interface StateHookState {
   kind: typeof $USE_STATE;
   value: unknown;
+  /** Resolve function for the latest setState promise. No-op when no setState is pending. */
+  pendingResolve: () => void;
 }
 
 /** Persistent state for a `useRef` hook. Holds the mutable ref object. */
@@ -313,5 +315,5 @@ export interface ComponentInstance {
    * Called by useState setters, the reconciler (on prop/context changes),
    * and `propagateContextUpdate`. Submits work to the scheduler.
    */
-  scheduleRerender: () => Promise<void>;
+  scheduleRerender: () => void;
 }
