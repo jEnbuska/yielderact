@@ -160,40 +160,77 @@ describe("setState promise behavior", () => {
     expect(container.querySelector("#child")?.textContent).toBe("p2:1");
   });
 
-  it("parent renders before child regardless of setState call order", async () => {
-    let setChildState: (v: string) => Promise<void> = () => Promise.resolve();
-    let setParentState: (v: string) => Promise<void> = () => Promise.resolve();
+  it("renders in tree order regardless of setState call order", async () => {
+    const setters: Record<string, (v: string) => Promise<void>> = {};
     const renderOrder: string[] = [];
 
-    function* Child() {
-      const [val, setVal] = yield* useState("c0");
-      setChildState = setVal;
-      renderOrder.push(`child:${val}`);
-      return <span id="child">{val}</span>;
+    // $0.$1.$1
+    function* LeafB1() {
+      const [val, setVal] = yield* useState("init");
+      setters["$0.$1.$1"] = setVal;
+      renderOrder.push(`$0.$1.$1:${val}`);
+      return <span>{val}</span>;
     }
 
-    function* Parent() {
-      const [val, setVal] = yield* useState("p0");
-      setParentState = setVal;
-      renderOrder.push(`parent:${val}`);
+    // $0.$1.$0
+    function* LeafB0() {
+      const [val, setVal] = yield* useState("init");
+      setters["$0.$1.$0"] = setVal;
+      renderOrder.push(`$0.$1.$0:${val}`);
+      return <span>{val}</span>;
+    }
+
+    // $0.$1
+    function* BranchB() {
+      const [val, setVal] = yield* useState("init");
+      setters["$0.$1"] = setVal;
+      renderOrder.push(`$0.$1:${val}`);
       return (
         <div>
-          <span id="parent">{val}</span>
-          <Child />
+          <LeafB0 />
+          <LeafB1 />
         </div>
       );
     }
 
-    render(<Parent />, container);
+    // $0.$0
+    function* BranchA() {
+      const [val, setVal] = yield* useState("init");
+      setters["$0.$0"] = setVal;
+      renderOrder.push(`$0.$0:${val}`);
+      return <span>{val}</span>;
+    }
+
+    // $0
+    function* Root() {
+      const [val, setVal] = yield* useState("init");
+      setters["$0"] = setVal;
+      renderOrder.push(`$0:${val}`);
+      return (
+        <div>
+          <BranchA />
+          <BranchB />
+        </div>
+      );
+    }
+
+    render(<Root />, container);
     renderOrder.length = 0; // clear initial mount
 
-    // Child setState called FIRST, parent SECOND
-    void setChildState("c1");
-    await setParentState("p1");
+    // Call setState in reverse tree order (deepest leaf first)
+    void (setters["$0.$1.$1"] as (v: string) => Promise<void>)("updated");
+    void (setters["$0.$1.$0"] as (v: string) => Promise<void>)("updated");
+    void (setters["$0.$1"] as (v: string) => Promise<void>)("updated");
+    void (setters["$0.$0"] as (v: string) => Promise<void>)("updated");
+    await (setters["$0"] as (v: string) => Promise<void>)("updated");
 
-    // Parent must render before child (tree order via slotId)
-    expect(renderOrder[0]).toBe("parent:p1");
-    expect(renderOrder[1]).toBe("child:c1");
-    expect(renderOrder).toHaveLength(2);
+    // All components should render in depth-first tree order
+    expect(renderOrder).toEqual([
+      "$0:updated",
+      "$0.$0:updated",
+      "$0.$1:updated",
+      "$0.$1.$0:updated",
+      "$0.$1.$1:updated",
+    ]);
   });
 });
