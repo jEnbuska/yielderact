@@ -88,4 +88,33 @@ describe("setState promise behavior", () => {
     // Only the last promise resolves
     expect(resolved).toEqual(["p2"]);
   });
+
+  it("multiple setStates on different hooks batch into a single render", async () => {
+    let setA: (v: number) => Promise<void> = () => Promise.resolve();
+    let setB: (v: string) => Promise<void> = () => Promise.resolve();
+    let setC: (v: boolean) => Promise<void> = () => Promise.resolve();
+    let renderCount = 0;
+
+    function* Comp() {
+      const [a, sa] = yield* useState(0);
+      const [b, sb] = yield* useState("x");
+      const [c, sc] = yield* useState(false);
+      setA = sa;
+      setB = sb;
+      setC = sc;
+      renderCount++;
+      return <span>{`${a}:${b}:${c}`}</span>;
+    }
+
+    render(<Comp />, container);
+    expect(renderCount).toBe(1);
+
+    void setA(1);
+    void setB("y");
+    await setC(true);
+
+    // All three setStates should batch into a single rerender
+    expect(renderCount).toBe(2);
+    expect(container.querySelector("span")?.textContent).toBe("1:y:true");
+  });
 });
