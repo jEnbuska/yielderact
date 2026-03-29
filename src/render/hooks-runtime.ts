@@ -19,6 +19,8 @@ import {
   $USE_RENDER,
   $USE_RESOLVE,
   $USE_RESOLVE_RAW,
+  $USE_SLOT_CONTENT,
+  $USE_SET_CONTEXT,
   $USE_STATE,
   HOOK_TYPES,
   type HookDescriptor,
@@ -33,9 +35,11 @@ import { processRender } from "../hooks/useRender";
 import type { ResolveRawResult } from "../hooks/useResolve";
 import { processResolve, processResolveRaw } from "../hooks/useResolve";
 import { createStateSetter, processState } from "../hooks/useState";
+import type { Child } from "../jsx";
+import type { SlotRegistry, UseSlotContentResult } from "../slot";
 import { releasePortalDelegation } from "./delegation";
 import { RenderCtx } from "./state";
-import type { ComponentInstance, HookState, Slot } from "./types";
+import type { ComponentInstance, HookState, Slot, SlotContentHookState } from "./types";
 
 /**
  * Extract and validate the previous hook state at `hookIndex`.
@@ -250,6 +254,32 @@ export function processOneDescriptor(
       const state = processRender(descriptor, prev, hookStates, hookIndex, resume);
       hookStates[hookIndex] = state;
       return { slot: state, resumeCallback: state.resumeCallback };
+    }
+    case $USE_SLOT_CONTENT: {
+      getTypedPrev(hookStates, hookIndex, $USE_SLOT_CONTENT, instance);
+      const registry = resolveCtx(ctx, descriptor.registryCtx) as SlotRegistry | null;
+      const contentFromCtx = resolveCtx(ctx, descriptor.contentCtx) as Child | null;
+      const content = registry?.content ?? contentFromCtx;
+      const slotState: SlotContentHookState = { kind: $USE_SLOT_CONTENT, content };
+      hookStates[hookIndex] = slotState;
+      if (content == null && registry) {
+        registry.waitingRerenders.push(() => {
+          void rerender();
+        });
+      }
+      const slotResult: UseSlotContentResult = { content };
+      return slotResult;
+    }
+    case $USE_SET_CONTEXT: {
+      const prevValue = resolveCtx(instance.capturedCtx, descriptor.ctx);
+      const newCtxMap = new Map(instance.capturedCtx);
+      newCtxMap.set(descriptor.ctx, descriptor.value);
+      instance.capturedCtx = newCtxMap;
+      instance.providedContexts.add(descriptor.ctx);
+      if (!Object.is(prevValue, descriptor.value)) {
+        propagateContextUpdate(descriptor.ctx, descriptor.value, instance.slots);
+      }
+      return undefined;
     }
     default:
       throw new Error(

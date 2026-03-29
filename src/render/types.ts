@@ -6,6 +6,7 @@ import type {
   $USE_REF,
   $USE_RESOLVE,
   $USE_RESOLVE_RAW,
+  $USE_SLOT_CONTENT,
   $USE_STATE,
 } from "../hooks/descriptors";
 import type { ComponentGenerator, DependencyList } from "../hooks/types";
@@ -123,6 +124,13 @@ export interface ResolveHookState {
   controller: AbortController;
 }
 
+/** Persistent state for a `useSlotContent` hook. */
+export interface SlotContentHookState {
+  kind: typeof $USE_SLOT_CONTENT;
+  content: Child | null;
+}
+
+
 /**
  * Discriminated union of all possible hook state values.
  *
@@ -139,7 +147,8 @@ export type HookState =
   | UseContextState
   | ResolveRawHookState
   | ResolveHookState
-  | UseRenderState<unknown>;
+  | UseRenderState<unknown>
+  | SlotContentHookState;
 
 /**
  * A **Slot** tracks one reconciled position in the rendered DOM tree.

@@ -128,6 +128,7 @@ function* Counter(_props: object) {
 | `render/delegation.ts`    | Handler registry, `DelegationRoot`, prop→event mapping                  |
 | `render/dispatch.ts`      | Delegated event dispatch (capture→bubble phases)                        |
 | `render/events.ts`        | Per-element listeners for non-delegated events                          |
+| `slot.ts`                 | `createSlot`, `useSlotContent`, `SlotProvider`, `SlotFill`              |
 | `hooks/descriptors.ts`    | Hook type constants (`$USE_STATE`, etc.) and descriptor interfaces      |
 | `hooks/types.ts`          | `ComponentGenerator`, `DependencyList`, `depsChanged()`                 |
 | `hooks/*.ts`              | Individual hook implementations (`useState`, `useEffect`, etc.)         |
@@ -162,7 +163,7 @@ function* Counter(_props: object) {
 
 Example components live in `examples/src/components/`. The app entry point is `examples/src/main.tsx`, which renders a tabbed view of all demos.
 
-**Top-level demos** (each a tab in main.tsx): `Counter`, `TodoList`, `ThemeDemo`, `DataFetcher`/`ResolveRawDemo`, `HooksShowcase`, `ShownDemo`, `ConfirmDialog`, `EffectDemo`, `TransitionDemo` *(disabled — #163)*, `ContextDemo`, `LazyContextDemo`, `AbortSignalEffectDemo`, `KeyShuffleDemo`, `DepsDemo`, `PortalDemo`.
+**Top-level demos** (each a tab in main.tsx): `Counter`, `TodoList`, `ThemeDemo`, `DataFetcher`/`ResolveRawDemo`, `HooksShowcase`, `ShownDemo`, `ConfirmDialog`, `EffectDemo`, `TransitionDemo` *(disabled — #163)*, `ContextDemo`, `LazyContextDemo`, `AbortSignalEffectDemo`, `KeyShuffleDemo`, `DepsDemo`, `PortalDemo`, `SlotDemo`.
 
 **Multi-file demos** split one-component-per-file:
 

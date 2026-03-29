@@ -16,6 +16,7 @@ import { KeyShuffleDemo } from "./components/KeyShuffleDemo";
 import { LazyContextDemo } from "./components/LazyContextDemo";
 import { PortalDemo } from "./components/PortalDemo";
 import { ShownDemo } from "./components/ShownDemo";
+import { SlotDemo } from "./components/SlotDemo";
 import { ThemeDemo } from "./components/ThemeDemo";
 import { TodoList } from "./components/TodoList";
 
@@ -38,7 +39,8 @@ type Tab =
   | "abort-signal"
   | "key-shuffle"
   | "deps"
-  | "portal";
+  | "portal"
+  | "slot";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "counter", label: "Counter" },
@@ -57,6 +59,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "key-shuffle", label: "Key Shuffle" },
   { id: "deps", label: "$deps prop" },
   { id: "portal", label: "createPortal" },
+  { id: "slot", label: "Slot API" },
 ];
 
 function* App() {
@@ -117,6 +120,7 @@ function* App() {
         <KeyShuffleDemo $shown={activeTab === "key-shuffle"} />
         <DepsDemo $shown={activeTab === "deps"} />
         <PortalDemo $shown={activeTab === "portal"} />
+        <SlotDemo $shown={activeTab === "slot"} />
       </div>
     </div>
   );

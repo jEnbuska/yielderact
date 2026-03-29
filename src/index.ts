@@ -103,4 +103,6 @@ export type {
 } from "./jsx-types";
 export type { Root } from "./render";
 export { createRoot, flushSync, render } from "./render";
+export type { Slot } from "./slot";
+export { createSlot, useSlotContent } from "./slot";
 export { SetStateDuringRenderError } from "./render/errors";
