@@ -66,8 +66,7 @@ describe("no setState during render", () => {
     expect(container.querySelector("span")?.textContent).toBe("0");
 
     // setState from outside render — should work fine
-    void setter(5);
-    await Promise.resolve();
+    await setter(5);
     expect(container.querySelector("span")?.textContent).toBe("5");
   });
 });

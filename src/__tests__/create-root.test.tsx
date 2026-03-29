@@ -101,14 +101,12 @@ describe("createRoot", () => {
     expect(container2.querySelector("#c2")?.textContent).toBe("100");
 
     // Update root 1 — root 2 must not be affected.
-    void setCount1(5);
-    await Promise.resolve();
+    await setCount1(5);
     expect(container.querySelector("#c1")?.textContent).toBe("5");
     expect(container2.querySelector("#c2")?.textContent).toBe("100");
 
     // Update root 2 — root 1 must not be affected.
-    void setCount2(200);
-    await Promise.resolve();
+    await setCount2(200);
     expect(container.querySelector("#c1")?.textContent).toBe("5");
     expect(container2.querySelector("#c2")?.textContent).toBe("200");
 

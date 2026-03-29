@@ -71,8 +71,7 @@ describe("prop memoization", () => {
     expect(mountCount).toBe(1);
     expect(container.querySelector("span")?.textContent).toBe("first");
 
-    void setPhase(1);
-    await Promise.resolve();
+    await setPhase(1);
     expect(mountCount).toBe(2);
     expect(container.querySelector("span")?.textContent).toBe("second");
   });
@@ -182,8 +181,7 @@ describe("component renders component", () => {
     expect(container.querySelector("#a")).not.toBeNull();
     expect(container.querySelector("#b")).toBeNull();
 
-    void setPhase(1);
-    await Promise.resolve();
+    await setPhase(1);
     expect(container.querySelector("#a")).toBeNull();
     expect(container.querySelector("#b")).not.toBeNull();
   });
@@ -202,8 +200,7 @@ describe("component renders component", () => {
     expect(p.className).toBe("first");
     expect(p.textContent).toBe("hello");
 
-    void setStep(1);
-    await Promise.resolve();
+    await setStep(1);
     // Same <p> element is reused (updated in place)
     expect(container.querySelector("p")).toBe(p);
     expect(p.className).toBe("second");

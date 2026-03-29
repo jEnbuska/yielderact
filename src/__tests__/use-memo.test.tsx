@@ -42,8 +42,7 @@ describe("useMemo", () => {
     }
 
     render(<Comp />, container);
-    setValue(20); // trigger re-render, same dep [5]
-    await Promise.resolve();
+    await setValue(20); // trigger re-render, same dep [5]
 
     expect(factory).toHaveBeenCalledTimes(1);
   });
@@ -64,8 +63,7 @@ describe("useMemo", () => {
     expect(capturedValue).toBe(2);
     expect(factory).toHaveBeenCalledTimes(1);
 
-    void setValue(3);
-    await Promise.resolve();
+    await setValue(3);
     expect(capturedValue).toBe(6);
     expect(factory).toHaveBeenCalledTimes(2);
     expect(factory).toHaveBeenLastCalledWith(3);
@@ -87,8 +85,7 @@ describe("useMemo", () => {
     expect(capturedValue).toBe(42);
     expect(factory).toHaveBeenCalledTimes(1);
 
-    setValue(1); // re-render, empty deps never change
-    await Promise.resolve();
+    await setValue(1); // re-render, empty deps never change
     expect(capturedValue).toBe(42);
     expect(factory).toHaveBeenCalledTimes(1);
   });

@@ -73,8 +73,7 @@ describe("key prop – keyed reconciliation", () => {
     renderCountC = 0;
 
     // Reverse order
-    void setOrder(["c", "b", "a"]);
-    await Promise.resolve();
+    await setOrder(["c", "b", "a"]);
 
     // DOM nodes should be MOVED, not recreated
     expect(list.children).toHaveLength(3);
@@ -119,8 +118,7 @@ describe("key prop – keyed reconciliation", () => {
     const spanC = spans[2];
 
     // Reorder with different falsy positions
-    void setItems([null, "c", "a", null, "b"]);
-    await Promise.resolve();
+    await setItems([null, "c", "a", null, "b"]);
 
     const newSpans = div.querySelectorAll("span");
     expect(newSpans).toHaveLength(3);
@@ -173,8 +171,7 @@ describe("key prop – keyed reconciliation", () => {
     const nodeY = ul.children[1];
 
     // Reverse
-    void setOrder(["y", "x"]);
-    await Promise.resolve();
+    await setOrder(["y", "x"]);
 
     expect(ul.children[0]?.textContent).toBe("Y");
     expect(ul.children[1]?.textContent).toBe("X");
@@ -202,8 +199,7 @@ describe("key prop – keyed reconciliation", () => {
     const bP = bs[0];
     const bQ = bs[1];
 
-    void setItems([null, "q", null, "p"]);
-    await Promise.resolve();
+    await setItems([null, "q", null, "p"]);
     const newBs = div.querySelectorAll("b");
     expect(newBs).toHaveLength(2);
     expect(newBs[0]).toBe(bQ);
@@ -236,8 +232,7 @@ describe("key prop – keyed reconciliation", () => {
     const li3 = ul.children[2];
 
     // Reverse
-    void setOrder(["third", "second", "first"]);
-    await Promise.resolve();
+    await setOrder(["third", "second", "first"]);
 
     expect(ul.children[0]?.textContent).toBe("third");
     expect(ul.children[1]?.textContent).toBe("second");
@@ -262,8 +257,7 @@ describe("key prop – keyed reconciliation", () => {
     const spanA = spans[0];
     const spanB = spans[1];
 
-    void setItems(["b", null, null, "a"]);
-    await Promise.resolve();
+    await setItems(["b", null, null, "a"]);
     const newSpans = div.querySelectorAll("span");
     expect(newSpans).toHaveLength(2);
     expect(newSpans[0]).toBe(spanB);
@@ -297,18 +291,15 @@ describe("key prop – keyed reconciliation", () => {
     render(<Parent />, container);
 
     // Increment x to 5
-    setters["x"]?.(5);
-    await Promise.resolve();
+    await setters["x"]?.(5);
     expect(container.querySelector('[data-id="x"]')?.textContent).toBe("x:5");
 
     // Increment y to 3
-    setters["y"]?.(3);
-    await Promise.resolve();
+    await setters["y"]?.(3);
     expect(container.querySelector('[data-id="y"]')?.textContent).toBe("y:3");
 
     // Reorder: z, x, y
-    void setOrder(["z", "x", "y"]);
-    await Promise.resolve();
+    await setOrder(["z", "x", "y"]);
 
     // State preserved after reorder
     expect(container.querySelector('[data-id="x"]')?.textContent).toBe("x:5");
@@ -316,12 +307,10 @@ describe("key prop – keyed reconciliation", () => {
     expect(container.querySelector('[data-id="z"]')?.textContent).toBe("z:0");
 
     // Components still work after reorder (can update state)
-    setters["z"]?.(99);
-    await Promise.resolve();
+    await setters["z"]?.(99);
     expect(container.querySelector('[data-id="z"]')?.textContent).toBe("z:99");
 
-    setters["x"]?.(10);
-    await Promise.resolve();
+    await setters["x"]?.(10);
     expect(container.querySelector('[data-id="x"]')?.textContent).toBe("x:10");
   });
 
@@ -355,8 +344,7 @@ describe("key prop – keyed reconciliation", () => {
 
     // Change only the key — content props unchanged
     renderCount = 0;
-    void setKey("key-2");
-    await Promise.resolve();
+    await setKey("key-2");
 
     // The child should NOT rerender since label didn't change
     // (key change means it's a "new" slot, but same type + same props = skip)
@@ -368,8 +356,7 @@ describe("key prop – keyed reconciliation", () => {
     expect(span.textContent).toBe("hello");
 
     // Verify it still works: changing label causes update
-    void setLabel("world");
-    await Promise.resolve();
+    await setLabel("world");
     expect(container.querySelector("span")?.textContent).toBe("world");
   });
 
@@ -404,11 +391,10 @@ describe("key prop – keyed reconciliation", () => {
     render(<Parent />, container);
 
     // Build up state on all components
-    setters["before"]?.(10);
-    setters["x"]?.(20);
-    setters["y"]?.(30);
-    setters["after"]?.(40);
-    await Promise.resolve();
+    void setters["before"]?.(10);
+    void setters["x"]?.(20);
+    void setters["y"]?.(30);
+    await setters["after"]?.(40);
 
     expect(container.querySelector('[data-id="before"]')?.textContent).toBe("before:10");
     expect(container.querySelector('[data-id="x"]')?.textContent).toBe("x:20");
@@ -416,8 +402,7 @@ describe("key prop – keyed reconciliation", () => {
     expect(container.querySelector('[data-id="after"]')?.textContent).toBe("after:40");
 
     // Reverse keyed children
-    void setOrder(["y", "x"]);
-    await Promise.resolve();
+    await setOrder(["y", "x"]);
 
     // All state must be preserved — keyed and non-keyed alike
     expect(container.querySelector('[data-id="before"]')?.textContent).toBe("before:10");
@@ -433,10 +418,9 @@ describe("key prop – keyed reconciliation", () => {
     expect(div.children[3]?.getAttribute("data-id")).toBe("after");
 
     // All components still work after reorder
-    setters["before"]?.(11);
-    setters["after"]?.(41);
-    setters["x"]?.(21);
-    await Promise.resolve();
+    void setters["before"]?.(11);
+    void setters["after"]?.(41);
+    await setters["x"]?.(21);
     expect(container.querySelector('[data-id="before"]')?.textContent).toBe("before:11");
     expect(container.querySelector('[data-id="after"]')?.textContent).toBe("after:41");
     expect(container.querySelector('[data-id="x"]')?.textContent).toBe("x:21");
@@ -474,8 +458,7 @@ describe("key prop – keyed reconciliation", () => {
     expect(container.querySelector('[data-id="b"]')?.textContent).toBe("Beta");
 
     // Reorder
-    void setOrder(["b", "a"]);
-    await Promise.resolve();
+    await setOrder(["b", "a"]);
     expect(container.querySelector("div")?.children[0]?.getAttribute("data-id")).toBe("b");
     expect(container.querySelector("div")?.children[1]?.getAttribute("data-id")).toBe("a");
 

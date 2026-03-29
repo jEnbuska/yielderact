@@ -91,8 +91,7 @@ describe("no wrapper spans in rendered output", () => {
     expect(container.querySelector("button")?.textContent).toBe("0");
     expectNoDisplayContentsSpans(container);
 
-    void setCount(5);
-    await Promise.resolve();
+    await setCount(5);
     expect(container.querySelector("button")?.textContent).toBe("5");
     expectNoDisplayContentsSpans(container);
   });

@@ -194,12 +194,10 @@ describe("hook order validation", () => {
     root.render(<Stable />);
     expect(container.textContent).toBe("0");
 
-    expect(() => setCount(1)).not.toThrow();
-    await Promise.resolve();
+    await setCount(1);
     expect(container.textContent).toBe("1");
 
-    expect(() => setCount(2)).not.toThrow();
-    await Promise.resolve();
+    await setCount(2);
     expect(container.textContent).toBe("2");
   });
 

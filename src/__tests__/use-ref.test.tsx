@@ -41,8 +41,7 @@ describe("ref", () => {
     }
 
     render(<Comp />, container);
-    void setValue(1);
-    await Promise.resolve();
+    await setValue(1);
 
     expect(refInstances).toHaveLength(2);
     expect(refInstances[0]).toBe(refInstances[1]);

@@ -35,12 +35,10 @@ describe("render – components", () => {
     render(<Counter />, container);
     expect(container.querySelector("button")?.textContent).toBe("0");
 
-    void setCount(1);
-    await Promise.resolve();
+    await setCount(1);
     expect(container.querySelector("button")?.textContent).toBe("1");
 
-    void setCount(5);
-    await Promise.resolve();
+    await setCount(5);
     expect(container.querySelector("button")?.textContent).toBe("5");
   });
 
@@ -122,12 +120,10 @@ describe("render – components with useState", () => {
     render(<Label />, container);
     expect(container.querySelector("p")?.textContent).toBe("initial");
 
-    void setLabel("updated");
-    await Promise.resolve();
+    await setLabel("updated");
     expect(container.querySelector("p")?.textContent).toBe("updated");
 
-    void setLabel("again");
-    await Promise.resolve();
+    await setLabel("again");
     expect(container.querySelector("p")?.textContent).toBe("again");
   });
 
@@ -146,12 +142,10 @@ describe("render – components with useState", () => {
     render(<Multi />, container);
     expect(container.querySelector("p")?.textContent).toBe("hello-0");
 
-    void setA("world");
-    await Promise.resolve();
+    await setA("world");
     expect(container.querySelector("p")?.textContent).toBe("world-0");
 
-    void setB(42);
-    await Promise.resolve();
+    await setB(42);
     expect(container.querySelector("p")?.textContent).toBe("world-42");
   });
 });

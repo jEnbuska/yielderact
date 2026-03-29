@@ -32,8 +32,7 @@ describe("useState", () => {
     expect(capturedValue).toBe(42);
 
     // Re-render should not call the initializer again
-    void setValue(99);
-    await Promise.resolve();
+    await setValue(99);
     expect(init).toHaveBeenCalledTimes(1);
     expect(capturedValue).toBe(99);
   });
@@ -52,12 +51,10 @@ describe("useState", () => {
     render(<Comp />, container);
     expect(values).toEqual([0]);
 
-    setValue((prev) => prev + 5);
-    await Promise.resolve();
+    await setValue((prev) => prev + 5);
     expect(values).toEqual([0, 5]);
 
-    setValue((prev) => prev * 2);
-    await Promise.resolve();
+    await setValue((prev) => prev * 2);
     expect(values).toEqual([0, 5, 10]);
   });
 });

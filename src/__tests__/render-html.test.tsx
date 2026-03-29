@@ -96,8 +96,7 @@ describe("render – HTML elements", () => {
     const el = container.querySelector("div") as HTMLElement;
     expect(el.style.color).toBe("red");
 
-    void setStyle({ color: "blue" });
-    await Promise.resolve();
+    await setStyle({ color: "blue" });
     expect(el.style.color).toBe("blue");
   });
 
@@ -118,8 +117,7 @@ describe("render – HTML elements", () => {
     expect(el.style.color).toBe("red");
     expect(el.style.fontSize).toBe("14px");
 
-    void setStyle({ color: "blue" });
-    await Promise.resolve();
+    await setStyle({ color: "blue" });
     expect(el.style.color).toBe("blue");
     expect(el.style.fontSize).toBe("");
   });
@@ -140,8 +138,7 @@ describe("render – HTML elements", () => {
     expect(el.style.color).toBe("red");
     expect(el.style.fontWeight).toBe("bold");
 
-    void setProps({});
-    await Promise.resolve();
+    await setProps({});
     expect(el.style.color).toBe("");
     expect(el.style.fontWeight).toBe("");
   });
@@ -187,12 +184,10 @@ describe("render – HTML elements", () => {
     const input = container.querySelector("input") as HTMLInputElement;
     expect(input.value).toBe("initial");
 
-    void setValue("updated");
-    await Promise.resolve();
+    await setValue("updated");
     expect(input.value).toBe("updated");
 
-    void setValue("");
-    await Promise.resolve();
+    await setValue("");
     expect(input.value).toBe("");
   });
 
@@ -209,12 +204,10 @@ describe("render – HTML elements", () => {
     const cb = container.querySelector("input") as HTMLInputElement;
     expect(cb.checked).toBe(false);
 
-    void setChecked(true);
-    await Promise.resolve();
+    await setChecked(true);
     expect(cb.checked).toBe(true);
 
-    void setChecked(false);
-    await Promise.resolve();
+    await setChecked(false);
     expect(cb.checked).toBe(false);
   });
 });
