@@ -59,4 +59,33 @@ describe("setState promise behavior", () => {
     expect(resolved).toEqual([3]);
     expect(container.querySelector("span")?.textContent).toBe("3");
   });
+
+  it("setState with same value twice renders once and only the last promise resolves", async () => {
+    let setter: (v: number) => Promise<void> = () => Promise.resolve();
+    let renderCount = 0;
+    const resolved: string[] = [];
+
+    function* Comp() {
+      const [n, setN] = yield* useState(0);
+      setter = setN;
+      renderCount++;
+      return <span>{String(n)}</span>;
+    }
+
+    render(<Comp />, container);
+    expect(renderCount).toBe(1);
+
+    const p1 = setter(3);
+    const p2 = setter(3);
+
+    void p1.then(() => resolved.push("p1"));
+    void p2.then(() => resolved.push("p2"));
+
+    await p2;
+    // Component should only render once (value didn't change between the two calls)
+    expect(renderCount).toBe(2);
+    expect(container.querySelector("span")?.textContent).toBe("3");
+    // Only the last promise resolves
+    expect(resolved).toEqual(["p2"]);
+  });
 });
