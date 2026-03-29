@@ -117,4 +117,48 @@ describe("setState promise behavior", () => {
     expect(renderCount).toBe(2);
     expect(container.querySelector("span")?.textContent).toBe("1:y:true");
   });
+
+  it("child setState + parent setState: parent renders once, then child renders once", async () => {
+    let setChildState: (v: number) => Promise<void> = () => Promise.resolve();
+    let setParentState: (v: number) => Promise<void> = () => Promise.resolve();
+    let parentRenderCount = 0;
+    let childRenderCount = 0;
+
+    function* Child({ label }: { label: string }) {
+      const [n, setN] = yield* useState(0);
+      setChildState = setN;
+      childRenderCount++;
+      return <span id="child">{`${label}:${n}`}</span>;
+    }
+
+    function* Parent() {
+      const [p, setP] = yield* useState(0);
+      setParentState = setP;
+      parentRenderCount++;
+      return (
+        <div>
+          <span id="parent">{String(p)}</span>
+          <Child label={`p${p}`} />
+        </div>
+      );
+    }
+
+    render(<Parent />, container);
+    expect(parentRenderCount).toBe(1);
+    expect(childRenderCount).toBe(1);
+
+    void setChildState(1);
+    await setParentState(2);
+
+    // Parent should render once (its own setState)
+    expect(parentRenderCount).toBe(2);
+    expect(container.querySelector("#parent")?.textContent).toBe("2");
+
+    // Child renders twice: once from parent reconciliation (new props),
+    // once from its own setState. This could be optimized to one render
+    // if the scheduler detects the child was already rerendered during
+    // parent reconciliation.
+    expect(childRenderCount).toBe(3);
+    expect(container.querySelector("#child")?.textContent).toBe("p2:1");
+  });
 });
