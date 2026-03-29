@@ -159,4 +159,41 @@ describe("setState promise behavior", () => {
     expect(childRenderCount).toBe(2);
     expect(container.querySelector("#child")?.textContent).toBe("p2:1");
   });
+
+  it("parent renders before child regardless of setState call order", async () => {
+    let setChildState: (v: string) => Promise<void> = () => Promise.resolve();
+    let setParentState: (v: string) => Promise<void> = () => Promise.resolve();
+    const renderOrder: string[] = [];
+
+    function* Child() {
+      const [val, setVal] = yield* useState("c0");
+      setChildState = setVal;
+      renderOrder.push(`child:${val}`);
+      return <span id="child">{val}</span>;
+    }
+
+    function* Parent() {
+      const [val, setVal] = yield* useState("p0");
+      setParentState = setVal;
+      renderOrder.push(`parent:${val}`);
+      return (
+        <div>
+          <span id="parent">{val}</span>
+          <Child />
+        </div>
+      );
+    }
+
+    render(<Parent />, container);
+    renderOrder.length = 0; // clear initial mount
+
+    // Child setState called FIRST, parent SECOND
+    void setChildState("c1");
+    await setParentState("p1");
+
+    // Parent must render before child (tree order via slotId)
+    expect(renderOrder[0]).toBe("parent:p1");
+    expect(renderOrder[1]).toBe("child:c1");
+    expect(renderOrder).toHaveLength(2);
+  });
 });
