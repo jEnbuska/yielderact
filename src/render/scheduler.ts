@@ -124,10 +124,13 @@ export class Scheduler {
   }
 
   /**
-   * Remove an instance from the pending set (e.g. on unmount).
+   * Remove all pending work for an instance — from both pendingUpdates
+   * and the work queue. Called on unmount and when a parent's
+   * reconciliation makes a child's queued work redundant.
    */
   removePending(instance: ComponentInstance): void {
     this.pendingUpdates.delete(instance);
+    this.workQueue.removeWhere((item) => item.instance === instance);
   }
 
   /**
@@ -233,7 +236,6 @@ export class Scheduler {
       }
 
       const work = this.workQueue.next() as WorkItem;
-
       // Wrap with driveWithContext at execution time (not submission time)
       // so the generator uses the instance's current capturedCtx,
       // picking up any context changes from parent rerenders.
