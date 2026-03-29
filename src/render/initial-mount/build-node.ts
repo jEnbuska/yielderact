@@ -72,7 +72,7 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   if (isComponentNode(child)) {
     const allProps: InternalProps =
       child.children.length > 0 ? { ...props, children: child.children } : props;
-    return (yield* mountComponent(child.type, allProps, [])).fragment;
+    return (yield* mountComponent(child.type, allProps, 0)).fragment;
   }
 
   // HTML element

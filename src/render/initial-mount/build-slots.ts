@@ -37,15 +37,13 @@ export function* buildInitialSlotsGen(
   parent: Node,
   nextVNodes: Child[],
   beforeAnchor: Node | undefined,
-  parentSlotId: number[] = [],
 ): RenderGenerator<Slot[]> {
   const flatNext = flattenChildren(nextVNodes);
   const slots: Slot[] = [];
 
   for (let i = 0; i < flatNext.length; i++) {
     const child = flatNext[i] as Child;
-    const childSlotId = [...parentSlotId, i];
-    const { slot, node } = yield* buildOneSlot(child, childSlotId);
+    const { slot, node } = yield* buildOneSlot(child, i);
     slots.push(slot);
     if (beforeAnchor) {
       parent.insertBefore(node, beforeAnchor);
@@ -66,7 +64,7 @@ export function* buildInitialSlotsGen(
  */
 function* buildOneSlot(
   nextChild: Child,
-  slotId: number[],
+  index: number,
 ): RenderGenerator<{ slot: Slot; node: Node }> {
   const ctxMap = yield* getContextMap();
 
@@ -92,17 +90,17 @@ function* buildOneSlot(
 
   // Portal
   if (nextChild.type === Portal) {
-    return yield* buildPortalSlot(nextChild, slotId);
+    return yield* buildPortalSlot(nextChild);
   }
 
   // Component
   if (isComponentNode(nextChild)) {
-    return yield* buildComponentSlot(nextChild, allProps, slotId);
+    return yield* buildComponentSlot(nextChild, allProps, index);
   }
 
   // HTML element
   if (isElementNode(nextChild)) {
-    return yield* buildElementSlot(nextChild, slotId);
+    return yield* buildElementSlot(nextChild);
   }
 
   // Fallback (Fragment or unknown)
@@ -114,7 +112,7 @@ function* buildOneSlot(
 function* buildComponentSlot(
   vnode: VNode<Component>,
   allPropsRaw: InternalProps,
-  slotId: number[],
+  index: number,
 ): RenderGenerator<{ slot: Slot; node: Node }> {
   const ctxMap = yield* getContextMap();
   const componentProps = stripFrameworkDirectives(allPropsRaw);
@@ -123,7 +121,7 @@ function* buildComponentSlot(
 
   const { fragment, instance } = yield* driveWithContext(
     childCtxMap,
-    mountComponent(vnode.type, componentProps, slotId),
+    mountComponent(vnode.type, componentProps, index),
   );
   const entries = contextEntries(allPropsRaw.$context);
   for (const entry of entries) {
@@ -142,10 +140,7 @@ function* buildComponentSlot(
 }
 
 /** Build a fresh HTML element slot with children. */
-function* buildElementSlot(
-  vnode: VNode<string>,
-  parentSlotId: number[],
-): RenderGenerator<{ slot: Slot; node: Node }> {
+function* buildElementSlot(vnode: VNode<string>): RenderGenerator<{ slot: Slot; node: Node }> {
   const ctxMap = yield* getContextMap();
   const childCtxMap = childContextMap(ctxMap, vnode.props);
 
@@ -158,7 +153,7 @@ function* buildElementSlot(
     const child = flatChildren[i] as Child;
     const { slot: childSlot, node: childNode } = yield* driveWithContext(
       childCtxMap,
-      buildOneSlot(child, [...parentSlotId, i]),
+      buildOneSlot(child, i),
     );
     childSlots.push(childSlot);
     el.appendChild(childNode);
@@ -170,10 +165,7 @@ function* buildElementSlot(
 }
 
 /** Build a fresh portal slot. */
-function* buildPortalSlot(
-  vnode: VNode,
-  parentSlotId: number[],
-): RenderGenerator<{ slot: Slot; node: Node }> {
+function* buildPortalSlot(vnode: VNode): RenderGenerator<{ slot: Slot; node: Node }> {
   const ctxMap = yield* getContextMap();
   const scheduler = ctxMap.get(SchedulerCtx);
   const portalContainer = vnode.props["$portalContainer"] as Element;
@@ -191,10 +183,7 @@ function* buildPortalSlot(
     const flatChildren = flattenChildren(vnode.children);
     for (let i = 0; i < flatChildren.length; i++) {
       const child = flatChildren[i] as Child;
-      const { slot, node } = yield* driveWithContext(
-        ctxMap,
-        buildOneSlot(child, [...parentSlotId, i]),
-      );
+      const { slot, node } = yield* driveWithContext(ctxMap, buildOneSlot(child, i));
       childSlots.push(slot);
       portalContainer.insertBefore(node, endMarker);
     }

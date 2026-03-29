@@ -62,6 +62,16 @@ export const SchedulerCtx: Context<Scheduler> = {
 };
 
 /**
+ * Context key for the parent component's slotId.
+ *
+ * Set by each component after mount via `setContext`. Child components
+ * read this to compute their own `slotId = [...parentSlotId, index]`.
+ */
+export const ParentSlotIdCtx: Context<number[]> = {
+  defaultValue: [],
+};
+
+/**
  * Per-root scheduler and render state.
  *
  * Created by `createRoot()` / `render()`. Manages the work queue,

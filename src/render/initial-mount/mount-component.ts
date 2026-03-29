@@ -12,9 +12,15 @@ import { resolveCtx } from "../../context";
 import type { Component, InternalProps } from "../../jsx";
 import { runComponentRender } from "../component/lifecycle";
 import { executeComponentRerender, rerenderInstance, resumeInstance } from "../component/rerender";
-import { type CtxMap, driveWithContext, getContextMap, type RenderGenerator } from "../driver";
+import {
+  type CtxMap,
+  driveWithContext,
+  getContextMap,
+  type RenderGenerator,
+  setContext,
+} from "../driver";
 import { flushEffects } from "../hooks-runtime";
-import { SchedulerCtx } from "../scheduler";
+import { ParentSlotIdCtx, SchedulerCtx } from "../scheduler";
 import type { ComponentInstance } from "../types";
 import { buildInitialSlotsGen } from "./build-slots";
 
@@ -65,17 +71,24 @@ function createComponentInstance(
 export function* mountComponent(
   component: Component,
   props: InternalProps,
-  slotId: number[],
+  index: number,
 ): RenderGenerator<{ fragment: DocumentFragment; instance: ComponentInstance }> {
   const ctx = yield* getContextMap();
+  const parentSlotId = (ctx.get(ParentSlotIdCtx) as number[] | undefined) ?? [];
+  const slotId = [...parentSlotId, index];
+
   const instance = createComponentInstance(component, props, ctx, slotId);
+
+  // Set this component's slotId as the parentSlotId for its children
+  yield* setContext(ParentSlotIdCtx, () => slotId);
+
   const vnode = yield* runComponentRender(instance);
 
   const fragment = document.createDocumentFragment();
   fragment.appendChild(instance.endMarker);
   instance.slots = yield* driveWithContext(
-    ctx,
-    buildInitialSlotsGen(fragment, [vnode], instance.endMarker, slotId),
+    yield* getContextMap(),
+    buildInitialSlotsGen(fragment, [vnode], instance.endMarker),
   );
   instance.mounted = true;
   flushEffects(instance);
