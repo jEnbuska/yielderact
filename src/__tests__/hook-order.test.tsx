@@ -2,6 +2,24 @@ import { createContext, useContext } from "../context";
 import { useEffect, useMemo, useRef, useState } from "../hooks";
 import { createRoot } from "../render";
 
+/**
+ * Helper: call `fn`, await the microtask scheduler, and return
+ * the first unhandled rejection error (if any).
+ */
+async function captureAsyncError(fn: () => void): Promise<Error | undefined> {
+  let captured: Error | undefined;
+  const handler = (reason: unknown) => {
+    captured = reason as Error;
+  };
+  process.on("unhandledRejection", handler);
+  fn();
+  await Promise.resolve();
+  // Give the scheduler's async loop time to propagate the error
+  await new Promise((r) => setTimeout(r, 10));
+  process.removeListener("unhandledRejection", handler);
+  return captured;
+}
+
 describe("hook order validation", () => {
   let container: HTMLElement;
 
@@ -14,7 +32,7 @@ describe("hook order validation", () => {
     document.body.removeChild(container);
   });
 
-  it("throws when a hook is conditionally removed on re-render", () => {
+  it("throws when a hook is conditionally removed on re-render", async () => {
     let toggle = true;
     let setCount: (v: number | ((p: number) => number)) => void = () => {};
 
@@ -33,10 +51,11 @@ describe("hook order validation", () => {
 
     // Remove the conditional hook on re-render
     toggle = false;
-    expect(() => setCount(1)).toThrow(/Hook count mismatch.*"Conditional"/);
+    const error = await captureAsyncError(() => setCount(1));
+    expect(error?.message).toMatch(/Hook count mismatch.*"Conditional"/);
   });
 
-  it("throws when hook types are swapped", () => {
+  it("throws when hook types are swapped", async () => {
     let swapped = false;
     let setCount: (v: number | ((p: number) => number)) => void = () => {};
 
@@ -57,10 +76,11 @@ describe("hook order validation", () => {
     root.render(<SwapHooks />);
 
     swapped = true;
-    expect(() => setCount(1)).toThrow(/Hook order mismatch.*"SwapHooks".*index 1/);
+    const error = await captureAsyncError(() => setCount(1));
+    expect(error?.message).toMatch(/Hook order mismatch.*"SwapHooks".*index 1/);
   });
 
-  it("throws when hook count decreases on completed render", () => {
+  it("throws when hook count decreases on completed render", async () => {
     let useExtra = true;
     let setCount: (v: number | ((p: number) => number)) => void = () => {};
 
@@ -78,10 +98,11 @@ describe("hook order validation", () => {
     root.render(<HookCountDecrease />);
 
     useExtra = false;
-    expect(() => setCount(1)).toThrow(/Hook count mismatch.*"HookCountDecrease"/);
+    const error = await captureAsyncError(() => setCount(1));
+    expect(error?.message).toMatch(/Hook count mismatch.*"HookCountDecrease"/);
   });
 
-  it("throws when hook count increases on completed render", () => {
+  it("throws when hook count increases on completed render", async () => {
     let useExtra = false;
     let setCount: (v: number | ((p: number) => number)) => void = () => {};
 
@@ -99,10 +120,11 @@ describe("hook order validation", () => {
     root.render(<HookCountIncrease />);
 
     useExtra = true;
-    expect(() => setCount(1)).toThrow(/Hook count mismatch.*"HookCountIncrease"/);
+    const error = await captureAsyncError(() => setCount(1));
+    expect(error?.message).toMatch(/Hook count mismatch.*"HookCountIncrease"/);
   });
 
-  it("useContext is NOT exempt from order validation", () => {
+  it("useContext is NOT exempt from order validation", async () => {
     const Ctx1 = createContext("a");
     const Ctx2 = createContext("b");
     let useCtx = true;
@@ -125,7 +147,8 @@ describe("hook order validation", () => {
 
     // Removing context hooks DOES throw — useContext follows the same rules as all hooks
     useCtx = false;
-    expect(() => setCount(1)).toThrow(/Hook.*mismatch.*"ContextNotExempt"/);
+    const error = await captureAsyncError(() => setCount(1));
+    expect(error?.message).toMatch(/Hook.*mismatch.*"ContextNotExempt"/);
   });
 
   it("useContext cannot be reordered", () => {
@@ -155,7 +178,7 @@ describe("hook order validation", () => {
     expect(() => setCount(1)).not.toThrow();
   });
 
-  it("correct hook order does not throw", () => {
+  it("correct hook order does not throw", async () => {
     let setCount: (v: number | ((p: number) => number)) => void = () => {};
 
     function* Stable() {
@@ -172,13 +195,15 @@ describe("hook order validation", () => {
     expect(container.textContent).toBe("0");
 
     expect(() => setCount(1)).not.toThrow();
+    await Promise.resolve();
     expect(container.textContent).toBe("1");
 
     expect(() => setCount(2)).not.toThrow();
+    await Promise.resolve();
     expect(container.textContent).toBe("2");
   });
 
-  it("error message includes component name and hook names", () => {
+  it("error message includes component name and hook names", async () => {
     let swapped = false;
     let setCount: (v: number | ((p: number) => number)) => void = () => {};
 
@@ -197,16 +222,14 @@ describe("hook order validation", () => {
     root.render(<NamedComponent />);
 
     swapped = true;
-    try {
+    const error = await captureAsyncError(() => {
       void setCount(1);
-      // Should not reach here
-      expect(true).toBe(false);
-    } catch (e) {
-      const msg = (e as Error).message;
-      expect(msg).toContain("NamedComponent");
-      expect(msg).toContain("$USE_REF");
-      expect(msg).toContain("$USE_MEMO");
-      expect(msg).toContain("index 1");
-    }
+    });
+    expect(error).toBeDefined();
+    const msg = (error as Error).message;
+    expect(msg).toContain("NamedComponent");
+    expect(msg).toContain("$USE_REF");
+    expect(msg).toContain("$USE_MEMO");
+    expect(msg).toContain("index 1");
   });
 });

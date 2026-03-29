@@ -78,7 +78,7 @@ describe("no wrapper spans in rendered output", () => {
     expectNoDisplayContentsSpans(container);
   });
 
-  it("component with useState", () => {
+  it("component with useState", async () => {
     let setCount: (v: number) => void = () => {};
 
     function* Counter() {
@@ -92,6 +92,7 @@ describe("no wrapper spans in rendered output", () => {
     expectNoDisplayContentsSpans(container);
 
     void setCount(5);
+    await Promise.resolve();
     expect(container.querySelector("button")?.textContent).toBe("5");
     expectNoDisplayContentsSpans(container);
   });
@@ -260,7 +261,7 @@ describe("no wrapper spans in rendered output", () => {
 
   // ── After rerender ──
 
-  it("no wrappers after state-driven rerender with children swap", () => {
+  it("no wrappers after state-driven rerender with children swap", async () => {
     let toggle: () => void = () => {};
 
     function* Child({ label }: { label: string }) {
@@ -286,6 +287,7 @@ describe("no wrapper spans in rendered output", () => {
     expectNoDisplayContentsSpans(container);
 
     toggle();
+    await Promise.resolve();
     expect(container.querySelector("span")?.textContent).toBe("B");
     expectNoDisplayContentsSpans(container);
   });

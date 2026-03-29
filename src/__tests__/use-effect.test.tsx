@@ -30,7 +30,7 @@ describe("render – useEffect", () => {
     expect(calls).toEqual(["effect"]);
   });
 
-  it("does not re-run effect when deps are unchanged", () => {
+  it("does not re-run effect when deps are unchanged", async () => {
     const calls: string[] = [];
     let setCount: (v: number) => void = () => {};
 
@@ -49,10 +49,11 @@ describe("render – useEffect", () => {
 
     void setCount(1);
     void setCount(2);
+    await Promise.resolve();
     expect(calls).toEqual(["effect"]); // still only once
   });
 
-  it("re-runs effect and calls previous cleanup when deps change", () => {
+  it("re-runs effect and calls previous cleanup when deps change", async () => {
     const log: string[] = [];
     let setId: (v: number) => void = () => {};
 
@@ -70,13 +71,15 @@ describe("render – useEffect", () => {
     expect(log).toEqual(["effect:1"]);
 
     void setId(2);
+    await Promise.resolve();
     expect(log).toEqual(["effect:1", "cleanup:1", "effect:2"]);
 
     void setId(3);
+    await Promise.resolve();
     expect(log).toEqual(["effect:1", "cleanup:1", "effect:2", "cleanup:2", "effect:3"]);
   });
 
-  it("calls cleanup on unmount", () => {
+  it("calls cleanup on unmount", async () => {
     const log: string[] = [];
     let setShow: (v: boolean) => void = () => {};
 
@@ -98,6 +101,7 @@ describe("render – useEffect", () => {
     expect(log).toEqual(["mount"]);
 
     void setShow(false);
+    await Promise.resolve();
     expect(log).toEqual(["mount", "unmount"]);
   });
 
@@ -152,7 +156,7 @@ describe("render – useEffect", () => {
     expect((receivedSignal as unknown as AbortSignal).aborted).toBe(false);
   });
 
-  it("aborts the signal when deps change", () => {
+  it("aborts the signal when deps change", async () => {
     const signals: AbortSignal[] = [];
     let setId: (v: number) => void = () => {};
 
@@ -174,13 +178,14 @@ describe("render – useEffect", () => {
     expect(signals[0]?.aborted).toBe(false);
 
     void setId(2);
+    await Promise.resolve();
     // The first signal should now be aborted.
     expect(signals[0]?.aborted).toBe(true);
     expect(signals).toHaveLength(2);
     expect(signals[1]?.aborted).toBe(false);
   });
 
-  it("aborts the signal on unmount", () => {
+  it("aborts the signal on unmount", async () => {
     let capturedSignal: AbortSignal | null = null;
     let setShow: (v: boolean) => void = () => {};
 
@@ -203,10 +208,11 @@ describe("render – useEffect", () => {
     expect((capturedSignal as unknown as AbortSignal).aborted).toBe(false);
 
     void setShow(false);
+    await Promise.resolve();
     expect((capturedSignal as unknown as AbortSignal).aborted).toBe(true);
   });
 
-  it("aborts the signal before calling the cleanup function", () => {
+  it("aborts the signal before calling the cleanup function", async () => {
     const log: string[] = [];
     let setId: (v: number) => void = () => {};
 
@@ -226,6 +232,7 @@ describe("render – useEffect", () => {
 
     render(<Comp />, container);
     void setId(2);
+    await Promise.resolve();
     expect(log).toEqual(["cleanup:1:aborted=true"]);
   });
 });

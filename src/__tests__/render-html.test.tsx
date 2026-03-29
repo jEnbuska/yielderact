@@ -83,7 +83,7 @@ describe("render – HTML elements", () => {
     expect(el.style.fontSize).toBe("14px");
   });
 
-  it("updates changed style properties on rerender", () => {
+  it("updates changed style properties on rerender", async () => {
     let setStyle: (s: Record<string, string>) => void = () => {};
 
     function* Styled() {
@@ -97,10 +97,11 @@ describe("render – HTML elements", () => {
     expect(el.style.color).toBe("red");
 
     void setStyle({ color: "blue" });
+    await Promise.resolve();
     expect(el.style.color).toBe("blue");
   });
 
-  it("removes style properties that are no longer present on rerender", () => {
+  it("removes style properties that are no longer present on rerender", async () => {
     let setStyle: (s: Record<string, string>) => void = () => {};
 
     function* Styled() {
@@ -118,11 +119,12 @@ describe("render – HTML elements", () => {
     expect(el.style.fontSize).toBe("14px");
 
     void setStyle({ color: "blue" });
+    await Promise.resolve();
     expect(el.style.color).toBe("blue");
     expect(el.style.fontSize).toBe("");
   });
 
-  it("clears all styles when style prop is removed", () => {
+  it("clears all styles when style prop is removed", async () => {
     let setProps: (p: Record<string, unknown>) => void = () => {};
 
     function* Styled() {
@@ -139,6 +141,7 @@ describe("render – HTML elements", () => {
     expect(el.style.fontWeight).toBe("bold");
 
     void setProps({});
+    await Promise.resolve();
     expect(el.style.color).toBe("");
     expect(el.style.fontWeight).toBe("");
   });
@@ -171,7 +174,7 @@ describe("render – HTML elements", () => {
     expect(container.querySelector("div")?.textContent).toBe("visible");
   });
 
-  it("sets input value as DOM property (not just attribute)", () => {
+  it("sets input value as DOM property (not just attribute)", async () => {
     let setValue: (v: string) => void = () => {};
 
     function* Controlled() {
@@ -185,13 +188,15 @@ describe("render – HTML elements", () => {
     expect(input.value).toBe("initial");
 
     void setValue("updated");
+    await Promise.resolve();
     expect(input.value).toBe("updated");
 
     void setValue("");
+    await Promise.resolve();
     expect(input.value).toBe("");
   });
 
-  it("sets checkbox checked as DOM property", () => {
+  it("sets checkbox checked as DOM property", async () => {
     let setChecked: (v: boolean) => void = () => {};
 
     function* CheckBox() {
@@ -205,9 +210,11 @@ describe("render – HTML elements", () => {
     expect(cb.checked).toBe(false);
 
     void setChecked(true);
+    await Promise.resolve();
     expect(cb.checked).toBe(true);
 
     void setChecked(false);
+    await Promise.resolve();
     expect(cb.checked).toBe(false);
   });
 });

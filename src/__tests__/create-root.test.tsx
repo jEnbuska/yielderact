@@ -73,7 +73,7 @@ describe("createRoot", () => {
   //   document.body.removeChild(container2);
   // });
 
-  it("two independent createRoot calls do not share state", () => {
+  it("two independent createRoot calls do not share state", async () => {
     const container2 = document.createElement("div");
     document.body.appendChild(container2);
 
@@ -102,11 +102,13 @@ describe("createRoot", () => {
 
     // Update root 1 — root 2 must not be affected.
     void setCount1(5);
+    await Promise.resolve();
     expect(container.querySelector("#c1")?.textContent).toBe("5");
     expect(container2.querySelector("#c2")?.textContent).toBe("100");
 
     // Update root 2 — root 1 must not be affected.
     void setCount2(200);
+    await Promise.resolve();
     expect(container.querySelector("#c1")?.textContent).toBe("5");
     expect(container2.querySelector("#c2")?.textContent).toBe("200");
 

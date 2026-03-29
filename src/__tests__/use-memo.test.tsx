@@ -30,7 +30,7 @@ describe("useMemo", () => {
     expect(capturedValue).toBe(5);
   });
 
-  it("does not recompute when deps are the same", () => {
+  it("does not recompute when deps are the same", async () => {
     const factory = vi.fn((a: number) => a * 2);
     let setValue: (v: number) => void = () => {};
 
@@ -43,11 +43,12 @@ describe("useMemo", () => {
 
     render(<Comp />, container);
     setValue(20); // trigger re-render, same dep [5]
+    await Promise.resolve();
 
     expect(factory).toHaveBeenCalledTimes(1);
   });
 
-  it("recomputes when deps change", () => {
+  it("recomputes when deps change", async () => {
     const factory = vi.fn((a: number) => a * 2);
     let setValue: (v: number) => void = () => {};
     let capturedValue: number | null = null;
@@ -64,12 +65,13 @@ describe("useMemo", () => {
     expect(factory).toHaveBeenCalledTimes(1);
 
     void setValue(3);
+    await Promise.resolve();
     expect(capturedValue).toBe(6);
     expect(factory).toHaveBeenCalledTimes(2);
     expect(factory).toHaveBeenLastCalledWith(3);
   });
 
-  it("works with empty deps (zero-arg factory)", () => {
+  it("works with empty deps (zero-arg factory)", async () => {
     const factory = vi.fn(() => 42);
     let setValue: (v: number) => void = () => {};
     let capturedValue: number | null = null;
@@ -86,6 +88,7 @@ describe("useMemo", () => {
     expect(factory).toHaveBeenCalledTimes(1);
 
     setValue(1); // re-render, empty deps never change
+    await Promise.resolve();
     expect(capturedValue).toBe(42);
     expect(factory).toHaveBeenCalledTimes(1);
   });

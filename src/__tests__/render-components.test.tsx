@@ -23,7 +23,7 @@ describe("render – components", () => {
     expect(container.querySelector("h2")?.textContent).toBe("Hi, Alice!");
   });
 
-  it("rerenders via useState setter", () => {
+  it("rerenders via useState setter", async () => {
     let setCount: (v: number) => void = () => {};
 
     function* Counter() {
@@ -36,9 +36,11 @@ describe("render – components", () => {
     expect(container.querySelector("button")?.textContent).toBe("0");
 
     void setCount(1);
+    await Promise.resolve();
     expect(container.querySelector("button")?.textContent).toBe("1");
 
     void setCount(5);
+    await Promise.resolve();
     expect(container.querySelector("button")?.textContent).toBe("5");
   });
 
@@ -108,7 +110,7 @@ describe("render – components with useState", () => {
     document.body.removeChild(container);
   });
 
-  it("useState persists value across re-renders", () => {
+  it("useState persists value across re-renders", async () => {
     let setLabel: (v: string) => void = () => {};
 
     function* Label() {
@@ -121,13 +123,15 @@ describe("render – components with useState", () => {
     expect(container.querySelector("p")?.textContent).toBe("initial");
 
     void setLabel("updated");
+    await Promise.resolve();
     expect(container.querySelector("p")?.textContent).toBe("updated");
 
     void setLabel("again");
+    await Promise.resolve();
     expect(container.querySelector("p")?.textContent).toBe("again");
   });
 
-  it("multiple useState calls maintain independent state", () => {
+  it("multiple useState calls maintain independent state", async () => {
     let setA: (v: string) => void = () => {};
     let setB: (v: number) => void = () => {};
 
@@ -143,9 +147,11 @@ describe("render – components with useState", () => {
     expect(container.querySelector("p")?.textContent).toBe("hello-0");
 
     void setA("world");
+    await Promise.resolve();
     expect(container.querySelector("p")?.textContent).toBe("world-0");
 
     void setB(42);
+    await Promise.resolve();
     expect(container.querySelector("p")?.textContent).toBe("world-42");
   });
 });

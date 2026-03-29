@@ -7,13 +7,18 @@
  * - Event delegation root
  * - Time-sliced cooperative scheduling
  *
- * Stored in the context map via `SchedulerCtx` so generators can
- * access it via `yield* getContextMap()`.
+ * Work submission (submit/scheduleUpdate) never synchronously enters
+ * the run loop. Instead it resolves a pending promise, and the run
+ * loop picks up work on the next microtask. This ensures multiple
+ * setState calls in the same synchronous block are batched naturally.
+ *
+ * `flushSync` and `flush` bypass this and run work immediately.
  */
 
 import type { Context } from "../context";
 import type { DelegationRoot } from "./delegation";
 import { driveWithContext, type RenderGenerator } from "./driver";
+import { createResolvable } from "./promise";
 import type { ComponentInstance } from "./types";
 
 /** Time budget per work chunk in milliseconds. */
@@ -52,24 +57,33 @@ export class Scheduler {
   private readonly pendingUpdates = new Set<ComponentInstance>();
   private isProcessing = false;
   private syncMode = true;
+  private trigger = createResolvable();
+
+  constructor() {
+    void this.startLoop();
+  }
 
   /**
    * Submit a generator as work.
    *
    * The generator is wrapped with `driveWithContext` so context ops are
-   * handled transparently. If the scheduler isn't running, it starts.
+   * handled transparently. Does not synchronously enter the run loop —
+   * resolves the trigger promise so the loop picks it up on the next microtask.
    */
   submit(gen: RenderGenerator<void>, ctxMap: ReadonlyMap<Context, unknown>): void {
     this.workQueue.push(driveWithContext(ctxMap, gen));
-    this.start();
+    this.notify();
   }
 
   /**
    * Schedule a rerender for a component instance.
+   *
+   * Does not synchronously enter the run loop — resolves the trigger
+   * promise so the loop picks it up on the next microtask.
    */
   scheduleUpdate(instance: ComponentInstance): void {
     this.pendingUpdates.add(instance);
-    this.start();
+    this.notify();
   }
 
   /**
@@ -81,6 +95,7 @@ export class Scheduler {
 
   /**
    * Run all pending work synchronously, ignoring time slicing.
+   * Bypasses the microtask trigger — runs immediately.
    */
   flushSync(fn?: () => void): void {
     const { syncMode: prevSync } = this;
@@ -97,21 +112,20 @@ export class Scheduler {
     }
 
     if (!this.isProcessing && this.hasPendingWork()) {
-      this.isProcessing = true;
-      this.runLoop();
+      this.processWork();
     }
 
     this.syncMode = prevSync;
   }
 
   /**
-   * Flush any pending work. Called by event dispatch after a delegated
-   * event has been fully dispatched.
+   * Flush any pending work synchronously. Called by event dispatch
+   * after a delegated event has been fully dispatched.
+   * Bypasses the microtask trigger — runs immediately.
    */
   flush(): void {
     if (!this.hasPendingWork()) return;
-    this.isProcessing = true;
-    this.runLoop();
+    this.processWork();
   }
 
   /** Begin collecting DOM operations for atomic commit. */
@@ -129,10 +143,9 @@ export class Scheduler {
 
   // ── Private ──────────────────────────────────────────────────────────
 
-  private start(): void {
-    if (this.isProcessing) return;
-    this.isProcessing = true;
-    this.runLoop();
+  /** Resolve the trigger so the async loop wakes up on the next microtask. */
+  private notify(): void {
+    this.trigger.resolve();
   }
 
   private hasPendingWork(): boolean {
@@ -148,7 +161,30 @@ export class Scheduler {
     }
   }
 
-  private runLoop(): void {
+  /**
+   * The persistent async loop. Awaits the trigger promise, processes
+   * all pending work, then resets the trigger and waits again.
+   */
+  private async startLoop(): Promise<void> {
+    while (true) {
+      await this.trigger.promise;
+
+      // Reset trigger for the next batch before processing,
+      // so new work submitted during processing is captured.
+      this.trigger = createResolvable();
+
+      if (!this.isProcessing) {
+        this.processWork();
+      }
+    }
+  }
+
+  /**
+   * Process all pending work synchronously. Called by the async loop,
+   * flushSync, and flush.
+   */
+  private processWork(): void {
+    this.isProcessing = true;
     const deadline = performance.now() + TIME_SLICE;
 
     this.beginBatch();
@@ -181,12 +217,12 @@ export class Scheduler {
     if (typeof MessageChannel !== "undefined") {
       const mc = new MessageChannel();
       mc.port1.onmessage = () => {
-        this.runLoop();
+        this.processWork();
       };
       mc.port2.postMessage(null);
     } else {
       setTimeout(() => {
-        this.runLoop();
+        this.processWork();
       }, 0);
     }
   }

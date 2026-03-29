@@ -83,7 +83,7 @@ describe("createPortal", () => {
 
   // ── 4. Reconciliation ──────────────────────────────────────────────────
 
-  it("updates portal children when the component rerenders", () => {
+  it("updates portal children when the component rerenders", async () => {
     let setter: (v: number) => void = () => {};
 
     function* App() {
@@ -96,12 +96,13 @@ describe("createPortal", () => {
     expect(portalTarget.querySelector("span")?.textContent).toBe("count:0");
 
     void setter(1);
+    await Promise.resolve();
     expect(portalTarget.querySelector("span")?.textContent).toBe("count:1");
   });
 
   // ── 5. Unmount cleanup ──────────────────────────────────────────────────
 
-  it("removes children from portal container when portal is removed", () => {
+  it("removes children from portal container when portal is removed", async () => {
     let setter: (v: boolean) => void = () => {};
 
     function* App() {
@@ -117,6 +118,7 @@ describe("createPortal", () => {
     expect(portalTarget.querySelector("span")?.textContent).toBe("portal");
 
     void setter(false);
+    await Promise.resolve();
     expect(portalTarget.querySelector("span")).toBeNull();
     expect(container.querySelector("span")?.textContent).toBe("no portal");
   });
@@ -137,7 +139,7 @@ describe("createPortal", () => {
 
   // ── 7. Multiple portals to same container ───────────────────────────────
 
-  it("multiple portals to the same container render and clean up correctly", () => {
+  it("multiple portals to the same container render and clean up correctly", async () => {
     let setter: (v: boolean) => void = () => {};
 
     function* App() {
@@ -158,6 +160,7 @@ describe("createPortal", () => {
 
     // Remove second portal
     void setter(false);
+    await Promise.resolve();
     expect(portalTarget.querySelectorAll("span").length).toBe(1);
     expect(portalTarget.querySelector(".p1")?.textContent).toBe("portal-1");
     expect(portalTarget.querySelector(".p2")).toBeNull();
@@ -165,7 +168,7 @@ describe("createPortal", () => {
 
   // ── 8. Keyed portals ────────────────────────────────────────────────────
 
-  it("portals with key participate in keyed reconciliation", () => {
+  it("portals with key participate in keyed reconciliation", async () => {
     let setter: (v: string[]) => void = () => {};
 
     function* App() {
@@ -185,6 +188,7 @@ describe("createPortal", () => {
 
     // Reorder: reverse
     void setter(["c", "b", "a"]);
+    await Promise.resolve();
     expect(portalTarget.querySelectorAll("span").length).toBe(3);
     expect(portalTarget.querySelector(".item-a")?.textContent).toBe("a");
     expect(portalTarget.querySelector(".item-c")?.textContent).toBe("c");
@@ -192,7 +196,7 @@ describe("createPortal", () => {
 
   // ── 9. Container change ─────────────────────────────────────────────────
 
-  it("changing container moves children to the new container", () => {
+  it("changing container moves children to the new container", async () => {
     const secondTarget = document.createElement("div");
     document.body.appendChild(secondTarget);
 
@@ -209,6 +213,7 @@ describe("createPortal", () => {
     expect(secondTarget.querySelector("span")).toBeNull();
 
     void setter(secondTarget);
+    await Promise.resolve();
     expect(secondTarget.querySelector("span")?.textContent).toBe("movable");
     // Old container children are cleaned up by unmountSlot when the old portal
     // is replaced (the type is Portal but the container changed, so it's a fresh mount).
@@ -219,7 +224,7 @@ describe("createPortal", () => {
 
   // ── 10. useEffect cleanup ───────────────────────────────────────────────
 
-  it("effects in portal children run cleanup on unmount", () => {
+  it("effects in portal children run cleanup on unmount", async () => {
     const cleanup = vi.fn();
 
     function* PortalChild() {
@@ -245,6 +250,7 @@ describe("createPortal", () => {
     expect(cleanup).not.toHaveBeenCalled();
 
     void setter(false);
+    await Promise.resolve();
     expect(cleanup).toHaveBeenCalledTimes(1);
     expect(portalTarget.querySelector("span")).toBeNull();
   });
