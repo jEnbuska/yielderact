@@ -8,8 +8,6 @@ import {
   createElement,
   Fragment,
   type InternalProps,
-  Provider,
-  VNode,
 } from "./jsx";
 
 // ---------------------------------------------------------------------------
@@ -43,6 +41,8 @@ export interface Context<T = unknown> extends ContextProvider<T> {
   readonly defaultValue: (() => T) | T;
   readonly provider: true;
   readonly identifier: symbol;
+  /** Subscribe to value changes. Returns an unsubscribe function. */
+  subscribe(callback: (value: T) => void): () => void;
 }
 
 // ---------------------------------------------------------------------------
@@ -112,7 +112,7 @@ export function createContext<T>(defaultValue: T): Context<T> {
   };
   return Object.assign(ProviderComponent, {
     defaultValue,
-    provider: true,
+    provider: true as const,
     identifier: Symbol("Context"),
   });
 }

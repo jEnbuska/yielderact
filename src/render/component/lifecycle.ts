@@ -85,7 +85,6 @@ export function* runComponentRender(instance: ComponentInstance): RenderGenerato
   scheduler.renderingInstance = instance;
   instance.pendingEffects.length = 0;
   instance.consumedContexts.clear();
-  instance.providedContexts.clear();
 
   const ctx = instance.capturedCtx;
   instance.gen = instance.component(instance.props, instance.scheduleRerender);

@@ -1,7 +1,8 @@
+import type { Context } from "./context";
 import type { ComponentGenerator, DependencyList } from "./hooks/types";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
 
-export type VNodeType = string | symbol | Component;
+export type VNodeType = string | symbol | Component | Context;
 /**
  * Virtual DOM node produced by createElement / JSX.
  */
@@ -199,7 +200,14 @@ export function createElement<P extends InternalProps>(
   ...children: Child[]
 ): VNode;
 
-// Overload 3: symbol (RawFragment, Portal)
+// Overload 3: context provider
+export function createElement(
+  type: Context,
+  props: Record<string, unknown> | null,
+  ...children: Child[]
+): VNode;
+
+// Overload 4: symbol (RawFragment, Portal)
 export function createElement(type: symbol, props: null, ...children: Child[]): VNode;
 
 // Overload 4: escape-hatch (jsx-runtime, dynamic types)

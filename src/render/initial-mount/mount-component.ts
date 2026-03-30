@@ -42,7 +42,6 @@ function createComponentInstance(
     mounted: false,
     resumeHookIndex: 0,
     consumedContexts: new Set(),
-    providedContexts: new Set(),
     resume: () => {
       instance.scheduler.submit(instance, resumeInstance(instance));
     },
