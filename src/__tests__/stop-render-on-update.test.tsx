@@ -187,11 +187,11 @@ describe("setState promise behavior", () => {
     expect(renderCounts["$0.$1"]).toBe(1);
     // LeafB0: parent passed new label prop → rerenders once
     expect(renderCounts["$0.$1.$0"]).toBe(1);
-    // LeafB1: renders twice — once from own setState (with stale props),
-    // once from parent's reconciliation (with correct props).
-    // TODO: Could be optimized to one render if the scheduler deferred
-    // leaf work until all ancestor work completes.
-    expect(renderCounts["$0.$1.$1"]).toBe(2);
+    // LeafB1: own setState + parent passed new label prop → renders once.
+    // The scheduler skips scheduling when the instance already has
+    // a pending work item, so the existing work item picks up both
+    // new state and new props.
+    expect(renderCounts["$0.$1.$1"]).toBe(1);
     expect(container.querySelector("#leaf-b1")?.textContent).toBe("rootUpdated.init:leafUpdated");
   });
 

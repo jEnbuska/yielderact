@@ -92,6 +92,7 @@ export class Scheduler {
 
   private readonly workQueue = new TreeSet<WorkItem>(compareBySlotId);
   private readonly pendingUpdates = new Set<ComponentInstance>();
+  private readonly scheduledInstances = new Set<ComponentInstance>();
   private isProcessing = false;
   private syncMode = true;
   private trigger = createResolvable();
@@ -108,6 +109,7 @@ export class Scheduler {
    * ensuring context changes from parent rerenders are picked up.
    */
   submit(instance: ComponentInstance, gen: RenderGenerator<void>): void {
+    this.scheduledInstances.add(instance);
     this.workQueue.add({ instance, gen });
     this.notify();
   }
@@ -119,6 +121,7 @@ export class Scheduler {
    * promise so the loop picks it up on the next microtask.
    */
   scheduleUpdate(instance: ComponentInstance): void {
+    if (this.scheduledInstances.has(instance)) return;
     this.pendingUpdates.add(instance);
     this.notify();
   }
@@ -130,6 +133,7 @@ export class Scheduler {
    */
   removePending(instance: ComponentInstance): void {
     this.pendingUpdates.delete(instance);
+    this.scheduledInstances.delete(instance);
     this.workQueue.removeWhere((item) => item.instance === instance);
   }
 
@@ -230,10 +234,8 @@ export class Scheduler {
     this.beginBatch();
 
     while (true) {
-      if (this.workQueue.isEmpty()) {
-        this.drainPendingUpdates();
-        if (this.workQueue.isEmpty()) break;
-      }
+      this.drainPendingUpdates();
+      if (this.workQueue.isEmpty()) break;
 
       const work = this.workQueue.next() as WorkItem;
       // Wrap with driveWithContext at execution time (not submission time)
@@ -255,6 +257,7 @@ export class Scheduler {
     }
 
     this.commitBatch();
+    this.scheduledInstances.clear();
     this.isProcessing = false;
   }
 
