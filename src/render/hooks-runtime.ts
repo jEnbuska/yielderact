@@ -9,7 +9,7 @@
  * and context propagation.
  */
 
-import { type Context, processContext, resolveCtx } from "../context";
+import { type Context, type ProviderHandle, processContext, resolveCtx } from "../context";
 import {
   $USE_CONTEXT,
   $USE_EFFECT,
@@ -132,12 +132,6 @@ export function unmountSlot(slot: Slot): void {
     for (const fn of slot.instance.cleanupFns) {
       fn?.();
     }
-    // Unsubscribe from all contexts
-    for (const hookState of slot.instance.hookStates) {
-      if (hookState?.kind === $USE_CONTEXT && hookState.unsubscribe) {
-        hookState.unsubscribe();
-      }
-    }
     // Remove from scheduler queue so pending async callbacks (useResolveRaw
     // promise handlers) don't trigger a zombie rerender.
     slot.instance.scheduler.removePending(slot.instance);
@@ -222,23 +216,26 @@ export function processOneDescriptor(
       const state = processContext(descriptor, prev, rawValue);
       hookStates[hookIndex] = state;
 
-      // Subscribe to the context on first render (no previous state).
-      // The callback checks the selector and schedules a rerender if deps changed.
+      // Subscribe to the nearest provider's handle on first render.
+      // The handle is stored in the context map by mountProvider.
       if (!prev) {
-        const ctxObj = descriptor.ctx as Context;
-        const { selector } = state;
-        let lastDeps = state.lastDeps;
-        state.unsubscribe = ctxObj.subscribe((newValue: unknown) => {
-          if (!selector) {
-            void instance.scheduleRerender();
-            return;
-          }
-          const newDeps = selector(newValue);
-          if (depsChanged(lastDeps, newDeps)) {
-            lastDeps = newDeps;
-            void instance.scheduleRerender();
-          }
-        });
+        const handle = ctx.get(descriptor.ctx) as ProviderHandle | undefined;
+        if (handle) {
+          const { selector } = state;
+          let lastDeps = state.lastDeps;
+          const unsubscribe = handle.subscribe((newValue: unknown) => {
+            if (!selector) {
+              void instance.scheduleRerender();
+              return;
+            }
+            const newDeps = selector(newValue);
+            if (depsChanged(lastDeps, newDeps)) {
+              lastDeps = newDeps;
+              void instance.scheduleRerender();
+            }
+          });
+          cleanupFns[hookIndex] = unsubscribe;
+        }
       }
       return state.lastResult;
     }

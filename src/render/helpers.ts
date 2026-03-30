@@ -17,6 +17,11 @@ export function isComponentNode(vnode: VNode): vnode is VNode<Component> {
   return typeof vnode.type === "function";
 }
 
+/** Checks if a VNode is a context provider. */
+export function isContextProvider(vnode: VNode): boolean {
+  return typeof vnode.type === "function" && (vnode.type as { provider?: boolean }).provider === true;
+}
+
 /** Narrows a VNode to an HTML element node (`VNode<string>`). */
 export function isElementNode(vnode: VNode): vnode is VNode<string> {
   return typeof vnode.type === "string";

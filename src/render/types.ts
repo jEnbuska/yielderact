@@ -182,11 +182,11 @@ export interface Slot {
  */
 export interface ComponentInstance {
   /**
-   * The component function that produced this instance.
+   * The component or context provider function that produced this instance.
    * Called by `executeRerender` to create a fresh generator on each render:
    *   `const gen = instance.component(instance.props, rerender);`
    */
-  component: Component;
+  component: Component | Context;
 
   /**
    * The per-root scheduler that owns this instance's work queue.

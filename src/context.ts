@@ -41,8 +41,6 @@ export interface Context<T = unknown> extends ContextProvider<T> {
   readonly defaultValue: (() => T) | T;
   readonly provider: true;
   readonly identifier: symbol;
-  /** Subscribe to value changes. Returns an unsubscribe function. */
-  subscribe(callback: (value: T) => void): () => void;
 }
 
 // ---------------------------------------------------------------------------
