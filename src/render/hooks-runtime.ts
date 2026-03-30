@@ -34,7 +34,6 @@ import type { ResolveRawResult } from "../hooks/useResolve";
 import { processResolve, processResolveRaw } from "../hooks/useResolve";
 import { createStateSetter, processState } from "../hooks/useState";
 import { releasePortalDelegation } from "./delegation";
-import { SchedulerCtx } from "./scheduler";
 import type { ComponentInstance, HookState, Slot } from "./types";
 
 /**
@@ -135,8 +134,7 @@ export function unmountSlot(slot: Slot): void {
     }
     // Remove from scheduler queue so pending async callbacks (useResolveRaw
     // promise handlers) don't trigger a zombie rerender.
-    const scheduler = resolveCtx(slot.instance.capturedCtx, SchedulerCtx);
-    scheduler.removePending(slot.instance);
+    slot.instance.scheduler.removePending(slot.instance);
   }
   // Portal cleanup: release the ref-counted delegation root.
   if (slot.portalContainer) {

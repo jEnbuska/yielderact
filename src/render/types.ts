@@ -16,15 +16,8 @@ import type { Scheduler } from "./scheduler";
 
 // ── Context map ─────────────────────────────────────────────────────────────
 
-/**
- * Typed context map returned by `getContextMap()`.
- *
- * Always contains a `Scheduler` entry — seeded by `render()` /
- * `createRoot()` and preserved through all derived maps. The overloaded
- * `get` returns `Scheduler` directly for `Context<Scheduler>` keys.
- */
+/** Typed context map returned by `getContextMap()`. */
 export interface CtxMap extends ReadonlyMap<Context, unknown> {
-  get(key: Context<Scheduler>): Scheduler;
   get(key: Context): unknown | undefined;
 }
 
@@ -192,6 +185,14 @@ export interface ComponentInstance {
    *   `const gen = instance.component(instance.props, rerender);`
    */
   component: Component;
+
+  /**
+   * The per-root scheduler that owns this instance's work queue.
+   *
+   * Set at mount time and never changes. Used by `resume`,
+   * `executeRerender`, and `scheduleRerender` to submit work.
+   */
+  scheduler: Scheduler;
 
   /**
    * The active (paused) generator, or `undefined` if the generator has returned.

@@ -19,7 +19,7 @@ import { driveWithContext, getContextMap, type RenderGenerator, setContext } fro
 import { InvalidChildError } from "../errors";
 import { isComponentNode } from "../helpers";
 import { applyProps } from "../props";
-import { SchedulerCtx } from "../scheduler";
+import type { Scheduler } from "../scheduler";
 import { mountComponent } from "./mount-component";
 
 /**
@@ -32,7 +32,7 @@ import { mountComponent } from "./mount-component";
  * Returns a `DocumentFragment` for components (output nodes + endMarker).
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode type dispatch with many branches
-export function* buildNode(child: Child): RenderGenerator<Node> {
+export function* buildNode(child: Child, scheduler: Scheduler): RenderGenerator<Node> {
   if (child == null || typeof child === "boolean") {
     return document.createTextNode("");
   }
@@ -56,7 +56,7 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   if (child.type === Portal) {
     const portalContainer = child.props["$portalContainer"] as Element;
     for (const c of child.children) {
-      portalContainer.appendChild(yield* driveWithContext(map, buildNode(c)));
+      portalContainer.appendChild(yield* driveWithContext(map, buildNode(c, scheduler)));
     }
     return document.createComment("portal");
   }
@@ -64,7 +64,7 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   if (child.type === RawFragment) {
     const frag = document.createDocumentFragment();
     for (const c of child.children) {
-      frag.appendChild(yield* driveWithContext(map, buildNode(c)));
+      frag.appendChild(yield* driveWithContext(map, buildNode(c, scheduler)));
     }
     return frag;
   }
@@ -72,15 +72,15 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   if (isComponentNode(child)) {
     const allProps: InternalProps =
       child.children.length > 0 ? { ...props, children: child.children } : props;
-    return (yield* mountComponent(child.type, allProps, 0)).fragment;
+    return (yield* mountComponent(child.type, allProps, 0, scheduler, [])).fragment;
   }
 
   // HTML element
   const el = document.createElement(child.type as string);
-  const { delegationRoot } = map.get(SchedulerCtx);
+  const { delegationRoot } = scheduler;
   applyProps(el, child.props, delegationRoot);
   for (const c of child.children) {
-    el.appendChild(yield* driveWithContext(map, buildNode(c)));
+    el.appendChild(yield* driveWithContext(map, buildNode(c, scheduler)));
   }
   return el;
 }

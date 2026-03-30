@@ -4,7 +4,7 @@ import { DelegationRoot } from "./delegation";
 import { dispatchDelegatedEvent } from "./dispatch";
 import { driveWithContext, type RenderGenerator } from "./driver";
 import { buildNode } from "./initial-mount";
-import { Scheduler, SchedulerCtx } from "./scheduler";
+import { Scheduler } from "./scheduler";
 
 export { buildNode } from "./initial-mount";
 
@@ -45,10 +45,9 @@ export function render(vnode: VNode, container: Element): void {
     dispatchDelegatedEvent(nativeEvent, container, domEvent, scheduler),
   );
   const initialMap: Map<Context, unknown> = new Map();
-  initialMap.set(SchedulerCtx as Context, scheduler);
   scheduler.isInitialMount = true;
   try {
-    container.appendChild(runInitialMount(initialMap, buildNode(vnode)));
+    container.appendChild(runInitialMount(initialMap, buildNode(vnode, scheduler)));
   } finally {
     scheduler.isInitialMount = false;
   }
@@ -83,10 +82,9 @@ export function createRoot(container: Element): Root {
   return {
     render(vnode: VNode): void {
       const initialMap: Map<Context, unknown> = new Map();
-      initialMap.set(SchedulerCtx as Context, scheduler);
       scheduler.isInitialMount = true;
       try {
-        container.appendChild(runInitialMount(initialMap, buildNode(vnode)));
+        container.appendChild(runInitialMount(initialMap, buildNode(vnode, scheduler)));
       } finally {
         scheduler.isInitialMount = false;
       }

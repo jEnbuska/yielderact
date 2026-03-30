@@ -5,12 +5,10 @@
  * `rerenderInstance`) and resuming paused generators (`resumeInstance`).
  */
 
-import { resolveCtx } from "../../context";
 import type { Child } from "../../jsx";
 import type { RenderGenerator } from "../driver";
 import { SetStateDuringRenderError } from "../errors";
 import { drainStateResolvers } from "../hooks-runtime";
-import { SchedulerCtx } from "../scheduler";
 import type { ComponentInstance } from "../types";
 import {
   commitRender,
@@ -63,7 +61,7 @@ export function* executeComponentRerender(instance: ComponentInstance): RenderGe
  * Otherwise, schedules via the scheduler.
  */
 export function rerenderInstance(instance: ComponentInstance): void {
-  const scheduler = resolveCtx(instance.capturedCtx, SchedulerCtx);
+  const { scheduler } = instance;
   const { renderingInstance } = scheduler;
   if (renderingInstance) {
     throw new SetStateDuringRenderError(renderingInstance.component.name, instance.component.name);

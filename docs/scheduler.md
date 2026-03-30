@@ -346,7 +346,7 @@ UI patches interaction disabled content end (#163) -->
 
 | File                        | Responsibility                                             |
 | :-------------------------- | :--------------------------------------------------------- |
-| `src/render/scheduler.ts`   | Per-root `Scheduler` class, `SchedulerCtx`, work loop      |
+| `src/render/scheduler.ts`   | Per-root `Scheduler` class, `ParentSlotIdCtx`, work loop   |
 | `src/render/commit-queue.ts`| DOM operation collection wrappers                          |
 | `src/render/component/`     | Rerender & resume lifecycle functions                      |
 | `src/render/driver.ts`      | Generator driver with context scoping                      |

@@ -121,7 +121,7 @@ function* Counter(_props: object) {
 | `render/hooks-runtime.ts` | Hook descriptor dispatch, effect flushing, unmount                      |
 | `render/helpers.ts`       | Type guards, shallow equality, props merging, `flattenChildren`         |
 | `render/props.ts`         | `applyProps`, `updateProps`                                             |
-| `render/scheduler.ts`     | Per-root `Scheduler` class, `SchedulerCtx` context key                  |
+| `render/scheduler.ts`     | Per-root `Scheduler` class, `ParentSlotIdCtx` context key               |
 | `render/commit-queue.ts`  | Atomic DOM commit queue                                                 |
 | `render/patch.ts`         | Placeholder — `$patch` feature temporarily removed (#163)               |
 | `render/delegation.ts`    | Handler registry, `DelegationRoot`, prop→event mapping                  |

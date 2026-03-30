@@ -15,7 +15,6 @@
  * `flushSync` and `flush` bypass this and run work immediately.
  */
 
-import type { Context } from "../context";
 import type { DelegationRoot } from "./delegation";
 import { driveWithContext, type RenderGenerator } from "./driver";
 import { createResolvable } from "./promise";
@@ -50,26 +49,6 @@ function compareBySlotId(a: WorkItem, b: WorkItem): number {
 
 /** Time budget per work chunk in milliseconds. */
 const TIME_SLICE = 5;
-
-/**
- * Context key for the per-root Scheduler.
- *
- * Set by `render()` / `createRoot()` in the initial ctxMap.
- * Read by generator code via `resolveCtx(ctxMap, SchedulerCtx)`.
- */
-export const SchedulerCtx: Context<Scheduler> = {
-  defaultValue: undefined as never,
-};
-
-/**
- * Context key for the parent component's slotId.
- *
- * Set by each component after mount via `setContext`. Child components
- * read this to compute their own `slotId = [...parentSlotId, index]`.
- */
-export const ParentSlotIdCtx: Context<number[]> = {
-  defaultValue: [],
-};
 
 /**
  * Per-root scheduler and render state.
