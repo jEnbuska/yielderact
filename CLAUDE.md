@@ -112,8 +112,7 @@ function* Counter(_props: object) {
 | `events.ts`               | `SyntheticEvent` type and proxy-based event wrapper                     |
 | `context.ts`              | `createContext`, `useContext`, context map helpers                       |
 | `index.ts`                | Public API re-exports                                                   |
-| `render/types.ts`         | `RenderContext`, `ComponentInstance`, `Slot`, `HookState`               |
-| `render/state.ts`         | `createRenderContext()`, active context pointer                         |
+| `render/types.ts`         | `CtxMap`, `ComponentInstance`, `Slot`, `HookState`                      |
 | `render/driver.ts`        | Generator driver: context scoping, yield protocol, `drive`, `driveWithContext` |
 | `render/index.ts`         | `render()`, `createRoot()` entry points                                 |
 | `render/initial-mount/`   | Initial root mount: `buildNode`, `mountComponent`, `createComponentInstance` |
@@ -122,7 +121,7 @@ function* Counter(_props: object) {
 | `render/hooks-runtime.ts` | Hook descriptor dispatch, effect flushing, unmount                      |
 | `render/helpers.ts`       | Type guards, shallow equality, props merging, `flattenChildren`         |
 | `render/props.ts`         | `applyProps`, `updateProps`                                             |
-| `render/scheduler.ts`     | Cooperative scheduler                                                   |
+| `render/scheduler.ts`     | Per-root `Scheduler` class, `ParentSlotIdCtx` context key               |
 | `render/commit-queue.ts`  | Atomic DOM commit queue                                                 |
 | `render/patch.ts`         | Placeholder — `$patch` feature temporarily removed (#163)               |
 | `render/delegation.ts`    | Handler registry, `DelegationRoot`, prop→event mapping                  |
@@ -144,7 +143,7 @@ function* Counter(_props: object) {
 - **Special Props:** Always support the `$shown={boolean}` prop.
 - **Dependencies:** Zero-dependency goal.
 - **JSX Config:** The library build uses the classic `react` transform (`jsxFactory: "createElement"`). Consumers (including `examples/`) use `react-jsx` with `jsxImportSource: "yract"`, backed by `src/jsx-runtime.ts`.
-- **Multi-root:** Each `render()`/`createRoot()` creates an independent `RenderContext` with its own state (scheduler queue, context map, DOM ops queue). The global `idCounter` is the only shared state (IDs must be globally unique).
+- **Multi-root:** Each `render()`/`createRoot()` creates an independent `Scheduler` with its own state (work queue, DOM ops queue, delegation root). The global `idCounter` is the only shared state (IDs must be globally unique).
 - **Prefer Destructuring:** Use destructuring when extracting properties from objects (e.g., `const { gen } = instance` instead of `const gen = instance.gen`). For save/restore patterns use destructuring with rename (e.g., `const { activePriority: prevPriority } = rctx`).
 - **Shorthand Properties:** Always use shorthand property syntax in object literals when the key matches the variable name (e.g., `{ instance }` instead of `{ instance: instance }`).
 - **Guard Clauses:** Always prefer guard clauses (early returns) over nested conditionals. Return early when a condition short-circuits the rest of the logic.

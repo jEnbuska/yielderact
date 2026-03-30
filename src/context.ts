@@ -1,20 +1,33 @@
+import { useMemo, useRef } from "./hooks";
 import { $USE_CONTEXT, type ContextDescriptor } from "./hooks/descriptors";
-import type { ComponentGenerator } from "./hooks/types";
+import type { ComponentGenerator, DependencyList } from "./hooks/types";
 import { depsChanged } from "./hooks/types";
+import {
+  type Child,
+  type Component,
+  createElement,
+  Fragment,
+  type InternalProps,
+} from "./jsx";
 
 // ---------------------------------------------------------------------------
 // Public types
 // ---------------------------------------------------------------------------
 
-/**
- * A context object. Holds only the default value.
- *
- * Internal contexts use this
- * minimal shape — they are not callable.
- */
-export interface Context<T = unknown> {
-  readonly defaultValue: T;
+/** The return value of a Provider component's generator. */
+export interface ProviderHandle<T = unknown> {
+  ref: { current: T };
+  subscribe: (callback: (value: T) => void) => () => void;
 }
+
+type ContextProvider<T> = (
+  props: InternalProps & {
+    value: T;
+    $valueDeps?: DependencyList;
+    children: Child[];
+  },
+  rerender: () => void,
+) => ComponentGenerator<ProviderHandle<T>>;
 
 /**
  * A context entry produced by calling a context object with a value.
@@ -24,22 +37,10 @@ export interface Context<T = unknown> {
  * const ThemeCtx = createContext<'light' | 'dark'>('light');
  * <Child $context={ThemeCtx('dark')} />
  */
-export interface ContextEntry<T = unknown> {
-  readonly ctx: Context<T>;
-  readonly value: T;
-}
-
-/**
- * A callable context object returned by `createContext`.
- * Call it with a value to produce a `ContextEntry` for the `$context` prop.
- * Use `useContext` to consume the value.
- *
- * @example
- * const ThemeCtx = createContext<'light' | 'dark'>('light');
- * <Child $context={ThemeCtx('dark')} />
- */
-export interface PublicContext<T> extends Context<T> {
-  (value: T): ContextEntry<T>;
+export interface Context<T = unknown> extends ContextProvider<T> {
+  readonly defaultValue: (() => T) | T;
+  readonly provider: true;
+  readonly identifier: symbol;
 }
 
 // ---------------------------------------------------------------------------
@@ -77,13 +78,42 @@ interface UseContextDescriptor {
  *   return <div className={theme}>hello</div>;
  * }
  */
-export function createContext<T>(defaultValue: T): PublicContext<T> {
-  const ctx: PublicContext<T> = Object.assign((value: T): ContextEntry<T> => ({ ctx, value }), {
-    defaultValue: defaultValue,
-  } satisfies Context<T>);
-  return ctx;
-}
+export function createContext<T>(defaultValue: T): Context<T> {
+  const ProviderComponent: ContextProvider<T> = function* ({
+    value,
+    $valueDeps = [value] as DependencyList,
+  }) {
+    const ref = yield* useRef(value);
+    ref.current = value;
 
+    const subscribers = yield* useMemo(() => new Set<(value: T) => void>(), []);
+    const subscribe = yield* useMemo(
+      () =>
+        (callback: (value: T) => void): (() => void) => {
+          subscribers.add(callback);
+          return () => {
+            subscribers.delete(callback);
+          };
+        },
+      [],
+    );
+
+    // Notify subscribers when value changes
+    yield* useMemo(
+      () => {
+        for (const callback of subscribers) callback(value);
+      },
+      $valueDeps as [],
+    );
+
+    return { ref, subscribe };
+  };
+  return Object.assign(ProviderComponent, {
+    defaultValue,
+    provider: true as const,
+    identifier: Symbol("Context"),
+  });
+}
 /**
  * Consume a context value inside a component.
  * Must be called with `yield*` inside a component or hook.
@@ -205,6 +235,6 @@ export function processContext(
  * Kept for synchronous code that cannot yield (hooks, helpers, scheduler).
  * @internal
  */
-export function resolveCtx<T>(map: ReadonlyMap<Context, unknown>, ctx: Context<T>): T {
+export function resolveCtx<T>(map: ReadonlyMap<Context<any>, unknown>, ctx: Context<T>): T {
   return (map.has(ctx) ? map.get(ctx) : ctx.defaultValue) as T;
 }

@@ -12,13 +12,13 @@
  * Rerenders go through the reconciler instead.
  */
 
-import type { ContextEntry } from "../../context";
 import type { InternalProps } from "../../jsx";
 import { type Child, Portal, RawFragment } from "../../jsx";
-import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "../driver";
+import { driveWithContext, getContextMap, type RenderGenerator } from "../driver";
 import { InvalidChildError } from "../errors";
 import { isComponentNode } from "../helpers";
 import { applyProps } from "../props";
+import type { Scheduler } from "../scheduler";
 import { mountComponent } from "./mount-component";
 
 /**
@@ -31,7 +31,7 @@ import { mountComponent } from "./mount-component";
  * Returns a `DocumentFragment` for components (output nodes + endMarker).
  */
 // biome-ignore lint/complexity/noExcessiveCognitiveComplexity: VNode type dispatch with many branches
-export function* buildNode(child: Child): RenderGenerator<Node> {
+export function* buildNode(child: Child, scheduler: Scheduler): RenderGenerator<Node> {
   if (child == null || typeof child === "boolean") {
     return document.createTextNode("");
   }
@@ -41,21 +41,15 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   if (!child.type) {
     throw new InvalidChildError(child);
   }
-  const { $shown, $context, $deferred: _deferred, $deps: _deps, ...props } = child.props;
+  const { $shown, $deferred: _deferred, $deps: _deps, ...props } = child.props;
   if ($shown === false) return document.createTextNode("");
-  if ($context) {
-    const entries: ContextEntry[] = Array.isArray($context) ? $context : [$context];
-    for (const entry of entries) {
-      yield* setContext(entry.ctx, () => entry.value);
-    }
-  }
 
   const map = yield* getContextMap();
 
   if (child.type === Portal) {
     const portalContainer = child.props["$portalContainer"] as Element;
     for (const c of child.children) {
-      portalContainer.appendChild(yield* driveWithContext(map, buildNode(c)));
+      portalContainer.appendChild(yield* driveWithContext(map, buildNode(c, scheduler)));
     }
     return document.createComment("portal");
   }
@@ -63,7 +57,7 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   if (child.type === RawFragment) {
     const frag = document.createDocumentFragment();
     for (const c of child.children) {
-      frag.appendChild(yield* driveWithContext(map, buildNode(c)));
+      frag.appendChild(yield* driveWithContext(map, buildNode(c, scheduler)));
     }
     return frag;
   }
@@ -71,14 +65,15 @@ export function* buildNode(child: Child): RenderGenerator<Node> {
   if (isComponentNode(child)) {
     const allProps: InternalProps =
       child.children.length > 0 ? { ...props, children: child.children } : props;
-    return (yield* mountComponent(child.type, allProps)).fragment;
+    return (yield* mountComponent(child.type, allProps, 0, scheduler, [])).fragment;
   }
 
   // HTML element
   const el = document.createElement(child.type as string);
-  applyProps(el, child.props);
+  const { delegationRoot } = scheduler;
+  applyProps(el, child.props, delegationRoot);
   for (const c of child.children) {
-    el.appendChild(yield* driveWithContext(map, buildNode(c)));
+    el.appendChild(yield* driveWithContext(map, buildNode(c, scheduler)));
   }
   return el;
 }

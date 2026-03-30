@@ -1,157 +1,256 @@
 /**
- * scheduler.ts — Cooperative scheduler for rendering.
+ * scheduler.ts — Per-root scheduler that owns all rendering state.
  *
- * Work is queued via `scheduleUpdate(instance)` which adds the instance
- * to a single pending set.
+ * Each `createRoot()` creates a Scheduler. It manages:
+ * - Work queue of generator-based render tasks
+ * - DOM operation batching (ops queue)
+ * - Event delegation root
+ * - Time-sliced cooperative scheduling
  *
- * The scheduler processes all pending work in a single
- * `beginBatch()`/`commitBatch()` cycle so DOM mutations are applied
- * atomically.
+ * Work submission (submit/scheduleUpdate) never synchronously enters
+ * the run loop. Instead it resolves a pending promise, and the run
+ * loop picks up work on the next microtask. This ensures multiple
+ * setState calls in the same synchronous block are batched naturally.
  *
- * **Time-slicing (async mode):** The scheduler yields to the browser
- * every ~5ms via `MessageChannel`, keeping the UI responsive.
- *
- * **Sync mode** (default): The work loop runs to completion without
- * yielding, preserving synchronous rendering for tests and simple apps.
+ * `flushSync` and `flush` bypass this and run work immediately.
  */
 
-import { resolveCtx } from "../context";
-import { beginBatch, commitBatch } from "./commit-queue";
-import { RenderCtx, requireActiveRenderCtx, setActiveRenderCtx } from "./state";
-import type { ComponentInstance, RenderContext } from "./types";
+import type { DelegationRoot } from "./delegation";
+import { driveWithContext, type RenderGenerator } from "./driver";
+import { createResolvable } from "./promise";
+import { TreeSet } from "./tree-set";
+import type { ComponentInstance } from "./types";
+
+/** A unit of work in the scheduler's queue. */
+interface WorkItem {
+  instance: ComponentInstance;
+  gen: RenderGenerator<void>;
+  /** Set when the generator has been wrapped and partially driven. */
+  wrapped?: Generator<unknown, void, unknown>;
+}
+
+/**
+ * Compare two work items by slotId for depth-first tree ordering.
+ *
+ * Compares element-by-element. Shorter paths that are prefixes sort
+ * before longer ones (parent before child). At the same depth, lower
+ * index sorts first (left-to-right).
+ */
+function compareBySlotId(a: WorkItem, b: WorkItem): number {
+  const aId = a.instance.slotId;
+  const bId = b.instance.slotId;
+  const minLen = Math.min(aId.length, bId.length);
+  for (let i = 0; i < minLen; i++) {
+    const diff = (aId[i] as number) - (bId[i] as number);
+    if (diff !== 0) return diff;
+  }
+  return aId.length - bId.length;
+}
 
 /** Time budget per work chunk in milliseconds. */
-const timeSlice = 5;
-
-// ── Public API ───────────────────────────────────────────────────────────────
+const TIME_SLICE = 5;
 
 /**
- * Schedule a rerender for `instance`.
+ * Per-root scheduler and render state.
  *
- * If the scheduler is already processing, the instance is queued and will
- * be picked up by the running work loop.
- *
- * @param instance - The ComponentInstance to rerender.
+ * Created by `createRoot()` / `render()`. Manages the work queue,
+ * DOM batching, event delegation, and cooperative time-slicing.
  */
-export function scheduleUpdate(instance: ComponentInstance): void {
-  const rctx = resolveCtx(instance.capturedCtx, RenderCtx);
+export class Scheduler {
+  /** True during the initial synchronous mount. */
+  isInitialMount = false;
 
-  rctx.pendingUpdates.add(instance);
+  /** The component currently executing its generator body. */
+  renderingInstance?: ComponentInstance;
 
-  if (!rctx.isProcessing) {
-    rctx.isProcessing = true;
-    setActiveRenderCtx(rctx);
-    runLoop(rctx);
+  /** Queued DOM operations for atomic commit. */
+  ops?: (() => void)[];
+
+  /** Event delegation root for this render root. */
+  delegationRoot?: DelegationRoot;
+
+  private readonly workQueue = new TreeSet<WorkItem>(compareBySlotId);
+  private readonly pendingUpdates = new Set<ComponentInstance>();
+  private readonly scheduledInstances = new Set<ComponentInstance>();
+  private isProcessing = false;
+  private syncMode = true;
+  private trigger = createResolvable();
+
+  constructor() {
+    void this.startLoop();
   }
-}
 
-/**
- * Run all pending work synchronously, ignoring time slicing.
- *
- * Essential for tests and for event handlers that need immediate DOM
- * updates. Optionally accepts a function to execute before flushing
- * (e.g., a click that triggers a setState).
- *
- * During `fn`, processing is suppressed so multiple setState calls
- * are batched into a single processing pass.
- */
-export function flushSync(fn?: () => void): void {
-  const rctx = requireActiveRenderCtx();
-  const { syncMode: prevSync } = rctx;
-  rctx.syncMode = true;
+  /**
+   * Submit a generator as work.
+   *
+   * The generator is NOT wrapped yet — wrapping with `driveWithContext`
+   * happens at execution time using the instance's current `capturedCtx`,
+   * ensuring context changes from parent rerenders are picked up.
+   */
+  submit(instance: ComponentInstance, gen: RenderGenerator<void>): void {
+    this.scheduledInstances.add(instance);
+    this.workQueue.add({ instance, gen });
+    this.notify();
+  }
 
-  if (fn) {
-    // Suppress immediate processing during fn so all setState calls batch.
-    const { isProcessing: wasProcessing } = rctx;
-    rctx.isProcessing = true;
-    try {
-      fn();
-    } finally {
-      rctx.isProcessing = wasProcessing;
+  /**
+   * Schedule a rerender for a component instance.
+   *
+   * Does not synchronously enter the run loop — resolves the trigger
+   * promise so the loop picks it up on the next microtask.
+   */
+  scheduleUpdate(instance: ComponentInstance): void {
+    if (this.scheduledInstances.has(instance)) return;
+    this.pendingUpdates.add(instance);
+    this.notify();
+  }
+
+  /**
+   * Remove all pending work for an instance — from both pendingUpdates
+   * and the work queue. Called on unmount and when a parent's
+   * reconciliation makes a child's queued work redundant.
+   */
+  removePending(instance: ComponentInstance): void {
+    this.pendingUpdates.delete(instance);
+    this.scheduledInstances.delete(instance);
+    this.workQueue.removeWhere((item) => item.instance === instance);
+  }
+
+  /**
+   * Run all pending work synchronously, ignoring time slicing.
+   * Bypasses the microtask trigger — runs immediately.
+   */
+  flushSync(fn?: () => void): void {
+    const { syncMode: prevSync } = this;
+    this.syncMode = true;
+
+    if (fn) {
+      const { isProcessing: wasProcessing } = this;
+      this.isProcessing = true;
+      try {
+        fn();
+      } finally {
+        this.isProcessing = wasProcessing;
+      }
+    }
+
+    if (!this.isProcessing && this.hasPendingWork()) {
+      this.processWork();
+    }
+
+    this.syncMode = prevSync;
+  }
+
+  /**
+   * Flush any pending work synchronously. Called by event dispatch
+   * after a delegated event has been fully dispatched.
+   * Bypasses the microtask trigger — runs immediately.
+   */
+  flush(): void {
+    if (!this.hasPendingWork()) return;
+    this.processWork();
+  }
+
+  /** Begin collecting DOM operations for atomic commit. */
+  beginBatch(): void {
+    this.ops = [];
+  }
+
+  /** Commit all collected DOM operations synchronously. */
+  commitBatch(): void {
+    if (!this.ops) return;
+    const { ops } = this;
+    this.ops = undefined;
+    for (let i = 0; i < ops.length; i++) ops[i]?.();
+  }
+
+  // ── Private ──────────────────────────────────────────────────────────
+
+  /** Resolve the trigger so the async loop wakes up on the next microtask. */
+  private notify(): void {
+    this.trigger.resolve();
+  }
+
+  private hasPendingWork(): boolean {
+    return this.pendingUpdates.size > 0 || !this.workQueue.isEmpty();
+  }
+
+  private drainPendingUpdates(): void {
+    if (this.pendingUpdates.size === 0) return;
+    const instances = [...this.pendingUpdates];
+    this.pendingUpdates.clear();
+    for (const instance of instances) {
+      instance.executeRerender();
     }
   }
 
-  if (!rctx.isProcessing && rctx.pendingUpdates.size > 0) {
-    rctx.isProcessing = true;
-    runLoop(rctx);
-  }
+  /**
+   * The persistent async loop. Awaits the trigger promise, processes
+   * all pending work, then resets the trigger and waits again.
+   */
+  private async startLoop(): Promise<void> {
+    while (true) {
+      await this.trigger.promise;
 
-  rctx.syncMode = prevSync;
-}
+      // Reset trigger for the next batch before processing,
+      // so new work submitted during processing is captured.
+      this.trigger = createResolvable();
 
-/**
- * Flush any pending work for a specific render context.
- *
- * Called by the event dispatch system after a delegated event has been
- * fully dispatched. Unlike `flushSync()`, this takes an explicit
- * `RenderContext` rather than reading the active context pointer, which
- * is important when an event handler in root A might have changed the
- * active context to root B.
- *
- * @internal
- */
-export function flushPendingWork(rctx: RenderContext): void {
-  if (rctx.pendingUpdates.size > 0) {
-    setActiveRenderCtx(rctx);
-    rctx.isProcessing = true;
-    runLoop(rctx);
-  }
-}
-
-// ── Work loop ────────────────────────────────────────────────────────────────
-
-/**
- * The main work loop. Processes all pending instances in a single
- * `beginBatch()`/`commitBatch()` cycle for atomic DOM commits.
- *
- * Handles:
- * - Resume after yield (continues partially-processed set).
- * - Time-slicing (yields to browser in async mode).
- */
-function runLoop(rctx: RenderContext): void {
-  const deadline = performance.now() + timeSlice;
-
-  beginBatch();
-
-  while (rctx.pendingUpdates.size > 0) {
-    // SAFETY: size > 0 guarantees .next().value is defined
-    const instance = rctx.pendingUpdates.values().next().value as ComponentInstance;
-    rctx.pendingUpdates.delete(instance);
-
-    void instance.executeRerender();
-
-    // Time-slicing (async mode only): yield to browser if deadline exceeded.
-    if (!rctx.syncMode && rctx.pendingUpdates.size > 0 && performance.now() >= deadline) {
-      commitBatch();
-      yieldToBrowser(rctx);
-      return; // exit — the MessageChannel callback resumes via runLoop
+      if (!this.isProcessing) {
+        this.processWork();
+      }
     }
   }
 
-  // All instances processed — commit the batch.
-  commitBatch();
-  rctx.isProcessing = false;
-}
+  /**
+   * Process all pending work synchronously. Called by the async loop,
+   * flushSync, and flush.
+   */
+  private processWork(): void {
+    this.isProcessing = true;
+    const deadline = performance.now() + TIME_SLICE;
 
-/**
- * Yield to the browser, then resume the work loop.
- *
- * Uses `MessageChannel` for minimal-latency scheduling (same technique
- * as React's scheduler).
- */
-function yieldToBrowser(rctx: RenderContext): void {
-  if (typeof MessageChannel !== "undefined") {
-    const mc = new MessageChannel();
-    mc.port1.onmessage = () => {
-      setActiveRenderCtx(rctx);
-      runLoop(rctx);
-    };
-    mc.port2.postMessage(null);
-  } else {
-    // Fallback for environments without MessageChannel.
-    setTimeout(() => {
-      setActiveRenderCtx(rctx);
-      runLoop(rctx);
-    }, 0);
+    this.beginBatch();
+
+    while (true) {
+      this.drainPendingUpdates();
+      if (this.workQueue.isEmpty()) break;
+
+      const work = this.workQueue.next() as WorkItem;
+      // Wrap with driveWithContext at execution time (not submission time)
+      // so the generator uses the instance's current capturedCtx,
+      // picking up any context changes from parent rerenders.
+      const wrapped = work.wrapped ?? driveWithContext(work.instance.capturedCtx, work.gen);
+      let result = wrapped.next();
+
+      while (!result.done) {
+        if (!this.syncMode && performance.now() >= deadline) {
+          // Re-add partially-processed work item for later resumption
+          this.workQueue.add({ ...work, wrapped });
+          this.commitBatch();
+          this.yieldToBrowser();
+          return;
+        }
+        result = wrapped.next();
+      }
+    }
+
+    this.commitBatch();
+    this.scheduledInstances.clear();
+    this.isProcessing = false;
+  }
+
+  private yieldToBrowser(): void {
+    if (typeof MessageChannel !== "undefined") {
+      const mc = new MessageChannel();
+      mc.port1.onmessage = () => {
+        this.processWork();
+      };
+      mc.port2.postMessage(null);
+    } else {
+      setTimeout(() => {
+        this.processWork();
+      }, 0);
+    }
   }
 }

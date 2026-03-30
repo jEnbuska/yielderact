@@ -15,7 +15,7 @@ describe("$deps prop", () => {
     document.body.removeChild(container);
   });
 
-  it("skips component rerender when $deps are unchanged", () => {
+  it("skips component rerender when $deps are unchanged", async () => {
     let renderCount = 0;
     let setParentState: (v: number) => void = () => {};
 
@@ -41,15 +41,15 @@ describe("$deps prop", () => {
     expect(renderCount).toBe(1);
 
     // Trigger parent rerender with same count -> child should be skipped
-    void setParentState(0);
+    await setParentState(0);
     expect(renderCount).toBe(1);
 
     // Trigger parent rerender with different count -> child should rerender
-    void setParentState(1);
+    await setParentState(1);
     expect(renderCount).toBe(2);
   });
 
-  it("rerenders component when $deps change", () => {
+  it("rerenders component when $deps change", async () => {
     let renderCount = 0;
     let setA: (v: number) => void = () => {};
 
@@ -67,12 +67,12 @@ describe("$deps prop", () => {
     render(<Parent />, container);
     expect(renderCount).toBe(1);
 
-    void setA(2);
+    await setA(2);
     expect(renderCount).toBe(2);
     expect(container.textContent).toContain("a=2");
   });
 
-  it("skips HTML element updateProps when $deps are unchanged", () => {
+  it("skips HTML element updateProps when $deps are unchanged", async () => {
     let setParentState: (v: string) => void = () => {};
 
     function* Parent() {
@@ -87,16 +87,16 @@ describe("$deps prop", () => {
     const extraBefore = el.getAttribute("data-extra");
 
     // Same cls -> $deps unchanged -> updateProps skipped -> data-extra unchanged
-    void setParentState("cls-a");
+    await setParentState("cls-a");
     expect(el.getAttribute("data-extra")).toBe(extraBefore);
 
     // Different cls -> $deps changed -> updateProps runs
-    void setParentState("cls-b");
+    await setParentState("cls-b");
     expect(el.className).toBe("cls-b");
     expect(el.getAttribute("data-extra")).not.toBe(extraBefore);
   });
 
-  it("updates HTML element when $deps change", () => {
+  it("updates HTML element when $deps change", async () => {
     let setVal: (v: string) => void = () => {};
 
     function* Parent() {
@@ -108,7 +108,7 @@ describe("$deps prop", () => {
     render(<Parent />, container);
     expect((container.querySelector("div") as HTMLElement).getAttribute("data-val")).toBe("hello");
 
-    void setVal("world");
+    await setVal("world");
     expect((container.querySelector("div") as HTMLElement).getAttribute("data-val")).toBe("world");
   });
 
@@ -131,7 +131,7 @@ describe("$deps prop", () => {
     expect("$deps" in receivedProps).toBe(false);
   });
 
-  it("falls back to shallowEqual when $deps is removed", () => {
+  it("falls back to shallowEqual when $deps is removed", async () => {
     let renderCount = 0;
     let setUseDeps: (v: boolean) => void = () => {};
     let setVal: (v: number) => void = () => {};
@@ -155,19 +155,19 @@ describe("$deps prop", () => {
     expect(renderCount).toBe(1);
 
     // Remove $deps -> props differ (prevSlot had $deps, new doesn't) -> rerenders
-    void setUseDeps(false);
+    await setUseDeps(false);
     expect(renderCount).toBe(2);
 
     // Now using shallowEqual: same val -> skip
-    void setVal(0);
+    await setVal(0);
     expect(renderCount).toBe(2);
 
     // Change val -> shallowEqual detects difference -> rerender
-    void setVal(1);
+    await setVal(1);
     expect(renderCount).toBe(3);
   });
 
-  it("still unmounts when $shown becomes false with $deps", () => {
+  it("still unmounts when $shown becomes false with $deps", async () => {
     let setShown: (v: boolean) => void = () => {};
 
     function* Child() {
@@ -183,11 +183,11 @@ describe("$deps prop", () => {
     render(<Parent />, container);
     expect(container.querySelector("p")).not.toBeNull();
 
-    void setShown(false);
+    await setShown(false);
     expect(container.querySelector("p")).toBeNull();
   });
 
-  it("context changes still trigger rerender even when $deps unchanged", () => {
+  it("context changes still trigger rerender even when $deps unchanged", async () => {
     let renderCount = 0;
     let setTheme: (v: string) => void = () => {};
 
@@ -210,12 +210,12 @@ describe("$deps prop", () => {
     expect(renderCount).toBe(1);
     expect(container.textContent).toContain("light");
 
-    void setTheme("dark");
+    await setTheme("dark");
     expect(renderCount).toBe(2);
     expect(container.textContent).toContain("dark");
   });
 
-  it("skips entire subtree of HTML element when $deps are unchanged", () => {
+  it("skips entire subtree of HTML element when $deps are unchanged", async () => {
     let setChild: (v: string) => void = () => {};
 
     function* Parent() {
@@ -231,7 +231,7 @@ describe("$deps prop", () => {
     render(<Parent />, container);
     expect(container.textContent).toContain("hello");
 
-    void setChild("world");
+    await setChild("world");
     // Entire subtree should be frozen when $deps didn't change
     expect(container.textContent).toContain("hello");
   });

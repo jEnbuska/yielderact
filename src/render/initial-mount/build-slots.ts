@@ -13,8 +13,6 @@ import { Portal } from "../../jsx";
 import { acquirePortalDelegation } from "../delegation";
 import { driveWithContext, getContextMap, type RenderGenerator } from "../driver";
 import {
-  childContextMap,
-  contextEntries,
   flattenChildren,
   isComponentNode,
   isElementNode,
@@ -23,7 +21,7 @@ import {
   stripFrameworkDirectives,
 } from "../helpers";
 import { applyProps } from "../props";
-import { RenderCtx } from "../state";
+import type { Scheduler } from "../scheduler";
 import type { Slot } from "../types";
 import { buildNode } from "./build-node";
 import { mountComponent } from "./mount-component";
@@ -37,12 +35,15 @@ export function* buildInitialSlotsGen(
   parent: Node,
   nextVNodes: Child[],
   beforeAnchor: Node | undefined,
+  scheduler: Scheduler,
+  parentSlotId: number[],
 ): RenderGenerator<Slot[]> {
   const flatNext = flattenChildren(nextVNodes);
   const slots: Slot[] = [];
 
-  for (const child of flatNext) {
-    const { slot, node } = yield* buildOneSlot(child);
+  for (let i = 0; i < flatNext.length; i++) {
+    const child = flatNext[i] as Child;
+    const { slot, node } = yield* buildOneSlot(child, i, scheduler, parentSlotId);
     slots.push(slot);
     if (beforeAnchor) {
       parent.insertBefore(node, beforeAnchor);
@@ -61,7 +62,12 @@ export function* buildInitialSlotsGen(
  * Same VNode type dispatch as the reconciler's `reconcileOneGen`, but
  * without any previous-slot diffing or replacement logic.
  */
-function* buildOneSlot(nextChild: Child): RenderGenerator<{ slot: Slot; node: Node }> {
+function* buildOneSlot(
+  nextChild: Child,
+  index: number,
+  scheduler: Scheduler,
+  parentSlotId: number[],
+): RenderGenerator<{ slot: Slot; node: Node }> {
   const ctxMap = yield* getContextMap();
 
   // Empty / null
@@ -86,21 +92,21 @@ function* buildOneSlot(nextChild: Child): RenderGenerator<{ slot: Slot; node: No
 
   // Portal
   if (nextChild.type === Portal) {
-    return yield* buildPortalSlot(nextChild);
+    return yield* buildPortalSlot(nextChild, scheduler, parentSlotId);
   }
 
   // Component
   if (isComponentNode(nextChild)) {
-    return yield* buildComponentSlot(nextChild, allProps);
+    return yield* buildComponentSlot(nextChild, allProps, index, scheduler, parentSlotId);
   }
 
   // HTML element
   if (isElementNode(nextChild)) {
-    return yield* buildElementSlot(nextChild);
+    return yield* buildElementSlot(nextChild, scheduler, parentSlotId);
   }
 
   // Fallback (Fragment or unknown)
-  const node = yield* driveWithContext(ctxMap, buildNode(nextChild));
+  const node = yield* driveWithContext(ctxMap, buildNode(nextChild, scheduler));
   return { slot: { type: nextChild.type, node, props: {}, childSlots: [] }, node };
 }
 
@@ -108,20 +114,18 @@ function* buildOneSlot(nextChild: Child): RenderGenerator<{ slot: Slot; node: No
 function* buildComponentSlot(
   vnode: VNode<Component>,
   allPropsRaw: InternalProps,
+  index: number,
+  scheduler: Scheduler,
+  parentSlotId: number[],
 ): RenderGenerator<{ slot: Slot; node: Node }> {
   const ctxMap = yield* getContextMap();
   const componentProps = stripFrameworkDirectives(allPropsRaw);
   const slotProps = stripDeferred(allPropsRaw);
-  const childCtxMap = childContextMap(ctxMap, allPropsRaw);
 
   const { fragment, instance } = yield* driveWithContext(
-    childCtxMap,
-    mountComponent(vnode.type, componentProps),
+    ctxMap,
+    mountComponent(vnode.type, componentProps, index, scheduler, parentSlotId),
   );
-  const entries = contextEntries(allPropsRaw.$context);
-  for (const entry of entries) {
-    instance.providedContexts.add(entry.ctx);
-  }
   return {
     slot: {
       type: vnode.type,
@@ -135,17 +139,22 @@ function* buildComponentSlot(
 }
 
 /** Build a fresh HTML element slot with children. */
-function* buildElementSlot(vnode: VNode<string>): RenderGenerator<{ slot: Slot; node: Node }> {
+function* buildElementSlot(
+  vnode: VNode<string>,
+  scheduler: Scheduler,
+  parentSlotId: number[],
+): RenderGenerator<{ slot: Slot; node: Node }> {
   const ctxMap = yield* getContextMap();
-  const childCtxMap = childContextMap(ctxMap, vnode.props);
 
   const el = document.createElement(vnode.type);
-  applyProps(el, vnode.props);
+  applyProps(el, vnode.props, scheduler.delegationRoot);
   const childSlots: Slot[] = [];
-  for (const child of flattenChildren(vnode.children)) {
+  const flatChildren = flattenChildren(vnode.children);
+  for (let i = 0; i < flatChildren.length; i++) {
+    const child = flatChildren[i] as Child;
     const { slot: childSlot, node: childNode } = yield* driveWithContext(
-      childCtxMap,
-      buildOneSlot(child),
+      ctxMap,
+      buildOneSlot(child, i, scheduler, parentSlotId),
     );
     childSlots.push(childSlot);
     el.appendChild(childNode);
@@ -157,28 +166,36 @@ function* buildElementSlot(vnode: VNode<string>): RenderGenerator<{ slot: Slot; 
 }
 
 /** Build a fresh portal slot. */
-function* buildPortalSlot(vnode: VNode): RenderGenerator<{ slot: Slot; node: Node }> {
+function* buildPortalSlot(
+  vnode: VNode,
+  scheduler: Scheduler,
+  parentSlotId: number[],
+): RenderGenerator<{ slot: Slot; node: Node }> {
   const ctxMap = yield* getContextMap();
-  const rctx = ctxMap.get(RenderCtx);
   const portalContainer = vnode.props["$portalContainer"] as Element;
 
   const placeholder = document.createComment("portal");
   const endMarker = document.createComment("");
   portalContainer.appendChild(endMarker);
 
-  const delegation = acquirePortalDelegation(portalContainer, rctx);
-  const { delegationRoot: prevDelegation } = rctx;
-  rctx.delegationRoot = delegation;
+  const delegation = acquirePortalDelegation(portalContainer, scheduler);
+  const { delegationRoot: prevDelegation } = scheduler;
+  scheduler.delegationRoot = delegation;
 
   const childSlots: Slot[] = [];
   try {
-    for (const child of flattenChildren(vnode.children)) {
-      const { slot, node } = yield* driveWithContext(ctxMap, buildOneSlot(child));
+    const flatChildren = flattenChildren(vnode.children);
+    for (let i = 0; i < flatChildren.length; i++) {
+      const child = flatChildren[i] as Child;
+      const { slot, node } = yield* driveWithContext(
+        ctxMap,
+        buildOneSlot(child, i, scheduler, parentSlotId),
+      );
       childSlots.push(slot);
       portalContainer.insertBefore(node, endMarker);
     }
   } finally {
-    rctx.delegationRoot = prevDelegation;
+    scheduler.delegationRoot = prevDelegation;
   }
 
   return {

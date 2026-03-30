@@ -28,7 +28,7 @@ describe("useId", () => {
     expect(capturedId.length).toBeGreaterThan(0);
   });
 
-  it("returns the same id across re-renders", () => {
+  it("returns the same id across re-renders", async () => {
     const ids: string[] = [];
     let setValue: (v: number) => void = () => {};
 
@@ -41,7 +41,7 @@ describe("useId", () => {
     }
 
     render(<Comp />, container);
-    void setValue(1);
+    await setValue(1);
 
     expect(ids).toHaveLength(2);
     expect(ids[0]).toBe(ids[1]);

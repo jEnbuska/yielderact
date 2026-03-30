@@ -15,7 +15,7 @@ describe("useState", () => {
     document.body.removeChild(container);
   });
 
-  it("accepts a lazy initializer function called only once", () => {
+  it("accepts a lazy initializer function called only once", async () => {
     const init = vi.fn(() => 42);
     let capturedValue: number | null = null;
     let setValue: (v: number) => void = () => {};
@@ -32,12 +32,12 @@ describe("useState", () => {
     expect(capturedValue).toBe(42);
 
     // Re-render should not call the initializer again
-    void setValue(99);
+    await setValue(99);
     expect(init).toHaveBeenCalledTimes(1);
     expect(capturedValue).toBe(99);
   });
 
-  it("accepts a functional updater that receives the previous state", () => {
+  it("accepts a functional updater that receives the previous state", async () => {
     const values: number[] = [];
     let setValue: (v: number | ((prev: number) => number)) => void = () => {};
 
@@ -51,10 +51,10 @@ describe("useState", () => {
     render(<Comp />, container);
     expect(values).toEqual([0]);
 
-    setValue((prev) => prev + 5);
+    await setValue((prev) => prev + 5);
     expect(values).toEqual([0, 5]);
 
-    setValue((prev) => prev * 2);
+    await setValue((prev) => prev * 2);
     expect(values).toEqual([0, 5, 10]);
   });
 });

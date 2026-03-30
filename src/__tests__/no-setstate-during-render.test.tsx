@@ -53,7 +53,7 @@ describe("no setState during render", () => {
     }).toThrow(SetStateDuringRenderError);
   });
 
-  it("does not throw when setState is called from an event handler", () => {
+  it("does not throw when setState is called from an event handler", async () => {
     let setter: (v: number) => void = () => {};
 
     function* Comp() {
@@ -66,7 +66,7 @@ describe("no setState during render", () => {
     expect(container.querySelector("span")?.textContent).toBe("0");
 
     // setState from outside render — should work fine
-    void setter(5);
+    await setter(5);
     expect(container.querySelector("span")?.textContent).toBe("5");
   });
 });

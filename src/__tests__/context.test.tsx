@@ -81,7 +81,7 @@ describe("createContext / useContext", () => {
     expect(consumerSpan).toBeTruthy();
   });
 
-  it("component reads context on every re-render", () => {
+  it("component reads context on every re-render", async () => {
     const Ctx = createContext(0);
     let setTheme: (v: number) => void = () => {};
 
@@ -99,13 +99,13 @@ describe("createContext / useContext", () => {
     render(<Parent />, container);
     expect(container.querySelector("span")?.textContent).toBe("7");
 
-    void setTheme(99);
+    await setTheme(99);
     expect(container.querySelector("span")?.textContent).toBe("99");
   });
 
   // ── Scoping correctness tests (expose the "global ctxMap" bug) ──────────────
 
-  it("context Provider value change preserves descendant component state", () => {
+  it("context Provider value change preserves descendant component state", async () => {
     // When the provider value changes the child component must NOT be remounted –
     // any local state it holds should survive the context update.
     const Ctx = createContext("initial");
@@ -129,15 +129,15 @@ describe("createContext / useContext", () => {
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("A:0");
 
     // Build up state in the child component
-    void setChildCount(5);
+    await setChildCount(5);
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("A:5");
 
     // Change the context value – child state must NOT be reset
-    void setCtxValue("B");
+    await setCtxValue("B");
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("B:5");
   });
 
-  it("context update propagates through non-consuming intermediate components", () => {
+  it("context update propagates through non-consuming intermediate components", async () => {
     // A component that does NOT consume the context must still pass context
     // changes through to a deeply nested consumer.
     const Ctx = createContext("default");
@@ -166,11 +166,11 @@ describe("createContext / useContext", () => {
     render(<Root />, container);
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("first");
 
-    void setCtxValue("second");
+    await setCtxValue("second");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("second");
   });
 
-  it("two sibling providers of the same context are isolated", () => {
+  it("two sibling providers of the same context are isolated", async () => {
     // Two independent Provider subtrees for the same context must not interfere
     // with each other when either re-renders.
     const Ctx = createContext("default");
@@ -204,16 +204,16 @@ describe("createContext / useContext", () => {
     expect(container.querySelector('[data-testid="a"]')?.textContent).toBe("A1");
     expect(container.querySelector('[data-testid="b"]')?.textContent).toBe("B1");
 
-    void setA("A2");
+    await setA("A2");
     expect(container.querySelector('[data-testid="a"]')?.textContent).toBe("A2");
     expect(container.querySelector('[data-testid="b"]')?.textContent).toBe("B1");
 
-    void setB("B2");
+    await setB("B2");
     expect(container.querySelector('[data-testid="a"]')?.textContent).toBe("A2");
     expect(container.querySelector('[data-testid="b"]')?.textContent).toBe("B2");
   });
 
-  it("inner Provider overrides outer Provider for the same context", () => {
+  it("inner Provider overrides outer Provider for the same context", async () => {
     // A component that re-provides the same context must shadow the outer value
     // for all its descendants, even after the outer value changes.
     const Ctx = createContext("default");
@@ -240,11 +240,11 @@ describe("createContext / useContext", () => {
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("inner");
 
     // Change outer value – Consumer must still see "inner" (not the outer value)
-    void setOuter("outer-2");
+    await setOuter("outer-2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("inner");
   });
 
-  it("parent reads outer context while child reads overridden inner context", () => {
+  it("parent reads outer context while child reads overridden inner context", async () => {
     // A generator that both consumes an outer context value AND re-provides it
     // must receive the outer value itself while descendants receive the inner value.
     const Ctx = createContext("default");
@@ -275,14 +275,14 @@ describe("createContext / useContext", () => {
     expect(container.querySelector('[data-testid="middle"]')?.textContent).toBe("outer");
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("inner");
 
-    void setOuter("outer-2");
+    await setOuter("outer-2");
     // Middle should see the new outer value
     expect(container.querySelector('[data-testid="middle"]')?.textContent).toBe("outer-2");
     // Child must still see "inner" (provided by Middle's inner Provider)
     expect(container.querySelector('[data-testid="child"]')?.textContent).toBe("inner");
   });
 
-  it("non-consuming intermediate component state survives context update", () => {
+  it("non-consuming intermediate component state survives context update", async () => {
     // A component that does NOT consume the context must keep its own state
     // when an ancestor provider value changes.
     const Ctx = createContext("initial");
@@ -316,16 +316,16 @@ describe("createContext / useContext", () => {
     expect(container.querySelector('[data-testid="middle-count"]')?.textContent).toBe("0");
 
     // Build state in the intermediate (non-consuming) component
-    void setMiddleCount(7);
+    await setMiddleCount(7);
     expect(container.querySelector('[data-testid="middle-count"]')?.textContent).toBe("7");
 
     // Context changes – Middle's state (count=7) must be preserved
-    void setCtxValue("v2");
+    await setCtxValue("v2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("v2");
     expect(container.querySelector('[data-testid="middle-count"]')?.textContent).toBe("7");
   });
 
-  it("multiple different contexts are independently scoped", () => {
+  it("multiple different contexts are independently scoped", async () => {
     // Two separate contexts must be completely independent – changing one must
     // not affect the other.
     const CtxA = createContext("a-default");
@@ -350,10 +350,10 @@ describe("createContext / useContext", () => {
     render(<Root />, container);
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("A1|B1");
 
-    void setA("A2");
+    await setA("A2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("A2|B1");
 
-    void setB("B2");
+    await setB("B2");
     expect(container.querySelector('[data-testid="consumer"]')?.textContent).toBe("A2|B2");
   });
 
@@ -370,7 +370,7 @@ describe("createContext / useContext", () => {
       expect(container.querySelector("span")?.textContent).toBe("1:2");
     });
 
-    it("selector-only: suppresses rerender when selected deps are stable", () => {
+    it("selector-only: suppresses rerender when selected deps are stable", async () => {
       const Ctx = createContext({ a: 0, b: 0 });
       let setVal: (v: { a: number; b: number }) => void = () => {};
       let renderCount = 0;
@@ -391,12 +391,12 @@ describe("createContext / useContext", () => {
       expect(renderCount).toBe(1);
 
       // Change only `b` — selector selects `a`, so Consumer should NOT rerender.
-      void setVal({ a: 1, b: 99 });
+      await setVal({ a: 1, b: 99 });
       expect(renderCount).toBe(1);
       expect(container.querySelector("span")?.textContent).toBe("1");
     });
 
-    it("selector-only: rerenders when selected dep changes", () => {
+    it("selector-only: rerenders when selected dep changes", async () => {
       const Ctx = createContext({ a: 0, b: 0 });
       let setVal: (v: { a: number; b: number }) => void = () => {};
       let renderCount = 0;
@@ -417,7 +417,7 @@ describe("createContext / useContext", () => {
       expect(renderCount).toBe(1);
 
       // Change `a` — selector selects `a`, so Consumer SHOULD rerender.
-      void setVal({ a: 99, b: 1 });
+      await setVal({ a: 99, b: 1 });
       expect(renderCount).toBe(2);
       expect(container.querySelector("span")?.textContent).toBe("99");
     });
@@ -438,7 +438,7 @@ describe("createContext / useContext", () => {
       expect(container.querySelector("span")?.textContent).toBe("ALICE");
     });
 
-    it("selector + transform: suppresses rerender when deps stable", () => {
+    it("selector + transform: suppresses rerender when deps stable", async () => {
       const Ctx = createContext({ name: "Alice", count: 0 });
       let setVal: (v: { name: string; count: number }) => void = () => {};
       let renderCount = 0;
@@ -463,11 +463,11 @@ describe("createContext / useContext", () => {
       expect(renderCount).toBe(1);
 
       // Change only `count` — selector tracks `name`, so no rerender.
-      void setVal({ name: "Alice", count: 99 });
+      await setVal({ name: "Alice", count: 99 });
       expect(renderCount).toBe(1);
     });
 
-    it("selector: hook state (useState) is preserved across suppressed rerenders", () => {
+    it("selector: hook state (useState) is preserved across suppressed rerenders", async () => {
       const Ctx = createContext({ a: 0, b: 0 });
       let setVal: (v: { a: number; b: number }) => void = () => {};
       let setLocal: (v: number) => void = () => {};
@@ -487,16 +487,16 @@ describe("createContext / useContext", () => {
 
       render(<Parent />, container);
       // Update local state in Consumer.
-      void setLocal(100);
+      await setLocal(100);
       expect(container.querySelector("span")?.textContent).toBe("100");
 
       // Trigger a context change that should be suppressed (b changes, a stable).
-      void setVal({ a: 1, b: 99 });
+      await setVal({ a: 1, b: 99 });
       // Consumer should NOT have remounted — local state preserved.
       expect(container.querySelector("span")?.textContent).toBe("100");
     });
 
-    it("no-selector consumer rerenders in-place when Provider value changes", () => {
+    it("no-selector consumer rerenders in-place when Provider value changes", async () => {
       const Ctx = createContext({ a: 0, b: 0 });
       let setVal: (v: { a: number; b: number }) => void = () => {};
       let renderCount = 0;
@@ -517,14 +517,14 @@ describe("createContext / useContext", () => {
       expect(renderCount).toBe(1);
 
       // Change only `b` — Consumer has no selector so it always rerenders.
-      void setVal({ a: 1, b: 99 });
+      await setVal({ a: 1, b: 99 });
       expect(renderCount).toBe(2);
       expect(container.querySelector("span")?.textContent).toBe("1:99");
     });
   });
 
   describe("conditional $context", () => {
-    it("switching between branches with different $context values", () => {
+    it("switching between branches with different $context values", async () => {
       const CtxA = createContext("defaultA");
       const CtxB = createContext("defaultB");
 
@@ -564,17 +564,17 @@ describe("createContext / useContext", () => {
       render(<Parent />, container);
       expect(container.querySelector("span")?.textContent).toBe("A0:B0");
 
-      void setMode(1);
+      await setMode(1);
       expect(container.querySelector("span")?.textContent).toBe("A1:defaultB");
 
-      void setMode(2);
+      await setMode(2);
       expect(container.querySelector("span")?.textContent).toBe("defaultA:defaultB");
 
-      void setMode(0);
+      await setMode(0);
       expect(container.querySelector("span")?.textContent).toBe("A0:B0");
     });
 
-    it("switching $context on a Fragment between branches", () => {
+    it("switching $context on a Fragment between branches", async () => {
       const Ctx = createContext("default");
 
       function* Consumer() {
@@ -594,10 +594,10 @@ describe("createContext / useContext", () => {
       render(<Parent />, container);
       expect(container.querySelector("span")?.textContent).toBe("provided");
 
-      void setMode(1);
+      await setMode(1);
       expect(container.querySelector("span")?.textContent).toBe("default");
 
-      void setMode(0);
+      await setMode(0);
       expect(container.querySelector("span")?.textContent).toBe("provided");
     });
   });

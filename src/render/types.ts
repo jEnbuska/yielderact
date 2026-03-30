@@ -12,57 +12,15 @@ import type { ComponentGenerator, DependencyList } from "../hooks/types";
 import type { UseRenderState } from "../hooks/useRender";
 import type { Child, Component, InternalProps, VNode } from "../jsx";
 import type { DelegationRoot } from "./delegation";
+import type { Scheduler } from "./scheduler";
 
 // ── Context map ─────────────────────────────────────────────────────────────
 
-/**
- * Typed context map returned by `getContextMap()`.
- *
- * Always contains a `RenderContext` entry — seeded by `render()` /
- * `createRoot()` and preserved through all derived maps. The overloaded
- * `get` returns `RenderContext` directly for `Context<RenderContext>` keys.
- */
-export interface CtxMap extends ReadonlyMap<Context, unknown> {
-  get(key: Context<RenderContext>): RenderContext;
-  get(key: Context): unknown | undefined;
-}
-
-// ── Render context ─────────────────────────────────────────────────────────
-//
-// Per-root mutable state. Each `createRoot()` (or `render()`) creates its
-// own `RenderContext`. During rendering the "active" context is set so that
-// all internal modules can read/write the correct root's state.
-
-/**
- * Per-root render state.
- *
- * Stored on each `ComponentInstance.renderCtx` so that closures and hook
- * handlers can reach it without global lookups. The context map is
- * threaded through the generator driver, not stored here.
- */
-export interface RenderContext {
-  // ── From state.ts (persistent per-root) ──
-  isInitialMount: boolean;
-
-  // ── From lifecycle.ts (rendering-phase temporary) ──
-  /** The component currently executing its generator body, or `undefined` if idle. */
-  renderingInstance?: ComponentInstance;
-
-  // ── From commit-queue.ts ──
-  ops?: (() => void)[];
-
-  // ── From scheduler.ts ──
-  pendingUpdates: Set<ComponentInstance>;
-  isProcessing: boolean;
-  syncMode: boolean;
-
-  // ── From delegation.ts ──
-  /**
-   * The delegation root for this render context, created by `render()` /
-   * `createRoot()` and used by `applyProps` / `updateProps` to register
-   * handlers and lazily attach root listeners.
-   */
-  delegationRoot?: DelegationRoot;
+/** Typed context map returned by `getContextMap()`. */
+// biome-ignore lint/suspicious/noExplicitAny: Context is contravariant in T (function parameter); using `any` avoids variance issues in the map key type.
+export interface CtxMap extends ReadonlyMap<Context<any>, unknown> {
+  // biome-ignore lint/suspicious/noExplicitAny: see above
+  get(key: Context<any>): unknown | undefined;
 }
 
 // ── Hook state discriminated union ──────────────────────────────────────────
@@ -75,6 +33,8 @@ export interface RenderContext {
 export interface StateHookState {
   kind: typeof $USE_STATE;
   value: unknown;
+  /** Resolve function for the latest setState promise. No-op when no setState is pending. */
+  pendingResolve: () => void;
 }
 
 /** Persistent state for a `useRef` hook. Holds the mutable ref object. */
@@ -197,7 +157,7 @@ export interface Slot {
    * The running instance, present only for component slots. Absent for
    * all other slot types (HTML elements, text, empty, Providers).
    *
-   * Lets the reconciler call `inst.rerender()` when props or context change,
+   * Lets the reconciler call `inst.scheduleRerender()` when props or context change,
    * read `inst.consumedContexts` for selective context updates, and access
    * `inst.slots` for subtree walks.
    */
@@ -222,11 +182,19 @@ export interface Slot {
  */
 export interface ComponentInstance {
   /**
-   * The component function that produced this instance.
+   * The component or context provider function that produced this instance.
    * Called by `executeRerender` to create a fresh generator on each render:
    *   `const gen = instance.component(instance.props, rerender);`
    */
-  component: Component;
+  component: Component | Context;
+
+  /**
+   * The per-root scheduler that owns this instance's work queue.
+   *
+   * Set at mount time and never changes. Used by `resume`,
+   * `executeRerender`, and `scheduleRerender` to submit work.
+   */
+  scheduler: Scheduler;
 
   /**
    * The active (paused) generator, or `undefined` if the generator has returned.
@@ -239,6 +207,16 @@ export interface ComponentInstance {
    * and `flushEffects` (effects only fire when `gen` is undefined).
    */
   gen?: ComponentGenerator<Child>;
+
+  /**
+   * The component's position in the tree, assigned at mount and never updated.
+   *
+   * Encodes the path from root: `[]` for root, `[0]` for first child,
+   * `[1, 2]` for the third child of the second child, etc.
+   *
+   * Used by the scheduler's WorkQueue to process parents before children.
+   */
+  slotId: number[];
 
   /**
    * The component's current props.
@@ -264,7 +242,8 @@ export interface ComponentInstance {
    *
    * Updated by the reconciler and `propagateContextUpdate`.
    */
-  capturedCtx: ReadonlyMap<Context, unknown>;
+  // biome-ignore lint/suspicious/noExplicitAny: Context is contravariant in T; `any` avoids variance issues in the map key.
+  capturedCtx: ReadonlyMap<Context<any>, unknown>;
 
   /**
    * Set of contexts consumed via `useContext` during the last render pass.
@@ -273,10 +252,9 @@ export interface ComponentInstance {
    * cycle. Read by the reconciler and `propagateContextUpdate` to determine
    * whether a context change requires a rerender.
    */
-  consumedContexts: Set<Context>;
+  // biome-ignore lint/suspicious/noExplicitAny: Context is contravariant in T; `any` avoids variance issues.
+  consumedContexts: Set<Context<any>>;
 
-  /** Contexts provided via `useSetContext` during the last render. */
-  providedContexts: Set<Context>;
 
   /**
    * Reconciled Slot tree for this component's last rendered output.
@@ -338,17 +316,17 @@ export interface ComponentInstance {
    */
   finalHookCount?: number;
 
-  /** Resume a paused generator. Bound closure over `resumeInstance`. */
+  /** Resume a paused generator. Submits work to the scheduler. */
   resume: () => void;
 
-  /** Execute a rerender directly, bypassing scheduling. Called by the priority scheduler. */
-  executeRerender: () => Promise<void>;
+  /** Execute a rerender. Submits work to the scheduler. */
+  executeRerender: () => void;
 
   /**
-   * Triggers a re-render. Bound closure over `rerenderInstance`.
+   * Request a re-render. Bound closure over `rerenderInstance`.
    *
    * Called by useState setters, the reconciler (on prop/context changes),
-   * and `propagateContextUpdate`.
+   * and `propagateContextUpdate`. Submits work to the scheduler.
    */
-  rerender: () => Promise<void>;
+  scheduleRerender: () => void;
 }

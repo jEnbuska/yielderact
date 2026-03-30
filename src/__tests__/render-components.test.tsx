@@ -23,7 +23,7 @@ describe("render – components", () => {
     expect(container.querySelector("h2")?.textContent).toBe("Hi, Alice!");
   });
 
-  it("rerenders via useState setter", () => {
+  it("rerenders via useState setter", async () => {
     let setCount: (v: number) => void = () => {};
 
     function* Counter() {
@@ -35,10 +35,10 @@ describe("render – components", () => {
     render(<Counter />, container);
     expect(container.querySelector("button")?.textContent).toBe("0");
 
-    void setCount(1);
+    await setCount(1);
     expect(container.querySelector("button")?.textContent).toBe("1");
 
-    void setCount(5);
+    await setCount(5);
     expect(container.querySelector("button")?.textContent).toBe("5");
   });
 
@@ -108,7 +108,7 @@ describe("render – components with useState", () => {
     document.body.removeChild(container);
   });
 
-  it("useState persists value across re-renders", () => {
+  it("useState persists value across re-renders", async () => {
     let setLabel: (v: string) => void = () => {};
 
     function* Label() {
@@ -120,14 +120,14 @@ describe("render – components with useState", () => {
     render(<Label />, container);
     expect(container.querySelector("p")?.textContent).toBe("initial");
 
-    void setLabel("updated");
+    await setLabel("updated");
     expect(container.querySelector("p")?.textContent).toBe("updated");
 
-    void setLabel("again");
+    await setLabel("again");
     expect(container.querySelector("p")?.textContent).toBe("again");
   });
 
-  it("multiple useState calls maintain independent state", () => {
+  it("multiple useState calls maintain independent state", async () => {
     let setA: (v: string) => void = () => {};
     let setB: (v: number) => void = () => {};
 
@@ -142,10 +142,10 @@ describe("render – components with useState", () => {
     render(<Multi />, container);
     expect(container.querySelector("p")?.textContent).toBe("hello-0");
 
-    void setA("world");
+    await setA("world");
     expect(container.querySelector("p")?.textContent).toBe("world-0");
 
-    void setB(42);
+    await setB(42);
     expect(container.querySelector("p")?.textContent).toBe("world-42");
   });
 });

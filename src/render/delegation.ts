@@ -16,7 +16,7 @@
 
 import type { SyntheticEvent } from "../events";
 import { dispatchDelegatedEvent } from "./dispatch";
-import type { RenderContext } from "./types";
+import type { Scheduler } from "./scheduler";
 
 // ---------------------------------------------------------------------------
 // Handler registry
@@ -179,7 +179,7 @@ export function resolveEventProp(propKey: string): { domEvent: string; isCapture
  * dispatch callback (provided at construction) which walks the DOM
  * path and invokes registered handlers.
  *
- * Created by `render()` / `createRoot()` and stored on `RenderContext`.
+ * Created by `render()` / `createRoot()` and stored on `Scheduler`.
  */
 export class DelegationRoot {
   private _root: Element;
@@ -234,7 +234,7 @@ const portalDelegationRoots = new Map<Element, { root: DelegationRoot; refCount:
  * Acquire a DelegationRoot for a portal container. Multiple portals
  * targeting the same container share one DelegationRoot (ref-counted).
  */
-export function acquirePortalDelegation(container: Element, rctx: RenderContext): DelegationRoot {
+export function acquirePortalDelegation(container: Element, scheduler: Scheduler): DelegationRoot {
   const existing = portalDelegationRoots.get(container);
   if (existing) {
     existing.refCount++;
@@ -242,7 +242,7 @@ export function acquirePortalDelegation(container: Element, rctx: RenderContext)
   }
   const root = new DelegationRoot(
     container,
-    (nativeEvent, domEvent) => dispatchDelegatedEvent(nativeEvent, container, domEvent, rctx),
+    (nativeEvent, domEvent) => dispatchDelegatedEvent(nativeEvent, container, domEvent, scheduler),
     true, // stop native propagation at portal boundary
   );
   portalDelegationRoots.set(container, { root, refCount: 1 });

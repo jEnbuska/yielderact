@@ -5,12 +5,10 @@
  * `rerenderInstance`) and resuming paused generators (`resumeInstance`).
  */
 
-import { resolveCtx } from "../../context";
 import type { Child } from "../../jsx";
 import type { RenderGenerator } from "../driver";
 import { SetStateDuringRenderError } from "../errors";
-import { scheduleUpdate } from "../scheduler";
-import { RenderCtx } from "../state";
+import { drainStateResolvers } from "../hooks-runtime";
 import type { ComponentInstance } from "../types";
 import {
   commitRender,
@@ -53,6 +51,7 @@ export function* resumeInstance(instance: ComponentInstance): RenderGenerator<vo
 export function* executeComponentRerender(instance: ComponentInstance): RenderGenerator<void> {
   const vnode = yield* runComponentRender(instance);
   yield* commitRender(instance, vnode);
+  drainStateResolvers(instance);
 }
 
 /**
@@ -61,13 +60,12 @@ export function* executeComponentRerender(instance: ComponentInstance): RenderGe
  * Throws if called during any component's render phase.
  * Otherwise, schedules via the scheduler.
  */
-export function rerenderInstance(instance: ComponentInstance): Promise<void> {
-  const rctx = resolveCtx(instance.capturedCtx, RenderCtx);
-  const { renderingInstance } = rctx;
+export function rerenderInstance(instance: ComponentInstance): void {
+  const { scheduler } = instance;
+  const { renderingInstance } = scheduler;
   if (renderingInstance) {
     throw new SetStateDuringRenderError(renderingInstance.component.name, instance.component.name);
   }
-  if (!instance.endMarker.parentNode) return Promise.resolve();
-  scheduleUpdate(instance);
-  return Promise.resolve();
+  if (!instance.endMarker.parentNode) return;
+  scheduler.scheduleUpdate(instance);
 }

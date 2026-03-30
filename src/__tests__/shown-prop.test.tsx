@@ -89,7 +89,7 @@ describe("shown prop", () => {
     expect(container.querySelector("p")).toBeNull();
   });
 
-  it("unmounts an HTML element when shown changes from true to false", () => {
+  it("unmounts an HTML element when shown changes from true to false", async () => {
     let setShown: (v: boolean) => void = () => {};
 
     function* Wrapper() {
@@ -101,11 +101,11 @@ describe("shown prop", () => {
     render(<Wrapper />, container);
     expect(container.querySelector("div")).not.toBeNull();
 
-    void setShown(false);
+    await setShown(false);
     expect(container.querySelector("div")).toBeNull();
   });
 
-  it("mounts an HTML element when shown changes from false to true", () => {
+  it("mounts an HTML element when shown changes from false to true", async () => {
     let setShown: (v: boolean) => void = () => {};
 
     function* Wrapper() {
@@ -117,12 +117,12 @@ describe("shown prop", () => {
     render(<Wrapper />, container);
     expect(container.querySelector("div")).toBeNull();
 
-    void setShown(true);
+    await setShown(true);
     expect(container.querySelector("div")).not.toBeNull();
     expect(container.querySelector("div")?.textContent).toBe("content");
   });
 
-  it("unmounts a component when shown changes from true to false", () => {
+  it("unmounts a component when shown changes from true to false", async () => {
     let setShown: (v: boolean) => void = () => {};
 
     function* Inner() {
@@ -138,11 +138,11 @@ describe("shown prop", () => {
     render(<Wrapper />, container);
     expect(container.querySelector("p")).not.toBeNull();
 
-    void setShown(false);
+    await setShown(false);
     expect(container.querySelector("p")).toBeNull();
   });
 
-  it("mounts a component when shown changes from false to true", () => {
+  it("mounts a component when shown changes from false to true", async () => {
     let setShown: (v: boolean) => void = () => {};
 
     function* Inner() {
@@ -158,7 +158,7 @@ describe("shown prop", () => {
     render(<Wrapper />, container);
     expect(container.querySelector("p")).toBeNull();
 
-    void setShown(true);
+    await setShown(true);
     expect(container.querySelector("p")).not.toBeNull();
     expect(container.querySelector("p")?.textContent).toBe("inner");
   });

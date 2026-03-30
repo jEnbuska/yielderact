@@ -28,7 +28,7 @@ describe("ref", () => {
     expect(capturedRef.current).toBe(42);
   });
 
-  it("persists the same object across re-renders", () => {
+  it("persists the same object across re-renders", async () => {
     const refInstances: object[] = [];
     let setValue: (v: number) => void = () => {};
 
@@ -41,7 +41,7 @@ describe("ref", () => {
     }
 
     render(<Comp />, container);
-    void setValue(1);
+    await setValue(1);
 
     expect(refInstances).toHaveLength(2);
     expect(refInstances[0]).toBe(refInstances[1]);

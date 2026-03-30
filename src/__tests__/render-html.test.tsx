@@ -2,13 +2,18 @@ import type { Context } from "../context";
 import { useState } from "../hooks";
 import { createElement, Fragment } from "../jsx";
 import { buildNode, render } from "../render";
-import { drive } from "../render/driver";
-import { createRenderContext, RenderCtx } from "../render/state";
+import { driveWithContext } from "../render/driver";
+import { Scheduler } from "../render/scheduler";
 
 function run(child: Parameters<typeof buildNode>[0]) {
-  const map: Map<Context<unknown>, unknown> = new Map();
-  map.set(RenderCtx as Context<unknown>, createRenderContext());
-  return drive(map, buildNode(child)).value;
+  const map: Map<Context, unknown> = new Map();
+  const scheduler = new Scheduler();
+  const wrapped = driveWithContext(map, buildNode(child, scheduler));
+  let result = wrapped.next();
+  while (!result.done) {
+    result = wrapped.next(undefined);
+  }
+  return result.value;
 }
 
 // jsdom is provided by vitest (see vitest.config.ts)
@@ -77,7 +82,7 @@ describe("render – HTML elements", () => {
     expect(el.style.fontSize).toBe("14px");
   });
 
-  it("updates changed style properties on rerender", () => {
+  it("updates changed style properties on rerender", async () => {
     let setStyle: (s: Record<string, string>) => void = () => {};
 
     function* Styled() {
@@ -90,11 +95,11 @@ describe("render – HTML elements", () => {
     const el = container.querySelector("div") as HTMLElement;
     expect(el.style.color).toBe("red");
 
-    void setStyle({ color: "blue" });
+    await setStyle({ color: "blue" });
     expect(el.style.color).toBe("blue");
   });
 
-  it("removes style properties that are no longer present on rerender", () => {
+  it("removes style properties that are no longer present on rerender", async () => {
     let setStyle: (s: Record<string, string>) => void = () => {};
 
     function* Styled() {
@@ -111,12 +116,12 @@ describe("render – HTML elements", () => {
     expect(el.style.color).toBe("red");
     expect(el.style.fontSize).toBe("14px");
 
-    void setStyle({ color: "blue" });
+    await setStyle({ color: "blue" });
     expect(el.style.color).toBe("blue");
     expect(el.style.fontSize).toBe("");
   });
 
-  it("clears all styles when style prop is removed", () => {
+  it("clears all styles when style prop is removed", async () => {
     let setProps: (p: Record<string, unknown>) => void = () => {};
 
     function* Styled() {
@@ -132,7 +137,7 @@ describe("render – HTML elements", () => {
     expect(el.style.color).toBe("red");
     expect(el.style.fontWeight).toBe("bold");
 
-    void setProps({});
+    await setProps({});
     expect(el.style.color).toBe("");
     expect(el.style.fontWeight).toBe("");
   });
@@ -165,7 +170,7 @@ describe("render – HTML elements", () => {
     expect(container.querySelector("div")?.textContent).toBe("visible");
   });
 
-  it("sets input value as DOM property (not just attribute)", () => {
+  it("sets input value as DOM property (not just attribute)", async () => {
     let setValue: (v: string) => void = () => {};
 
     function* Controlled() {
@@ -178,14 +183,14 @@ describe("render – HTML elements", () => {
     const input = container.querySelector("input") as HTMLInputElement;
     expect(input.value).toBe("initial");
 
-    void setValue("updated");
+    await setValue("updated");
     expect(input.value).toBe("updated");
 
-    void setValue("");
+    await setValue("");
     expect(input.value).toBe("");
   });
 
-  it("sets checkbox checked as DOM property", () => {
+  it("sets checkbox checked as DOM property", async () => {
     let setChecked: (v: boolean) => void = () => {};
 
     function* CheckBox() {
@@ -198,10 +203,10 @@ describe("render – HTML elements", () => {
     const cb = container.querySelector("input") as HTMLInputElement;
     expect(cb.checked).toBe(false);
 
-    void setChecked(true);
+    await setChecked(true);
     expect(cb.checked).toBe(true);
 
-    void setChecked(false);
+    await setChecked(false);
     expect(cb.checked).toBe(false);
   });
 });

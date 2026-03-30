@@ -1,3 +1,4 @@
+import { createResolvable } from "../render/promise";
 import type { StateHookState } from "../render/types";
 import { $USE_STATE, type StateDescriptor } from "./descriptors";
 import type { ComponentGenerator } from "./types";
@@ -38,6 +39,8 @@ export function* useState<T>(
 }
 
 /** @internal */
+const noop = (): void => {};
+
 export function processState(descriptor: StateDescriptor, prev?: StateHookState): StateHookState {
   if (prev !== undefined) return prev;
   return {
@@ -46,19 +49,27 @@ export function processState(descriptor: StateDescriptor, prev?: StateHookState)
       typeof descriptor.initialValue === "function"
         ? (descriptor.initialValue as () => unknown)()
         : descriptor.initialValue,
+    pendingResolve: noop,
   };
 }
 
 /** @internal */
 export function createStateSetter(
   state: StateHookState,
-  rerender: () => Promise<void>,
+  scheduleRerender: () => void,
 ): (newValue: unknown) => Promise<void> {
   return (newValue: unknown): Promise<void> => {
     state.value =
       typeof newValue === "function"
         ? (newValue as (prev: unknown) => unknown)(state.value)
         : newValue;
-    return rerender();
+
+    // Abandon any previous pending promise for this state slot.
+    // Only the latest setState promise will resolve.
+    const { promise, resolve } = createResolvable();
+    state.pendingResolve = resolve;
+
+    scheduleRerender();
+    return promise;
   };
 }

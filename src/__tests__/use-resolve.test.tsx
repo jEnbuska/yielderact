@@ -40,6 +40,7 @@ describe("render – components with useResolve", () => {
 
     resolvePromise("Hello World");
     await promise;
+    await Promise.resolve();
 
     expect(container.querySelector("#loading")).toBeNull();
     expect(container.querySelector("#data")).not.toBeNull();
@@ -69,6 +70,7 @@ describe("render – components with useResolve", () => {
 
     rejectPromise(new Error("network error"));
     await promise.catch(() => {}); // wait for rejection to propagate
+    await Promise.resolve();
 
     expect(container.querySelector("#error")).not.toBeNull();
     expect(container.querySelector("#data")).toBeNull();
@@ -100,10 +102,11 @@ describe("render – components with useResolve", () => {
 
     resolvePromise("world");
     await promise;
+    await Promise.resolve();
 
     expect(container.querySelector("#result")?.textContent).toBe("prefix:world");
 
-    void setLabel("updated");
+    await setLabel("updated");
     expect(container.querySelector("#result")?.textContent).toBe("updated:world");
   });
 
@@ -132,12 +135,13 @@ describe("render – components with useResolve", () => {
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Change state WHILE the promise is still pending
-    void setLabel("updated");
+    await setLabel("updated");
     // Still loading, but label should be reflected after resolve
     expect(container.querySelector("#loading")).not.toBeNull();
 
     resolvePromise("world");
     await promise;
+    await Promise.resolve();
 
     // The fresh run after setLabel captured 'updated'; resume uses that generator
     expect(container.querySelector("#result")?.textContent).toBe("updated:world");
@@ -179,15 +183,17 @@ describe("render – components with useResolve", () => {
 
     resolveFirst("user1");
     await firstPromise;
+    await Promise.resolve();
     expect(container.querySelector("#result")?.textContent).toBe("1:user1");
 
     // Change the dep – should re-run the promise
-    void setId(2);
+    await setId(2);
     expect(fetchCount).toBe(2);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     resolveSecond("user2");
     await secondPromise;
+    await Promise.resolve();
     expect(container.querySelector("#result")?.textContent).toBe("2:user2");
   });
 
@@ -221,17 +227,19 @@ describe("render – components with useResolve", () => {
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Change dep before first promise resolves
-    void setId(2);
+    await setId(2);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Resolve second promise first
     resolveSecond("user2");
     await secondPromise;
+    await Promise.resolve();
     expect(container.querySelector("#result")?.textContent).toBe("2:user2");
 
     // Now resolve the stale first promise – should NOT update the DOM
     resolveFirst("user1");
     await firstPromise;
+    await Promise.resolve();
     expect(container.querySelector("#result")?.textContent).toBe("2:user2");
   });
 
@@ -260,7 +268,7 @@ describe("render – components with useResolve", () => {
     expect(abortedSignals).toHaveLength(0);
 
     // Changing deps should abort the first signal and start a new fetch.
-    void setId(2);
+    await setId(2);
     expect(abortedSignals).toHaveLength(1);
     expect(abortedSignals[0]?.aborted).toBe(true);
   });
@@ -294,7 +302,7 @@ describe("render – components with useResolve", () => {
     expect(capturedSignal.aborted).toBe(false);
 
     // Unmount Inner by hiding it – the AbortSignal should be aborted.
-    void setShow(false);
+    await setShow(false);
     expect(capturedSignal.aborted).toBe(true);
   });
 });
@@ -330,6 +338,7 @@ describe("render – components with useResolveRaw", () => {
 
     resolvePromise("Hello");
     await promise;
+    await Promise.resolve();
 
     expect(container.querySelector("#loading")).toBeNull();
     expect(container.querySelector("#data")).not.toBeNull();
@@ -355,6 +364,7 @@ describe("render – components with useResolveRaw", () => {
 
     rejectPromise(new Error("network error"));
     await promise.catch(() => {});
+    await Promise.resolve();
 
     expect(container.querySelector("#error")).not.toBeNull();
     expect(container.querySelector("#error")?.textContent).toBe("network error");
@@ -386,13 +396,15 @@ describe("render – components with useResolveRaw", () => {
 
     resolveFirst("user1");
     await firstPromise;
+    await Promise.resolve();
     expect(container.querySelector("#result")?.textContent).toBe("1:user1");
 
-    void setId(2);
+    await setId(2);
     expect(container.querySelector("#loading")).not.toBeNull();
 
     resolveSecond("user2");
     await secondPromise;
+    await Promise.resolve();
     expect(container.querySelector("#result")?.textContent).toBe("2:user2");
   });
 
@@ -418,14 +430,16 @@ describe("render – components with useResolveRaw", () => {
 
     render(<DataComp />, container);
 
-    void setId(2);
+    await setId(2);
 
     resolveSecond("user2");
     await secondPromise;
+    await Promise.resolve();
     expect(container.querySelector("#result")?.textContent).toBe("2:user2");
 
     resolveFirst("user1");
     await firstPromise;
+    await Promise.resolve();
     // Stale result must not overwrite the current render
     expect(container.querySelector("#result")?.textContent).toBe("2:user2");
   });
@@ -475,7 +489,7 @@ describe("useResolve / useResolveRaw – unmount during pending (zombie rerender
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Unmount Inner while the promise is still pending
-    void setShow(false);
+    await setShow(false);
     expect(container.querySelector("#empty")).not.toBeNull();
 
     // Resolve the promise AFTER unmount — must not crash
@@ -513,7 +527,7 @@ describe("useResolve / useResolveRaw – unmount during pending (zombie rerender
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Unmount Inner
-    void setShow(false);
+    await setShow(false);
     expect(container.querySelector("#empty")).not.toBeNull();
 
     // Reject the promise AFTER unmount — must not crash
@@ -549,7 +563,7 @@ describe("useResolve / useResolveRaw – unmount during pending (zombie rerender
     expect(container.querySelector("#loading")).not.toBeNull();
 
     // Unmount Inner
-    void setShow(false);
+    await setShow(false);
     expect(container.querySelector("#empty")).not.toBeNull();
 
     // Resolve the promise AFTER unmount — must not crash
