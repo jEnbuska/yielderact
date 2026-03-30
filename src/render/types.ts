@@ -17,8 +17,10 @@ import type { Scheduler } from "./scheduler";
 // ── Context map ─────────────────────────────────────────────────────────────
 
 /** Typed context map returned by `getContextMap()`. */
-export interface CtxMap extends ReadonlyMap<Context, unknown> {
-  get(key: Context): unknown | undefined;
+// biome-ignore lint/suspicious/noExplicitAny: Context is contravariant in T (function parameter); using `any` avoids variance issues in the map key type.
+export interface CtxMap extends ReadonlyMap<Context<any>, unknown> {
+  // biome-ignore lint/suspicious/noExplicitAny: see above
+  get(key: Context<any>): unknown | undefined;
 }
 
 // ── Hook state discriminated union ──────────────────────────────────────────
@@ -240,7 +242,8 @@ export interface ComponentInstance {
    *
    * Updated by the reconciler and `propagateContextUpdate`.
    */
-  capturedCtx: ReadonlyMap<Context, unknown>;
+  // biome-ignore lint/suspicious/noExplicitAny: Context is contravariant in T; `any` avoids variance issues in the map key.
+  capturedCtx: ReadonlyMap<Context<any>, unknown>;
 
   /**
    * Set of contexts consumed via `useContext` during the last render pass.
@@ -249,10 +252,9 @@ export interface ComponentInstance {
    * cycle. Read by the reconciler and `propagateContextUpdate` to determine
    * whether a context change requires a rerender.
    */
-  consumedContexts: Set<Context>;
+  // biome-ignore lint/suspicious/noExplicitAny: Context is contravariant in T; `any` avoids variance issues.
+  consumedContexts: Set<Context<any>>;
 
-  /** Contexts provided via `useSetContext` during the last render. */
-  providedContexts: Set<Context>;
 
   /**
    * Reconciled Slot tree for this component's last rendered output.

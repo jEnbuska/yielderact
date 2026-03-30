@@ -132,6 +132,12 @@ export function unmountSlot(slot: Slot): void {
     for (const fn of slot.instance.cleanupFns) {
       fn?.();
     }
+    // Unsubscribe from all contexts
+    for (const hookState of slot.instance.hookStates) {
+      if (hookState?.kind === $USE_CONTEXT && hookState.unsubscribe) {
+        hookState.unsubscribe();
+      }
+    }
     // Remove from scheduler queue so pending async callbacks (useResolveRaw
     // promise handlers) don't trigger a zombie rerender.
     slot.instance.scheduler.removePending(slot.instance);
@@ -168,7 +174,8 @@ export function processOneDescriptor(
   descriptor: HookDescriptor,
   hookIndex: number,
   instance: ComponentInstance,
-  ctx: ReadonlyMap<Context, unknown>,
+  // biome-ignore lint/suspicious/noExplicitAny: Context is contravariant in T; `any` avoids variance issues.
+  ctx: ReadonlyMap<Context<any>, unknown>,
 ): unknown {
   const { hookStates, cleanupFns, pendingEffects, scheduleRerender, resume } = instance;
   switch (descriptor.type) {
@@ -211,10 +218,28 @@ export function processOneDescriptor(
     }
     case $USE_CONTEXT: {
       const prev = getTypedPrev(hookStates, hookIndex, $USE_CONTEXT, instance);
-      instance.consumedContexts.add(descriptor.ctx);
       const rawValue = resolveCtx(ctx, descriptor.ctx);
       const state = processContext(descriptor, prev, rawValue);
       hookStates[hookIndex] = state;
+
+      // Subscribe to the context on first render (no previous state).
+      // The callback checks the selector and schedules a rerender if deps changed.
+      if (!prev) {
+        const ctxObj = descriptor.ctx as Context;
+        const { selector } = state;
+        let lastDeps = state.lastDeps;
+        state.unsubscribe = ctxObj.subscribe((newValue: unknown) => {
+          if (!selector) {
+            void instance.scheduleRerender();
+            return;
+          }
+          const newDeps = selector(newValue);
+          if (depsChanged(lastDeps, newDeps)) {
+            lastDeps = newDeps;
+            void instance.scheduleRerender();
+          }
+        });
+      }
       return state.lastResult;
     }
     case $USE_RESOLVE_RAW: {

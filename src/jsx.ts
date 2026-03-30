@@ -1,4 +1,3 @@
-import type { ContextEntry } from "./context";
 import type { ComponentGenerator, DependencyList } from "./hooks/types";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
 
@@ -47,18 +46,6 @@ export interface FrameworkProps {
    * only cares about a subset of values.
    */
   $deps?: DependencyList;
-  /**
-   * Provide context values to this element/component and its descendants.
-   *
-   * Accepts a single `ContextEntry` or an array for multiple contexts.
-   * Create entries by calling a context object: `MyCtx(value)`.
-   *
-   * @example
-   * const ThemeCtx = createContext<'light' | 'dark'>('light');
-   * <Child $context={ThemeCtx('dark')} />
-   * <div $context={[ThemeCtx('dark'), LocaleCtx('fi')]}>...</div>
-   */
-  $context?: ContextEntry | ContextEntry[];
 }
 
 /**
@@ -136,7 +123,7 @@ export const RawFragment: unique symbol = Symbol("RawFragment");
  * Fragment component — use instead of a wrapper element when you need to
  * return multiple children.
  *
- * Framework directives (`$context`, `$deferred`) placed on a Fragment
+ * Framework directives (`$deferred`) placed on a Fragment
  * work correctly because Fragment is a real component that participates
  * in the normal lifecycle (mount, reconcile, propagate).
  *
@@ -160,7 +147,7 @@ export function* Fragment(props: InternalProps): ComponentGenerator<Child> {
  *
  * Portal VNodes render their children into an arbitrary DOM container
  * outside the render root, while maintaining component-tree context
- * (`$context`, `$deferred`).
+ * (`$deferred`).
  */
 export const Portal: unique symbol = Symbol("Portal");
 
@@ -259,7 +246,7 @@ declare global {
      * declared in the component's own props type.
      *
      * Only framework-level props (`key`, `$shown`, `$deferred`,
-     * `$deps`, `$context`) are universally available. `children` and `ref` must be
+     * `$deps`) are universally available. `children` and `ref` must be
      * explicitly declared in a component's props type to be accepted.
      */
     interface IntrinsicAttributes extends FrameworkProps {}

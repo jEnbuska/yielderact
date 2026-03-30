@@ -12,10 +12,9 @@
  * Rerenders go through the reconciler instead.
  */
 
-import type { ContextEntry } from "../../context";
 import type { InternalProps } from "../../jsx";
 import { type Child, Portal, RawFragment } from "../../jsx";
-import { driveWithContext, getContextMap, type RenderGenerator, setContext } from "../driver";
+import { driveWithContext, getContextMap, type RenderGenerator } from "../driver";
 import { InvalidChildError } from "../errors";
 import { isComponentNode } from "../helpers";
 import { applyProps } from "../props";
@@ -42,14 +41,8 @@ export function* buildNode(child: Child, scheduler: Scheduler): RenderGenerator<
   if (!child.type) {
     throw new InvalidChildError(child);
   }
-  const { $shown, $context, $deferred: _deferred, $deps: _deps, ...props } = child.props;
+  const { $shown, $deferred: _deferred, $deps: _deps, ...props } = child.props;
   if ($shown === false) return document.createTextNode("");
-  if ($context) {
-    const entries: ContextEntry[] = Array.isArray($context) ? $context : [$context];
-    for (const entry of entries) {
-      yield* setContext(entry.ctx, () => entry.value);
-    }
-  }
 
   const map = yield* getContextMap();
 

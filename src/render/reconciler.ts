@@ -29,8 +29,6 @@ import {
 import { acquirePortalDelegation } from "./delegation";
 import { driveWithContext, getContextMap } from "./driver";
 import {
-  childContextMap,
-  contextEntries,
   flattenChildren,
   isComponentNode,
   isElementNode,
@@ -40,7 +38,7 @@ import {
   stripDeferred,
   stripFrameworkDirectives,
 } from "./helpers";
-import { propagateContextUpdate, unmountSlot } from "./hooks-runtime";
+import { unmountSlot } from "./hooks-runtime";
 import { buildNode, mountComponent } from "./initial-mount";
 import { applyProps, updateProps } from "./props";
 import type { Scheduler } from "./scheduler";
@@ -514,8 +512,6 @@ function* reconcileComponent(
   const { type: component } = vnode;
   const newDeps = allPropsRaw.$deps;
 
-  const childCtxMap = childContextMap(ctxMap, allPropsRaw);
-
   // ── Same component type at same position ──
   if (prevSlot?.type === vnode.type) {
     // $deps replaces the shallowEqual check when present on the new VNode.
@@ -528,17 +524,10 @@ function* reconcileComponent(
       // comparison uses the fresh deps array reference.
       if (newDeps) prevSlot.props = slotProps;
       if (instance) {
-        // Update providedContexts from $context prop.
-        const entries = contextEntries(allPropsRaw.$context);
-        instance.providedContexts.clear();
-        for (const entry of entries) {
-          instance.providedContexts.add(entry.ctx);
-        }
-
         // Check if any consumed context value differs from capturedCtx.
         let contextChanged = false;
         for (const ctx of instance.consumedContexts) {
-          const currentVal = resolveCtx(childCtxMap, ctx);
+          const currentVal = resolveCtx(ctxMap, ctx);
           if (!Object.is(currentVal, resolveCtx(instance.capturedCtx, ctx))) {
             if (!hasStableContextSelectors(instance, ctx, currentVal)) {
               contextChanged = true;
@@ -548,18 +537,10 @@ function* reconcileComponent(
         }
 
         if (contextChanged) {
-          instance.capturedCtx = childCtxMap;
+          instance.capturedCtx = ctxMap;
           void instance.scheduleRerender();
         } else {
-          // Detect $context value changes that need propagation to descendants.
-          const { capturedCtx: prevCtx } = instance;
-          instance.capturedCtx = childCtxMap;
-          for (const entry of entries) {
-            const prevVal = resolveCtx(prevCtx, entry.ctx);
-            if (!Object.is(prevVal, entry.value)) {
-              propagateContextUpdate(entry.ctx, entry.value, instance.slots);
-            }
-          }
+          instance.capturedCtx = ctxMap;
         }
       }
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -568,12 +549,7 @@ function* reconcileComponent(
     // Component with changed props → rerender in place
     if (prevSlot.instance) {
       prevSlot.instance.props = allProps;
-      prevSlot.instance.capturedCtx = childCtxMap;
-      const entries = contextEntries(allPropsRaw.$context);
-      prevSlot.instance.providedContexts.clear();
-      for (const entry of entries) {
-        prevSlot.instance.providedContexts.add(entry.ctx);
-      }
+      prevSlot.instance.capturedCtx = ctxMap;
       void prevSlot.instance.scheduleRerender();
       prevSlot.props = slotProps;
       return { slot: prevSlot, node: prevSlot.node, replaced: false };
@@ -582,13 +558,9 @@ function* reconcileComponent(
 
   // Mount fresh component
   const { fragment, instance } = yield* driveWithContext(
-    childCtxMap,
+    ctxMap,
     mountComponent(component, allProps, index, scheduler, parentSlotId),
   );
-  const entries = contextEntries(allPropsRaw.$context);
-  for (const entry of entries) {
-    instance.providedContexts.add(entry.ctx);
-  }
   return {
     slot: {
       type: vnode.type,
@@ -613,7 +585,6 @@ function* reconcileHTMLElement(
   parentSlotId: number[],
 ): Generator<unknown, { slot: Slot; node: Node; replaced: boolean }, unknown> {
   const ctxMap = yield* getContextMap();
-  const childCtxMap = childContextMap(ctxMap, vnode.props);
 
   if (prevSlot?.type === vnode.type && prevSlot.node instanceof HTMLElement) {
     // Same tag → update props in place and reconcile children.
@@ -632,7 +603,7 @@ function* reconcileHTMLElement(
     );
     prevSlot.props = vnode.props;
     prevSlot.childSlots = yield* driveWithContext(
-      childCtxMap,
+      ctxMap,
       reconcileChildSlots(
         prevSlot.node,
         prevSlot.childSlots,
@@ -652,7 +623,7 @@ function* reconcileHTMLElement(
   for (let i = 0; i < flatChildren.length; i++) {
     const child = flatChildren[i] as Child;
     const { slot: childSlot, node: childNode } = yield* driveWithContext(
-      childCtxMap,
+      ctxMap,
       reconcileOneGen(undefined, child, i, scheduler, parentSlotId),
     );
     childSlots.push(childSlot);

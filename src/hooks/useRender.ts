@@ -1,5 +1,5 @@
-import { type ContextEntry, createContext, useContext } from "../context";
-import type { Child, VNode } from "../jsx";
+import { createContext, useContext } from "../context";
+import { type Child, createElement } from "../jsx";
 import type { HookState } from "../render/types";
 import { $USE_RENDER, type RenderDescriptor } from "./descriptors";
 import type { ComponentGenerator, DependencyList } from "./types";
@@ -104,15 +104,18 @@ export function* useRender<T>(
   };
 
   const isInline = typeof fnOrChild === "function";
-  const resumeEntry = resumeCtx(resumeCallback as (value: unknown) => void);
 
   while (slot.status === "waiting") {
     const rawChild = isInline
       ? (fnOrChild as UseRenderFn<T>)({ resume: resumeCallback })
       : (fnOrChild as Child);
-    // Attach resume context via $context on the child VNode so nested
-    // components can access `resume` via useResume().
-    yield withContextEntry(rawChild, resumeEntry);
+    // Wrap in a resumeCtx Provider so nested components can access
+    // `resume` via useResume().
+    yield createElement(
+      resumeCtx,
+      { value: resumeCallback as (value: unknown) => void },
+      rawChild,
+    );
   }
 
   return slot.value as T;
@@ -157,22 +160,6 @@ export function* useResume<T>(): ComponentGenerator<(value: T) => void> {
     throw new Error("useResume must be called inside a component rendered by useRender");
   }
   return fn as (value: T) => void;
-}
-
-function isVNode(child: Child): child is VNode {
-  return child !== null && child !== undefined && typeof child === "object";
-}
-
-/** Merge a ContextEntry into a child's $context prop. */
-function withContextEntry(child: Child, entry: ContextEntry): Child {
-  if (!isVNode(child)) return child;
-  const existing = child.props.$context;
-  const merged = existing ? [...(Array.isArray(existing) ? existing : [existing]), entry] : entry;
-  return {
-    type: child.type,
-    props: { ...child.props, $context: merged },
-    children: child.children,
-  };
 }
 
 /** @internal */
