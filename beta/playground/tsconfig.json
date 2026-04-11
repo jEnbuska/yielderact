@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2024", "DOM"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "yract-beta",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "paths": {
+      "yract-beta": ["../src/index.ts"],
+      "yract-beta/jsx-runtime": ["../src/jsx-runtime.ts"],
+      "yract-beta/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
+    }
+  },
+  "include": ["src", "playwright.config.ts", "tests"]
+}
