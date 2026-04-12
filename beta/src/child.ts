@@ -9,7 +9,7 @@
  */
 import { type Context, isContext } from "./context";
 import { type Child, type Component, Fragment, type VNode } from "./jsx";
-import type {SlotKey} from "./render/slots";
+import type { SlotKey } from "./render/slots";
 
 // ---------------------------------------------------------------------------
 // Child-level guards (take the full `Child` union as input)
@@ -31,9 +31,14 @@ export function isTextChild(child: Child): child is string | number {
   return typeof child === "string" || typeof child === "number";
 }
 
+/** True when the child is an iterable (array, generator, Set, etc.) — not a string or VNode. */
+export function isIterableChild(child: Child): child is Iterable<Child> {
+  return child != null && typeof child === "object" && Symbol.iterator in child;
+}
+
 /** True when the child is a VNode (any flavour — element, component, context, fragment). */
 export function isVNodeChild(child: Child): child is VNode {
-  return child !== null && child !== undefined && typeof child === "object";
+  return child != null && typeof child === "object" && !(Symbol.iterator in child);
 }
 
 // ---------------------------------------------------------------------------

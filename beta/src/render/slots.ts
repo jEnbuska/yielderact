@@ -5,11 +5,12 @@
  * Slots form a parallel tree that the reconciler uses to diff old output
  * against new VNodes.
  */
-import type { VNodeProps } from "../jsx";
+
 import type { ComponentInstance } from "../instances/component-instance";
 import type { ContextInstance } from "../instances/context-instance";
-import { applyProps } from "./element-props";
+import type { VNodeProps } from "../jsx";
 import type { DelegationRoot } from "./delegation";
+import { applyProps } from "./element-props";
 
 export type SlotKey = string | number;
 export type SlotPath = ReadonlyArray<SlotKey>;
@@ -43,7 +44,7 @@ export type ContextSlotType = typeof contextSlotType;
 export interface EmptySlot {
   /** position in parent's slot list */
   index: number;
-  node: Node;
+  node: Text;
   type: EmptySlotType;
 }
 
@@ -52,9 +53,12 @@ export interface TextSlot extends Omit<EmptySlot, "type"> {
   props: string;
 }
 
-export interface ElementSlot extends Omit<TextSlot, "type" | "props"> {
+export interface ElementSlot extends Omit<TextSlot, "type" | "props" | "node"> {
+  node: HTMLElement;
   key: SlotKey;
   slots: Slot[];
+  /** Pre-built key index for this slot's children, ready for the next reconcile. */
+  keyIndex?: Map<SlotKey, number>;
   /**
    * The props object at last render.
    *
@@ -67,19 +71,22 @@ export interface ElementSlot extends Omit<TextSlot, "type" | "props"> {
   element: string;
 }
 
-export interface FragmentSlot extends Omit<ElementSlot, "type" | "element"> {
+export interface FragmentSlot extends Omit<ElementSlot, "type" | "element" | "node"> {
+  node: Comment;
   type: FragmentSlotType;
   props: VNodeProps;
   /** End-of-range marker so the reconciler can move/remove the fragment as a unit. */
   endAnchor: Node;
 }
 
-export interface ComponentSlot extends Omit<ElementSlot, "type" | "element"> {
+export interface ComponentSlot extends Omit<ElementSlot, "type" | "element" | "node"> {
+  node: Comment;
   instance: ComponentInstance;
   type: ComponentSlotType;
 }
 
-export interface ContextSlot extends Omit<ElementSlot, "type" | "element" | "props"> {
+export interface ContextSlot extends Omit<ElementSlot, "type" | "element" | "props" | "node"> {
+  node: Comment;
   instance: ContextInstance;
   props: VNodeProps;
   type: ContextSlotType;
@@ -93,13 +100,7 @@ export type SlotType =
   | ComponentSlotType
   | ContextSlotType;
 
-export type Slot =
-  | EmptySlot
-  | TextSlot
-  | ElementSlot
-  | FragmentSlot
-  | ComponentSlot
-  | ContextSlot;
+export type Slot = EmptySlot | TextSlot | ElementSlot | FragmentSlot | ComponentSlot | ContextSlot;
 
 // ---------------------------------------------------------------------------
 // Type guards

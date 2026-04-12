@@ -93,10 +93,18 @@ export function* TodoList() {
               marginBottom: "0.35rem",
             }}
           >
-            <input type="checkbox" checked={todo.done} onChange={() => toggleTodo(todo.id)} />
-            <span style={{ textDecoration: todo.done ? "line-through" : "none", flex: 1 }}>
+            <input
+              type="checkbox"
+              checked={todo.done}
+              id={`todo-${todo.id}`}
+              onChange={() => toggleTodo(todo.id)}
+            />
+            <label
+              style={{ textDecoration: todo.done ? "line-through" : "none", flex: 1 }}
+              htmlFor={`todo-${todo.id}`}
+            >
               {todo.text}
-            </span>
+            </label>
             <button
               data-testid={`todo-remove-${todo.id}`}
               data-remove={todo.id}

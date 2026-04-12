@@ -62,7 +62,7 @@ export function propsWithChildren(vnode: VNode): InternalProps {
 }
 
 /**
- * Apply `$context` entries to a context map, skipping entries whose value
+ * Apply `context` entries to a context map, skipping entries whose value
  * is already the same. Returns the original map if nothing changed.
  */
 function withContextEntries(
@@ -82,7 +82,7 @@ function withContextEntries(
 
 /**
  * Build a child context map from a parent map, applying framework
- * directives (`$context`) from the given props.
+ * directives (`context`) from the given props.
  *
  * Returns the parent map unchanged if no directive is set.
  */
@@ -94,7 +94,7 @@ export function childContextMap(
   return parentMap;
 }
 
-/** Normalize a `$context` prop to an array of entries. */
+/** Normalize a `context` prop to an array of entries. */
 export function contextEntries(ctxProp: ContextEntry | ContextEntry[] | undefined): ContextEntry[] {
   if (!ctxProp) return [];
   return Array.isArray(ctxProp) ? ctxProp : [ctxProp];

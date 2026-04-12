@@ -9,9 +9,7 @@ import type { ComponentGenerator } from "./types";
  * is swapped each render so it always calls the latest `fn`. Useful for
  * passing stable event handlers to child components.
  */
-export function* $stable<T extends (...args: unknown[]) => unknown>(
-  fn: T,
-): ComponentGenerator<T> {
+export function* $stable<T extends (...args: unknown[]) => unknown>(fn: T): ComponentGenerator<T> {
   const desc: StableDescriptor = { type: $STABLE, fn };
   const stableFn = yield desc;
   return stableFn as T;

@@ -26,8 +26,8 @@ import {
   $REF,
   $STABLE,
   $STATE,
-  type HookDescriptor,
   HOOK_TYPES,
+  type HookDescriptor,
   type HookType,
 } from "./descriptors";
 import { processEffect } from "./effect";
@@ -82,7 +82,6 @@ export function processOneDescriptor(
   descriptor: HookDescriptor,
   hookIndex: number,
   instance: BaseInstance,
-  rerender: () => Promise<void>,
 ): unknown {
   const { hookStates } = instance;
   switch (descriptor.type) {
@@ -90,7 +89,7 @@ export function processOneDescriptor(
       const prev = getTypedPrev(hookStates, hookIndex, $STATE, instance);
       const state = processState(descriptor, prev);
       hookStates[hookIndex] = state;
-      return [state.value, createStateSetter(state, rerender)];
+      return [state.value, createStateSetter(state, instance)];
     }
     case $REF: {
       const prev = getTypedPrev(hookStates, hookIndex, $REF, instance);

@@ -10,7 +10,7 @@
  * `reconcileSlots` drains them immediately via `runToCompletion`.
  *
  * Context is obtained via `yield* getContextMap()`. Subtrees needing a
- * different context (e.g. `$context`) run in an isolated scope via
+ * different context (e.g. `context`) run in an isolated scope via
  * `runToCompletion(gen, childCtxMap)`.
  */
 
@@ -469,7 +469,7 @@ function* reconcileComponent(
       // comparison uses the fresh deps array reference.
       if (newDeps) prevSlot.props = slotProps;
       if (instance) {
-        // Update providedContexts from $context prop.
+        // Update providedContexts from context prop.
         const entries = contextEntries(allPropsRaw.$context);
         instance.providedContexts.clear();
         for (const entry of entries) {
@@ -492,7 +492,7 @@ function* reconcileComponent(
           instance.capturedCtx = childCtxMap;
           void instance.rerender();
         } else {
-          // Detect $context value changes that need propagation to descendants.
+          // Detect context value changes that need propagation to descendants.
           const { capturedCtx: prevCtx } = instance;
           instance.capturedCtx = childCtxMap;
           for (const entry of entries) {

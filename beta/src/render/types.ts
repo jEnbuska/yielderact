@@ -1,16 +1,9 @@
 import type { Context } from "../context";
-import type {
-  $EFFECT,
-  $ID,
-  $MEMO,
-  $REF,
-  $STABLE,
-  $STATE,
-} from "../hooks/descriptors";
+import type { ContextHookState } from "../hooks/context";
+import type { $EFFECT, $ID, $MEMO, $REF, $STABLE, $STATE } from "../hooks/descriptors";
 import type { DependencyList } from "../hooks/types";
 import type { DelegationRoot } from "./delegation";
 import type { Scheduler } from "./scheduler";
-import {ContextHookState} from "../hooks/context";
 
 // ---------------------------------------------------------------------------
 // Context map — immutable map threaded through the instance tree
@@ -36,6 +29,9 @@ export interface RenderContext {
 export interface StateHookState {
   type: typeof $STATE;
   value: unknown;
+  identifier: symbol;
+  /** Resolve function for the latest setState promise. No-op when no setState is pending. */
+  pendingResolve?: () => void;
 }
 
 export interface RefHookState {
@@ -76,4 +72,3 @@ export type HookState =
   | StableHookState
   | EffectHookState
   | ContextHookState;
-

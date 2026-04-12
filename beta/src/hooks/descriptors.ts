@@ -55,7 +55,7 @@ export interface StableDescriptor {
 
 export interface EffectDescriptor {
   type: typeof $EFFECT;
-  fn: (signal: AbortSignal) => void | Promise<void>
+  fn: (signal: AbortSignal) => void | Promise<void>;
   deps: DependencyList;
 }
 

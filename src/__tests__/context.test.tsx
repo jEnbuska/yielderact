@@ -30,7 +30,7 @@ describe("createContext / useContext", () => {
     expect(container.querySelector("span")?.textContent).toBe("default");
   });
 
-  it("passes a value through $context to a consumer component", () => {
+  it("passes a value through context to a consumer component", () => {
     const Ctx = createContext("default");
 
     function* Consumer() {
@@ -523,8 +523,8 @@ describe("createContext / useContext", () => {
     });
   });
 
-  describe("conditional $context", () => {
-    it("switching between branches with different $context values", () => {
+  describe("conditional context", () => {
+    it("switching between branches with different context values", () => {
       const CtxA = createContext("defaultA");
       const CtxB = createContext("defaultB");
 
@@ -574,7 +574,7 @@ describe("createContext / useContext", () => {
       expect(container.querySelector("span")?.textContent).toBe("A0:B0");
     });
 
-    it("switching $context on a Fragment between branches", () => {
+    it("switching context on a Fragment between branches", () => {
       const Ctx = createContext("default");
 
       function* Consumer() {

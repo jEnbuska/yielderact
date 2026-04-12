@@ -69,8 +69,8 @@ export class Scheduler {
           instance.render();
           rendered.push(instance);
         }
-        for (const instance of rendered) {
-          if (!instance.unmounted) instance.afterRender();
+        for (let i = rendered.length - 1; i >= 0; i--) {
+          rendered[i]?.afterRender();
         }
       }
     } finally {

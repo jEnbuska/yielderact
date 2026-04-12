@@ -1,8 +1,9 @@
-import type {BaseInstance} from "../instances/base-instance";
-import {depsChanged} from "./utils";
-import type {ComponentGenerator} from "./index";
-import {$CONTEXT, ContextDescriptor} from "./descriptors";
-import {Context, ContextHandle} from "../context";
+import type { Context, ContextHandle } from "../context";
+import type { BaseInstance } from "../instances/base-instance";
+import type { ContextDescriptor } from "./descriptors";
+import { $CONTEXT } from "./descriptors";
+import type { ComponentGenerator } from "./index";
+import { depsChanged } from "./utils";
 
 const defaultSelector = (value: unknown): unknown[] => [value];
 
@@ -18,42 +19,42 @@ const defaultSelector = (value: unknown): unknown[] => [value];
  * value is `transform(...deps)` instead of the raw value.
  */
 export function $context<T>(
-    ctx: Context<T>,
-    depsSelector?: (ctx: T) => unknown[],
+  ctx: Context<T>,
+  depsSelector?: (ctx: T) => unknown[],
 ): ComponentGenerator<T>;
 export function $context<T, D extends unknown[], R>(
-    ctx: Context<T>,
-    depsSelector: (ctx: T) => D,
-    transform: (...args: D) => R,
+  ctx: Context<T>,
+  depsSelector: (ctx: T) => D,
+  transform: (...args: D) => R,
 ): ComponentGenerator<R>;
 export function* $context<T, D extends unknown[], R>(
-    ctx: Context<T>,
-    depsSelector: (ctx: T) => D = defaultSelector as (ctx: T) => D,
-    transform?: (...args: D) => R,
+  ctx: Context<T>,
+  depsSelector: (ctx: T) => D = defaultSelector as (ctx: T) => D,
+  transform?: (...args: D) => R,
 ): ComponentGenerator<T | R> {
-    const desc: ContextDescriptor = {
-        type: $CONTEXT,
-        ctx: ctx as Context,
-        depsSelector: depsSelector as ContextDescriptor["depsSelector"],
-        transform: transform as ContextDescriptor["transform"],
-    };
-    const value = yield desc;
-    return value as T | R;
+  const desc: ContextDescriptor = {
+    type: $CONTEXT,
+    ctx: ctx as Context,
+    depsSelector: depsSelector as ContextDescriptor["depsSelector"],
+    transform: transform as ContextDescriptor["transform"],
+  };
+  const value = yield desc;
+  return value as T | R;
 }
 
 export interface ContextHookState {
-    type: typeof $CONTEXT;
-    /** Unique symbol this hook uses when scheduling/unscheduling the instance. */
-    reason: symbol;
-    ctx: Context;
-    depsSelector: (ctx: unknown) => unknown[];
-    transform?: (...args: unknown[]) => unknown;
-    /** Selected deps at the time of the most recent successful render. */
-    lastRenderedDepsSelected: unknown[];
-    /** Selected deps observed by the subscribe callback since the last render. */
-    currentSelected: unknown[];
-    lastTransformResult?: unknown;
-    unsubscribe?: () => void;
+  type: typeof $CONTEXT;
+  /** Unique symbol this hook uses when scheduling/unscheduling the instance. */
+  reason: symbol;
+  ctx: Context;
+  depsSelector: (ctx: unknown) => unknown[];
+  transform?: (...args: unknown[]) => unknown;
+  /** Selected deps at the time of the most recent successful render. */
+  lastRenderedDepsSelected: unknown[];
+  /** Selected deps observed by the subscribe callback since the last render. */
+  currentSelected: unknown[];
+  lastTransformResult?: unknown;
+  unsubscribe?: () => void;
 }
 
 /**
@@ -70,46 +71,46 @@ export interface ContextHookState {
  * refreshes the selector/transform references (they rarely change, but may).
  */
 export function processContext(
-    descriptor: ContextDescriptor,
-    prev: ContextHookState | undefined,
-    instance: BaseInstance,
+  descriptor: ContextDescriptor,
+  prev: ContextHookState | undefined,
+  instance: BaseInstance,
 ): ContextHookState {
-    const selector = (descriptor.depsSelector ?? defaultSelector) as (ctx: unknown) => unknown[];
+  const selector = (descriptor.depsSelector ?? defaultSelector) as (ctx: unknown) => unknown[];
 
-    if (prev) {
-        // Recompute the transform BEFORE snapping the baseline forward —
-        // otherwise `getContextValue`'s cache check `depsChanged(baseline,
-        // currentSelected)` would always see them equal and return the stale
-        // cached result.
-        if (descriptor.transform && depsChanged(prev.lastRenderedDepsSelected, prev.currentSelected)) {
-            prev.lastTransformResult = descriptor.transform(...prev.currentSelected);
-        }
-        prev.lastRenderedDepsSelected = prev.currentSelected;
-        prev.depsSelector = selector;
-        prev.transform = descriptor.transform;
-        return prev;
+  if (prev) {
+    // Recompute the transform BEFORE snapping the baseline forward —
+    // otherwise `getContextValue`'s cache check `depsChanged(baseline,
+    // currentSelected)` would always see them equal and return the stale
+    // cached result.
+    if (descriptor.transform && depsChanged(prev.lastRenderedDepsSelected, prev.currentSelected)) {
+      prev.lastTransformResult = descriptor.transform(...prev.currentSelected);
     }
+    prev.lastRenderedDepsSelected = prev.currentSelected;
+    prev.depsSelector = selector;
+    prev.transform = descriptor.transform;
+    return prev;
+  }
 
-    const state: ContextHookState = {
-        type: $CONTEXT,
-        reason: Symbol("$CONTEXT"),
-        ctx: descriptor.ctx,
-        depsSelector: selector,
-        transform: descriptor.transform,
-        lastRenderedDepsSelected: [],
-        currentSelected: [],
-    };
+  const state: ContextHookState = {
+    type: $CONTEXT,
+    reason: Symbol($CONTEXT),
+    ctx: descriptor.ctx,
+    depsSelector: selector,
+    transform: descriptor.transform,
+    lastRenderedDepsSelected: [],
+    currentSelected: [],
+  };
 
-    const handle = instance.ctx.get(descriptor.ctx) as ContextHandle | undefined;
-    if (!handle) return state;
+  const handle = instance.ctx.get(descriptor.ctx) as ContextHandle | undefined;
+  if (!handle) return state;
 
-    const initial = state.depsSelector(handle.ref.current);
-    state.lastRenderedDepsSelected = initial;
-    state.currentSelected = initial;
-    if (state.transform) {
-        state.lastTransformResult = state.transform(...initial);
-    }
-    return state;
+  const initial = state.depsSelector(handle.ref.current);
+  state.lastRenderedDepsSelected = initial;
+  state.currentSelected = initial;
+  if (state.transform) {
+    state.lastTransformResult = state.transform(...initial);
+  }
+  return state;
 }
 
 /**
@@ -118,10 +119,10 @@ export function processContext(
  * time we reach here it's already up to date for the current `currentSelected`.
  */
 export function getContextValue(state: ContextHookState, instance: BaseInstance): unknown {
-    const handle = instance.ctx.get(state.ctx) as ContextHandle | undefined;
-    if (!handle) return state.ctx.defaultValue;
+  const handle = instance.ctx.get(state.ctx) as ContextHandle | undefined;
+  if (!handle) return state.ctx.defaultValue;
 
-    if (state.transform) return state.lastTransformResult;
+  if (state.transform) return state.lastTransformResult;
 
-    return handle.ref.current;
+  return handle.ref.current;
 }

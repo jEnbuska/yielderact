@@ -19,18 +19,15 @@ export interface VNode<T extends VNodeType = VNodeType> {
   props: VNodeProps;
   children: Child[];
 }
-
 /**
  * Anything that can appear as a child in the virtual DOM.
  *
- * `Child` is recursive: nested arrays of children are valid input. The
- * reconciler does NOT walk arrays directly — `createElement` normalizes
- * each nested array into a Fragment vnode at construction time, so
- * `vnode.children` (post-normalization) only contains non-array `Child`s.
- * Each nested array thus becomes a stable Fragment slot whose own children
- * are reconciled in place across renders.
+ * `Child` is recursive: nested arrays of children are valid input.
+ * The reconciler wraps each nested array into a Fragment slot lazily
+ * at reconciliation time, so each nested array becomes a stable inner
+ * slot whose own children are reconciled in place across renders.
  */
-export type Child = VNode | string | number | boolean | null | undefined | Child[];
+export type Child = VNode | string | number | boolean | null | undefined | Iterable<Child>;
 
 /**
  * Framework props valid on every JSX element. Consumed by the framework
@@ -140,45 +137,11 @@ export function createElement(
     (props as VNodeProps)["$children"] = emptyChildren;
   }
 
-  // Normalize: any nested array becomes a Fragment vnode so its sub-list is
-  // reconciled as a stable inner slot rather than flattened into the parent's
-  // positional layout. Recursive — `createElement(Fragment, ...)` re-enters
-  // this function and processes its own nested arrays.
-  const normalized = wrapArrayChildren(children);
-  // Persist the normalized list on $children too, so a component generator
-  // reading `props.$children` sees the same shape the reconciler will see.
-  (props as VNodeProps)["$children"] = normalized;
-
   return {
     type,
     props: props as VNodeProps,
-    children: normalized,
+    children,
   };
-}
-
-/**
- * Walk a flat positional-children list and wrap any array elements as
- * Fragment vnodes. Returns the original list when there are no nested
- * arrays (avoids the allocation in the common case).
- */
-function wrapArrayChildren(children: Child[]): Child[] {
-  let needsWrap = false;
-  for (const c of children) {
-    if (Array.isArray(c)) {
-      needsWrap = true;
-      break;
-    }
-  }
-  if (!needsWrap) return children;
-  const result: Child[] = [];
-  for (const c of children) {
-    if (Array.isArray(c)) {
-      result.push(createElement(Fragment, null, ...(c as Child[])));
-    } else {
-      result.push(c);
-    }
-  }
-  return result;
 }
 
 declare global {

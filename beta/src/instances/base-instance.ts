@@ -16,19 +16,20 @@
  * Cleanup is split into small helpers so `unmount()` reads as a sequence of
  * responsibilities rather than one long block.
  */
-import { $CONTEXT, $EFFECT } from "../hooks/descriptors";
+
+import type { ContextHandle } from "../context";
+import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import type { ComponentGenerator } from "../hooks/types";
 import { depsChanged } from "../hooks/utils";
-import type { Child, VNode, VNodeProps } from "../jsx";
-import { shallowEqual } from "../prop-helpers";
-import type { Slot } from "../render/slots";
-import type { ContextHandle } from "../context";
+import type { Child, VNode, VNodeProps, VNodeType } from "../jsx";
+import { propsWithChildren, shallowEqual } from "../prop-helpers";
+import type { Slot, SlotKey } from "../render/slots";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
 
 const DEFAULT_SCHEDULE_REASON = Symbol("default");
 
-export abstract class BaseInstance {
-  readonly vnode: VNode;
+export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
+  readonly vnode: VNode<TVNodeType>;
   readonly index: number;
   readonly path: readonly number[];
   readonly parent: BaseInstance | null;
@@ -41,6 +42,7 @@ export abstract class BaseInstance {
   readonly rctx: RenderContext;
   readonly children: BaseInstance[] = [];
   slots: Slot[] = [];
+  keyIndex: Map<SlotKey, number> = new Map();
   hookStates: HookState[] = [];
   props: VNodeProps;
   pendingProps: VNodeProps | null = null;
@@ -56,10 +58,10 @@ export abstract class BaseInstance {
    * The reconciler moves/inserts/removes the instance by walking this range.
    */
   readonly startAnchor: Comment;
-  readonly endAnchor: Comment;
+  readonly endAnchor: Comment = document.createComment("/");
 
   constructor(
-    vnode: VNode,
+    vnode: VNode<TVNodeType>,
     ctx: ContextMap,
     index: number,
     parent: BaseInstance | null,
@@ -70,16 +72,12 @@ export abstract class BaseInstance {
     this.parent = parent;
     this.ctx = ctx;
     this.rctx = rctx;
-    // Merge positional children into `$children` so the generator body sees
-    // them via props. The reconciler's `setProps` path does the same via
-    // `propsWithChildren(vnode)`.
-    this.props =
-      vnode.children.length > 0
-        ? { ...vnode.props, $children: vnode.children }
-        : vnode.props;
+    // Strip framework directives ($key, $shown) and merge positional children
+    // into $children. Uses the same `propsWithChildren` that the reconciler's
+    // `setProps` path uses, so initial and updated props have the same shape.
+    this.props = propsWithChildren(vnode);
     this.path = parent ? [...parent.path, index] : [index];
     this.startAnchor = document.createComment(this.debugLabel());
-    this.endAnchor = document.createComment("/");
     if (parent) parent.children.push(this);
   }
 
@@ -147,10 +145,18 @@ export abstract class BaseInstance {
    * DOM commit.
    */
   afterRender(): void {
-    if (this.unmounted) return;
+    if (this.unmounted) {
+      this.runHookCleanupsLeafFirst();
+      return;
+    }
+    // Clean up any children unmounted during this render — leaf-first.
+    this.cleanupUnmountedChildren();
     for (const state of this.hookStates) {
       if (state === undefined) continue;
-      if (state.type === $EFFECT) {
+      if (state.type === $STATE) {
+        state.pendingResolve?.();
+        state.pendingResolve = undefined;
+      } else if (state.type === $EFFECT) {
         if (!state.controller) {
           // First run.
           const controller = new AbortController();
@@ -183,21 +189,16 @@ export abstract class BaseInstance {
   }
 
   /**
-   * Tear down this instance and its subtree. Does NOT touch the DOM —
-   * the reconciler is responsible for removing nodes. Responsibilities:
-   *
-   *  1. Mark unmounted so no new renders happen
-   *  2. Cascade into child instances (leaf-up)
-   *  3. Walk `hookStates` to abort effect controllers and unsubscribe
-   *     from context handles
-   *  4. Drop this instance from its parent's child list
+   * Mark this instance and its entire subtree as unmounted. Does NOT
+   * touch the DOM or run hook cleanups — the reconciler handles DOM
+   * removal, and `afterRender` on the parent cleans up hooks leaf-first.
    */
   unmount(): void {
     if (this.unmounted) return;
     this.unmounted = true;
-    this.cascadeUnmountToChildren();
-    this.runHookCleanups();
-    this.detachFromParent();
+    for (const child of this.children) {
+      child.unmount();
+    }
   }
 
   // ── Protected helpers ─────────────────────────────────────────────────
@@ -211,14 +212,29 @@ export abstract class BaseInstance {
 
   // ── Private helpers ───────────────────────────────────────────────────
 
-  private cascadeUnmountToChildren(): void {
-    for (const child of this.children.slice()) {
-      child.unmount();
+  /**
+   * Walk children and clean up any that were unmounted during this
+   * render. Recurses leaf-first so the deepest descendants abort their
+   * effects and unsubscribe from contexts before their ancestors.
+   * Unmounted children are removed from the `children` list afterward.
+   */
+  private cleanupUnmountedChildren(): void {
+    for (let i = this.children.length - 1; i >= 0; i--) {
+      const child = this.children[i];
+      if (!child?.unmounted) continue;
+      child.runHookCleanupsLeafFirst();
+      this.children.splice(i, 1);
     }
-    this.children.length = 0;
   }
 
-  private runHookCleanups(): void {
+  /**
+   * Abort effect controllers and unsubscribe from context handles,
+   * recursing into children first so cleanup runs leaf-up.
+   */
+  private runHookCleanupsLeafFirst(): void {
+    for (const child of this.children) {
+      child.runHookCleanupsLeafFirst();
+    }
     for (const state of this.hookStates) {
       if (state === undefined) continue;
       if (state.type === $EFFECT) {
@@ -227,11 +243,5 @@ export abstract class BaseInstance {
         state.unsubscribe?.();
       }
     }
-  }
-
-  private detachFromParent(): void {
-    if (!this.parent) return;
-    const i = this.parent.children.indexOf(this);
-    if (i >= 0) this.parent.children.splice(i, 1);
   }
 }

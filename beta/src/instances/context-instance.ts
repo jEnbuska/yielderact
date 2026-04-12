@@ -14,17 +14,17 @@
  */
 import { type Context, type ContextHandle, isContext } from "../context";
 import type { Child, VNode } from "../jsx";
-import { reconcileChildren } from "../render/reconciler";
+import { type AnyCallbackResult, applyCallbacks, reconcile } from "../render/reconciler";
 import type { ContextMap, RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
 
-export class ContextInstance extends BaseInstance {
+export class ContextInstance extends BaseInstance<Context> {
   readonly contextKey: Context;
   readonly handle: ContextHandle;
   private subscribers!: Set<() => void>;
 
   constructor(
-    vnode: VNode,
+    vnode: VNode<Context>,
     parentCtx: ContextMap,
     index: number,
     parent: BaseInstance | null,
@@ -73,7 +73,17 @@ export class ContextInstance extends BaseInstance {
       throw new Error("yract-beta: ContextInstance rendered with detached startAnchor");
     }
 
-    this.slots = reconcileChildren(this, parentDom, this.slots, children, this.endAnchor);
+    const gen = reconcile(children, this, parentDom, this.endAnchor, this.slots, this.keyIndex);
+    const callbacks: AnyCallbackResult[] = [];
+    let result = gen.next();
+    while (!result.done) {
+      callbacks.push(result.value);
+      result = gen.next();
+    }
+    const { slots, keyIndex } = result.value;
+    this.slots = slots;
+    this.keyIndex = keyIndex;
+    applyCallbacks(callbacks);
   }
 
   private notifySubscribers(): void {

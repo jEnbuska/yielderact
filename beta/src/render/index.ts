@@ -6,11 +6,12 @@
  * VNodes into it. `render(vnode, container)` is a one-shot convenience
  * wrapper that creates a Root, mounts `vnode`, and returns the Root.
  */
-import { dispatchDelegatedEvent } from "./dispatch";
-import { DelegationRoot } from "./delegation";
+
 import { RootInstance } from "../instances/root-instance";
 import type { VNode } from "../jsx";
-import { reconcileChildren, unmountSlot } from "./reconciler";
+import { DelegationRoot } from "./delegation";
+import { dispatchDelegatedEvent } from "./dispatch";
+import { type AnyCallbackResult, applyCallbacks, reconcile, unmountSlot } from "./reconciler";
 import { Scheduler } from "./scheduler";
 import type { RenderContext } from "./types";
 
@@ -39,13 +40,24 @@ export class Root {
   render(vnode: VNode): void {
     this.scheduler.beginBatch();
     try {
-      this.rootInstance.slots = reconcileChildren(
+      const gen = reconcile(
+        [vnode],
         this.rootInstance,
         this.container,
-        this.rootInstance.slots,
-        [vnode],
         null,
+        this.rootInstance.slots,
+        this.rootInstance.keyIndex,
       );
+      const callbacks: AnyCallbackResult[] = [];
+      let result = gen.next();
+      while (!result.done) {
+        callbacks.push(result.value);
+        result = gen.next();
+      }
+      const { slots, keyIndex } = result.value;
+      this.rootInstance.slots = slots;
+      this.rootInstance.keyIndex = keyIndex;
+      applyCallbacks(callbacks);
     } finally {
       this.scheduler.endBatch();
     }

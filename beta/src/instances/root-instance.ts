@@ -7,13 +7,14 @@
  * no-op: the root is driven by `Root.render(vnode)` which calls
  * `reconcileChildren` directly.
  */
+
 import { Fragment, type VNode } from "../jsx";
 import type { RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
 
-const ROOT_VNODE: VNode = { type: Fragment, props: {}, children: [] };
+const ROOT_VNODE: VNode<typeof Fragment> = { type: Fragment, props: {}, children: [] };
 
-export class RootInstance extends BaseInstance {
+export class RootInstance extends BaseInstance<typeof Fragment> {
   constructor(rctx: RenderContext) {
     super(ROOT_VNODE, new Map(), 0, null, rctx);
   }

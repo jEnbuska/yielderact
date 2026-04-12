@@ -1,5 +1,5 @@
-import type {ComponentGenerator} from "./hooks/types";
-import type {Child, PropsWithChildren} from "./jsx";
+import type { ComponentGenerator } from "./hooks/types";
+import type { Child, PropsWithChildren } from "./jsx";
 
 export const ContextSymbol: unique symbol = Symbol("Context");
 
@@ -30,8 +30,7 @@ export interface Context<T = any> {
 
 export function isContext(value: unknown): value is Context {
   return (
-    typeof value === "function" &&
-    (value as { [ContextSymbol]?: true })[ContextSymbol] === true
+    typeof value === "function" && (value as { [ContextSymbol]?: true })[ContextSymbol] === true
   );
 }
 
@@ -44,7 +43,7 @@ export function isContext(value: unknown): value is Context {
  * directly based on the `ContextSymbol` marker.
  */
 export function createContext<T>(defaultValue: T): Context<T> {
-  const placeholder = function* (_props: ContextProviderProps<T>): ComponentGenerator<Child> {
+  const placeholder = function* (_: ContextProviderProps<T>): ComponentGenerator<Child> {
     return null;
   };
   return Object.assign(placeholder, {
@@ -71,10 +70,7 @@ export interface ContextHandle<T = unknown> {
 /**
  * Look up the live value for `ctx`, falling back to its `defaultValue`.
  */
-export function resolveCtx<T>(
-  map: ReadonlyMap<Context, unknown>,
-  ctx: Context<T>,
-): T {
+export function resolveCtx<T>(map: ReadonlyMap<Context, unknown>, ctx: Context<T>): T {
   const handle = map.get(ctx) as ContextHandle<T> | undefined;
   return handle ? handle.ref.current : ctx.defaultValue;
 }
@@ -87,4 +83,3 @@ export function resolveCtx<T>(
 // context hook state — uses reason-symbol scheduling to coalesce/cancel
 // multiple context subscriptions on the same instance.
 // ---------------------------------------------------------------------------
-

@@ -7,24 +7,11 @@
  * existing slot tree between `startAnchor` and `endAnchor`.
  */
 import { isHookDescriptor, processOneDescriptor } from "../hooks/utils";
-import type { Child, VNodeProps } from "../jsx";
-import { reconcileChildren } from "../render/reconciler";
+import type { Child, Component } from "../jsx";
+import { type AnyCallbackResult, applyCallbacks, reconcile } from "../render/reconciler";
 import { BaseInstance } from "./base-instance";
 
-/**
- * Strip framework-only props (`$key`, `$shown`) before passing to the
- * component generator. These are consumed by the framework (reconciler /
- * conditional mount) and components do not see them in their `props`
- * argument. Returns the original object when neither prop is present, to
- * avoid an allocation in the common case.
- */
-function stripFrameworkProps(props: VNodeProps): VNodeProps {
-  if (!("$key" in props) && !("$shown" in props)) return props;
-  const { $key: _k, $shown: _s, ...rest } = props;
-  return rest as VNodeProps;
-}
-
-export class ComponentInstance extends BaseInstance {
+export class ComponentInstance extends BaseInstance<Component> {
   protected doRender(): void {
     this.applyPendingProps();
 
@@ -35,35 +22,33 @@ export class ComponentInstance extends BaseInstance {
       );
     }
 
-    const output = this.runGenerator(fn as (p: unknown) => Generator<unknown, Child, unknown>);
+    const output = this.runGenerator(fn(this.props));
 
     const parentDom = this.startAnchor.parentNode;
     if (!parentDom) {
       throw new Error("yract-beta: ComponentInstance rendered with detached startAnchor");
     }
 
-    this.slots = reconcileChildren(
-      this,
-      parentDom,
-      this.slots,
-      [output],
-      this.endAnchor,
-    );
+    const gen = reconcile([output], this, parentDom, this.endAnchor, this.slots, this.keyIndex);
+    const callbacks: AnyCallbackResult[] = [];
+    let result = gen.next();
+    while (!result.done) {
+      callbacks.push(result.value);
+      result = gen.next();
+    }
+    const { slots, keyIndex } = result.value;
+    this.slots = slots;
+    this.keyIndex = keyIndex;
+    applyCallbacks(callbacks);
   }
 
-  private runGenerator(fn: (props: unknown) => Generator<unknown, Child, unknown>): Child {
-    const rerender = (): Promise<void> => {
-      this.scheduleRender();
-      return Promise.resolve();
-    };
-
-    const gen = fn(stripFrameworkProps(this.props));
+  private runGenerator(gen: Generator<unknown, Child, unknown>): Child {
     let hookIndex = 0;
     let step = gen.next();
     while (!step.done) {
       const value = step.value;
       if (isHookDescriptor(value)) {
-        const result = processOneDescriptor(value, hookIndex, this, rerender);
+        const result = processOneDescriptor(value, hookIndex, this);
         hookIndex++;
         step = gen.next(result);
         continue;

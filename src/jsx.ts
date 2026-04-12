@@ -55,8 +55,8 @@ export interface FrameworkProps {
    *
    * @example
    * const ThemeCtx = createContext<'light' | 'dark'>('light');
-   * <Child $context={ThemeCtx('dark')} />
-   * <div $context={[ThemeCtx('dark'), LocaleCtx('fi')]}>...</div>
+   * <Child context={ThemeCtx('dark')} />
+   * <div context={[ThemeCtx('dark'), LocaleCtx('fi')]}>...</div>
    */
   $context?: ContextEntry | ContextEntry[];
 }
@@ -136,7 +136,7 @@ export const RawFragment: unique symbol = Symbol("RawFragment");
  * Fragment component — use instead of a wrapper element when you need to
  * return multiple children.
  *
- * Framework directives (`$context`, `$deferred`) placed on a Fragment
+ * Framework directives (`context`, `$deferred`) placed on a Fragment
  * work correctly because Fragment is a real component that participates
  * in the normal lifecycle (mount, reconcile, propagate).
  *
@@ -160,7 +160,7 @@ export function* Fragment(props: InternalProps): ComponentGenerator<Child> {
  *
  * Portal VNodes render their children into an arbitrary DOM container
  * outside the render root, while maintaining component-tree context
- * (`$context`, `$deferred`).
+ * (`context`, `$deferred`).
  */
 export const Portal: unique symbol = Symbol("Portal");
 
@@ -259,7 +259,7 @@ declare global {
      * declared in the component's own props type.
      *
      * Only framework-level props (`key`, `$shown`, `$deferred`,
-     * `$deps`, `$context`) are universally available. `children` and `ref` must be
+     * `$deps`, `context`) are universally available. `children` and `ref` must be
      * explicitly declared in a component's props type to be accepted.
      */
     interface IntrinsicAttributes extends FrameworkProps {}
