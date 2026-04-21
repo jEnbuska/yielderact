@@ -6,11 +6,12 @@
  * against new VNodes.
  */
 
-import type { ComponentInstance } from "../instances/component-instance";
-import type { ContextInstance } from "../instances/context-instance";
-import type { VNodeProps } from "../jsx";
+import type { Component, VNodeProps } from "../jsx";
 import type { DelegationRoot } from "./delegation";
-import { applyProps } from "./element-props";
+import type { RefLike } from "./element-props";
+import { applyElementProps } from "./element-props";
+import type { BaseInstance } from "../instances/base-instance";
+import type { Context } from "yract-beta";
 
 export type SlotKey = string | number;
 export type SlotPath = ReadonlyArray<SlotKey>;
@@ -46,6 +47,13 @@ export interface EmptySlot {
   index: number;
   node: Text;
   type: EmptySlotType;
+  /**
+   * Path to this slot in the render tree, as an array of `SlotKey`
+   * (`key` when the child VNode has one, falling back to the positional
+   * index). Computed by the reconciler on build / update and stable across
+   * renders as long as `key` / index don't change.
+   */
+  slotPath: SlotPath;
 }
 
 export interface TextSlot extends Omit<EmptySlot, "type"> {
@@ -66,7 +74,7 @@ export interface ElementSlot extends Omit<TextSlot, "type" | "props" | "node"> {
    * VNode has the same type and `shallowEqual(prevSlot.props, newProps)`,
    * the component is skipped (no rerender).
    */
-  props: VNodeProps;
+  props: VNodeProps & { ref?: RefLike };
   type: ElementSlotType;
   element: string;
 }
@@ -77,28 +85,23 @@ export interface FragmentSlot extends Omit<ElementSlot, "type" | "element" | "no
   props: VNodeProps;
   /** End-of-range marker so the reconciler can move/remove the fragment as a unit. */
   endAnchor: Node;
+  keyIndex?: Map<SlotKey, number>;
 }
 
 export interface ComponentSlot extends Omit<ElementSlot, "type" | "element" | "node"> {
   node: Comment;
-  instance: ComponentInstance;
+  instance: BaseInstance<Component>;
   type: ComponentSlotType;
+  keyIndex?: Map<SlotKey, number>;
 }
 
 export interface ContextSlot extends Omit<ElementSlot, "type" | "element" | "props" | "node"> {
   node: Comment;
-  instance: ContextInstance;
+  instance: BaseInstance<Context>;
   props: VNodeProps;
   type: ContextSlotType;
+  keyIndex?: Map<SlotKey, number>;
 }
-
-export type SlotType =
-  | EmptySlotType
-  | TextSlotType
-  | ElementSlotType
-  | FragmentSlotType
-  | ComponentSlotType
-  | ContextSlotType;
 
 export type Slot = EmptySlot | TextSlot | ElementSlot | FragmentSlot | ComponentSlot | ContextSlot;
 
@@ -134,13 +137,6 @@ export function isContextSlot(slot: Slot): slot is ContextSlot {
 // Key helpers
 // ---------------------------------------------------------------------------
 
-export function findSlot(slots: Slot[], key: SlotKey): Slot | undefined {
-  for (const slot of slots) {
-    if (getSlotKey(slot) === key) return slot;
-  }
-  return undefined;
-}
-
 export function getSlotKey(slot: Slot): SlotKey {
   if (slot.type === emptySlotType || slot.type === textSlotType) return slot.index;
   return slot.key;
@@ -150,15 +146,15 @@ export function getSlotKey(slot: Slot): SlotKey {
 // Slot constructors
 // ---------------------------------------------------------------------------
 
-export function createEmptySlot(index: number): EmptySlot {
+export function createEmptySlot(index: number, slotPath: SlotPath): EmptySlot {
   const node = document.createTextNode("");
-  return { type: emptySlotType, node, index };
+  return { type: emptySlotType, node, index, slotPath };
 }
 
-export function createTextSlot(index: number, text: string | number): TextSlot {
+export function createTextSlot(index: number, text: string | number, slotPath: SlotPath): TextSlot {
   const props = String(text);
   const node = document.createTextNode(props);
-  return { type: textSlotType, node, props, index };
+  return { type: textSlotType, node, props, index, slotPath };
 }
 
 export function createElementSlot(
@@ -166,10 +162,11 @@ export function createElementSlot(
   tag: string,
   props: VNodeProps,
   delegationRoot: DelegationRoot,
+  slotPath: SlotPath,
 ): ElementSlot {
   const el = document.createElement(tag);
-  applyProps(el, props, delegationRoot);
-  const key: SlotKey = props.$key ?? index;
+  applyElementProps(el, props, delegationRoot);
+  const key: SlotKey = props.key ?? index;
   return {
     type: elementSlotType,
     node: el,
@@ -178,16 +175,21 @@ export function createElementSlot(
     key,
     index,
     element: tag,
+    slotPath,
   };
 }
 
-export function createFragmentSlot(index: number, props: VNodeProps): FragmentSlot {
+export function createFragmentSlot(
+  index: number,
+  props: VNodeProps,
+  slotPath: SlotPath,
+): FragmentSlot {
   // Fragments use a start/end comment pair so the reconciler can relocate
   // them as a unit. DocumentFragment isn't appropriate here because it
   // becomes empty as soon as it's appended to its parent.
   const node = document.createComment("fragment");
   const endAnchor = document.createComment("/fragment");
-  const key: SlotKey = props.$key ?? index;
+  const key: SlotKey = props.key ?? index;
   return {
     type: fragmentSlotType,
     node,
@@ -196,5 +198,6 @@ export function createFragmentSlot(index: number, props: VNodeProps): FragmentSl
     index,
     key,
     slots: [],
+    slotPath,
   };
 }

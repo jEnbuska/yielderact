@@ -32,17 +32,18 @@ function* Timer() {
 function* LifecycleLog({ id }: { id: number }) {
   const [log, setLog] = yield* $state<string[]>([]);
 
-  yield* $effect((signal) => {
-    setLog((prev) => [...prev, `▶ effect for id=${id}`]);
-    signal.addEventListener("abort", () =>
-      setLog((prev) => [...prev, `■ aborted for id=${id}`]),
-    );
-  }, [id]);
+  yield* $effect(
+    (signal) => {
+      setLog((prev) => [...prev, `▶ effect for id=${id}`]);
+      signal.addEventListener("abort", () => setLog((prev) => [...prev, `■ aborted for id=${id}`]));
+    },
+    [id],
+  );
 
   return (
     <ul data-testid="lifecycle-log" style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
       {log.map((entry, i) => (
-        <li $key={String(i)}>{entry}</li>
+        <li key={String(i)}>{entry}</li>
       ))}
     </ul>
   );
@@ -60,8 +61,8 @@ export function* EffectDemo() {
 
       <h3>1. Interval timer (effect with cleanup)</h3>
       <p>
-        The timer starts an <code>setInterval</code> in a <code>$effect</code> with{" "}
-        <code>[]</code> deps. The interval is cleared when the component unmounts.
+        The timer starts an <code>setInterval</code> in a <code>$effect</code> with <code>[]</code>{" "}
+        deps. The interval is cleared when the component unmounts.
       </p>
       <label
         style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}
@@ -69,7 +70,7 @@ export function* EffectDemo() {
         <input type="checkbox" checked={showTimer} onChange={() => setShowTimer((v) => !v)} />
         Show timer
       </label>
-      <Timer $shown={showTimer} />
+      <Timer shown={showTimer} />
 
       <hr style={{ margin: "1.5rem 0" }} />
 
@@ -81,7 +82,7 @@ export function* EffectDemo() {
       <div style={{ display: "flex", gap: "0.5rem", marginBottom: "0.75rem" }}>
         {[1, 2, 3].map((n) => (
           <button
-            $key={String(n)}
+            key={String(n)}
             data-testid={`id-btn-${n}`}
             onClick={() => setLogId(n)}
             style={{ fontWeight: logId === n ? "bold" : "normal" }}

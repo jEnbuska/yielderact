@@ -21,7 +21,6 @@ export interface ContextProviderProps<T = unknown> extends PropsWithChildren {
  * <ThemeCtx value="dark">{kids}</ThemeCtx>
  * ```
  */
-// biome-ignore lint/suspicious/noExplicitAny: Contravariant default so Set<Context> accepts mixed T.
 export interface Context<T = any> {
   (props: ContextProviderProps<T>): ComponentGenerator<Child>;
   readonly defaultValue: T;
@@ -43,10 +42,10 @@ export function isContext(value: unknown): value is Context {
  * directly based on the `ContextSymbol` marker.
  */
 export function createContext<T>(defaultValue: T): Context<T> {
-  const placeholder = function* (_: ContextProviderProps<T>): ComponentGenerator<Child> {
+  const Context = function* (_: ContextProviderProps<T>): ComponentGenerator<Child> {
     return null;
   };
-  return Object.assign(placeholder, {
+  return Object.assign(Context, {
     defaultValue,
     [ContextSymbol]: true,
   }) as unknown as Context<T>;
@@ -70,9 +69,13 @@ export interface ContextHandle<T = unknown> {
 /**
  * Look up the live value for `ctx`, falling back to its `defaultValue`.
  */
-export function resolveCtx<T>(map: ReadonlyMap<Context, unknown>, ctx: Context<T>): T {
-  const handle = map.get(ctx) as ContextHandle<T> | undefined;
-  return handle ? handle.ref.current : ctx.defaultValue;
+export function resolveCtxValue<T>(
+  map: ReadonlyMap<Context, unknown> | undefined,
+  ctx: Context<T>,
+): T {
+  const handle = map?.get(ctx) as ContextHandle<T> | undefined;
+  if (!handle) return ctx.defaultValue;
+  return handle.ref.current;
 }
 
 // ---------------------------------------------------------------------------

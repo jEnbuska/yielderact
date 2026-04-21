@@ -7,9 +7,9 @@
  * instances extend it with their own handle before calling `super`.
  *
  * Render scheduling is reason-based: callers pass an optional `reason`
- * symbol to `scheduleRender`. The instance only actually leaves the
+ * symbol to `scheduleApply`. The instance only actually leaves the
  * scheduler queue when all of its render reasons have been cleared — either
- * by `unscheduleRender(reason)` (e.g. a context subscriber deciding the
+ * by `unscheduleApply(reason)` (e.g. a context subscriber deciding the
  * change was irrelevant) or by the render actually executing. The scheduler
  * itself doesn't know about reasons; it just sees `schedule` / `unschedule`.
  *
@@ -17,22 +17,33 @@
  * responsibilities rather than one long block.
  */
 
-import type { ContextHandle } from "../context";
+import type { Context, ContextHandle } from "../context";
+import { resolveCtxValue } from "../context";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
-import type { ComponentGenerator } from "../hooks/types";
+import type { DependencyList } from "../hooks/types";
 import { depsChanged } from "../hooks/utils";
-import type { Child, VNode, VNodeProps, VNodeType } from "../jsx";
+import type { VNode, VNodeProps, VNodeType } from "../jsx";
 import { propsWithChildren, shallowEqual } from "../prop-helpers";
+import { removeRange, unmountSlot } from "../reconciler/unmount";
 import type { Slot, SlotKey } from "../render/slots";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
-
-const DEFAULT_SCHEDULE_REASON = Symbol("default");
+import type {
+  ComponentChange,
+  DomResult,
+  OptionalUpdateResult,
+  ReconcileResult,
+} from "../reconciler/types";
+import { PROPS_REASON } from "../render-reasons";
+import { Deferred } from "./deferred-context";
 
 export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
+  readonly contextKey?: Context;
   readonly vnode: VNode<TVNodeType>;
   readonly index: number;
   readonly path: readonly number[];
   readonly parent: BaseInstance | null;
+  readonly parentDom: Node;
+  protected pendingDomUpdates: Iterable<DomResult> = [];
   /**
    * ContextMap this instance exposes to its children and reads for its own
    * `context` hooks. ComponentInstance keeps the parent map unchanged;
@@ -40,71 +51,96 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    */
   readonly ctx: ContextMap;
   readonly rctx: RenderContext;
-  readonly children: BaseInstance[] = [];
+  readonly children: Map<string, BaseInstance> = new Map();
+  readonly keysByInstance: Map<BaseInstance, string> = new Map();
+  readonly unmountedChildren: Set<BaseInstance> = new Set();
   slots: Slot[] = [];
+  pendingSlots: Slot[] = [];
   keyIndex: Map<SlotKey, number> = new Map();
+  pendingKeyIndex: Map<SlotKey, number> = new Map();
   hookStates: HookState[] = [];
-  props: VNodeProps;
-  pendingProps: VNodeProps | null = null;
-  gen: ComponentGenerator<Child> | null = null;
-  unmounted = false;
+  props?: VNodeProps;
+  nextProps: VNodeProps;
+  committedProps: VNodeProps;
+
+  protected _unmounted = false;
 
   /** Active schedule reasons. Empty Set ⇒ instance is not in the queue. */
-  readonly renderReasons: Set<symbol> = new Set();
+  protected renderReasons: Set<symbol> = new Set();
 
   /**
    * DOM anchor pair delimiting this instance's subtree. Everything between
    * `startAnchor.nextSibling` and `endAnchor` belongs to this instance.
    * The reconciler moves/inserts/removes the instance by walking this range.
    */
-  readonly startAnchor: Comment;
+  startAnchor: Comment;
   readonly endAnchor: Comment = document.createComment("/");
 
+  /**
+   * Dependency array for reconciliation memoization, set from the `deps`
+   * framework prop.
+   *
+   * When present, replaces the default `shallowEqual` props check in
+   * `setProps` with a `depsChanged()` comparison — the same mechanism
+   * used by hooks. The component only rerenders when at least one element
+   * in the array changes (via `Object.is`).
+   *
+   * Useful when a parent passes new object references but the component
+   * only cares about a subset of values:
+   *
+   * ```tsx
+   * <Expensive deps={[items.length, filter]} data={items} filter={filter} />
+   * ```
+   */
+  deps?: DependencyList | undefined;
+
+  get [Symbol.toStringTag]() {
+    return this.debugLabel();
+  }
+
+  childId: string;
+
   constructor(
+    childId: string,
     vnode: VNode<TVNodeType>,
     ctx: ContextMap,
     index: number,
     parent: BaseInstance | null,
     rctx: RenderContext,
+    parentDom: Node,
   ) {
+    this.childId = childId;
     this.vnode = vnode;
     this.index = index;
     this.parent = parent;
     this.ctx = ctx;
+    this.parentDom = parentDom;
     this.rctx = rctx;
-    // Strip framework directives ($key, $shown) and merge positional children
-    // into $children. Uses the same `propsWithChildren` that the reconciler's
+    // Strip framework directives (key, shown) and merge positional children
+    // into children. Uses the same `propsWithChildren` that the reconciler's
     // `setProps` path uses, so initial and updated props have the same shape.
-    this.props = propsWithChildren(vnode);
+    this.committedProps = this.nextProps = propsWithChildren(vnode);
+    this.deps = vnode.props.deps;
     this.path = parent ? [...parent.path, index] : [index];
     this.startAnchor = document.createComment(this.debugLabel());
-    if (parent) parent.children.push(this);
   }
-
   debugLabel(): string {
     const { type } = this.vnode;
     if (typeof type === "string") return `<${type}>`;
-    if (typeof type === "function") return `<${type.name || "Component"}>`;
+    else if (typeof type === "function") return `<${type.name || "Component"}>`;
     return "<?>";
   }
 
-  // ── Public lifecycle ──────────────────────────────────────────────────
-
-  /** Feed new props into this instance. No-op if shallow-equal (lazy). */
-  setProps(next: VNodeProps): void {
-    if (this.unmounted) return;
-    if (shallowEqual(this.props, next)) return;
-    this.pendingProps = next;
-    this.scheduleRender();
+  isDeferred() {
+    return resolveCtxValue(this.ctx, Deferred);
   }
 
-  /**
+  /**xt
    * Enqueue a render under the given reason. If no reason is passed a
    * default symbol is used — callers that want per-source bookkeeping
    * (e.g. context subscribers) should pass their own reason.
    */
-  scheduleRender(reason: symbol = DEFAULT_SCHEDULE_REASON): void {
-    if (this.unmounted) return;
+  scheduleApply(reason: symbol = PROPS_REASON): void {
     this.renderReasons.add(reason);
     this.rctx.scheduler.schedule(this);
   }
@@ -114,7 +150,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    * from the scheduler queue. Used by context subscribers that decided
    * the value change was not relevant to their selector.
    */
-  unscheduleRender(reason: symbol): void {
+  unscheduleApply(reason = PROPS_REASON): void {
     if (!this.renderReasons.delete(reason)) return;
     if (this.renderReasons.size === 0) {
       this.rctx.scheduler.unschedule(this);
@@ -127,30 +163,55 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    * update their context handle. Reasons are cleared once `doRender()`
    * returns so a subsequent scheduling round starts from a clean slate.
    */
-  render(): void {
-    if (this.unmounted) return;
-    try {
-      this.doRender();
-    } finally {
-      this.renderReasons.clear();
-    }
+  *apply(): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
+    if (this.isUnmounted()) return { slots: [], keyIndex: new Map() };
+    return yield* this.render(this.nextProps);
   }
 
-  protected abstract doRender(): void;
+  commitApply(result: ReconcileResult & { domUpdates: DomResult[] }): void {
+    this.renderReasons.clear();
+    const { slots, keyIndex, domUpdates } = result;
+    this.props = this.nextProps;
+    this.pendingSlots = slots;
+    this.pendingKeyIndex = keyIndex;
+    this.pendingDomUpdates = domUpdates;
+  }
 
-  /**
-   * Post-render hook pass — walks `hookStates` and runs any side effects
-   * deferred during render: starting/restarting effects, and setting up
-   * context subscriptions on first run. Called by the scheduler after the
-   * DOM commit.
-   */
-  afterRender(): void {
-    if (this.unmounted) {
-      this.runHookCleanupsLeafFirst();
+  protected abstract render(
+    props: Record<string, unknown>,
+  ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance>;
+
+  applyDomUpdates(): void {
+    if (this.isUnmounted()) {
+      this.pendingDomUpdates = [];
       return;
     }
-    // Clean up any children unmounted during this render — leaf-first.
-    this.cleanupUnmountedChildren();
+    for (const update of this.pendingDomUpdates) {
+      update.callback();
+    }
+    this.pendingDomUpdates = [];
+  }
+
+  handleBatch = async <T>(callback: () => T): Promise<T> => {
+    try {
+      this.rctx.scheduler.beginBatch();
+      return await callback();
+    } finally {
+      this.rctx.scheduler.endBatch();
+    }
+  };
+
+  afterAllApplied(): void {
+    if (this.isUnmounted()) return;
+    this.slots = this.pendingSlots;
+    this.keyIndex = this.pendingKeyIndex;
+    this.committedProps = this.props!;
+    for (const child of this.unmountedChildren) {
+      child.runHookCleanupsLeafFirst();
+      this.children.delete(child.childId);
+      this.keysByInstance.delete(child);
+      this.unmountedChildren.delete(child);
+    }
     for (const state of this.hookStates) {
       if (state === undefined) continue;
       if (state.type === $STATE) {
@@ -175,64 +236,63 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         const handle = this.ctx.get(state.ctx) as ContextHandle | undefined;
         if (!handle) continue;
         state.unsubscribe = handle.subscribe(() => {
-          if (this.unmounted) return;
+          if (this.isUnmounted()) return;
           const current = state.depsSelector(handle.ref.current);
           state.currentSelected = current;
           if (!depsChanged(state.lastRenderedDepsSelected, current)) {
-            this.unscheduleRender(state.reason);
+            this.unscheduleApply(state.reason);
             return;
           }
-          this.scheduleRender(state.reason);
+          this.scheduleApply(state.reason);
         });
       }
     }
   }
 
-  /**
-   * Mark this instance and its entire subtree as unmounted. Does NOT
-   * touch the DOM or run hook cleanups — the reconciler handles DOM
-   * removal, and `afterRender` on the parent cleans up hooks leaf-first.
-   */
-  unmount(): void {
-    if (this.unmounted) return;
-    this.unmounted = true;
-    for (const child of this.children) {
-      child.unmount();
+  isUnmounted(): boolean {
+    if (this._unmounted) {
+      return true;
     }
+    let { parent } = this;
+    while (parent) {
+      if (parent._unmounted) return true;
+      parent = parent.parent;
+    }
+    return false;
   }
 
-  // ── Protected helpers ─────────────────────────────────────────────────
+  /**
+   * Mark this instance unmounted and schedule it. The scheduler then
+   * calls `render()`, whose unmount branch drives `unmountSlot` on each
+   * owned slot — partitioning DOM/COMPONENT callbacks the same way
+   * `doRender` does — and queues a `removeRange` of this instance's own
+   * anchors into `domUpdates`. Hook cleanups still run from the parent's
+   * `afterRender` leaf-first.
+   */
+  unmount(): void {
+    if (this._unmounted) return;
+    this._unmounted = true;
+    if (!this.parent) return;
+    this.rctx.scheduler.unschedule(this);
+    this.parent.unmountedChildren.add(this);
+  }
 
-  protected applyPendingProps(): void {
-    if (this.pendingProps !== null) {
-      this.props = this.pendingProps;
-      this.pendingProps = null;
-    }
+  remount(): void {
+    if (!this._unmounted) return;
+    this._unmounted = false;
+    if (!this.parent) return;
+    this.rctx.scheduler.schedule(this);
+    this.parent.unmountedChildren.delete(this);
   }
 
   // ── Private helpers ───────────────────────────────────────────────────
-
-  /**
-   * Walk children and clean up any that were unmounted during this
-   * render. Recurses leaf-first so the deepest descendants abort their
-   * effects and unsubscribe from contexts before their ancestors.
-   * Unmounted children are removed from the `children` list afterward.
-   */
-  private cleanupUnmountedChildren(): void {
-    for (let i = this.children.length - 1; i >= 0; i--) {
-      const child = this.children[i];
-      if (!child?.unmounted) continue;
-      child.runHookCleanupsLeafFirst();
-      this.children.splice(i, 1);
-    }
-  }
 
   /**
    * Abort effect controllers and unsubscribe from context handles,
    * recursing into children first so cleanup runs leaf-up.
    */
   private runHookCleanupsLeafFirst(): void {
-    for (const child of this.children) {
+    for (const [_, child] of this.children) {
       child.runHookCleanupsLeafFirst();
     }
     for (const state of this.hookStates) {
@@ -243,5 +303,15 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         state.unsubscribe?.();
       }
     }
+  }
+
+  setProps(vnode: VNode): void {
+    const deps = vnode.props.deps;
+    if (!depsChanged(this.deps, deps)) return;
+    this.deps = deps;
+    const props = propsWithChildren(vnode);
+    if (shallowEqual(this.nextProps, props)) return;
+    this.nextProps = props;
+    this.scheduleApply();
   }
 }

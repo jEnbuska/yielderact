@@ -8,6 +8,7 @@
  * Child/VNode taxonomy is visible at a glance.
  */
 import { type Context, isContext } from "./context";
+import type { IterableChild } from "./jsx";
 import { type Child, type Component, Fragment, type VNode } from "./jsx";
 import type { SlotKey } from "./render/slots";
 
@@ -17,12 +18,12 @@ import type { SlotKey } from "./render/slots";
 
 /**
  * True when the child produces no DOM at all: `null`, `undefined`, either
- * boolean, or a VNode with `$shown === false`. The reconciler maps these
+ * boolean, or a VNode with `shown === false`. The reconciler maps these
  * to an `EmptySlot`.
  */
 export function isEmptyChild(child: Child): child is null | undefined | boolean {
   if (child == null || typeof child === "boolean") return true;
-  if (isVNodeChild(child) && child.props.$shown === false) return true;
+  if (isVNodeChild(child) && child.props.shown === false) return true;
   return false;
 }
 
@@ -32,7 +33,7 @@ export function isTextChild(child: Child): child is string | number {
 }
 
 /** True when the child is an iterable (array, generator, Set, etc.) — not a string or VNode. */
-export function isIterableChild(child: Child): child is Iterable<Child> {
+export function isIterableChild(child: Child): child is IterableChild {
   return child != null && typeof child === "object" && Symbol.iterator in child;
 }
 
@@ -74,10 +75,10 @@ export function isComponentVNode(vnode: VNode): vnode is VNode<Component> {
 
 /**
  * The key the reconciler uses to match a child against a previous slot.
- * Falls back to the positional index when the child has no `$key`.
+ * Falls back to the positional index when the child has no `key`.
  */
 export function getChildKey(child: Child, fallback: SlotKey): SlotKey {
   if (!isVNodeChild(child)) return fallback;
-  const key = child.props.$key;
+  const key = child.props.key;
   return key ?? fallback;
 }

@@ -60,7 +60,7 @@ export default {
      * @returns {boolean}
      */
     function isGeneratorType(type) {
-      const symbol = type.getSymbol?.();
+      const symbol = type.getSymbol?.() ?? type.target?.getSymbol?.();
       if (symbol) {
         const name = symbol.getName();
         if (name === "Generator" || name === "AsyncGenerator") return true;

@@ -4,6 +4,7 @@ import type { ContextDescriptor } from "./descriptors";
 import { $CONTEXT } from "./descriptors";
 import type { ComponentGenerator } from "./index";
 import { depsChanged } from "./utils";
+import { getContextReason } from "../render-reasons";
 
 const defaultSelector = (value: unknown): unknown[] => [value];
 
@@ -93,7 +94,7 @@ export function processContext(
 
   const state: ContextHookState = {
     type: $CONTEXT,
-    reason: Symbol($CONTEXT),
+    reason: getContextReason(),
     ctx: descriptor.ctx,
     depsSelector: selector,
     transform: descriptor.transform,

@@ -14,7 +14,7 @@ const tabIds: Record<string, string> = {
   "Data Fetcher": "tab-data",
   useResolveRaw: "tab-raw",
   "Hooks Showcase": "tab-hooks",
-  "$shown prop": "tab-shown",
+  "shown prop": "tab-shown",
   useRender: "tab-confirm",
   useEffect: "tab-effect",
   // "UI Patch": "tab-transition", // TODO: Restore when $patch is re-implemented (#163)
@@ -22,7 +22,7 @@ const tabIds: Record<string, string> = {
   "Lazy Context": "tab-lazy-ctx",
   "AbortSignal Effect": "tab-abort-signal",
   "Key Shuffle": "tab-key-shuffle",
-  "$deps prop": "tab-deps",
+  "deps prop": "tab-deps",
   createPortal: "tab-portal",
 };
 

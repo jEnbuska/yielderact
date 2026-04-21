@@ -20,7 +20,7 @@ import { addNonDelegatedListener, removeNonDelegatedListener } from "./events";
 
 // ── Event registration helpers ─────────────────────────────────────────────
 
-function registerEvent(
+function registerElementEvent(
   el: HTMLElement,
   propKey: string,
   handler: (e: SyntheticEvent) => void,
@@ -35,7 +35,7 @@ function registerEvent(
   }
 }
 
-function unregisterEvent(el: HTMLElement, propKey: string): void {
+function unRegisterElementEven(el: HTMLElement, propKey: string): void {
   const { domEvent, isCapture } = resolveEventProp(propKey);
   if (NON_DELEGATED_EVENTS.has(domEvent)) {
     removeNonDelegatedListener(el, domEvent);
@@ -45,25 +45,32 @@ function unregisterEvent(el: HTMLElement, propKey: string): void {
 }
 
 function isReservedProp(key: string): boolean {
-  return key.startsWith("$");
+  switch (key) {
+    case "key":
+    case "deps":
+    case "ref":
+    case "shown":
+      return true;
+    default:
+      return false;
+  }
 }
 
-/** Local shape for the `$ref` prop — the universal `VNodeProps` type doesn't
- * declare `$ref` (it lives on `HTMLAttributes`/`SVGAttributes` only), so the
+/** Local shape for the `ref` prop — the universal `VNodeProps` type doesn't
+ * declare `ref` (it lives on `HTMLAttributes`/`SVGAttributes` only), so the
  * runtime accesses it through this lightweight cast. */
 export type RefLike = { current: unknown };
 
 // ── Initial mount ───────────────────────────────────────────────────────────
 
-// biome-ignore lint/complexity/noExcessiveCognitiveComplexity: prop type dispatch with many branches
-function writeProp(
+function writeElementProps(
   el: HTMLElement,
   key: string,
   value: unknown,
   delegationRoot: DelegationRoot,
 ): void {
   if (key.startsWith("on") && typeof value === "function") {
-    registerEvent(el, key, value as (e: SyntheticEvent) => void, delegationRoot);
+    registerElementEvent(el, key, value as (e: SyntheticEvent) => void, delegationRoot);
     return;
   }
   if (key === "className") {
@@ -102,9 +109,9 @@ function writeProp(
   el.setAttribute(key, String(value));
 }
 
-function clearProp(el: HTMLElement, key: string, prevValue: unknown): void {
+function clearElementProps(el: HTMLElement, key: string, prevValue: unknown): void {
   if (key.startsWith("on") && typeof prevValue === "function") {
-    unregisterEvent(el, key);
+    unRegisterElementEven(el, key);
     return;
   }
   if (key === "className") {
@@ -122,16 +129,16 @@ function clearProp(el: HTMLElement, key: string, prevValue: unknown): void {
   el.removeAttribute(key);
 }
 
-export function applyProps(
+export function applyElementProps(
   el: HTMLElement,
   props: VNodeProps,
   delegationRoot: DelegationRoot,
 ): void {
   for (const [key, value] of Object.entries(props)) {
     if (isReservedProp(key)) continue;
-    writeProp(el, key, value, delegationRoot);
+    writeElementProps(el, key, value, delegationRoot);
   }
-  const ref = props["$ref"] as RefLike | undefined;
+  const ref = props["ref"] as RefLike | undefined;
   if (ref) ref.current = el;
 
   // Derived-from-props defaults. No DOM reads.
@@ -148,7 +155,7 @@ export function applyProps(
 
 // ── Update (diff against previous props) ───────────────────────────────────
 
-export function updateProps(
+export function updateElementProps(
   el: HTMLElement,
   prevProps: VNodeProps,
   nextProps: VNodeProps,
@@ -158,7 +165,7 @@ export function updateProps(
   for (const key in prevProps) {
     if (isReservedProp(key)) continue;
     if (key in nextProps) continue;
-    clearProp(el, key, prevProps[key]);
+    clearElementProps(el, key, prevProps[key]);
   }
 
   // 2. Add or update props
@@ -181,17 +188,17 @@ export function updateProps(
     }
 
     if (key.startsWith("on") && typeof next === "function") {
-      if (typeof prev === "function") unregisterEvent(el, key);
-      registerEvent(el, key, next as (e: SyntheticEvent) => void, delegationRoot);
+      if (typeof prev === "function") unRegisterElementEven(el, key);
+      registerElementEvent(el, key, next as (e: SyntheticEvent) => void, delegationRoot);
       continue;
     }
 
-    writeProp(el, key, next, delegationRoot);
+    writeElementProps(el, key, next, delegationRoot);
   }
 
   // 3. Ref swap
-  const prevRef = prevProps["$ref"] as RefLike | undefined;
-  const nextRef = nextProps["$ref"] as RefLike | undefined;
+  const prevRef = prevProps["ref"] as RefLike | undefined;
+  const nextRef = nextProps["ref"] as RefLike | undefined;
   if (!Object.is(prevRef, nextRef)) {
     if (prevRef) prevRef.current = undefined;
     if (nextRef) nextRef.current = el;

@@ -46,8 +46,8 @@ export function* HooksShowcase() {
     <section aria-label="Hooks showcase">
       <h2>Hooks Showcase</h2>
       <p>
-        Demonstrates <code>$id</code>, <code>$memo</code>, and <code>$ref</code> together in
-        one component.
+        Demonstrates <code>$id</code>, <code>$memo</code>, and <code>$ref</code> together in one
+        component.
       </p>
 
       {/* $id: the generated id wires the <label> to the <input> */}
@@ -71,12 +71,12 @@ export function* HooksShowcase() {
         style={{ listStyle: "disc", paddingLeft: "1.25rem", margin: "0 0 0.5rem" }}
       >
         {filtered.map((fruit) => (
-          <li $key={fruit} data-testid={`fruit-${fruit.toLowerCase()}`}>
+          <li key={fruit} data-testid={`fruit-${fruit.toLowerCase()}`}>
             {fruit}
           </li>
         ))}
       </ul>
-      <p $shown={filtered.length === 0} data-testid="hooks-no-results" style={{ color: "#888" }}>
+      <p shown={filtered.length === 0} data-testid="hooks-no-results" style={{ color: "#888" }}>
         No fruits match "{query}".
       </p>
 

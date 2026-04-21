@@ -39,8 +39,11 @@ import { createStateSetter, processState } from "./state";
 import type { DependencyList } from "./types";
 
 /** Returns true when the dependency arrays differ (shallow `Object.is` comparison). */
-export function depsChanged(prev: DependencyList | undefined, next: DependencyList): boolean {
-  if (prev === undefined) return true;
+export function depsChanged(
+  prev: DependencyList | undefined,
+  next: DependencyList | undefined,
+): boolean {
+  if (prev === undefined || next === undefined) return true;
   if (prev.length !== next.length) return true;
   for (let i = 0; i < prev.length; i++) {
     if (!Object.is(prev[i], next[i])) return true;
@@ -79,7 +82,7 @@ function getTypedPrev<K extends HookState["type"]>(
  * and return the value to feed back into `gen.next(...)`.
  */
 export function processOneDescriptor(
-  descriptor: HookDescriptor,
+  descriptor: Exclude<HookDescriptor, { type: `$$${string}` }>,
   hookIndex: number,
   instance: BaseInstance,
 ): unknown {

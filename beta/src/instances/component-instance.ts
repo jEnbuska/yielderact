@@ -8,38 +8,23 @@
  */
 import { isHookDescriptor, processOneDescriptor } from "../hooks/utils";
 import type { Child, Component } from "../jsx";
-import { type AnyCallbackResult, applyCallbacks, reconcile } from "../render/reconciler";
+import { reconcile } from "../reconciler/reconciler";
 import { BaseInstance } from "./base-instance";
+import { $$BATCH, $$INSTANCE } from "../hooks/descriptors";
+import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
 
 export class ComponentInstance extends BaseInstance<Component> {
-  protected doRender(): void {
-    this.applyPendingProps();
-
-    const fn = this.vnode.type;
+  protected render(
+    props: Record<string, unknown>,
+  ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
+    const fn = this.vnode.type as Component<Record<string, any>>;
     if (typeof fn !== "function") {
       throw new Error(
         `yract-beta: ComponentInstance.render called for non-function type ${String(fn)}`,
       );
     }
-
-    const output = this.runGenerator(fn(this.props));
-
-    const parentDom = this.startAnchor.parentNode;
-    if (!parentDom) {
-      throw new Error("yract-beta: ComponentInstance rendered with detached startAnchor");
-    }
-
-    const gen = reconcile([output], this, parentDom, this.endAnchor, this.slots, this.keyIndex);
-    const callbacks: AnyCallbackResult[] = [];
-    let result = gen.next();
-    while (!result.done) {
-      callbacks.push(result.value);
-      result = gen.next();
-    }
-    const { slots, keyIndex } = result.value;
-    this.slots = slots;
-    this.keyIndex = keyIndex;
-    applyCallbacks(callbacks);
+    const output = this.runGenerator(fn(props));
+    return reconcile([output], this, this.parentDom, this.endAnchor, [], this.slots, this.keyIndex);
   }
 
   private runGenerator(gen: Generator<unknown, Child, unknown>): Child {
@@ -47,14 +32,25 @@ export class ComponentInstance extends BaseInstance<Component> {
     let step = gen.next();
     while (!step.done) {
       const value = step.value;
-      if (isHookDescriptor(value)) {
-        const result = processOneDescriptor(value, hookIndex, this);
-        hookIndex++;
-        step = gen.next(result);
-        continue;
+      if (!isHookDescriptor(value)) {
+        return value as Child;
       }
-      // Non-descriptor yield — treat it as the final output.
-      return value as Child;
+      switch (value.type) {
+        case $$INSTANCE: {
+          step = gen.next(this);
+          break;
+        }
+        case $$BATCH: {
+          step = gen.next(this.handleBatch);
+          break;
+        }
+        default: {
+          const result = processOneDescriptor(value, hookIndex, this);
+          hookIndex++;
+          step = gen.next(result);
+          break;
+        }
+      }
     }
     return step.value;
   }

@@ -2,6 +2,7 @@ import type { VNode, VNodeProps } from "./jsx";
 
 /** Shallow equality check for two objects (same keys, all values `Object.is`). */
 export function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
+  if (a === b) return true;
   const aKeys = Object.keys(a);
   if (aKeys.length !== Object.keys(b).length) return false;
   for (const k of aKeys) {
@@ -11,12 +12,12 @@ export function shallowEqual(a: Record<string, unknown>, b: Record<string, unkno
 }
 
 /**
- * Merge a VNode's positional children into its props as `$children`,
- * stripping framework directives (`$key`, `$shown`) that are consumed
+ * Merge a VNode's positional children into its props as `children`,
+ * stripping framework directives (`key`, `shown`) that are consumed
  * by the reconciler and should never reach component/context instances.
  */
 export function propsWithChildren(vnode: VNode): VNodeProps {
-  const { $key: _k, $shown: _s, ...rest } = vnode.props;
+  const { key: _k, shown: _s, deps: _d, ...rest } = vnode.props;
   if (vnode.children.length === 0) return rest as VNodeProps;
-  return { ...rest, $children: vnode.children } as VNodeProps;
+  return { ...rest, children: vnode.children } as VNodeProps;
 }

@@ -4,7 +4,7 @@ import { clickTab, goToApp } from "./helpers";
 test.describe("shown prop example", () => {
   test.beforeEach(async ({ page }) => {
     await goToApp(page);
-    await clickTab(page, "$shown prop");
+    await clickTab(page, "shown prop");
     await page.waitForSelector('[data-testid="toggle-element"]');
   });
 

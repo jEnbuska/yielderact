@@ -10,7 +10,7 @@ import { depsChanged } from "./utils";
  */
 export function* $effect(
   fn: (signal: AbortSignal) => void | Promise<void>,
-  deps: DependencyList,
+  deps: DependencyList = [],
 ): ComponentGenerator<void> {
   yield { type: $EFFECT, fn, deps } satisfies EffectDescriptor;
 }

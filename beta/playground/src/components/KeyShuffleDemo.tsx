@@ -15,7 +15,7 @@ function* CounterItem({ id, color }: { id: string; color: string }) {
 
   return (
     <div
-      $ref={nodeRef}
+      ref={nodeRef}
       data-testid={`item-${id}`}
       data-id={id}
       style={{
@@ -125,7 +125,7 @@ export function* KeyShuffleDemo() {
       <div data-testid="generator-list">
         <CounterItem id={"a"} color={"blue"} />
         {order.map((id) => (
-          <CounterItem $key={id} id={id} color={COLORS[id] ?? "#999"} />
+          <CounterItem key={id} id={id} color={COLORS[id] ?? "#999"} />
         ))}
         <CounterItem id={"b"} color={"green"} />
       </div>
@@ -142,7 +142,7 @@ export function* KeyShuffleDemo() {
       </div>
       <div data-testid="tag-list">
         {tagOrder.map((label) => (
-          <PlainTag $key={label} label={label} />
+          <PlainTag key={label} label={label} />
         ))}
       </div>
       <p data-testid="tag-order" style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
@@ -161,7 +161,7 @@ export function* KeyShuffleDemo() {
       </div>
       <ul data-testid="elem-list">
         {elemOrder.map((text) => (
-          <li $key={text} data-testid={`elem-${text}`}>
+          <li key={text} data-testid={`elem-${text}`}>
             {text}
           </li>
         ))}

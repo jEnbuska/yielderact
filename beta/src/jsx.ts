@@ -1,5 +1,5 @@
-import type { Context } from "./context";
-import type { ComponentGenerator } from "./hooks/types";
+import type { Context, ContextProviderProps } from "./context";
+import type { ComponentGenerator, DependencyList } from "./hooks/types";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
 
 /** Fragment VNode type — children flatten through the reconciler. */
@@ -7,7 +7,7 @@ export const Fragment: unique symbol = Symbol("Fragment");
 
 // `Component<any>` widens the union so VNode.type accepts components with
 // any prop shape — function-parameter contravariance otherwise rejects
-// concrete prop types when the union member is the narrow `Component<InternalProps>`.
+// concrete prop types when the union member is the narrow `Component<FrameworkProps>`.
 
 export type VNodeType = typeof Fragment | Component<any> | Context | string;
 
@@ -27,7 +27,9 @@ export interface VNode<T extends VNodeType = VNodeType> {
  * at reconciliation time, so each nested array becomes a stable inner
  * slot whose own children are reconciled in place across renders.
  */
-export type Child = VNode | string | number | boolean | null | undefined | Iterable<Child>;
+export type Child = VNode | string | number | boolean | null | undefined | IterableChild;
+
+export type IterableChild = Iterable<Child, void, void>;
 
 /**
  * Framework props valid on every JSX element. Consumed by the framework
@@ -35,38 +37,37 @@ export type Child = VNode | string | number | boolean | null | undefined | Itera
  * before the component generator is called — components do not see them
  * in their `props` argument.
  *
- * `$ref` is intentionally NOT here — it lives on `HTMLAttributes` /
+ * `ref` is intentionally NOT here — it lives on `HTMLAttributes` /
  * `SVGAttributes` so it's only valid on element VNodes. A component that
- * wants to accept `$ref` must declare it explicitly in its own prop type.
+ * wants to accept `ref` must declare it explicitly in its own prop type.
  */
 export interface FrameworkProps {
   /** Reconciliation key — not rendered to the DOM. */
-  $key?: string | number;
+  key?: string | number;
   /** When false, the element/component is replaced by an empty slot. */
-  $shown?: boolean;
+  shown?: boolean;
+  /**
+   * Dependency array for reconciliation memoization. When present, replaces
+   * the default `shallowEqual` props check with a `depsChanged()` comparison
+   * — the component only rerenders when at least one element changes.
+   */
+  deps?: DependencyList;
 }
 
 /**
- * Base prop type for a component author. Components without children declare
- * their props as `{ ... } & InternalProps` (or implicitly via structural
- * compatibility with `FrameworkProps`).
- */
-export type InternalProps = FrameworkProps;
-
-/**
- * Opt-in for components that accept JSX children. The required `$children`
+ * Opt-in for components that accept JSX children. The required `children`
  * field is what discriminates children-accepting from children-rejecting
  * components in `createElement`'s overloads — making it optional would
  * collapse the two overloads to the same constraint.
  */
-export interface PropsWithChildren extends InternalProps {
-  $children: Child | Child[];
+export interface PropsWithChildren extends FrameworkProps {
+  children: Child | Child[];
 }
 
 /**
  * Runtime storage type for a VNode's props. The reconciler, instances, and
  * helpers iterate this freely; user-supplied props live under arbitrary keys,
- * hence the index signature. Component-author types (`InternalProps`,
+ * hence the index signature. Component-author types (`FrameworkProps`,
  * `PropsWithChildren`) are narrower to drive JSX validation.
  */
 export type VNodeProps = FrameworkProps & Record<string, unknown>;
@@ -80,9 +81,22 @@ export type VNodeProps = FrameworkProps & Record<string, unknown>;
  *   return <button onClick={() => setCount((c) => c + 1)}>{count}</button>;
  * }
  */
-export type Component<P extends InternalProps = InternalProps> = (
+export type Component<P extends Record<string, any> = Record<string, never>> = (
   props: P,
 ) => ComponentGenerator<Child>;
+
+/**
+ * Extract the props type from an intrinsic element tag name or a component.
+ *
+ * @example
+ * type TdProps = ComponentProps<'td'>;
+ * type RowProps = ComponentProps<typeof TableRow>;
+ */
+export type ComponentProps<T> = T extends keyof JSX.IntrinsicElements
+  ? JSX.IntrinsicElements[T]
+  : T extends Component<infer P>
+    ? P
+    : never;
 
 // ---------------------------------------------------------------------------
 // createElement overloads
@@ -91,50 +105,53 @@ export type Component<P extends InternalProps = InternalProps> = (
 const emptyChildren: Child[] = [];
 export function createElement<T extends keyof JSX.IntrinsicElements>(
   type: T,
-  props: JSX.IntrinsicElements[T] | null,
+  props: (FrameworkProps & JSX.IntrinsicElements[T]) | null,
   ...children: Child[]
 ): VNode;
-// Component that opts into children (its props include a required `$children`).
+// Component that opts into children (its props include a required `children`).
 // JSX positional children are forwarded as the rest argument; the runtime
-// merges them back onto the props object as `$children` before calling the
+// merges them back onto the props object as `children` before calling the
 // generator.
 export function createElement<P extends PropsWithChildren>(
-  type: Component<P>,
-  props: Omit<P, "$children"> | null,
+  type: Component<Omit<P, keyof FrameworkProps>>,
+  props: Omit<P, "children"> | null,
   ...children: Child[]
 ): VNode;
 // Component that does NOT take childreNo in — no rest parameter, so passing
 // children is a type error.
-export function createElement<P extends InternalProps>(type: Component<P>, props: P | null): VNode;
+export function createElement<P extends FrameworkProps>(
+  type: Component<Omit<P, keyof FrameworkProps>>,
+  props: P | null,
+): VNode;
 export function createElement(
   type: Context,
-  props: Record<string, unknown> | null,
+  props: ContextProviderProps | null,
   ...children: Child[]
 ): VNode;
 export function createElement(
   type: typeof Fragment,
-  props: Record<string, unknown> | null,
+  props: FrameworkProps | null,
   ...children: Child[]
 ): VNode;
 export function createElement(
-  type: VNode["type"],
-  props: Record<string, unknown> | null,
+  type: string,
+  props: (Omit<FrameworkProps, "deps"> & Record<string, unknown>) | null,
   ...children: Child[]
 ): VNode;
 export function createElement(
-  type: VNode["type"],
-  props: Record<string, unknown> | null,
+  type: any,
+  props: Record<string, any> | null,
   ...children: Child[]
 ): VNode {
   props ??= {};
-  if ("$children" in props && props["$children"] !== undefined) {
-    const value = (props as VNodeProps)["$children"];
+  if ("children" in props && props["children"] !== undefined) {
+    const value = (props as VNodeProps)["children"];
     children = Array.isArray(value) ? (value as Child[]) : [value as Child];
   } else if (children.length) {
-    (props as VNodeProps)["$children"] = children;
+    (props as VNodeProps)["children"] = children;
   } else {
     children = emptyChildren;
-    (props as VNodeProps)["$children"] = emptyChildren;
+    (props as VNodeProps)["children"] = emptyChildren;
   }
 
   return {
@@ -148,20 +165,20 @@ declare global {
   namespace JSX {
     interface IntrinsicElements extends IntrinsicElementsDef {}
     interface IntrinsicAttributes extends FrameworkProps {}
-    /** Use `$children` as the JSX children attribute name. */
+    /** Use `children` as the JSX children attribute name. */
     interface ElementChildrenAttribute {
-      $children: Record<string, never>;
+      children: Record<string, never>;
     }
     /**
-     * Bridge: components declare `$children` (framework `$`-prefix
+     * Bridge: components declare `children` (framework `$`-prefix
      * convention), but TS's automatic JSX runtime hardcodes `children` as
      * the JSX-to-runtime prop name when validating components. This
-     * conditional rewrites a component's `$children` field to `children`
+     * conditional rewrites a component's `children` field to `children`
      * for the duration of JSX attribute validation, so users can write
      * `<Layout>x</Layout>` or `<Layout children={x} />` while authors still
-     * declare `$children` and read `props.$children` at runtime.
+     * declare `children` and read `props.children` at runtime.
      *
-     * Components without `$children` in their prop type pass through
+     * Components without `children` in their prop type pass through
      * unchanged, so excess `children` on a no-children component is still
      * rejected.
      *
@@ -169,8 +186,8 @@ declare global {
      * unused — TS silently skips `LibraryManagedAttributes` aliases that
      * don't accept both parameters (TS issue #42240).
      */
-    type LibraryManagedAttributes<_C, P> = "$children" extends keyof P
-      ? Omit<P, "$children"> & { children: P["$children"] }
+    type LibraryManagedAttributes<_C, P> = "children" extends keyof P
+      ? Omit<P, "children"> & { children: P["children"] }
       : P;
   }
 }

@@ -2,10 +2,10 @@
  * App – top-level component rendered into `#root`.
  *
  * Tab-based navigation between yract-beta example demos. Demos that depend on
- * not-yet-implemented hooks ($resolve, $render, $deferred, createPortal, $deps,
+ * not-yet-implemented hooks ($resolve, $render, $deferred, createPortal, deps,
  * $patch) are intentionally absent.
  */
-import { $state, createRoot } from "yract-beta";
+import { $effect, $state, createRoot } from "yract-beta";
 import { AbortSignalEffectDemo } from "./components/AbortSignalEffectDemo";
 import { ContextDemo } from "./components/ContextDemo";
 import { Counter } from "./components/Counter";
@@ -16,6 +16,7 @@ import { LazyContextDemo } from "./components/LazyContextDemo";
 import { ShownDemo } from "./components/ShownDemo";
 import { ThemeDemo } from "./components/ThemeDemo";
 import { TodoList } from "./components/TodoList";
+import { DeferredDemo } from "./components/DeferredDemo";
 
 type Tab =
   | "counter"
@@ -27,23 +28,36 @@ type Tab =
   | "context"
   | "lazy-ctx"
   | "abort-signal"
-  | "key-shuffle";
+  | "key-shuffle"
+  | "deferred";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "counter", label: "Counter" },
   { id: "todos", label: "Todo List" },
   { id: "theme", label: "Context / Theme" },
   { id: "hooks", label: "Hooks Showcase" },
-  { id: "shown", label: "$shown prop" },
+  { id: "shown", label: "shown prop" },
   { id: "effect", label: "$effect" },
   { id: "context", label: "Context Scoping" },
   { id: "lazy-ctx", label: "Lazy Context" },
   { id: "abort-signal", label: "AbortSignal Effect" },
   { id: "key-shuffle", label: "Key Shuffle" },
+  { id: "deferred", label: "Deferred Table" },
 ];
 
+function getInitialTab(): Tab {
+  const tab = localStorage.getItem("tab");
+  const tabIds = tabs.map((tab) => tab.id);
+  if (tabIds.includes(tab as Tab)) {
+    return tab as Tab;
+  }
+  return "counter";
+}
 function* App() {
-  const [activeTab, setActiveTab] = yield* $state<Tab>("counter");
+  const [activeTab, setActiveTab] = yield* $state<Tab>(getInitialTab);
+  yield* $effect(() => {
+    localStorage.setItem("tab", activeTab);
+  }, [activeTab]);
 
   return (
     <div style={{ maxWidth: "640px", margin: "0 auto" }}>
@@ -61,7 +75,7 @@ function* App() {
       >
         {tabs.map((tab) => (
           <button
-            $key={tab.id}
+            key={tab.id}
             role="tab"
             data-testid={`tab-${tab.id}`}
             id={`tab-${tab.id}`}
@@ -83,16 +97,17 @@ function* App() {
 
       {/* Active panel */}
       <div id="example-panel">
-        <Counter $shown={activeTab === "counter"} />
-        <TodoList $shown={activeTab === "todos"} />
-        <ThemeDemo $shown={activeTab === "theme"} />
-        <HooksShowcase $shown={activeTab === "hooks"} />
-        <ShownDemo $shown={activeTab === "shown"} />
-        <EffectDemo $shown={activeTab === "effect"} />
-        <ContextDemo $shown={activeTab === "context"} />
-        <LazyContextDemo $shown={activeTab === "lazy-ctx"} />
-        <AbortSignalEffectDemo $shown={activeTab === "abort-signal"} />
-        <KeyShuffleDemo $shown={activeTab === "key-shuffle"} />
+        <Counter shown={activeTab === "counter"} />
+        <TodoList shown={activeTab === "todos"} />
+        <ThemeDemo shown={activeTab === "theme"} />
+        <HooksShowcase shown={activeTab === "hooks"} />
+        <ShownDemo shown={activeTab === "shown"} />
+        <EffectDemo shown={activeTab === "effect"} />
+        <ContextDemo shown={activeTab === "context"} />
+        <LazyContextDemo shown={activeTab === "lazy-ctx"} />
+        <AbortSignalEffectDemo shown={activeTab === "abort-signal"} />
+        <KeyShuffleDemo shown={activeTab === "key-shuffle"} />
+        <DeferredDemo shown={activeTab === "deferred"} />
       </div>
     </div>
   );

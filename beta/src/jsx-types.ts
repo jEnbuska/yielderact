@@ -406,13 +406,11 @@ export interface AriaAttributes {
  * element, used to narrow `event.currentTarget` in event handlers.
  */
 export interface HTMLAttributes<T extends HTMLElement = HTMLElement>
-  extends FrameworkProps,
-    AriaAttributes,
-    EventHandlers<T> {
+  extends FrameworkProps, AriaAttributes, EventHandlers<T> {
   /** Ref object — set to the DOM element on mount, undefined on unmount. */
-  $ref?: { current: T | undefined };
+  ref?: { current: T | undefined };
   /**
-   * JSX children. Uses the unprefixed `children` name (not `$children`)
+   * JSX children. Uses the unprefixed `children` name (not `children`)
    * because TypeScript's automatic JSX runtime hardcodes `children` as the
    * synthesized children prop name when validating intrinsic elements.
    * `LibraryManagedAttributes` only bridges this for components, so HTML
@@ -917,12 +915,10 @@ export interface VideoHTMLAttributes extends HTMLAttributes<HTMLVideoElement> {
 
 /** Presentation attributes shared by all SVG elements. */
 export interface SVGAttributes<T extends SVGElement = SVGElement>
-  extends FrameworkProps,
-    AriaAttributes,
-    EventHandlers<T> {
+  extends FrameworkProps, AriaAttributes, EventHandlers<T> {
   /** Ref object — set to the SVG element on mount, undefined on unmount. */
-  $ref?: { current: T | undefined };
-  /** JSX children. See `HTMLAttributes.children` for why this isn't `$children`. */
+  ref?: { current: T | undefined };
+  /** JSX children. See `HTMLAttributes.children` for why this isn't `children`. */
   children?: Child | Child[];
   className?: string;
   id?: string;

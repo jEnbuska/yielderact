@@ -11,16 +11,31 @@
 import { Fragment, type VNode } from "../jsx";
 import type { RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
+import { reconcile } from "../reconciler/reconciler";
+import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
+import { invokeUpdates } from "../reconciler/invoke-updates";
 
 const ROOT_VNODE: VNode<typeof Fragment> = { type: Fragment, props: {}, children: [] };
 
 export class RootInstance extends BaseInstance<typeof Fragment> {
   constructor(rctx: RenderContext) {
-    super(ROOT_VNODE, new Map(), 0, null, rctx);
+    super("root", ROOT_VNODE, new Map(), 0, null, rctx, rctx.container);
   }
 
-  protected doRender(): void {
-    // Root is updated via Root.render(), not by the scheduler.
+  protected *render(): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
+    return { slots: [], keyIndex: new Map() };
+  }
+
+  run(vnode: VNode) {
+    const gen = invokeUpdates(
+      this,
+      reconcile([vnode], this, this.parentDom, null, [], this.slots, this.keyIndex),
+    );
+    let result = gen.next();
+    while (!result.done) result = gen.next();
+    this.commitApply(result.value);
+    this.applyDomUpdates();
+    this.afterAllApplied();
   }
 
   debugLabel(): string {

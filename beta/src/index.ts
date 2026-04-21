@@ -5,7 +5,7 @@ export {
   type ContextHandle,
   type ContextProviderProps,
   createContext,
-  resolveCtx,
+  resolveCtxValue,
 } from "./context";
 
 export type { SEvent, SyntheticEvent } from "./events";
@@ -21,17 +21,19 @@ export {
   type DependencyList,
   type RefObject,
 } from "./hooks";
+export { Deferred } from "./instances/deferred-context";
 export {
   type Child,
   type Component,
+  type ComponentProps,
   createElement,
   Fragment,
   type FrameworkProps,
-  type InternalProps,
   type PropsWithChildren,
   type VNode,
   type VNodeProps,
   type VNodeType,
 } from "./jsx";
 
-export { createRoot, Root, render } from "./render";
+export { createRoot, render } from "./render";
+export { Root } from "./render/root";

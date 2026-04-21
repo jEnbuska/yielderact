@@ -5,13 +5,13 @@
  * it packs JSX children under (this is not configurable via
  * `JSX.ElementChildrenAttribute` for components). We accept that
  * convention here, destructure `children` out, and forward it as positional
- * rest args to `createElement`, which then re-keys it as `$children` on
+ * rest args to `createElement`, which then re-keys it as `children` on
  * the vnode props (the framework convention). We also re-key the
- * transform's `key` argument to `$key`.
+ * transform's `key` argument to `key`.
  *
- * The `children` ↔ `$children` bridge at the type-checking layer is
+ * The `children` ↔ `children` bridge at the type-checking layer is
  * handled by `JSX.LibraryManagedAttributes` in `jsx.ts`, which exposes a
- * component's `$children` prop as `children` to JSX validation.
+ * component's `children` prop as `children` to JSX validation.
  */
 import { type Child, createElement, Fragment, type VNode } from "./jsx";
 
@@ -23,7 +23,7 @@ export function jsx(
   key?: string | number | null,
 ): VNode {
   const { children, ...rest } = props;
-  if (key != null) rest["$key"] = String(key);
+  if (key != null) rest["key"] = String(key);
   if (children === undefined) {
     return createElement(type, rest);
   }
