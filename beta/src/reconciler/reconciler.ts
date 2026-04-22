@@ -117,14 +117,26 @@ export function* reconcile(
     nextKeyIndex.set(getSlotKey(slot), result.length - 1);
   }
 
-  // Pass 2: removals — mark unmounted + remove DOM. Hook cleanup is
-  // deferred to afterRender (leaf-first via reversed scheduler loop).
-  for (let j = 0; j < prevSlots.length; j++) {
-    if (used.has(j)) continue;
-    const slot = prevSlots[j];
-    if (!slot) continue;
-    yield* unmountSlot(slot);
-    yield* removeSlotDom(slot, parentDom);
+  // Pass 2: removals — mark unmounted + emit one range-remove per run of
+  // consecutive unused slots. prevSlots is in DOM order, so a maximal run
+  // of indices not present in `used` corresponds to a contiguous sibling
+  // range in parentDom. Hook cleanup is deferred to afterRender (leaf-first
+  // via reversed scheduler loop).
+  for (let j = 0; j < prevSlots.length; ) {
+    if (used.has(j)) {
+      j++;
+      continue;
+    }
+    let k = j + 1;
+    while (k < prevSlots.length && !used.has(k)) k++;
+    for (let m = j; m < k; m++) yield* unmountSlot(prevSlots[m]!);
+    const first = slotFirstNode(prevSlots[j]!);
+    const last = slotLastNode(prevSlots[k - 1]!);
+    yield updateResult({
+      type: "DOM",
+      callback: () => removeRange(first, last, parentDom),
+    });
+    j = k;
   }
 
   // Pass 3: positioning — yield callbacks only for slots that actually moved.
@@ -464,26 +476,14 @@ function slotMatchesChild<T extends Slot = Slot>(slot: T, child: Child): boolean
   return false;
 }
 
+function slotFirstNode(slot: Slot): Node {
+  if (isComponentSlot(slot) || isContextSlot(slot)) return slot.instance.startAnchor;
+  if (isFragmentSlot(slot)) return slot.node;
+  return slot.node;
+}
+
 function slotLastNode(slot: Slot): Node {
   if (isComponentSlot(slot) || isContextSlot(slot)) return slot.instance.endAnchor;
   if (isFragmentSlot(slot)) return slot.endAnchor;
   return slot.node;
-}
-
-function* removeSlotDom(slot: Slot, parentDom: Node): Generator<UpdateResult, void> {
-  if (isComponentSlot(slot) || isContextSlot(slot)) {
-    return yield updateResult({
-      type: "DOM",
-      callback: () => removeRange(slot.instance.startAnchor, slot.instance.endAnchor, parentDom),
-    });
-  }
-  if (isFragmentSlot(slot)) {
-    return yield updateResult({
-      type: "DOM",
-      callback: () => removeRange(slot.node, slot.endAnchor, parentDom),
-    });
-  }
-  if (slot.node.parentNode === parentDom) {
-    return yield updateResult({ type: "DOM", callback: () => parentDom.removeChild(slot.node) });
-  }
 }
