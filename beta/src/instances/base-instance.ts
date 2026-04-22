@@ -103,6 +103,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   readonly parent: BaseInstance | null;
   readonly parentDom: Node;
   protected pendingDomUpdates: Iterable<DomResult> = [];
+  private initialMount = true;
   /**
    * ContextMap this instance exposes to its children and reads for its own
    * `context` hooks. ComponentInstance keeps the parent map unchanged;
@@ -339,6 +340,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     for (const update of this.pendingDomUpdates) {
       update.callback();
     }
+    this.initialMount = false;
     this.pendingDomUpdates = [];
   }
 

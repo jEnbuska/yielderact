@@ -249,32 +249,12 @@ function* buildElement(
     slotPath,
   );
   // Recursively reconcile children INTO the unattached element.
-  const gen = build(vnode.children, parentInstance, slot.node, null, slotPath);
-  let result = gen.next();
-  while (!result.done) {
-    if (result.value) {
-      switch (result.value.type) {
-        case "DOM":
-          result.value.callback();
-          yield;
-          result = gen.next();
-          continue;
-        case "MOUNT":
-        case "SET_PROPS": {
-          const instance = yield result.value;
-          result = gen.next(instance);
-          continue;
-        }
-        default:
-          yield result.value;
-          result = gen.next();
-          continue;
-      }
-    }
-    result = gen.next();
-  }
-  slot.slots = result.value.slots;
-  slot.keyIndex = result.value.keyIndex;
+  const { keyIndex, slots } = yield* delegateBuild(
+    build(vnode.children, parentInstance, slot.node, null, slotPath),
+  );
+
+  slot.slots = slots;
+  slot.keyIndex = keyIndex;
   return slot;
 }
 
@@ -295,10 +275,41 @@ function* buildFragment(
     callback: () => appendChildren(parentDom, slot.node, slot.endAnchor),
   });
   // Recursively reconcile children between the anchors.
-  const childResult = yield* build(children, parentInstance, parentDom, slot.endAnchor, slotPath);
-  slot.slots = childResult.slots;
-  slot.keyIndex = childResult.keyIndex;
+  const { keyIndex, slots } = yield* delegateBuild(
+    build(children, parentInstance, parentDom, slot.endAnchor, slotPath),
+  );
+  slot.slots = slots;
+  slot.keyIndex = keyIndex;
   return slot;
+}
+
+function* delegateBuild(
+  generator: Generator<OptionalUpdateResult, ReconcileResult, BaseInstance>,
+): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
+  let result = generator.next();
+  while (!result.done) {
+    if (result.value) {
+      switch (result.value.type) {
+        case "DOM":
+          result.value.callback();
+          yield;
+          result = generator.next();
+          continue;
+        case "MOUNT":
+        case "SET_PROPS": {
+          const instance = yield result.value;
+          result = generator.next(instance);
+          continue;
+        }
+        default:
+          yield result.value;
+          result = generator.next();
+          continue;
+      }
+    }
+    result = generator.next();
+  }
+  return result.value;
 }
 
 function* buildComponent(
