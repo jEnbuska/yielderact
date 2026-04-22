@@ -288,26 +288,32 @@ function* delegateBuild(
 ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
   let result = generator.next();
   while (!result.done) {
-    if (result.value) {
-      switch (result.value.type) {
-        case "DOM":
-          result.value.callback();
-          yield;
-          result = generator.next();
-          continue;
-        case "MOUNT":
-        case "SET_PROPS": {
-          const instance = yield result.value;
-          result = generator.next(instance);
-          continue;
-        }
-        default:
-          yield result.value;
-          result = generator.next();
-          continue;
-      }
+    if (!result.value) {
+      yield;
+      result = generator.next();
+      continue;
     }
-    result = generator.next();
+    switch (result.value.type) {
+      case "DOM":
+        result.value.callback();
+        yield;
+        result = generator.next();
+        break;
+      case "MOUNT":
+      case "SET_PROPS": {
+        const instance = yield result.value;
+        result = generator.next(instance);
+        break;
+      }
+      case "UNMOUNT":
+        yield result.value;
+        result = generator.next();
+        break;
+
+      default:
+        throw new Error(`Unknown result value ${result.value}`);
+        break;
+    }
   }
   return result.value;
 }

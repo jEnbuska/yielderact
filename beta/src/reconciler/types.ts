@@ -21,8 +21,6 @@ export type SetPropsResult = {
   vnode: VNode;
 };
 
-export type ComponentChange = Extract<UpdateResult, { type: `${"RENDER" | "UPDATE"}_${string}` }>;
-
 export interface ReconcileResult {
   slots: Slot[];
   keyIndex: Map<SlotKey, number>;
