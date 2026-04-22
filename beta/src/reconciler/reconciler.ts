@@ -154,6 +154,42 @@ export function* reconcile(
   return { slots: result, keyIndex: nextKeyIndex };
 }
 
+export function* build(
+  nextChildren: IterableChild,
+  parentInstance: BaseInstance,
+  parentDom: Node,
+  beforeNode: Node | null,
+  parentPath: SlotPath,
+): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
+  const result: Slot[] = [];
+  const nextKeyIndex = new Map<SlotKey, number>();
+
+  // Pass 1: build. Build nextKeyIndex as we go.
+  let i = 0;
+  for (const child of getIterable(nextChildren)) {
+    const idx = i++;
+    const key = getChildKey(child, idx);
+    const slotPath: SlotPath = createSlotPath(parentPath, key);
+    const slot = yield* buildSlot(child, idx, key, slotPath, parentInstance, parentDom);
+    result.push(slot);
+    nextKeyIndex.set(getSlotKey(slot), result.length - 1);
+  }
+
+  // Pass 3: positioning — yield callbacks only for slots that actually moved.
+  // Walk backwards to compute each slot's insertBefore anchor.
+  let anchor: Node | null = beforeNode;
+  for (let j = result.length - 1; j >= 0; j--) {
+    const slot = result[j]!;
+    const last = slotLastNode(slot);
+    if (last.parentNode !== parentDom || last.nextSibling !== anchor) {
+      yield* ensureSlotPosition(slot, parentDom, anchor);
+    }
+    if (isComponentSlot(slot) || isContextSlot(slot)) anchor = slot.instance.startAnchor;
+    else anchor = slot.node;
+  }
+  return { slots: result, keyIndex: nextKeyIndex };
+}
+
 // ---------------------------------------------------------------------------
 // Build — create new slots, yield DOM callbacks for creation
 // ---------------------------------------------------------------------------
@@ -213,7 +249,7 @@ function* buildElement(
     slotPath,
   );
   // Recursively reconcile children INTO the unattached element.
-  const gen = reconcile(vnode.children, parentInstance, slot.node, null, slotPath);
+  const gen = build(vnode.children, parentInstance, slot.node, null, slotPath);
   let result = gen.next();
   while (!result.done) {
     if (result.value) {
@@ -259,13 +295,7 @@ function* buildFragment(
     callback: () => appendChildren(parentDom, slot.node, slot.endAnchor),
   });
   // Recursively reconcile children between the anchors.
-  const childResult = yield* reconcile(
-    children,
-    parentInstance,
-    parentDom,
-    slot.endAnchor,
-    slotPath,
-  );
+  const childResult = yield* build(children, parentInstance, parentDom, slot.endAnchor, slotPath);
   slot.slots = childResult.slots;
   slot.keyIndex = childResult.keyIndex;
   return slot;
