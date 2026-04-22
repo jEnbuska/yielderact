@@ -89,7 +89,7 @@ function generateRows(count: number): Row[] {
   return rows;
 }
 
-const TOTAL_ROWS = 500;
+const TOTAL_ROWS = 25_000;
 const ALL_ROWS = generateRows(TOTAL_ROWS);
 
 function* TableData({ children }: ComponentProps<"td">) {
@@ -201,12 +201,12 @@ export function* DeferredDemo() {
 
   const [tick, setTick] = yield* $state(0);
   yield* $effect((signal) => {
-    const interval = setInterval(() => {
+    /*const interval = setInterval(() => {
       setTick((prev) => Math.round((prev + 0.1) * 10) / 10);
     }, 100);
     signal.onabort = () => {
       clearInterval(interval);
-    };
+    };*/
   });
 
   let tickStr = `${tick}`;

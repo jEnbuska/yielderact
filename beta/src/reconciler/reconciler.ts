@@ -65,7 +65,7 @@ import { getIterable } from "../iterable";
 import { removeRange, unmountSlot } from "./unmount";
 import type { OptionalUpdateResult, ReconcileResult, UpdateResult } from "./types";
 import { ensureSlotPosition } from "./position";
-import { updateResult } from "./utils";
+import { createSlotPath, updateResult } from "./utils";
 import type { ContextInstance } from "../instances/context-instance";
 
 export { unmountSlot, removeRange } from "./unmount";
@@ -111,7 +111,7 @@ export function* reconcile(
         continue;
       }
     }
-    const slotPath: SlotPath = [...parentPath, key];
+    const slotPath: SlotPath = createSlotPath(parentPath, key);
     const slot = yield* buildSlot(child, idx, key, slotPath, parentInstance, parentDom);
     result.push(slot);
     nextKeyIndex.set(getSlotKey(slot), result.length - 1);

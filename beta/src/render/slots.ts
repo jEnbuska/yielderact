@@ -14,7 +14,7 @@ import type { BaseInstance } from "../instances/base-instance";
 import type { Context } from "yract-beta";
 
 export type SlotKey = string | number;
-export type SlotPath = ReadonlyArray<SlotKey>;
+export type SlotPath = string;
 
 // ---------------------------------------------------------------------------
 // Slot type constants

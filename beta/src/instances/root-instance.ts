@@ -13,24 +13,26 @@ import type { RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
 import { reconcile } from "../reconciler/reconciler";
 import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
-import { invokeUpdates } from "../reconciler/invoke-updates";
 
 const ROOT_VNODE: VNode<typeof Fragment> = { type: Fragment, props: {}, children: [] };
 
 export class RootInstance extends BaseInstance<typeof Fragment> {
+  private pendingVNode: VNode | null = null;
+
   constructor(rctx: RenderContext) {
     super("root", ROOT_VNODE, new Map(), 0, null, rctx, rctx.container);
   }
 
   protected *render(): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
-    return { slots: [], keyIndex: new Map() };
+    if (!this.pendingVNode) return { slots: [], keyIndex: new Map() };
+    return yield* reconcile(
+      [this.pendingVNode], this, this.parentDom, null, "", this.slots, this.keyIndex,
+    );
   }
 
   run(vnode: VNode) {
-    const gen = invokeUpdates(
-      this,
-      reconcile([vnode], this, this.parentDom, null, [], this.slots, this.keyIndex),
-    );
+    this.pendingVNode = vnode;
+    const gen = this.apply();
     let result = gen.next();
     while (!result.done) result = gen.next();
     this.commitApply(result.value);

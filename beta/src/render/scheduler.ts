@@ -12,45 +12,32 @@
  * `unscheduleApply(reason)`, and whether the instance ends up in the
  * queue at all depends on its reason set (see BaseInstance).
  */
-import type { BaseInstance } from "../instances/base-instance";
+import { BaseInstance, perf } from "../instances/base-instance";
 import { createResolvable } from "../create-resolvable";
-import { invokeUpdates } from "../reconciler/invoke-updates";
 
 function comparePaths(a: readonly number[], b: readonly number[]): number {
   const len = Math.min(a.length, b.length);
   for (let i = 0; i < len; i++) {
-    const av = a[i] ?? 0;
-    const bv = b[i] ?? 0;
+    const av = a[i]!;
+    const bv = b[i]!;
     if (av !== bv) return av - bv;
   }
   return a.length - b.length;
 }
 
-/** Insert `instance` into `queue` in path order, skipping duplicates. */
-function insertByPath(queue: BaseInstance[], instance: BaseInstance): void {
-  if (queue.includes(instance)) return;
-  let lo = 0;
-  let hi = queue.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    const existing = queue[mid];
-    if (!existing || comparePaths(instance.path, existing.path) < 0) {
-      hi = mid;
-    } else {
-      lo = mid + 1;
-    }
-  }
-  queue.splice(lo, 0, instance);
-}
-
 /** Time budget per deferred work slice (ms), matching React 19. */
-const SLICE_MS = 5;
+const SLICE_MS = 10;
 
 export class Scheduler {
-  private queue: BaseInstance[] = [];
+  private running?: BaseInstance;
+  private primaryQueue: BaseInstance[] = [];
+  private primaryMembers = new Set<BaseInstance>();
+
   private deferredQueue: BaseInstance[] = [];
+  private deferredMembers = new Set<BaseInstance>();
   /** In-progress render generators for deferred instances interrupted by time-slicing. */
   private batchDepth = 0;
+  searches = 0;
 
   private resolvable = createResolvable();
 
@@ -58,17 +45,47 @@ export class Scheduler {
     this.resolvable.promise.then(() => this.run());
   }
 
+  scheduleTime = 0;
+
   schedule(instance: BaseInstance): void {
-    const queue = instance.isDeferred() ? this.deferredQueue : this.queue;
-    insertByPath(queue, instance);
+    const start = performance.now();
+    this.insertByPath(instance);
     this.resolvable.resolve();
+    this.scheduleTime += performance.now() - start;
   }
 
   unschedule(instance: BaseInstance): void {
-    let i = this.queue.indexOf(instance);
-    if (i >= 0) this.queue.splice(i, 1);
-    i = this.deferredQueue.indexOf(instance);
-    if (i >= 0) this.deferredQueue.splice(i, 1);
+    this.primaryMembers.delete(instance);
+    this.deferredMembers.delete(instance);
+  }
+
+  /** Insert `instance` into `queue` in path order, skipping duplicates. */
+  insertByPath(instance: BaseInstance): void {
+    const group = instance.isDeferred() ? "deferred" : "primary";
+    const members = this[`${group}Members`];
+    const queue = this[`${group}Queue`];
+    if (members.has(instance)) return;
+    members.add(instance);
+    if (this.running === instance.parent) {
+      queue.push(instance);
+      return;
+    }
+    let lo = 0;
+    let hi = queue.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >>> 1;
+      const existing = queue[mid]!;
+      if (existing.parent === instance.parent) {
+        queue.splice(mid, 0, instance);
+        return;
+      }
+      if (comparePaths(instance.path, existing.path) > 0) {
+        hi = mid;
+      } else {
+        lo = mid + 1;
+      }
+    }
+    queue.splice(lo, 0, instance);
   }
 
   beginBatch(): void {
@@ -88,7 +105,7 @@ export class Scheduler {
     const { promise, resolve } = createResolvable<number>();
     const { port1, port2 } = new MessageChannel();
     port1.onmessage = () => {
-      resolve(Date.now());
+      requestIdleCallback(() => resolve(Date.now()));
     };
     port2.postMessage(null);
     return promise;
@@ -96,30 +113,37 @@ export class Scheduler {
 
   private async run(): Promise<void> {
     while (true) {
+      console.log("run");
       await this.resolvable.promise;
-      while (this.queue.length || this.deferredQueue.length) {
+      this.scheduleTime = 0;
+      while (this.primaryQueue.length || this.deferredQueue.length) {
         this.runPrimaryQueue();
         await this.runDeferredQueue();
       }
+      console.log(this.searches, "THIS SCHEDULE TIME", this.scheduleTime);
+
       this.resolvable = createResolvable();
     }
   }
 
   private runPrimaryQueue() {
     const applied: BaseInstance[] = [];
-    while (this.queue.length) {
-      const instance = this.queue.shift()!;
+    while (this.primaryQueue.length) {
+      const instance = this.primaryQueue.pop()!;
+      if (!this.primaryMembers.delete(instance)) continue;
       if (instance.isDeferred()) {
-        insertByPath(this.deferredQueue, instance);
+        this.running = undefined;
+        this.insertByPath(instance);
         continue;
       }
-      const gen = invokeUpdates(instance, instance.apply());
+      this.running = instance;
+      const gen = instance.apply();
       let res = gen.next();
       while (!res.done) res = gen.next();
-
       instance.commitApply(res.value);
       applied.push(instance);
     }
+    this.running = undefined;
     // Commit DOM updates parent-first (rendered is leaf-first via unshift).
     for (const instance of applied) {
       instance.applyDomUpdates();
@@ -133,40 +157,52 @@ export class Scheduler {
 
   private deferredApplied: BaseInstance[] = [];
   private async runDeferredQueue() {
-    let start = Date.now();
+    perf.reset();
+    const queueStart = Date.now();
+    BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
     while (this.deferredQueue.length) {
-      const instance = this.deferredQueue.shift()!;
+      const instance = this.deferredQueue.pop()!;
+      if (!this.deferredMembers.delete(instance)) continue;
       if (!instance.isDeferred()) {
-        insertByPath(this.queue, instance);
+        this.running = undefined;
+        this.insertByPath(instance);
         return;
       }
-
-      const gen = invokeUpdates(instance, instance.apply());
+      this.running = instance;
+      const gen = instance.apply();
       let res = gen.next();
 
       while (!res.done) {
-        if (start + 50 < Date.now()) {
-          await this.scheduleYield();
-          start = Date.now();
-        }
-        if (this.queue.length) {
-          insertByPath(this.deferredQueue, instance);
+        if (this.primaryQueue.length) {
+          this.running = undefined;
+          this.insertByPath(instance);
           return;
         }
+        await this.scheduleYield();
+        BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
         res = gen.next();
       }
       instance.commitApply(res.value);
-      insertByPath(this.deferredApplied, instance);
+      this.deferredApplied.push(instance);
     }
-    // Commit DOM updates parent-first (rendered is leaf-first via unshift).
+    this.running = undefined;
+    console.log(
+      `[deferred] reconciled ${this.deferredApplied.length} instances in ${Date.now() - queueStart}ms`,
+    );
+    perf.dump();
+
+    let stepStart = Date.now();
     for (const instance of this.deferredApplied) {
       instance.applyDomUpdates();
     }
+    console.log(`[deferred] DOM applied in ${Date.now() - stepStart}ms`);
 
-    // Then run hooks leaf-first.
+    stepStart = Date.now();
     for (let i = this.deferredApplied.length - 1; i >= 0; i--) {
       this.deferredApplied[i]!.afterAllApplied();
     }
+    console.log(`[deferred] hooks applied in ${Date.now() - stepStart}ms`);
+    console.log(`[deferred] total: ${Date.now() - queueStart}ms`);
     this.deferredApplied = [];
   }
 }

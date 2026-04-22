@@ -24,7 +24,7 @@ export class ComponentInstance extends BaseInstance<Component> {
       );
     }
     const output = this.runGenerator(fn(props));
-    return reconcile([output], this, this.parentDom, this.endAnchor, [], this.slots, this.keyIndex);
+    return reconcile([output], this, this.parentDom, this.endAnchor, "", this.slots, this.keyIndex);
   }
 
   private runGenerator(gen: Generator<unknown, Child, unknown>): Child {

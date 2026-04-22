@@ -6,7 +6,7 @@ import type { Context, ContextHandle } from "../context";
 import { resolveCtxValue } from "../context";
 import type { ContextMap, RenderContext } from "../render/types";
 import { reconcile } from "../reconciler/reconciler";
-import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
+import type { DomResult, OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
 import { Deferred } from "./deferred-context";
 
 export class DeferredInstance extends BaseInstance<Context> {
@@ -42,7 +42,7 @@ export class DeferredInstance extends BaseInstance<Context> {
     super.afterAllApplied();
   }
 
-  apply(): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
+  apply(): Generator<void, ReconcileResult & { domUpdates: DomResult[] }> {
     if (
       !resolveCtxValue(this.parent?.ctx, Deferred) &&
       (this.initialRender || this.isUnmounted())
@@ -62,6 +62,6 @@ export class DeferredInstance extends BaseInstance<Context> {
     props: VNodeProps,
   ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
     const children = (props["children"] as Child[]) ?? [];
-    return reconcile(children, this, this.parentDom, this.endAnchor, [], this.slots, this.keyIndex);
+    return reconcile(children, this, this.parentDom, this.endAnchor, "", this.slots, this.keyIndex);
   }
 }

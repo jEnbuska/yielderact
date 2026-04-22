@@ -4,6 +4,7 @@ class MultiIterable<T> {
   private done = false;
   private values: T[] = [];
   private iterator: Iterator<T>;
+
   constructor(iterable: Iterable<T>) {
     this.iterator = iterable[Symbol.iterator]();
   }
@@ -45,5 +46,5 @@ const iterableMap = new WeakMap<IterableChild, MultiIterable<Child>>();
 
 export function getIterable(children: IterableChild): Iterable<Child> {
   if (Array.isArray(children)) return children;
-  throw new Error("ERROR"); // TODO
+  return iterableMap.getOrInsertComputed(children, () => new MultiIterable(children));
 }
