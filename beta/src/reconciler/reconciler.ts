@@ -39,8 +39,7 @@ import type { Context } from "../context";
 import type { BaseInstance } from "../instances/base-instance";
 import type { ComponentInstance } from "../instances/component-instance";
 import type { Child, Component, IterableChild, VNode, VNodeProps } from "../jsx";
-import { shallowEqual } from "../prop-helpers";
-import { updateElementProps } from "../render/element-props";
+import { diffElementProps, updateElementProps } from "../render/element-props";
 import type { ComponentSlot, ContextSlot, ElementSlot } from "../render/slots";
 import {
   componentSlotType,
@@ -467,12 +466,12 @@ function* updateSlot(
       key: child.props.key ?? index,
       index,
     };
-    if (!shallowEqual(prev.props, child.props)) {
+    const patch = diffElementProps(prev.props, child.props);
+    if (patch) {
       slot.props = child.props;
       yield updateResult({
         type: "DOM",
-        callback: () =>
-          updateElementProps(prev.node, prev.props, child.props, parent.rctx.delegationRoot),
+        callback: () => updateElementProps(prev.node, patch, parent.rctx.delegationRoot),
       });
     }
     slot.slots = childResult.slots;

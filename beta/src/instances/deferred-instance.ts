@@ -36,10 +36,10 @@ export class DeferredInstance extends BaseInstance<Context> {
     this.handle = handle;
   }
 
-  afterAllApplied() {
+  commit() {
     this.initialRender = false;
     this.handle.ref.current = false;
-    super.afterAllApplied();
+    super.commit();
   }
 
   apply(): Generator<void, ReconcileResult & { domUpdates: DomResult[] }> {

@@ -92,7 +92,7 @@ export function processOneDescriptor(
       const prev = getTypedPrev(hookStates, hookIndex, $STATE, instance);
       const state = processState(descriptor, prev);
       hookStates[hookIndex] = state;
-      return [state.value, createStateSetter(state, instance)];
+      return [state.value, createStateSetter(instance, state)];
     }
     case $REF: {
       const prev = getTypedPrev(hookStates, hookIndex, $REF, instance);
@@ -120,12 +120,12 @@ export function processOneDescriptor(
     }
     case $EFFECT: {
       const prev = getTypedPrev(hookStates, hookIndex, $EFFECT, instance);
-      hookStates[hookIndex] = processEffect(descriptor, prev);
+      hookStates[hookIndex] = processEffect(instance, descriptor, prev);
       return;
     }
     case $CONTEXT: {
       const prev = getTypedPrev(hookStates, hookIndex, $CONTEXT, instance);
-      const state = processContext(descriptor, prev, instance);
+      const state = processContext(instance, descriptor, prev);
       hookStates[hookIndex] = state;
       return getContextValue(state, instance);
     }

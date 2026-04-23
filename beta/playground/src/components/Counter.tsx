@@ -16,8 +16,8 @@ export function* Counter() {
     <section aria-label="Counter example">
       <h2>Counter</h2>
       <p>
-        A component keeps state via <code>yield* $state</code>. Each call to the setter re-runs
-        the component body and reconciles the DOM.
+        A component keeps state via <code>yield* $state</code>. Each call to the setter re-runs the
+        component body and reconciles the DOM.
       </p>
       <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
         <button id={decrementId} data-testid="decrement-btn" onClick={() => setCount(count - 1)}>

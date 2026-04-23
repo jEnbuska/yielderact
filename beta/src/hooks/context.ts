@@ -72,9 +72,9 @@ export interface ContextHookState {
  * refreshes the selector/transform references (they rarely change, but may).
  */
 export function processContext(
+  instance: BaseInstance,
   descriptor: ContextDescriptor,
   prev: ContextHookState | undefined,
-  instance: BaseInstance,
 ): ContextHookState {
   const selector = (descriptor.depsSelector ?? defaultSelector) as (ctx: unknown) => unknown[];
 
@@ -105,12 +105,21 @@ export function processContext(
   const handle = instance.ctx.get(descriptor.ctx) as ContextHandle | undefined;
   if (!handle) return state;
 
-  const initial = state.depsSelector(handle.ref.current);
-  state.lastRenderedDepsSelected = initial;
-  state.currentSelected = initial;
+  const initialSelected = state.depsSelector(handle.ref.current);
+  state.lastRenderedDepsSelected = initialSelected;
+  state.currentSelected = initialSelected;
   if (state.transform) {
-    state.lastTransformResult = state.transform(...initial);
+    state.lastTransformResult = state.transform(...initialSelected);
   }
+  state.unsubscribe = handle.subscribe(() => {
+    const current = state.depsSelector(handle.ref.current);
+    state.currentSelected = current;
+    if (!depsChanged(state.lastRenderedDepsSelected, current)) {
+      instance.unscheduleRender(state.reason);
+      return;
+    }
+    instance.scheduleRender(state.reason);
+  });
   return state;
 }
 

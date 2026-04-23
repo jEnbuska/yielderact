@@ -22,7 +22,7 @@ import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types"
 export class ContextInstance extends BaseInstance<Context> {
   readonly contextKey: Context;
   readonly handle: ContextHandle;
-  private subscribers!: Set<() => void>;
+  private readonly subscribers: Set<() => void>;
 
   constructor(
     childId: string,

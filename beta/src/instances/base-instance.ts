@@ -17,7 +17,7 @@
  * responsibilities rather than one long block.
  */
 
-import type { Context, ContextHandle } from "../context";
+import type { Context } from "../context";
 import { resolveCtxValue } from "../context";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import type { DependencyList } from "../hooks/types";
@@ -47,52 +47,6 @@ export function registerCreateInstance(fn: CreateInstanceFn): void {
   createInstanceFn = fn;
 }
 
-// ── Profiling counters (remove after profiling) ─────────────────────
-export const perf = {
-  renderTime: 0,
-  jsonStringifyTime: 0,
-  createInstanceTime: 0,
-  scheduleChildrenTime: 0,
-  dateNowCalls: 0,
-  mountCount: 0,
-  reconcileCount: 0,
-  // Reconciler breakdown
-  reconcileAllocTime: 0,
-  buildSlotTime: 0,
-  buildElementTime: 0,
-  pass3Time: 0,
-  slotPathAllocTime: 0,
-  generatorNextTime: 0,
-  generatorNextCalls: 0,
-  reset() {
-    this.renderTime = this.jsonStringifyTime = 0;
-    this.createInstanceTime = this.scheduleChildrenTime = 0;
-    this.dateNowCalls = this.mountCount = this.reconcileCount = 0;
-    this.reconcileAllocTime = this.buildSlotTime = this.buildElementTime = 0;
-    this.pass3Time = this.slotPathAllocTime = 0;
-    this.generatorNextTime = this.generatorNextCalls = 0;
-  },
-  dump() {
-    console.log(`[perf] render: ${this.renderTime.toFixed(1)}ms (component generators)`);
-    console.log(
-      `[perf] JSON.stringify: ${this.jsonStringifyTime.toFixed(1)}ms (${this.mountCount} MOUNTs)`,
-    );
-    console.log(`[perf] createInstance: ${this.createInstanceTime.toFixed(1)}ms`);
-    console.log(`[perf] scheduleChildren: ${this.scheduleChildrenTime.toFixed(1)}ms`);
-    console.log(
-      `[perf] reconcile allocs: ${this.reconcileAllocTime.toFixed(1)}ms (${this.reconcileCount} calls)`,
-    );
-    console.log(`[perf] buildSlot: ${this.buildSlotTime.toFixed(1)}ms`);
-    console.log(`[perf] buildElement: ${this.buildElementTime.toFixed(1)}ms`);
-    console.log(`[perf] pass3 positioning: ${this.pass3Time.toFixed(1)}ms`);
-    console.log(`[perf] slotPath alloc: ${this.slotPathAllocTime.toFixed(1)}ms`);
-    console.log(
-      `[perf] generator.next: ${this.generatorNextTime.toFixed(1)}ms (${this.generatorNextCalls} calls)`,
-    );
-    console.log(`[perf] Date.now calls: ${this.dateNowCalls}`);
-  },
-};
-
 export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   /** Time-slice deadline set by the scheduler. invokeUpdates yields when exceeded. */
   static sliceDeadline = Infinity;
@@ -103,7 +57,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   readonly parent: BaseInstance | null;
   readonly parentDom: Node;
   protected pendingDomUpdates: Iterable<DomResult> = [];
-  private initialMount = true;
   /**
    * ContextMap this instance exposes to its children and reads for its own
    * `context` hooks. ComponentInstance keeps the parent map unchanged;
@@ -113,7 +66,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   readonly rctx: RenderContext;
   readonly children: Map<string, BaseInstance> = new Map();
   readonly keysByInstance: Map<BaseInstance, string> = new Map();
-  readonly unmountedChildren: Set<BaseInstance> = new Set();
+  unmountedChildren: Set<BaseInstance> = new Set();
   slots: Slot[] = [];
   pendingSlots: Slot[] = [];
   keyIndex: Map<SlotKey, number> = new Map();
@@ -130,6 +83,10 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
 
   /** Active schedule reasons. Empty Set ⇒ instance is not in the queue. */
   protected renderReasons: Set<symbol> = new Set();
+
+  protected resolveReasons: Set<symbol> = new Set();
+
+  protected cleanupReasons: Set<symbol> = new Set();
 
   /**
    * DOM anchor pair delimiting this instance's subtree. Everything between
@@ -199,27 +156,30 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     return resolveCtxValue(this.ctx, Deferred);
   }
 
-  /**xt
-   * Enqueue a render under the given reason. If no reason is passed a
-   * default symbol is used — callers that want per-source bookkeeping
-   * (e.g. context subscribers) should pass their own reason.
-   */
-  scheduleApply(reason: symbol = PROPS_REASON): void {
-    this.renderReasons.add(reason);
+  scheduleRender(reason: symbol): void {
+    if (this.renderReasons.has(reason)) return;
     this.pendingGen = null;
-    this.rctx.scheduler.schedule(this);
+    this.rctx.scheduler.schedule(this, "render");
   }
 
-  /**
-   * Drop a render reason. If no reasons remain the instance is removed
-   * from the scheduler queue. Used by context subscribers that decided
-   * the value change was not relevant to their selector.
-   */
-  unscheduleApply(reason = PROPS_REASON): void {
-    if (!this.renderReasons.delete(reason)) return;
-    if (this.renderReasons.size === 0) {
-      this.rctx.scheduler.unschedule(this);
-    }
+  unscheduleRender(reason: symbol): void {
+    if (!this.renderReasons.has(reason)) return;
+    this.rctx.scheduler.unschedule(this, "render");
+  }
+
+  scheduleResolve(reason: symbol): void {
+    if (this.resolveReasons.has(reason)) return;
+    this.rctx.scheduler.schedule(this, "resolve");
+  }
+
+  unscheduleResolve(reason: symbol): void {
+    if (!this.resolveReasons.has(reason)) return;
+    this.rctx.scheduler.unschedule(this, "resolve");
+  }
+
+  scheduleCleanup(reason: symbol): void {
+    if (this.cleanupReasons.has(reason)) return;
+    this.rctx.scheduler.schedule(this, "effect");
   }
 
   /**
@@ -238,23 +198,16 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   }
 
   private *invokeUpdates(): Generator<void, ReconcileResult & { domUpdates: DomResult[] }> {
-    let t0 = performance.now();
     const generator = this.render(this.nextProps);
-    perf.renderTime += performance.now() - t0;
 
     const domUpdates: Array<DomResult> = [];
     const toBeUnmounted = new Map(this.children);
     const pendingChildren: Array<{ path: string; instance: BaseInstance }> = [];
     const genNext = (value?: BaseInstance) => {
-      perf.generatorNextCalls++;
-      const t = performance.now();
-      const r = value !== undefined ? generator.next(value) : generator.next();
-      perf.generatorNextTime += performance.now() - t;
-      return r;
+      return value !== undefined ? generator.next(value) : generator.next();
     };
     let result = genNext();
     while (!result.done) {
-      perf.dateNowCalls++;
       if (Date.now() >= BaseInstance.sliceDeadline) yield;
       if (!result.value) {
         result = genNext();
@@ -268,7 +221,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
       }
       switch (next.type) {
         case "MOUNT": {
-          perf.mountCount++;
           const { vnode, index, parentDom } = next;
           const path = next.slotPath;
           const instance = this.children.get(path);
@@ -279,7 +231,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
             result = genNext(instance);
           } else {
             instance?.unmount();
-            t0 = performance.now();
             const newInstance = createInstanceFn(
               path,
               vnode,
@@ -289,7 +240,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
               this.rctx,
               parentDom,
             );
-            perf.createInstanceTime += performance.now() - t0;
             pendingChildren.push({ path, instance: newInstance });
             result = genNext(newInstance);
           }
@@ -308,18 +258,16 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         }
       }
     }
-    const t1 = performance.now();
     for (const { path, instance } of pendingChildren) {
       this.children.set(path, instance);
       this.keysByInstance.set(instance, path);
-      instance.scheduleApply(MOUNT_REASON);
+      instance.scheduleRender(MOUNT_REASON);
     }
-    perf.scheduleChildrenTime += performance.now() - t1;
     for (const [_, removedInstance] of toBeUnmounted) removedInstance.unmount();
     return { ...result.value, domUpdates };
   }
 
-  commitApply(result: ReconcileResult & { domUpdates: DomResult[] }): void {
+  setApplyResult(result: ReconcileResult & { domUpdates: DomResult[] }): void {
     this.renderReasons.clear();
     const { slots, keyIndex, domUpdates } = result;
     this.props = this.nextProps;
@@ -332,7 +280,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     props: Record<string, unknown>,
   ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance>;
 
-  applyDomUpdates(): void {
+  updateDOM(): void {
     if (this.isUnmounted()) {
       this.pendingDomUpdates = [];
       return;
@@ -340,7 +288,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     for (const update of this.pendingDomUpdates) {
       update.callback();
     }
-    this.initialMount = false;
     this.pendingDomUpdates = [];
   }
 
@@ -353,8 +300,16 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     }
   };
 
-  afterAllApplied(): void {
-    if (this.isUnmounted()) return;
+  resolveStatePromises() {
+    for (const state of this.hookStates) {
+      if (state.type === $STATE) {
+        state.pendingResolve?.();
+        state.pendingResolve = undefined;
+      }
+    }
+  }
+
+  commit(): void {
     this.slots = this.pendingSlots;
     this.keyIndex = this.pendingKeyIndex;
     this.committedProps = this.props!;
@@ -362,14 +317,14 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
       child.runHookCleanupsLeafFirst();
       this.children.delete(child.childId);
       this.keysByInstance.delete(child);
-      this.unmountedChildren.delete(child);
     }
+    this.unmountedChildren = new Set();
+  }
+
+  runEffects() {
+    if (this._unmounted) return;
     for (const state of this.hookStates) {
-      if (state === undefined) continue;
-      if (state.type === $STATE) {
-        state.pendingResolve?.();
-        state.pendingResolve = undefined;
-      } else if (state.type === $EFFECT) {
+      if (state.type === $EFFECT) {
         if (!state.controller) {
           // First run.
           const controller = new AbortController();
@@ -383,20 +338,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
           state.dirty = false;
           void state.fn(controller.signal);
         }
-      } else if (state.type === $CONTEXT) {
-        if (state.unsubscribe) continue;
-        const handle = this.ctx.get(state.ctx) as ContextHandle | undefined;
-        if (!handle) continue;
-        state.unsubscribe = handle.subscribe(() => {
-          if (this.isUnmounted()) return;
-          const current = state.depsSelector(handle.ref.current);
-          state.currentSelected = current;
-          if (!depsChanged(state.lastRenderedDepsSelected, current)) {
-            this.unscheduleApply(state.reason);
-            return;
-          }
-          this.scheduleApply(state.reason);
-        });
       }
     }
   }
@@ -426,7 +367,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     this._unmounted = true;
     this.pendingGen = null;
     if (!this.parent) return;
-    this.rctx.scheduler.unschedule(this);
     this.parent.unmountedChildren.add(this);
   }
 
@@ -434,7 +374,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     if (!this._unmounted) return;
     this._unmounted = false;
     if (!this.parent) return;
-    this.rctx.scheduler.schedule(this);
     this.parent.unmountedChildren.delete(this);
   }
 
@@ -446,6 +385,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    */
   private runHookCleanupsLeafFirst(): void {
     for (const [_, child] of this.children) {
+      child._unmounted = true;
       child.runHookCleanupsLeafFirst();
     }
     for (const state of this.hookStates) {
@@ -465,6 +405,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     const props = propsWithChildren(vnode);
     if (shallowEqual(this.nextProps, props)) return;
     this.nextProps = props;
-    this.scheduleApply();
+    this.scheduleRender(PROPS_REASON);
   }
 }

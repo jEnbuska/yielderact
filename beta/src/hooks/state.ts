@@ -54,8 +54,8 @@ function resolveValue<T>(initialValue: T | (() => T)): T {
 
 /** @internal */
 export function createStateSetter(
-  state: StateHookState,
   instance: BaseInstance,
+  state: StateHookState,
 ): (newValue: unknown) => Promise<void> {
   return (newValue: unknown): Promise<void> => {
     const nextValue = resolveNextValue(newValue, state.pendingValue);
@@ -63,7 +63,8 @@ export function createStateSetter(
     if (nextValue === state.value) {
       state.pendingValue = state.value;
       state.pendingResolve = undefined;
-      instance.unscheduleApply(state.identifier);
+      instance.unscheduleRender(state.identifier);
+      instance.unscheduleResolve(state.identifier);
       return Promise.resolve();
     }
 
@@ -81,7 +82,8 @@ export function createStateSetter(
     state.pendingValue = nextValue;
     const { promise, resolve } = createResolvable();
     state.pendingResolve = resolve;
-    instance.scheduleApply(state.identifier);
+    instance.scheduleRender(state.identifier);
+    instance.scheduleResolve(state.identifier);
     return promise;
   };
 }

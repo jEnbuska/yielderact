@@ -26,7 +26,13 @@ export class RootInstance extends BaseInstance<typeof Fragment> {
   protected *render(): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
     if (!this.pendingVNode) return { slots: [], keyIndex: new Map() };
     return yield* reconcile(
-      [this.pendingVNode], this, this.parentDom, null, "", this.slots, this.keyIndex,
+      [this.pendingVNode],
+      this,
+      this.parentDom,
+      null,
+      "",
+      this.slots,
+      this.keyIndex,
     );
   }
 
@@ -35,9 +41,9 @@ export class RootInstance extends BaseInstance<typeof Fragment> {
     const gen = this.apply();
     let result = gen.next();
     while (!result.done) result = gen.next();
-    this.commitApply(result.value);
-    this.applyDomUpdates();
-    this.afterAllApplied();
+    this.setApplyResult(result.value);
+    this.updateDOM();
+    this.commit();
   }
 
   debugLabel(): string {

@@ -71,6 +71,7 @@ export interface StableHookState {
 export interface EffectHookState {
   type: typeof $EFFECT;
   deps: DependencyList;
+  identifier: symbol;
   fn: (signal: AbortSignal) => void | Promise<void>;
   controller?: AbortController;
   dirty?: boolean;
@@ -96,3 +97,5 @@ export type HookState =
   | ContextHookState
   | InstanceHookState
   | BatchHookState;
+
+export type ScheduleGroup = "render" | "effect" | "resolve";

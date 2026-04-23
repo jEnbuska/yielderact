@@ -2,6 +2,7 @@ import type { EffectHookState } from "../render/types";
 import { $EFFECT, type EffectDescriptor } from "./descriptors";
 import type { ComponentGenerator, DependencyList } from "./types";
 import { depsChanged } from "./utils";
+import { BaseInstance } from "../instances/base-instance";
 
 /**
  * Side-effect hook. Runs `fn` after DOM updates, re-runs when deps change.
@@ -17,17 +18,25 @@ export function* $effect(
 
 /** @internal */
 export function processEffect(
+  instance: BaseInstance,
   descriptor: EffectDescriptor,
-  prev?: EffectHookState,
+  state: EffectHookState | undefined,
 ): EffectHookState {
-  if (prev === undefined) {
+  if (!state) {
+    const identifier = Symbol($EFFECT);
+    instance.scheduleCleanup(identifier);
     // First run — no controller yet; afterRender will create one and run fn.
-    return { type: $EFFECT, deps: descriptor.deps, fn: descriptor.fn };
+    return {
+      type: $EFFECT,
+      deps: descriptor.deps,
+      fn: descriptor.fn,
+      identifier,
+    };
   }
-  if (depsChanged(prev.deps, descriptor.deps)) {
-    prev.deps = descriptor.deps;
-    prev.fn = descriptor.fn;
-    prev.dirty = true;
+  if (depsChanged(state.deps, descriptor.deps)) {
+    state.deps = descriptor.deps;
+    state.fn = descriptor.fn;
+    instance.scheduleCleanup(state.identifier);
   }
-  return prev;
+  return state;
 }
