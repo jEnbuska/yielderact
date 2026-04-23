@@ -14,7 +14,7 @@
  */
 import { BaseInstance } from "../instances/base-instance";
 import { createResolvable } from "../create-resolvable";
-import { ScheduleGroup } from "./types";
+import type { ScheduleGroup } from "./types";
 
 function comparePaths(a: readonly number[], b: readonly number[]): number {
   const len = Math.min(a.length, b.length);
@@ -55,7 +55,7 @@ export class Scheduler {
   private resolvable = createResolvable();
 
   constructor() {
-    this.resolvable.promise.then(() => this.run());
+    this.resolvable.promise.then(this.run);
   }
 
   scheduleTime = 0;
@@ -155,38 +155,36 @@ export class Scheduler {
   private scheduleYield(): Promise<number> {
     const { promise, resolve } = createResolvable<number>();
     const { port1, port2 } = new MessageChannel();
-    port1.onmessage = () => {
-      requestIdleCallback(() => resolve(Date.now()));
-    };
+    port1.onmessage = () => requestIdleCallback(() => resolve(Date.now()));
+
     port2.postMessage(null);
     return promise;
   }
 
-  private async run(): Promise<void> {
-    while (true) {
-      await this.resolvable.promise;
-      this.scheduleTime = 0;
-      while (this.renderPrimaryQueue.length || this.renderDeferredQueue.length) {
-        this.runPrimaryQueue();
+  private run = async (): Promise<void> => {
+    await this.resolvable.promise;
+    this.scheduleTime = 0;
+    while (this.renderPrimaryQueue.length || this.renderDeferredQueue.length) {
+      this.runPrimaryQueue();
 
-        for (const next of this.effectPrimaryQueue) next.runEffects();
-        this.effectPrimaryQueue.length = 0;
-        this.effectPrimaryMembers.clear();
+      for (const next of this.effectPrimaryQueue) next.runEffects();
+      this.effectPrimaryQueue.length = 0;
+      this.effectPrimaryMembers.clear();
 
-        await this.runDeferredQueue();
-      }
-      for (const next of this.effectDeferredQueue) next.runEffects();
-      this.effectDeferredQueue.length = 0;
-      this.effectDeferredMembers.clear();
-
-      for (const next of this.resolveQueue) next.resolveStatePromises();
-      this.resolveQueue.length = 0;
-      this.resolveMembers.clear();
-
-      console.log(this.searches, "THIS SCHEDULE TIME", this.scheduleTime);
-      this.resolvable = createResolvable();
+      await this.runDeferredQueue();
     }
-  }
+    for (const next of this.effectDeferredQueue) next.runEffects();
+    this.effectDeferredQueue.length = 0;
+    this.effectDeferredMembers.clear();
+
+    for (const next of this.resolveQueue) next.resolveStatePromises();
+    this.resolveQueue.length = 0;
+    this.resolveMembers.clear();
+
+    console.log(this.searches, "THIS SCHEDULE TIME", this.scheduleTime);
+    this.resolvable = createResolvable();
+    this.resolvable.promise.then(this.run);
+  };
 
   private runPrimaryQueue() {
     const applied: BaseInstance[] = [];
@@ -213,7 +211,6 @@ export class Scheduler {
   }
 
   private async runDeferredQueue() {
-    const queueStart = Date.now();
     BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
     while (this.renderDeferredQueue.length) {
       const instance = this.renderDeferredQueue.pop()!;
