@@ -94,7 +94,7 @@ export class Scheduler {
           queue = this.renderDeferredQueue;
         } else {
           members = this.renderPrimaryMembers;
-          queue = this.effectPrimaryQueue;
+          queue = this.renderPrimaryQueue;
         }
         break;
       }
@@ -200,7 +200,6 @@ export class Scheduler {
       const gen = instance.apply();
       let res = gen.next();
       while (!res.done) res = gen.next();
-      instance.setApplyResult(res.value);
       applied.push(instance);
     }
     this.running = undefined;
@@ -234,12 +233,10 @@ export class Scheduler {
         BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
         res = gen.next();
       }
-      instance.setApplyResult(res.value);
       this.deferredResolved.push(instance);
     }
     this.running = undefined;
     for (const instance of this.deferredResolved) instance.updateDOM();
-
     for (let i = this.deferredResolved.length - 1; i >= 0; i--) this.deferredResolved[i]!.commit();
 
     this.deferredResolved.length = 0;

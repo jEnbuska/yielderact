@@ -5,7 +5,7 @@
  * column and search by the first column or a combined text search
  * across all columns (datalist-style filtering).
  */
-import { $effect, $memo, $stable, $state, Deferred } from "yract-beta";
+import { $context, $effect, $memo, $stable, $state, createContext, Deferred } from "yract-beta";
 import { ComponentProps } from "../../../src/jsx";
 
 /* ── Data generation ── */
@@ -99,6 +99,7 @@ function* TableData({ children }: ComponentProps<"td">) {
 /* ── Table row ── */
 
 function* TableRow({ row }: { row: Row }) {
+  const search = yield* $context(SearchContext);
   return (
     <tr>
       <TableData>{row.name}</TableData>
@@ -106,6 +107,7 @@ function* TableRow({ row }: { row: Row }) {
       <TableData>{row.city}</TableData>
       <td style={{ textAlign: "right" }}>{row.score}</td>
       <TableData style={{ textAlign: "center" }}>{row.active ? "Yes" : "No"}</TableData>
+      <td>{search}</td>
     </tr>
   );
 }
@@ -113,6 +115,8 @@ function* TableRow({ row }: { row: Row }) {
 /* ── Table (reads deferred context) ── */
 
 type SortDir = "asc" | "desc" | "none";
+
+const SearchContext = createContext("");
 
 function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSort: () => void }) {
   const sortLabel = sortDir === "asc" ? " ▲" : sortDir === "desc" ? " ▼" : "";
@@ -159,6 +163,7 @@ function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSo
             <th style={{ padding: "0.5rem", textAlign: "left" }}>City</th>
             <th style={{ padding: "0.5rem", textAlign: "right" }}>Score</th>
             <th style={{ padding: "0.5rem", textAlign: "center" }}>Active</th>
+            <th style={{ padding: "0.5rem", textAlign: "left" }}>Search</th>
           </tr>
         </thead>
         <tbody data-testid="table-body">
@@ -244,7 +249,9 @@ export function* DeferredDemo() {
       </div>
       <Deferred value={true}>
         <div>
-          <Table rows={filtered} sortDir={sortDir} onSort={updateSortDir} />
+          <SearchContext value={search}>
+            <Table rows={filtered} sortDir={sortDir} onSort={updateSortDir} />
+          </SearchContext>
         </div>
       </Deferred>
     </section>

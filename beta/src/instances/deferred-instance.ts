@@ -6,7 +6,7 @@ import type { Context, ContextHandle } from "../context";
 import { resolveCtxValue } from "../context";
 import type { ContextMap, RenderContext } from "../render/types";
 import { reconcile } from "../reconciler/reconciler";
-import type { DomResult, OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
+import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
 import { Deferred } from "./deferred-context";
 
 export class DeferredInstance extends BaseInstance<Context> {
@@ -42,7 +42,7 @@ export class DeferredInstance extends BaseInstance<Context> {
     super.commit();
   }
 
-  apply(): Generator<void, ReconcileResult & { domUpdates: DomResult[] }> {
+  apply() {
     if (
       !resolveCtxValue(this.parent?.ctx, Deferred) &&
       (this.initialRender || this.isUnmounted())

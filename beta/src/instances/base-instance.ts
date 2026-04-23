@@ -56,7 +56,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   readonly path: readonly number[];
   readonly parent: BaseInstance | null;
   readonly parentDom: Node;
-  protected pendingDomUpdates: Iterable<DomResult> = [];
+  protected pendingDomUpdates: DomResult[] = [];
   /**
    * ContextMap this instance exposes to its children and reads for its own
    * `context` hooks. ComponentInstance keeps the parent map unchanged;
@@ -65,16 +65,13 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   readonly ctx: ContextMap;
   readonly rctx: RenderContext;
   readonly children: Map<string, BaseInstance> = new Map();
-  readonly keysByInstance: Map<BaseInstance, string> = new Map();
-  unmountedChildren: Set<BaseInstance> = new Set();
+  readonly unmountedChildren: Set<BaseInstance> = new Set();
   slots: Slot[] = [];
   pendingSlots: Slot[] = [];
   keyIndex: Map<SlotKey, number> = new Map();
   pendingKeyIndex: Map<SlotKey, number> = new Map();
   hookStates: HookState[] = [];
-  props?: VNodeProps;
-  nextProps: VNodeProps;
-  committedProps: VNodeProps;
+  private props: VNodeProps;
 
   protected _unmounted = false;
 
@@ -139,7 +136,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     // Strip framework directives (key, shown) and merge positional children
     // into children. Uses the same `propsWithChildren` that the reconciler's
     // `setProps` path uses, so initial and updated props have the same shape.
-    this.committedProps = this.nextProps = propsWithChildren(vnode);
+    this.props = propsWithChildren(vnode);
     this.deps = vnode.props.deps;
     this.path = parent ? [...parent.path, index] : [index];
     this.startAnchor = document.createComment(this.debugLabel());
@@ -159,26 +156,27 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   scheduleRender(reason: symbol): void {
     if (this.renderReasons.has(reason)) return;
     this.pendingGen = null;
+    this.renderReasons.add(reason);
     this.rctx.scheduler.schedule(this, "render");
   }
 
   unscheduleRender(reason: symbol): void {
-    if (!this.renderReasons.has(reason)) return;
-    this.rctx.scheduler.unschedule(this, "render");
+    if (this.renderReasons.delete(reason)) this.rctx.scheduler.unschedule(this, "render");
   }
 
   scheduleResolve(reason: symbol): void {
     if (this.resolveReasons.has(reason)) return;
+    this.resolveReasons.add(reason);
     this.rctx.scheduler.schedule(this, "resolve");
   }
 
   unscheduleResolve(reason: symbol): void {
-    if (!this.resolveReasons.has(reason)) return;
-    this.rctx.scheduler.unschedule(this, "resolve");
+    if (this.resolveReasons.delete(reason)) this.rctx.scheduler.unschedule(this, "resolve");
   }
 
   scheduleCleanup(reason: symbol): void {
     if (this.cleanupReasons.has(reason)) return;
+    this.cleanupReasons.add(reason);
     this.rctx.scheduler.schedule(this, "effect");
   }
 
@@ -188,17 +186,20 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    * update their context handle. Reasons are cleared once `doRender()`
    * returns so a subsequent scheduling round starts from a clean slate.
    */
-  *apply(): Generator<void, ReconcileResult & { domUpdates: DomResult[] }> {
-    if (this.isUnmounted()) return { slots: [], keyIndex: new Map(), domUpdates: [] };
+  *apply(): Generator<void, void, void> {
+    if (this.isUnmounted()) return;
     const gen = this.pendingGen ?? this.invokeUpdates();
     this.pendingGen = gen;
     const result = yield* gen;
     this.pendingGen = null;
-    return result;
+    this.renderReasons.clear();
+    this.pendingSlots = result.slots;
+    this.pendingKeyIndex = result.keyIndex;
+    this.pendingDomUpdates = result.domUpdates;
   }
 
   private *invokeUpdates(): Generator<void, ReconcileResult & { domUpdates: DomResult[] }> {
-    const generator = this.render(this.nextProps);
+    const generator = this.render(this.props);
 
     const domUpdates: Array<DomResult> = [];
     const toBeUnmounted = new Map(this.children);
@@ -246,7 +247,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
           break;
         }
         case "SET_PROPS": {
-          toBeUnmounted.delete(this.keysByInstance.get(next.instance)!);
+          toBeUnmounted.delete(next.instance.childId);
           next.instance.setProps(next.vnode);
           result = genNext();
           break;
@@ -260,20 +261,10 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     }
     for (const { path, instance } of pendingChildren) {
       this.children.set(path, instance);
-      this.keysByInstance.set(instance, path);
       instance.scheduleRender(MOUNT_REASON);
     }
     for (const [_, removedInstance] of toBeUnmounted) removedInstance.unmount();
     return { ...result.value, domUpdates };
-  }
-
-  setApplyResult(result: ReconcileResult & { domUpdates: DomResult[] }): void {
-    this.renderReasons.clear();
-    const { slots, keyIndex, domUpdates } = result;
-    this.props = this.nextProps;
-    this.pendingSlots = slots;
-    this.pendingKeyIndex = keyIndex;
-    this.pendingDomUpdates = domUpdates;
   }
 
   protected abstract render(
@@ -281,14 +272,14 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance>;
 
   updateDOM(): void {
-    if (this.isUnmounted()) {
-      this.pendingDomUpdates = [];
-      return;
+    if (this.isUnmounted()) return;
+    try {
+      for (const update of this.pendingDomUpdates) update.callback();
+    } catch (e: any) {
+      throw new Error(this.debugLabel(), { cause: e });
+    } finally {
+      this.pendingDomUpdates.length = 0;
     }
-    for (const update of this.pendingDomUpdates) {
-      update.callback();
-    }
-    this.pendingDomUpdates = [];
   }
 
   handleBatch = async <T>(callback: () => T): Promise<T> => {
@@ -301,6 +292,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   };
 
   resolveStatePromises() {
+    this.resolveReasons.clear();
     for (const state of this.hookStates) {
       if (state.type === $STATE) {
         state.pendingResolve?.();
@@ -310,15 +302,13 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   }
 
   commit(): void {
+    if (this._unmounted) return;
     this.slots = this.pendingSlots;
     this.keyIndex = this.pendingKeyIndex;
-    this.committedProps = this.props!;
     for (const child of this.unmountedChildren) {
       child.runHookCleanupsLeafFirst();
       this.children.delete(child.childId);
-      this.keysByInstance.delete(child);
     }
-    this.unmountedChildren = new Set();
   }
 
   runEffects() {
@@ -340,6 +330,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         }
       }
     }
+    this.cleanupReasons.clear();
   }
 
   isUnmounted(): boolean {
@@ -366,15 +357,13 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     if (this._unmounted) return;
     this._unmounted = true;
     this.pendingGen = null;
-    if (!this.parent) return;
-    this.parent.unmountedChildren.add(this);
+    this.parent?.unmountedChildren.add(this);
   }
 
   remount(): void {
     if (!this._unmounted) return;
     this._unmounted = false;
-    if (!this.parent) return;
-    this.parent.unmountedChildren.delete(this);
+    this.parent?.unmountedChildren.delete(this);
   }
 
   // ── Private helpers ───────────────────────────────────────────────────
@@ -403,8 +392,8 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     if (!depsChanged(this.deps, deps)) return;
     this.deps = deps;
     const props = propsWithChildren(vnode);
-    if (shallowEqual(this.nextProps, props)) return;
-    this.nextProps = props;
+    if (shallowEqual(this.props, props)) return;
+    this.props = props;
     this.scheduleRender(PROPS_REASON);
   }
 }

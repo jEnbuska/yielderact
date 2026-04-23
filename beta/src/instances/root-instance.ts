@@ -41,7 +41,6 @@ export class RootInstance extends BaseInstance<typeof Fragment> {
     const gen = this.apply();
     let result = gen.next();
     while (!result.done) result = gen.next();
-    this.setApplyResult(result.value);
     this.updateDOM();
     this.commit();
   }
