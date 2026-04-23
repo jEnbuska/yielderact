@@ -5,7 +5,7 @@
  * column and search by the first column or a combined text search
  * across all columns (datalist-style filtering).
  */
-import { $effect, $memo, $stable, $state, Deferred, PropsWithChildren } from "yract-beta";
+import { $effect, $memo, $stable, $state, Deferred } from "yract-beta";
 import { ComponentProps } from "../../../src/jsx";
 
 /* ── Data generation ── */
@@ -102,9 +102,9 @@ function* TableRow({ row }: { row: Row }) {
   return (
     <tr>
       <TableData>{row.name}</TableData>
-      <TableData>{row.department}</TableData>
+      <td>{row.department}</td>
       <TableData>{row.city}</TableData>
-      <TableData style={{ textAlign: "right" }}>{row.score}</TableData>
+      <td style={{ textAlign: "right" }}>{row.score}</td>
       <TableData style={{ textAlign: "center" }}>{row.active ? "Yes" : "No"}</TableData>
     </tr>
   );
