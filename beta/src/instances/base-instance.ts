@@ -53,9 +53,16 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   readonly contextKey?: Context;
   readonly vnode: VNode<TVNodeType>;
   readonly index: number;
-  readonly path: readonly number[];
+  readonly depth: number;
   readonly parent: BaseInstance | null;
-  readonly parentDom: Node;
+  /**
+   * Live DOM container the instance's anchors sit in. Updated by
+   * `buildComponent` / `buildContext` when an existing instance is reused
+   * under a different element (e.g., the surrounding `<tr>` got rebuilt) —
+   * its anchors physically migrate via `appendChildren`, and this field
+   * has to follow so subsequent reconciles read the right parent.
+   */
+  parentDom: Node;
   protected pendingDomUpdates: DomResult[] = [];
   /**
    * ContextMap this instance exposes to its children and reads for its own
@@ -138,7 +145,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     // `setProps` path uses, so initial and updated props have the same shape.
     this.props = propsWithChildren(vnode);
     this.deps = vnode.props.deps;
-    this.path = parent ? [...parent.path, index] : [index];
+    this.depth = (parent?.depth ?? -1) + 1;
     this.startAnchor = document.createComment(this.debugLabel());
   }
 
@@ -149,35 +156,35 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     return "<?>";
   }
 
-  isDeferred() {
+  deferred() {
     return resolveCtxValue(this.ctx, Deferred);
   }
 
-  scheduleRender(reason: symbol): void {
+  scheduleRender(reason: symbol, deferred?: boolean): void {
     if (this.renderReasons.has(reason)) return;
     this.pendingGen = null;
     this.renderReasons.add(reason);
-    this.rctx.scheduler.schedule(this, "render");
+    this.rctx.scheduler.scheduleRender(this, deferred);
   }
 
-  unscheduleRender(reason: symbol): void {
-    if (this.renderReasons.delete(reason)) this.rctx.scheduler.unschedule(this, "render");
+  unscheduleRender(reason: symbol, deferred?: boolean): void {
+    if (this.renderReasons.delete(reason)) this.rctx.scheduler.unscheduleRender(this, deferred);
   }
 
   scheduleResolve(reason: symbol): void {
     if (this.resolveReasons.has(reason)) return;
     this.resolveReasons.add(reason);
-    this.rctx.scheduler.schedule(this, "resolve");
+    this.rctx.scheduler.scheduleResolve(this);
   }
 
   unscheduleResolve(reason: symbol): void {
-    if (this.resolveReasons.delete(reason)) this.rctx.scheduler.unschedule(this, "resolve");
+    if (this.resolveReasons.delete(reason)) this.rctx.scheduler.unscheduleResolve(this);
   }
 
-  scheduleCleanup(reason: symbol): void {
+  scheduleEffect(reason: symbol): void {
     if (this.cleanupReasons.has(reason)) return;
     this.cleanupReasons.add(reason);
-    this.rctx.scheduler.schedule(this, "effect");
+    this.rctx.scheduler.scheduleEffect(this);
   }
 
   /**
@@ -249,6 +256,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         case "SET_PROPS": {
           toBeUnmounted.delete(next.instance.childId);
           next.instance.setProps(next.vnode);
+          next.instance.remount();
           result = genNext();
           break;
         }
@@ -357,10 +365,14 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     if (this._unmounted) return;
     this._unmounted = true;
     this.pendingGen = null;
+    // Drop any pending DOM ops — if `remount()` flips `_unmounted` back to
+    // false without triggering a re-render, `updateDOM` must not fire ops
+    // whose anchors may have been torn down or moved in the meantime.
+    this.pendingDomUpdates.length = 0;
     this.parent?.unmountedChildren.add(this);
     const { scheduler } = this.rctx;
-    if (this.renderReasons.size) scheduler.unschedule(this, "render");
-    if (this.resolveReasons.size) scheduler.unschedule(this, "resolve");
+    if (this.renderReasons.size) scheduler.unscheduleRender(this);
+    if (this.resolveReasons.size) scheduler.unscheduleResolve(this);
   }
 
   remount(): void {
@@ -368,8 +380,8 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     this._unmounted = false;
     this.parent?.unmountedChildren.delete(this);
     const { scheduler } = this.rctx;
-    if (this.renderReasons.size) scheduler.schedule(this, "render");
-    if (this.resolveReasons.size) scheduler.schedule(this, "resolve");
+    if (this.renderReasons.size) scheduler.scheduleRender(this);
+    if (this.resolveReasons.size) scheduler.scheduleResolve(this);
   }
 
   // ── Private helpers ───────────────────────────────────────────────────

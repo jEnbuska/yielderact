@@ -97,5 +97,3 @@ export type HookState =
   | ContextHookState
   | InstanceHookState
   | BatchHookState;
-
-export type ScheduleGroup = "render" | "effect" | "resolve";

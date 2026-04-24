@@ -66,6 +66,7 @@ import type { OptionalUpdateResult, ReconcileResult, UpdateResult } from "./type
 import { ensureSlotPosition } from "./position";
 import { createSlotPath, updateResult } from "./utils";
 import type { ContextInstance } from "../instances/context-instance";
+import { MOUNT_REASON } from "../render-reasons";
 
 export { unmountSlot, removeRange } from "./unmount";
 
@@ -300,8 +301,7 @@ function* delegateBuild(
         break;
       case "MOUNT":
       case "SET_PROPS": {
-        const instance = yield result.value;
-        result = generator.next(instance);
+        result = generator.next(yield result.value);
         break;
       }
       case "UNMOUNT":
@@ -333,7 +333,19 @@ function* buildComponent(
   });
   yield updateResult({
     type: "DOM",
-    callback: () => appendChildren(parentDom, instance.startAnchor, instance.endAnchor),
+    callback: () => {
+      // Reused instances may be migrating to a different DOM container (e.g.,
+      // the surrounding element was rebuilt). Sync the instance's parentDom
+      // before the physical move so its later reconciles target the right
+      // node, AND ensure a render is scheduled so the instance reconciles its
+      // own children into the new container — appendChildren only moves the
+      // anchor pair, not the content between them.
+      if (instance.parentDom !== parentDom) {
+        instance.parentDom = parentDom;
+        instance.scheduleRender(MOUNT_REASON, false);
+      }
+      appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
+    },
   });
   return {
     type: componentSlotType,
@@ -363,7 +375,13 @@ function* buildContext(
   });
   yield updateResult({
     type: "DOM",
-    callback: () => appendChildren(parentDom, instance.startAnchor, instance.endAnchor),
+    callback: () => {
+      if (instance.parentDom !== parentDom) {
+        instance.parentDom = parentDom;
+        instance.scheduleRender(MOUNT_REASON, false);
+      }
+      appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
+    },
   });
   return {
     type: contextSlotType,

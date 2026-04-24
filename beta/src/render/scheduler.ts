@@ -14,24 +14,53 @@
  */
 import { BaseInstance } from "../instances/base-instance";
 import { createResolvable } from "../create-resolvable";
-import type { ScheduleGroup } from "./types";
 
-function comparePaths(a: readonly number[], b: readonly number[]): number {
-  const len = Math.min(a.length, b.length);
-  for (let i = 0; i < len; i++) {
-    const av = a[i]!;
-    const bv = b[i]!;
-    if (av !== bv) return av - bv;
+function flush(instances: BaseInstance[]) {
+  for (const instance of instances) instance.updateDOM();
+  for (let i = instances.length - 1; i >= 0; i--) {
+    instances[i]!.commit();
   }
-  return a.length - b.length;
+}
+
+function insertSorted(
+  queue: BaseInstance[],
+  members: Set<BaseInstance>,
+  instance: BaseInstance,
+): void {
+  if (members.has(instance)) return;
+  members.add(instance);
+
+  if (!queue.length || queue[queue.length - 1]!.depth >= instance.depth) {
+    queue.push(instance);
+    return;
+  }
+  let lo = 0;
+  let hi = queue.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    const existing = queue[mid]!;
+    // Same depth → cluster together (siblings or cousins render order is
+    // irrelevant; only parent-before-child matters).
+    if (existing.depth === instance.depth) {
+      queue.splice(mid, 0, instance);
+      return;
+    }
+    // Deeper instances go earlier in the queue; shallowest end up at the
+    // tail so `queue.pop()` yields the topmost ancestor first, giving the
+    // render drain parent-before-child order.
+    if (instance.depth > existing.depth) {
+      hi = mid;
+    } else {
+      lo = mid + 1;
+    }
+  }
+  queue.splice(lo, 0, instance);
 }
 
 /** Time budget per deferred work slice (ms), matching React 19. */
 const SLICE_MS = 10;
 
 export class Scheduler {
-  private running?: BaseInstance;
-
   private renderPrimaryQueue: BaseInstance[] = [];
   private renderPrimaryMembers = new Set<BaseInstance>();
 
@@ -47,7 +76,8 @@ export class Scheduler {
   private resolveQueue: BaseInstance[] = [];
   private resolveMembers = new Set<BaseInstance>();
 
-  private deferredResolved: BaseInstance[] = [];
+  private deferredResolvedQueue: BaseInstance[] = [];
+  private deferredResolvedMembers = new Set<BaseInstance>();
   /** In-progress render generators for deferred instances interrupted by time-slicing. */
   private batchDepth = 0;
   searches = 0;
@@ -60,83 +90,36 @@ export class Scheduler {
 
   scheduleTime = 0;
 
-  schedule(instance: BaseInstance, group: ScheduleGroup): void {
-    this.insertByPath(instance, group);
+  scheduleRender(instance: BaseInstance, deferred?: boolean): void {
+    if (deferred === false || !instance.deferred()) {
+      insertSorted(this.renderPrimaryQueue, this.renderPrimaryMembers, instance);
+    } else {
+      insertSorted(this.renderDeferredQueue, this.renderDeferredMembers, instance);
+    }
     this.resolvable.resolve();
   }
 
-  unschedule(instance: BaseInstance, group: ScheduleGroup): void {
-    switch (group) {
-      case "render":
-        if (instance.isDeferred()) this.renderDeferredMembers.delete(instance);
-        else this.renderPrimaryMembers.delete(instance);
-        return;
-      case "effect": {
-        if (instance.isDeferred()) this.effectDeferredMembers.delete(instance);
-        else this.effectPrimaryMembers.delete(instance);
-        return;
-      }
-      case "resolve": {
-        this.resolveMembers.delete(instance);
-        return;
-      }
-    }
+  unscheduleRender(instance: BaseInstance, deferred?: boolean): void {
+    if (deferred || instance.deferred()) this.renderDeferredMembers.delete(instance);
+    else this.renderPrimaryMembers.delete(instance);
   }
 
-  /** Insert `instance` into `queue` in path order, skipping duplicates. */
-  insertByPath(instance: BaseInstance, group: ScheduleGroup): void {
-    let members: Set<BaseInstance>;
-    let queue: BaseInstance[];
-    switch (group) {
-      case "render": {
-        if (instance.isDeferred()) {
-          members = this.renderDeferredMembers;
-          queue = this.renderDeferredQueue;
-        } else {
-          members = this.renderPrimaryMembers;
-          queue = this.renderPrimaryQueue;
-        }
-        break;
-      }
-      case "effect": {
-        if (instance.isDeferred()) {
-          members = this.effectDeferredMembers;
-          queue = this.effectDeferredQueue;
-        } else {
-          members = this.effectPrimaryMembers;
-          queue = this.effectPrimaryQueue;
-        }
-        break;
-      }
-      case "resolve": {
-        members = this.resolveMembers;
-        queue = this.resolveQueue;
-        break;
-      }
+  scheduleEffect(instance: BaseInstance, deferred?: boolean): void {
+    if (deferred || instance.deferred()) {
+      insertSorted(this.effectDeferredQueue, this.effectDeferredMembers, instance);
+    } else {
+      insertSorted(this.effectPrimaryQueue, this.effectPrimaryMembers, instance);
     }
+    this.resolvable.resolve();
+  }
 
-    if (members.has(instance)) return;
-    members.add(instance);
-    if (this.running === instance.parent) {
-      queue.push(instance);
-      return;
-    }
-    let lo = 0;
-    let hi = queue.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >>> 1;
-      const existing = queue[mid]!;
-      if (existing.parent === instance.parent) {
-        queue.splice(mid, 0, instance);
-        return;
-      }
-      if (comparePaths(instance.path, existing.path) > 0) {
-        hi = mid;
-      } else {
-        lo = mid + 1;
-      }
-    }
-    queue.splice(lo, 0, instance);
+  scheduleResolve(instance: BaseInstance): void {
+    insertSorted(this.resolveQueue, this.resolveMembers, instance);
+    this.resolvable.resolve();
+  }
+
+  unscheduleResolve(instance: BaseInstance): void {
+    this.resolveMembers.delete(instance);
   }
 
   beginBatch(): void {
@@ -152,10 +135,10 @@ export class Scheduler {
    * Yield to the browser via MessageChannel so input events and
    * paint can run between deferred work slices.
    */
-  private scheduleYield(): Promise<number> {
-    const { promise, resolve } = createResolvable<number>();
+  private scheduleYield(): Promise<unknown> {
+    const { promise, resolve } = createResolvable<unknown>();
     const { port1, port2 } = new MessageChannel();
-    port1.onmessage = () => requestIdleCallback(() => resolve(Date.now()));
+    port1.onmessage = () => requestIdleCallback(resolve);
 
     port2.postMessage(null);
     return promise;
@@ -188,25 +171,20 @@ export class Scheduler {
 
   private runPrimaryQueue() {
     const applied: BaseInstance[] = [];
+
     while (this.renderPrimaryQueue.length) {
       const instance = this.renderPrimaryQueue.pop()!;
       if (!this.renderPrimaryMembers.delete(instance)) continue;
-      if (instance.isDeferred()) {
-        this.running = undefined;
-        this.insertByPath(instance, "render");
+      if (instance.deferred()) {
+        this.scheduleRender(instance);
         continue;
       }
-      this.running = instance;
       const gen = instance.apply();
       let res = gen.next();
       while (!res.done) res = gen.next();
       applied.push(instance);
     }
-    this.running = undefined;
-    // Commit DOM updates parent-first (rendered is leaf-first via unshift).
-    for (const instance of applied) instance.updateDOM();
-    // Then run hooks leaf-first.
-    for (let i = applied.length - 1; i >= 0; i--) applied[i]!.commit();
+    flush(applied);
   }
 
   private async runDeferredQueue() {
@@ -214,31 +192,33 @@ export class Scheduler {
     while (this.renderDeferredQueue.length) {
       const instance = this.renderDeferredQueue.pop()!;
       if (!this.renderDeferredMembers.delete(instance)) continue;
-      if (!instance.isDeferred()) {
-        this.running = undefined;
-        this.insertByPath(instance, "render");
+      if (!instance.deferred()) {
+        this.scheduleRender(instance);
         return;
       }
-      this.running = instance;
       const gen = instance.apply();
       let res = gen.next();
 
       while (!res.done) {
         if (this.renderPrimaryQueue.length) {
-          this.running = undefined;
-          this.insertByPath(instance, "render");
+          this.scheduleRender(instance);
           return;
         }
         await this.scheduleYield();
         BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
         res = gen.next();
       }
-      this.deferredResolved.push(instance);
+      // Preserve pop order (shallowest-first) so `flush` gets parent-first
+      // updateDOM + leaf-first commit, same shape as `runPrimaryQueue`'s
+      // `applied` array. Dedup via `deferredResolvedMembers` because an
+      // earlier bail may have left this instance in the queue from a prior
+      // drain.
+      if (this.deferredResolvedMembers.has(instance)) continue;
+      this.deferredResolvedMembers.add(instance);
+      this.deferredResolvedQueue.push(instance);
     }
-    this.running = undefined;
-    for (const instance of this.deferredResolved) instance.updateDOM();
-    for (let i = this.deferredResolved.length - 1; i >= 0; i--) this.deferredResolved[i]!.commit();
-
-    this.deferredResolved.length = 0;
+    flush(this.deferredResolvedQueue);
+    this.deferredResolvedQueue.length = 0;
+    this.deferredResolvedMembers.clear();
   }
 }

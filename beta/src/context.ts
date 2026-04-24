@@ -64,6 +64,7 @@ export function createContext<T>(defaultValue: T): Context<T> {
 export interface ContextHandle<T = unknown> {
   ref: { current: T };
   subscribe: (cb: () => void) => () => void;
+  dept: number;
 }
 
 /**

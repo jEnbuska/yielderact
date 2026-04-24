@@ -5,6 +5,7 @@ import { $CONTEXT } from "./descriptors";
 import type { ComponentGenerator } from "./index";
 import { depsChanged } from "./utils";
 import { getContextReason } from "../render-reasons";
+import { Deferred } from "../instances/deferred-context";
 
 const defaultSelector = (value: unknown): unknown[] => [value];
 
@@ -111,14 +112,16 @@ export function processContext(
   if (state.transform) {
     state.lastTransformResult = state.transform(...initialSelected);
   }
+  const deferredHandle = instance.ctx.get(Deferred) as ContextHandle<typeof Deferred> | undefined;
   state.unsubscribe = handle.subscribe(() => {
     const current = state.depsSelector(handle.ref.current);
+    const deferred = handle.dept < (deferredHandle?.dept ?? -1);
     state.currentSelected = current;
     if (!depsChanged(state.lastRenderedDepsSelected, current)) {
-      instance.unscheduleRender(state.reason);
+      instance.unscheduleRender(state.reason, deferred);
       return;
     }
-    instance.scheduleRender(state.reason);
+    instance.scheduleRender(state.reason, deferred);
   });
   return state;
 }

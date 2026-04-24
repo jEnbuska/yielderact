@@ -247,13 +247,13 @@ export function* DeferredDemo() {
           {filtered.length} / {ALL_ROWS.length} rows
         </span>
       </div>
-      <Deferred value={true}>
-        <div>
-          <SearchContext value={search}>
+      <SearchContext value={search}>
+        <Deferred value={true}>
+          <div>
             <Table rows={filtered} sortDir={sortDir} onSort={updateSortDir} />
-          </SearchContext>
-        </div>
-      </Deferred>
+          </div>
+        </Deferred>
+      </SearchContext>
     </section>
   );
 }

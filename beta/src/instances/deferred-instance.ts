@@ -24,12 +24,12 @@ export class DeferredInstance extends BaseInstance<Context> {
     parentDom: Node,
   ) {
     const extended = new Map(parentCtx);
-
     const handle: ContextHandle<boolean> = {
       ref: { current: resolveCtxValue(parentCtx, Deferred) },
       subscribe: () => {
         return () => {};
       },
+      dept: (parent?.depth ?? -1) + 1,
     };
     extended.set(Deferred, handle);
     super(childId, vnode, extended, index, parent, rctx, parentDom);
@@ -54,7 +54,7 @@ export class DeferredInstance extends BaseInstance<Context> {
     return super.apply();
   }
 
-  isDeferred(): boolean {
+  deferred(): boolean {
     return !this.initialRender || resolveCtxValue(this.parent?.ctx, Deferred);
   }
 

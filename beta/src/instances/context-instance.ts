@@ -49,6 +49,7 @@ export class ContextInstance extends BaseInstance<Context> {
         subscribers.add(cb);
         return () => subscribers.delete(cb);
       },
+      dept: (parent?.depth ?? -1) + 1,
     };
 
     const extended = new Map(parentCtx);
@@ -60,13 +61,22 @@ export class ContextInstance extends BaseInstance<Context> {
     this.subscribers = subscribers;
   }
 
+  private notify = false;
+
+  *apply() {
+    yield* super.apply();
+    if (this.notify) {
+      this.notifySubscribers();
+    }
+  }
+
   protected render(
     props: VNodeProps,
   ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
     const newValue = props!["value"];
     if (!Object.is(this.handle.ref.current, newValue)) {
+      this.notify = true;
       this.handle.ref.current = newValue;
-      this.notifySubscribers();
     }
     const children = (props["children"] as Child[]) ?? [];
     return reconcile(children, this, this.parentDom, this.endAnchor, "", this.slots, this.keyIndex);
