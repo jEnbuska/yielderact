@@ -203,7 +203,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
 
     const domUpdates: Array<DomResult> = [];
     const toBeUnmounted = new Map(this.children);
-    const pendingChildren: Array<{ path: string; instance: BaseInstance }> = [];
+    const pendingChildren: Map<string, BaseInstance> = new Map();
     const genNext = (value?: BaseInstance) => {
       return value !== undefined ? generator.next(value) : generator.next();
     };
@@ -241,7 +241,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
               this.rctx,
               parentDom,
             );
-            pendingChildren.push({ path, instance: newInstance });
+            pendingChildren.set(path, newInstance);
             result = genNext(newInstance);
           }
           break;
@@ -259,7 +259,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         }
       }
     }
-    for (const { path, instance } of pendingChildren) {
+    for (const [path, instance] of pendingChildren) {
       this.children.set(path, instance);
       instance.scheduleRender(MOUNT_REASON);
     }
@@ -358,12 +358,18 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     this._unmounted = true;
     this.pendingGen = null;
     this.parent?.unmountedChildren.add(this);
+    const { scheduler } = this.rctx;
+    if (this.renderReasons.size) scheduler.unschedule(this, "render");
+    if (this.resolveReasons.size) scheduler.unschedule(this, "resolve");
   }
 
   remount(): void {
     if (!this._unmounted) return;
     this._unmounted = false;
     this.parent?.unmountedChildren.delete(this);
+    const { scheduler } = this.rctx;
+    if (this.renderReasons.size) scheduler.schedule(this, "render");
+    if (this.resolveReasons.size) scheduler.schedule(this, "resolve");
   }
 
   // ── Private helpers ───────────────────────────────────────────────────
@@ -383,6 +389,8 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         state.controller?.abort();
       } else if (state.type === $CONTEXT) {
         state.unsubscribe?.();
+      } else if (state.type === $STATE) {
+        state.pendingResolve = undefined;
       }
     }
   }
