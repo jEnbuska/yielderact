@@ -1,20 +1,21 @@
 /**
- * Scheduler — minimal per-root work queue with batching.
+ * Scheduler — per-root work queues for render, effect, and resolve.
  *
- * The scheduler owns only a path-ordered render queue and a batch depth
- * counter. Everything else (render pipeline, DOM writes, effect dispatch)
- * lives on the instances themselves. When `flush()` drains the queue it
- * simply calls `instance.render()` (which internally clears its render
- * reasons) and then `instance.afterRender()` on whichever instances ran.
+ * Six render/effect queues (primary + deferred for each) plus a single
+ * resolve queue. Render scheduling routes by `instance.deferred()` (the
+ * live Deferred-context value), so the same instance can land in primary
+ * or deferred depending on when it gets scheduled.
  *
- * `schedule` / `unschedule` are the two entry points instances use; the
- * instance decides WHEN to call them via `scheduleApply(reason)` and
- * `unscheduleApply(reason)`, and whether the instance ends up in the
- * queue at all depends on its reason set (see BaseInstance).
+ * Drain order per outer-loop iteration: primary renders → primary effects
+ * → deferred renders. The outer loop runs until both render queues are
+ * empty. Deferred renders may be time-sliced and bail when primary work
+ * arrives; the bailed work is re-scheduled and resumed in a later
+ * iteration.
  */
 import { BaseInstance } from "../instances/base-instance";
 import { createResolvable } from "../create-resolvable";
 
+/** Apply pending DOM ops parent-first, then commit leaf-first. */
 function flush(instances: BaseInstance[]) {
   for (const instance of instances) instance.updateDOM();
   for (let i = instances.length - 1; i >= 0; i--) {
@@ -22,6 +23,12 @@ function flush(instances: BaseInstance[]) {
   }
 }
 
+/**
+ * Insert `instance` into a depth-ordered queue: deepest at index 0,
+ * shallowest at the tail so `pop()` yields the topmost ancestor first.
+ * No-ops if `instance` is already a member; tail fast-path covers the
+ * common "incoming is at or shallower than current shallowest" case.
+ */
 function insertSorted(
   queue: BaseInstance[],
   members: Set<BaseInstance>,
@@ -76,19 +83,22 @@ export class Scheduler {
   private resolveQueue: BaseInstance[] = [];
   private resolveMembers = new Set<BaseInstance>();
 
+  /**
+   * Staging area for deferred instances whose `apply()` finished but
+   * whose `updateDOM`/`commit` hasn't run yet. Persists across drain
+   * bails — the members set provides cross-bail dedup so accumulated
+   * work isn't lost when deferred is interrupted by primary work.
+   */
   private deferredResolvedQueue: BaseInstance[] = [];
   private deferredResolvedMembers = new Set<BaseInstance>();
-  /** In-progress render generators for deferred instances interrupted by time-slicing. */
+
   private batchDepth = 0;
-  searches = 0;
 
   private resolvable = createResolvable();
 
   constructor() {
     this.resolvable.promise.then(this.run);
   }
-
-  scheduleTime = 0;
 
   scheduleRender(instance: BaseInstance, deferred = instance.deferred()): void {
     if (deferred) {
@@ -132,21 +142,19 @@ export class Scheduler {
   }
 
   /**
-   * Yield to the browser via MessageChannel so input events and
-   * paint can run between deferred work slices.
+   * Yield to the browser via MessageChannel + requestIdleCallback so
+   * input events and paint can run between deferred work slices.
    */
-  private scheduleYield(): Promise<unknown> {
+  private async scheduleYield(): Promise<void> {
     const { promise, resolve } = createResolvable<unknown>();
     const { port1, port2 } = new MessageChannel();
-    port1.onmessage = () => requestIdleCallback(resolve);
-
+    port1.onmessage = resolve;
     port2.postMessage(null);
-    return promise;
+    await promise;
   }
 
   private run = async (): Promise<void> => {
     await this.resolvable.promise;
-    this.scheduleTime = 0;
     while (this.renderPrimaryQueue.length || this.renderDeferredQueue.length) {
       this.runPrimaryQueue();
 
@@ -156,16 +164,16 @@ export class Scheduler {
 
       await this.runDeferredQueue();
     }
-    // Drain anything left in `deferredResolvedQueue`. `runDeferredQueue` returns
-    // without flushing on bail (primary work arrived or instance.deferred()
-    // flipped), so accumulated `pendingDomUpdates`/`commit`s would otherwise be
-    // stranded if the deferred queue empties via re-routing rather than its
-    // natural while-loop exit.
-    if (this.deferredResolvedQueue.length) {
-      flush(this.deferredResolvedQueue);
-      this.deferredResolvedQueue.length = 0;
-      this.deferredResolvedMembers.clear();
-    }
+    // Drain anything left in `deferredResolvedQueue`. `runDeferredQueue`
+    // returns without flushing on bail (primary work arrived or
+    // `instance.deferred()` flipped), so accumulated `pendingDomUpdates`
+    // / `commit`s would otherwise be stranded if the deferred queue
+    // empties via re-routing rather than its natural while-loop exit.
+
+    flush(this.deferredResolvedQueue);
+    this.deferredResolvedQueue.length = 0;
+    this.deferredResolvedMembers.clear();
+
     for (const next of this.effectDeferredQueue) next.runEffects();
     this.effectDeferredQueue.length = 0;
     this.effectDeferredMembers.clear();
@@ -174,8 +182,22 @@ export class Scheduler {
     this.resolveQueue.length = 0;
     this.resolveMembers.clear();
 
-    console.log(this.searches, "THIS SCHEDULE TIME", this.scheduleTime);
-    this.resolvable = createResolvable();
+    // Only recreate the resolvable when *all* queues are empty. If a
+    // `scheduleRender`/`scheduleEffect`/`scheduleResolve` fired during
+    // post-processing it called `resolve()` on the (already-settled) old
+    // resolvable — a no-op. Re-attaching `.then(this.run)` to that same
+    // resolved promise fires `run` again on the next microtask, draining
+    // the gap-added work. Recreate only when there's nothing pending so we
+    // genuinely wait for the next external schedule.
+    if (
+      !this.renderPrimaryQueue.length &&
+      !this.renderDeferredQueue.length &&
+      !this.effectPrimaryQueue.length &&
+      !this.effectDeferredQueue.length &&
+      !this.resolveQueue.length
+    ) {
+      this.resolvable = createResolvable();
+    }
     this.resolvable.promise.then(this.run);
   };
 
@@ -198,6 +220,9 @@ export class Scheduler {
       const instance = this.renderDeferredQueue.pop()!;
       if (!this.renderDeferredMembers.delete(instance)) continue;
       if (!instance.deferred()) {
+        // Re-route: instance was queued as deferred but `instance.deferred()`
+        // flipped (e.g., its <Deferred> ancestor committed and reset the
+        // handle). Send it to wherever it belongs now.
         this.scheduleRender(instance);
         return;
       }
@@ -206,6 +231,8 @@ export class Scheduler {
 
       while (!res.done) {
         if (this.renderPrimaryQueue.length) {
+          // Primary work appeared mid-render — preserve our progress and
+          // bail so primary can run.
           this.scheduleRender(instance);
           return;
         }
@@ -213,11 +240,11 @@ export class Scheduler {
         BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
         res = gen.next();
       }
-      // Preserve pop order (shallowest-first) so `flush` gets parent-first
-      // updateDOM + leaf-first commit, same shape as `runPrimaryQueue`'s
-      // `applied` array. Dedup via `deferredResolvedMembers` because an
-      // earlier bail may have left this instance in the queue from a prior
-      // drain.
+      // Push order is shallowest-first (we pop the tail), so `flush` gets
+      // parent-first updateDOM + leaf-first commit — same shape as
+      // `runPrimaryQueue`'s `applied`. Dedup via `deferredResolvedMembers`
+      // because an earlier bail may have left this instance in the queue
+      // from a prior drain.
       if (this.deferredResolvedMembers.has(instance)) continue;
       this.deferredResolvedMembers.add(instance);
       this.deferredResolvedQueue.push(instance);

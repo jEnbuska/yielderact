@@ -161,7 +161,13 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   }
 
   scheduleRender(reason: symbol, deferred?: boolean): void {
-    if (this.renderReasons.has(reason)) return;
+    // Always discard any in-flight saved generator so the next `apply()`
+    // re-reads `this.props`. The scheduler dedupes queue entries via its
+    // `members` set, so calling `scheduler.scheduleRender` repeatedly is
+    // safe — but skipping the call here when `renderReasons.has(reason)`
+    // would lose late prop updates: a setProps that fires while an apply
+    // is mid-flight would update `this.props` but nothing would re-queue
+    // the instance for a fresh render with the new props.
     this.pendingGen = null;
     this.renderReasons.add(reason);
     this.rctx.scheduler.scheduleRender(this, deferred);

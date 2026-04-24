@@ -1,5 +1,3 @@
-// CLAUDE IGNORE THIS
-
 import { BaseInstance } from "./base-instance";
 import type { Child, VNode, VNodeProps } from "../jsx";
 import type { Context, ContextHandle } from "../context";
@@ -29,7 +27,7 @@ export class DeferredInstance extends BaseInstance<Context> {
       subscribe: () => {
         return () => {};
       },
-      dept: (parent?.depth ?? -1) + 1,
+      depth: (parent?.depth ?? -1) + 1,
     };
     extended.set(Deferred, handle);
     super(childId, vnode, extended, index, parent, rctx, parentDom);

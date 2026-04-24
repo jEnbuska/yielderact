@@ -99,7 +99,6 @@ function* TableData({ children }: ComponentProps<"td">) {
 /* ── Table row ── */
 
 function* TableRow({ row }: { row: Row }) {
-  const search = yield* $context(SearchContext);
   return (
     <tr>
       <TableData>
@@ -109,7 +108,6 @@ function* TableRow({ row }: { row: Row }) {
       <TableData>{row.city}</TableData>
       <td style={{ textAlign: "right" }}>{row.score}</td>
       <TableData style={{ textAlign: "center" }}>{row.active ? "Yes" : "No"}</TableData>
-      <td>{search}</td>
     </tr>
   );
 }
@@ -170,7 +168,6 @@ function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSo
             <th style={{ padding: "0.5rem", textAlign: "left" }}>City</th>
             <th style={{ padding: "0.5rem", textAlign: "right" }}>Score</th>
             <th style={{ padding: "0.5rem", textAlign: "center" }}>Active</th>
-            <th style={{ padding: "0.5rem", textAlign: "left" }}>Search</th>
           </tr>
         </thead>
         <tbody data-testid="table-body">
@@ -254,13 +251,11 @@ export function* DeferredDemo() {
           {filtered.length} / {ALL_ROWS.length} rows
         </span>
       </div>
-      <SearchContext value={search}>
-        <Deferred value={true}>
-          <div>
-            <Table rows={filtered} sortDir={sortDir} onSort={updateSortDir} />
-          </div>
-        </Deferred>
-      </SearchContext>
+      <Deferred value={true}>
+        <div>
+          <Table rows={filtered} sortDir={sortDir} onSort={updateSortDir} />
+        </div>
+      </Deferred>
     </section>
   );
 }

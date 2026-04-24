@@ -49,7 +49,7 @@ export class ContextInstance extends BaseInstance<Context> {
         subscribers.add(cb);
         return () => subscribers.delete(cb);
       },
-      dept: (parent?.depth ?? -1) + 1,
+      depth: (parent?.depth ?? -1) + 1,
     };
 
     const extended = new Map(parentCtx);

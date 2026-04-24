@@ -5,7 +5,7 @@ import noFloatingGenerators from "./eslint-rules/no-floating-generators.js";
 
 export default tseslint.config(
   {
-    ignores: ["node_modules/**", "dist/**", "eslint-rules/**", "playground/**", "eslint.config.js"],
+    ignores: ["node_modules/**", "dist/**", "eslint-rules/**", "playground/**", "eslint.config.js", "vitest.config.ts"],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,

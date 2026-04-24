@@ -2,7 +2,7 @@ import type { EffectHookState } from "../render/types";
 import { $EFFECT, type EffectDescriptor } from "./descriptors";
 import type { ComponentGenerator, DependencyList } from "./types";
 import { depsChanged } from "./utils";
-import { BaseInstance } from "../instances/base-instance";
+import type { BaseInstance } from "../instances/base-instance";
 
 /**
  * Side-effect hook. Runs `fn` after DOM updates, re-runs when deps change.

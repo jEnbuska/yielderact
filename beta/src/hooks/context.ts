@@ -115,7 +115,7 @@ export function processContext(
   const deferredHandle = instance.ctx.get(Deferred) as ContextHandle<typeof Deferred> | undefined;
   state.unsubscribe = handle.subscribe(() => {
     const current = state.depsSelector(handle.ref.current);
-    const deferred = handle.dept < (deferredHandle?.dept ?? -1);
+    const deferred = handle.depth < (deferredHandle?.depth ?? -1);
     state.currentSelected = current;
     if (!depsChanged(state.lastRenderedDepsSelected, current)) {
       instance.unscheduleRender(state.reason, deferred);
