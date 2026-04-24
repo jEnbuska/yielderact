@@ -90,22 +90,22 @@ export class Scheduler {
 
   scheduleTime = 0;
 
-  scheduleRender(instance: BaseInstance, deferred?: boolean): void {
-    if (deferred === false || !instance.deferred()) {
-      insertSorted(this.renderPrimaryQueue, this.renderPrimaryMembers, instance);
-    } else {
+  scheduleRender(instance: BaseInstance, deferred = instance.deferred()): void {
+    if (deferred) {
       insertSorted(this.renderDeferredQueue, this.renderDeferredMembers, instance);
+    } else {
+      insertSorted(this.renderPrimaryQueue, this.renderPrimaryMembers, instance);
     }
     this.resolvable.resolve();
   }
 
-  unscheduleRender(instance: BaseInstance, deferred?: boolean): void {
-    if (deferred || instance.deferred()) this.renderDeferredMembers.delete(instance);
+  unscheduleRender(instance: BaseInstance, deferred = instance.deferred()): void {
+    if (deferred) this.renderDeferredMembers.delete(instance);
     else this.renderPrimaryMembers.delete(instance);
   }
 
-  scheduleEffect(instance: BaseInstance, deferred?: boolean): void {
-    if (deferred || instance.deferred()) {
+  scheduleEffect(instance: BaseInstance, deferred = instance.deferred()): void {
+    if (deferred) {
       insertSorted(this.effectDeferredQueue, this.effectDeferredMembers, instance);
     } else {
       insertSorted(this.effectPrimaryQueue, this.effectPrimaryMembers, instance);
@@ -156,6 +156,16 @@ export class Scheduler {
 
       await this.runDeferredQueue();
     }
+    // Drain anything left in `deferredResolvedQueue`. `runDeferredQueue` returns
+    // without flushing on bail (primary work arrived or instance.deferred()
+    // flipped), so accumulated `pendingDomUpdates`/`commit`s would otherwise be
+    // stranded if the deferred queue empties via re-routing rather than its
+    // natural while-loop exit.
+    if (this.deferredResolvedQueue.length) {
+      flush(this.deferredResolvedQueue);
+      this.deferredResolvedQueue.length = 0;
+      this.deferredResolvedMembers.clear();
+    }
     for (const next of this.effectDeferredQueue) next.runEffects();
     this.effectDeferredQueue.length = 0;
     this.effectDeferredMembers.clear();
@@ -171,14 +181,9 @@ export class Scheduler {
 
   private runPrimaryQueue() {
     const applied: BaseInstance[] = [];
-
     while (this.renderPrimaryQueue.length) {
       const instance = this.renderPrimaryQueue.pop()!;
       if (!this.renderPrimaryMembers.delete(instance)) continue;
-      if (instance.deferred()) {
-        this.scheduleRender(instance);
-        continue;
-      }
       const gen = instance.apply();
       let res = gen.next();
       while (!res.done) res = gen.next();

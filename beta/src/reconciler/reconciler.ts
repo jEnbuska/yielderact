@@ -66,7 +66,6 @@ import type { OptionalUpdateResult, ReconcileResult, UpdateResult } from "./type
 import { ensureSlotPosition } from "./position";
 import { createSlotPath, updateResult } from "./utils";
 import type { ContextInstance } from "../instances/context-instance";
-import { MOUNT_REASON } from "../render-reasons";
 
 export { unmountSlot, removeRange } from "./unmount";
 
@@ -334,17 +333,22 @@ function* buildComponent(
   yield updateResult({
     type: "DOM",
     callback: () => {
-      // Reused instances may be migrating to a different DOM container (e.g.,
-      // the surrounding element was rebuilt). Sync the instance's parentDom
-      // before the physical move so its later reconciles target the right
-      // node, AND ensure a render is scheduled so the instance reconciles its
-      // own children into the new container — appendChildren only moves the
-      // anchor pair, not the content between them.
       if (instance.parentDom !== parentDom) {
+        // Reused instance is migrating to a different DOM container (the
+        // surrounding element was rebuilt). Update the field, move anchors
+        // into the new parent, then drive the instance's render+commit
+        // synchronously so its content (which `appendChildren` doesn't move)
+        // gets repositioned before any subsequent op in this drain runs.
         instance.parentDom = parentDom;
-        instance.scheduleRender(MOUNT_REASON, false);
+        appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
+        const gen = instance.apply();
+        let res = gen.next();
+        while (!res.done) res = gen.next();
+        instance.updateDOM();
+        instance.commit();
+      } else {
+        appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
       }
-      appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
     },
   });
   return {
@@ -378,9 +382,15 @@ function* buildContext(
     callback: () => {
       if (instance.parentDom !== parentDom) {
         instance.parentDom = parentDom;
-        instance.scheduleRender(MOUNT_REASON, false);
+        appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
+        const gen = instance.apply();
+        let res = gen.next();
+        while (!res.done) res = gen.next();
+        instance.updateDOM();
+        instance.commit();
+      } else {
+        appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
       }
-      appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
     },
   });
   return {

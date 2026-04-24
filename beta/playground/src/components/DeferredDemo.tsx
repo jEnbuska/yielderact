@@ -79,7 +79,7 @@ function generateRows(count: number): Row[] {
   for (let i = 0; i < count; i++) {
     rows.push({
       id: `${i}`,
-      name: FIRST_NAMES[i % FIRST_NAMES.length]! + " " + (i + 1),
+      name: FIRST_NAMES[i % FIRST_NAMES.length]!,
       department: DEPARTMENTS[i % DEPARTMENTS.length]!,
       city: CITIES[i % CITIES.length]!,
       score: Math.round(((i * 7 + 13) % 100) * 10) / 10,
@@ -102,7 +102,9 @@ function* TableRow({ row }: { row: Row }) {
   const search = yield* $context(SearchContext);
   return (
     <tr>
-      <TableData>{row.name}</TableData>
+      <TableData>
+        {row.name} - {row.id}
+      </TableData>
       <td>{row.department}</td>
       <TableData>{row.city}</TableData>
       <td style={{ textAlign: "right" }}>{row.score}</td>
@@ -122,7 +124,12 @@ function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSo
   const sortLabel = sortDir === "asc" ? " ▲" : sortDir === "desc" ? " ▼" : "";
   const sortedRows = yield* $memo(() => {
     return rows.toSorted((a, b) => {
-      const cmp = a.name.localeCompare(b.name);
+      let cmp: number;
+      if (a.name === b.name) {
+        cmp = Number(a.id) - Number(b.id);
+      } else {
+        cmp = a.name.localeCompare(b.name);
+      }
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [sortDir, rows]);
@@ -190,7 +197,7 @@ export function* DeferredDemo() {
       }
       const lower = query.toLowerCase();
       return result.filter((row) => {
-        const combined = `${row.name} ${row.department} ${row.city} ${row.score} ${row.active ? "yes" : "no"}`;
+        const combined = `${row.name} ${row.id} ${row.department} ${row.city} ${row.score} ${row.active ? "yes" : "no"}`;
         return combined.toLowerCase().includes(lower);
       });
     },
