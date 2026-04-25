@@ -11,12 +11,12 @@ export type MountResult = {
 };
 
 export type UnmountResult = { type: "UNMOUNT"; instance: BaseInstance; slotPath: SlotPath };
-export type DomResult = { type: "DOM"; callback: () => void };
+export type DomResult = { type: "UPDATE_UI"; callback: () => void };
 export type OptionalUpdateResult = void | UpdateResult;
 export type UpdateResult = MountResult | UnmountResult | DomResult | SetPropsResult;
 
 export type SetPropsResult = {
-  type: "SET_PROPS";
+  type: "ENSURE_PROPS";
   instance: BaseInstance;
   vnode: VNode;
 };

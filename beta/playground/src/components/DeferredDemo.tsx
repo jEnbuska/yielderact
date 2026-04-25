@@ -5,7 +5,7 @@
  * column and search by the first column or a combined text search
  * across all columns (datalist-style filtering).
  */
-import { $context, $effect, $memo, $stable, $state, createContext, Deferred } from "yract-beta";
+import { $effect, $memo, $stable, $state, createContext, Defer } from "yract-beta";
 import { ComponentProps } from "../../../src/jsx";
 
 /* ── Data generation ── */
@@ -98,9 +98,14 @@ function* TableData({ children }: ComponentProps<"td">) {
 
 /* ── Table row ── */
 
-function* TableRow({ row }: { row: Row }) {
+function* TableRow({ row, index }: { row: Row; index: number }) {
+  if (row.id === "1") console.log("render", row.name, index);
+  yield* $effect(() => {
+    if (row.id === "1") console.log("MOUNTED", row.name, "At index", index);
+  }, [index]);
   return (
     <tr>
+      <TableData>{index}</TableData>
       <TableData>
         {row.name} - {row.id}
       </TableData>
@@ -141,7 +146,7 @@ function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSo
       }}
     >
       <table
-        data-testid="deferred-table"
+        data-testid="Defer-table"
         style={{
           width: "100%",
           borderCollapse: "collapse",
@@ -171,8 +176,8 @@ function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSo
           </tr>
         </thead>
         <tbody data-testid="table-body">
-          {sortedRows.map((row) => (
-            <TableRow key={String(row.id)} row={row} />
+          {sortedRows.map((row, index) => (
+            <TableRow key={String(row.id)} row={row} index={index} />
           ))}
         </tbody>
       </table>
@@ -251,11 +256,11 @@ export function* DeferredDemo() {
           {filtered.length} / {ALL_ROWS.length} rows
         </span>
       </div>
-      <Deferred value={true}>
+      <Defer value={true}>
         <div>
           <Table rows={filtered} sortDir={sortDir} onSort={updateSortDir} />
         </div>
-      </Deferred>
+      </Defer>
     </section>
   );
 }

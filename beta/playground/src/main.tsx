@@ -42,7 +42,7 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "lazy-ctx", label: "Lazy Context" },
   { id: "abort-signal", label: "AbortSignal Effect" },
   { id: "key-shuffle", label: "Key Shuffle" },
-  { id: "deferred", label: "Deferred Table" },
+  { id: "deferred", label: "Defer Table" },
 ];
 
 function getInitialTab(): Tab {

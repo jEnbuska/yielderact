@@ -34,6 +34,7 @@ export function processEffect(
     };
   }
   if (depsChanged(state.deps, descriptor.deps)) {
+    state.dirty = true;
     state.deps = descriptor.deps;
     state.fn = descriptor.fn;
     instance.scheduleEffect(state.identifier);

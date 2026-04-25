@@ -11,27 +11,27 @@ export function* ensureSlotPosition(
 ): Generator<UpdateResult, void> {
   if (isComponentSlot(slot) || isContextSlot(slot)) {
     return yield updateResult({
-      type: "DOM",
+      type: "UPDATE_UI",
       callback: () =>
         moveRange(slot.instance.startAnchor, slot.instance.endAnchor, parentDom, beforeNode),
     });
   }
   if (isFragmentSlot(slot)) {
     return yield updateResult({
-      type: "DOM",
+      type: "UPDATE_UI",
       callback: () => moveRange(slot.node, slot.endAnchor, parentDom, beforeNode),
     });
   }
 
   yield updateResult({
-    type: "DOM",
+    type: "UPDATE_UI",
     callback: () => {
       parentDom.insertBefore(slot.node, beforeNode);
     },
   });
 }
 
-function moveRange(first: Node, last: Node, parent: Node, beforeNode: Node | null): void {
+export function moveRange(first: Node, last: Node, parent: Node, beforeNode: Node | null): void {
   if (
     first.parentNode === parent &&
     last.parentNode === parent &&

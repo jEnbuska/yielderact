@@ -2,7 +2,7 @@ import type { BaseInstance } from "./base-instance";
 import type { ContextMap, RenderContext } from "../render/types";
 import { ContextInstance } from "./context-instance";
 import { DeferredInstance } from "./deferred-instance";
-import { Deferred } from "./deferred-context";
+import { Defer } from "./defer-context";
 import type { Context } from "../context";
 import { isContext } from "../context";
 import type { Component, VNode } from "../jsx";
@@ -17,7 +17,7 @@ export function createInstance<T extends Context | Component>(
   rctx: RenderContext,
   parentDom: Node,
 ): BaseInstance<T> {
-  if (vnode.type === Deferred) {
+  if (vnode.type === Defer) {
     return new DeferredInstance(
       childId,
       vnode as any,

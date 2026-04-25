@@ -5,10 +5,10 @@ import { resolveCtxValue } from "../context";
 import type { ContextMap, RenderContext } from "../render/types";
 import { reconcile } from "../reconciler/reconciler";
 import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
-import { Deferred } from "./deferred-context";
+import { Defer } from "./defer-context";
 
 export class DeferredInstance extends BaseInstance<Context> {
-  readonly contextKey: Context = Deferred;
+  readonly contextKey: Context = Defer;
   readonly handle: ContextHandle<boolean>;
   private initialRender = true;
 
@@ -23,13 +23,13 @@ export class DeferredInstance extends BaseInstance<Context> {
   ) {
     const extended = new Map(parentCtx);
     const handle: ContextHandle<boolean> = {
-      ref: { current: resolveCtxValue(parentCtx, Deferred) },
+      ref: { current: resolveCtxValue(parentCtx, Defer) },
       subscribe: () => {
         return () => {};
       },
       depth: (parent?.depth ?? -1) + 1,
     };
-    extended.set(Deferred, handle);
+    extended.set(Defer, handle);
     super(childId, vnode, extended, index, parent, rctx, parentDom);
     this.handle = handle;
   }
@@ -41,10 +41,7 @@ export class DeferredInstance extends BaseInstance<Context> {
   }
 
   apply() {
-    if (
-      !resolveCtxValue(this.parent?.ctx, Deferred) &&
-      (this.initialRender || this.isUnmounted())
-    ) {
+    if (!resolveCtxValue(this.parent?.ctx, Defer) && (this.initialRender || this.isUnmounted())) {
       this.handle.ref.current = false;
       return super.apply();
     }
@@ -53,7 +50,7 @@ export class DeferredInstance extends BaseInstance<Context> {
   }
 
   deferred(): boolean {
-    return !this.initialRender || resolveCtxValue(this.parent?.ctx, Deferred);
+    return !this.initialRender || resolveCtxValue(this.parent?.ctx, Defer);
   }
 
   protected render(

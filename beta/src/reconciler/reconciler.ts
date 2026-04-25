@@ -63,7 +63,7 @@ import {
 import { getIterable } from "../iterable";
 import { removeRange, unmountSlot } from "./unmount";
 import type { OptionalUpdateResult, ReconcileResult, UpdateResult } from "./types";
-import { ensureSlotPosition } from "./position";
+import { ensureSlotPosition, moveRange } from "./position";
 import { createSlotPath, updateResult } from "./utils";
 import type { ContextInstance } from "../instances/context-instance";
 
@@ -89,8 +89,13 @@ export function* reconcile(
   prevKeyIndex: Map<SlotKey, number> = new Map(),
 ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
   const used = new Set<number>();
-  const result: Slot[] = [];
+  const slots: Slot[] = [];
   const nextKeyIndex = new Map<SlotKey, number>();
+  // Set true as soon as any slot needs DOM-level (re)positioning: a freshly
+  // built slot (not yet inserted) or a reused slot whose new index differs
+  // from its previous index. Lets us skip the entire `ensureSlotPositions`
+  // walk on the common "text/props-only update, no structural change" path.
+  let dirtyPositions = false;
 
   // Pass 1: reuse or build. Build nextKeyIndex as we go.
   let i = 0;
@@ -98,22 +103,24 @@ export function* reconcile(
     const idx = i++;
     const key = getChildKey(child, idx);
     const prevIdx = prevKeyIndex.get(key);
-    if (prevIdx !== undefined && !used.has(prevIdx)) {
-      const prevSlot = prevSlots[prevIdx]!;
-      if (slotMatchesChild(prevSlot, child)) {
-        // Reuse prev.slotPath — matching key means the path value is identical,
-        // so there's no need to allocate a new array.
-        const slot = yield* updateSlot(prevSlot, child, idx, parentInstance);
-        used.add(prevIdx);
-        result.push(slot);
-        nextKeyIndex.set(getSlotKey(slot), result.length - 1);
-        continue;
-      }
+    let slot: Slot;
+    if (
+      prevIdx === undefined ||
+      used.has(prevIdx) ||
+      !slotMatchesChild(prevSlots[prevIdx]!, child)
+    ) {
+      const slotPath: SlotPath = createSlotPath(parentPath, key);
+      slot = yield* buildSlot(child, idx, key, slotPath, parentInstance, parentDom);
+      dirtyPositions = true;
+    } else {
+      // Reuse prev.slotPath — matching key means the path value is identical,
+      // so there's no need to allocate a new array.
+      slot = yield* updateSlot(prevSlots[prevIdx]!, child, idx, parentInstance);
+      used.add(prevIdx);
+      if (prevIdx !== idx) dirtyPositions = true;
     }
-    const slotPath: SlotPath = createSlotPath(parentPath, key);
-    const slot = yield* buildSlot(child, idx, key, slotPath, parentInstance, parentDom);
-    result.push(slot);
-    nextKeyIndex.set(getSlotKey(slot), result.length - 1);
+    slots.push(slot);
+    nextKeyIndex.set(getSlotKey(slot), slots.length - 1);
   }
 
   // Pass 2: removals — mark unmounted + emit one range-remove per run of
@@ -132,25 +139,17 @@ export function* reconcile(
     const first = slotFirstNode(prevSlots[j]!);
     const last = slotLastNode(prevSlots[k - 1]!);
     yield updateResult({
-      type: "DOM",
+      type: "UPDATE_UI",
       callback: () => removeRange(first, last, parentDom),
     });
     j = k;
   }
 
   // Pass 3: positioning — yield callbacks only for slots that actually moved.
-  // Walk backwards to compute each slot's insertBefore anchor.
-  let anchor: Node | null = beforeNode;
-  for (let j = result.length - 1; j >= 0; j--) {
-    const slot = result[j]!;
-    const last = slotLastNode(slot);
-    if (last.parentNode !== parentDom || last.nextSibling !== anchor) {
-      yield* ensureSlotPosition(slot, parentDom, anchor);
-    }
-    if (isComponentSlot(slot) || isContextSlot(slot)) anchor = slot.instance.startAnchor;
-    else anchor = slot.node;
-  }
-  return { slots: result, keyIndex: nextKeyIndex };
+  // Skip the whole walk when nothing structural changed; surviving slots'
+  // DOM positions are unaffected by removals (removeRange just closed the gap).
+  if (dirtyPositions) yield* ensureSlotPositions(parentDom, beforeNode, slots);
+  return { slots: slots, keyIndex: nextKeyIndex };
 }
 
 export function* build(
@@ -160,7 +159,7 @@ export function* build(
   beforeNode: Node | null,
   parentPath: SlotPath,
 ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
-  const result: Slot[] = [];
+  const slots: Slot[] = [];
   const nextKeyIndex = new Map<SlotKey, number>();
 
   // Pass 1: build. Build nextKeyIndex as we go.
@@ -170,15 +169,24 @@ export function* build(
     const key = getChildKey(child, idx);
     const slotPath: SlotPath = createSlotPath(parentPath, key);
     const slot = yield* buildSlot(child, idx, key, slotPath, parentInstance, parentDom);
-    result.push(slot);
-    nextKeyIndex.set(getSlotKey(slot), result.length - 1);
+    slots.push(slot);
+    nextKeyIndex.set(getSlotKey(slot), slots.length - 1);
   }
 
   // Pass 3: positioning — yield callbacks only for slots that actually moved.
   // Walk backwards to compute each slot's insertBefore anchor.
+  yield* ensureSlotPositions(parentDom, beforeNode, slots);
+  return { slots: slots, keyIndex: nextKeyIndex };
+}
+
+function* ensureSlotPositions(
+  parentDom: Node,
+  beforeNode: Node | null,
+  slots: Slot[],
+): Generator<UpdateResult, void> {
   let anchor: Node | null = beforeNode;
-  for (let j = result.length - 1; j >= 0; j--) {
-    const slot = result[j]!;
+  for (let j = slots.length - 1; j >= 0; j--) {
+    const slot = slots[j]!;
     const last = slotLastNode(slot);
     if (last.parentNode !== parentDom || last.nextSibling !== anchor) {
       yield* ensureSlotPosition(slot, parentDom, anchor);
@@ -186,7 +194,6 @@ export function* build(
     if (isComponentSlot(slot) || isContextSlot(slot)) anchor = slot.instance.startAnchor;
     else anchor = slot.node;
   }
-  return { slots: result, keyIndex: nextKeyIndex };
 }
 
 // ---------------------------------------------------------------------------
@@ -270,7 +277,7 @@ function* buildFragment(
   slot.key = key;
   // Anchors must be in the DOM before children can be positioned between them.
   yield updateResult({
-    type: "DOM",
+    type: "UPDATE_UI",
     callback: () => appendChildren(parentDom, slot.node, slot.endAnchor),
   });
   // Recursively reconcile children between the anchors.
@@ -293,24 +300,21 @@ function* delegateBuild(
       continue;
     }
     switch (result.value.type) {
-      case "DOM":
-        result.value.callback();
+      case "UPDATE_UI":
         yield;
+        result.value.callback();
         result = generator.next();
         break;
       case "MOUNT":
-      case "SET_PROPS": {
+      case "ENSURE_PROPS":
         result = generator.next(yield result.value);
         break;
-      }
       case "UNMOUNT":
         yield result.value;
         result = generator.next();
         break;
-
       default:
         throw new Error(`Unknown result value ${result.value}`);
-        break;
     }
   }
   return result.value;
@@ -323,34 +327,7 @@ function* buildComponent(
   slotPath: SlotPath,
   parentDom: Node,
 ): Generator<UpdateResult, ComponentSlot, ComponentInstance> {
-  const instance = yield updateResult({
-    type: "MOUNT",
-    vnode,
-    index,
-    parentDom,
-    slotPath,
-  });
-  yield updateResult({
-    type: "DOM",
-    callback: () => {
-      if (instance.parentDom !== parentDom) {
-        // Reused instance is migrating to a different DOM container (the
-        // surrounding element was rebuilt). Update the field, move anchors
-        // into the new parent, then drive the instance's render+commit
-        // synchronously so its content (which `appendChildren` doesn't move)
-        // gets repositioned before any subsequent op in this drain runs.
-        instance.parentDom = parentDom;
-        appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
-        const gen = instance.apply();
-        let res = gen.next();
-        while (!res.done) res = gen.next();
-        instance.updateDOM();
-        instance.commit();
-      } else {
-        appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
-      }
-    },
-  });
+  const instance = yield* mountInstance(vnode, index, parentDom, slotPath);
   return {
     type: componentSlotType,
     instance: instance as ComponentInstance,
@@ -363,13 +340,12 @@ function* buildComponent(
   };
 }
 
-function* buildContext(
-  vnode: VNode<Context>,
+function* mountInstance<T extends Component | Context>(
+  vnode: VNode<T>,
   index: number,
-  key: SlotKey,
-  slotPath: SlotPath,
   parentDom: Node,
-): Generator<UpdateResult, ContextSlot, ContextInstance> {
+  slotPath: SlotPath,
+): Generator<UpdateResult, BaseInstance<T>, BaseInstance<T>> {
   const instance = yield updateResult({
     type: "MOUNT",
     vnode,
@@ -377,22 +353,34 @@ function* buildContext(
     parentDom,
     slotPath,
   });
-  yield updateResult({
-    type: "DOM",
-    callback: () => {
-      if (instance.parentDom !== parentDom) {
-        instance.parentDom = parentDom;
-        appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
-        const gen = instance.apply();
-        let res = gen.next();
-        while (!res.done) res = gen.next();
-        instance.updateDOM();
-        instance.commit();
-      } else {
-        appendChildren(parentDom, instance.startAnchor, instance.endAnchor);
-      }
-    },
-  });
+  if (instance.parentDom !== parentDom) {
+    // Reused instance migrating to a new DOM container — physically relocate
+    // the whole subtree (anchors + everything between) so DOM and hook state
+    // stay paired. `moveRange` walks `startAnchor.nextSibling` in the old
+    // parent up to `endAnchor` and `insertBefore`s the lot into the new one.
+    instance.parentDom = parentDom;
+    yield updateResult({
+      type: "UPDATE_UI",
+      callback: () => moveRange(instance.startAnchor, instance.endAnchor, parentDom, null),
+    });
+  } else {
+    // Fresh instance — anchors were just created, not yet attached anywhere.
+    yield updateResult({
+      type: "UPDATE_UI",
+      callback: () => appendChildren(parentDom, instance.startAnchor, instance.endAnchor),
+    });
+  }
+  return instance;
+}
+
+function* buildContext(
+  vnode: VNode<Context>,
+  index: number,
+  key: SlotKey,
+  slotPath: SlotPath,
+  parentDom: Node,
+): Generator<UpdateResult, ContextSlot, ContextInstance> {
+  const instance = yield* mountInstance(vnode, index, parentDom, slotPath);
   return {
     type: contextSlotType,
     instance,
@@ -457,7 +445,7 @@ function* updateSlot(
     if (prev.index === index && prev.props === text) return prev;
     if (text !== prev.props)
       yield updateResult({
-        type: "DOM",
+        type: "UPDATE_UI",
         callback: () => {
           prev.node.nodeValue = text;
         },
@@ -498,7 +486,7 @@ function* updateSlot(
     if (patch) {
       slot.props = child.props;
       yield updateResult({
-        type: "DOM",
+        type: "UPDATE_UI",
         callback: () => updateElementProps(prev.node, patch, parent.rctx.delegationRoot),
       });
     }
@@ -509,7 +497,7 @@ function* updateSlot(
 
   if (isComponentSlot(prev) || isContextSlot(prev)) {
     yield updateResult({
-      type: "SET_PROPS",
+      type: "ENSURE_PROPS",
       instance: prev.instance,
       vnode: child,
     });

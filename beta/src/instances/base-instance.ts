@@ -24,12 +24,12 @@ import type { DependencyList } from "../hooks/types";
 import { depsChanged } from "../hooks/utils";
 import type { VNode, VNodeProps, VNodeType } from "../jsx";
 import { propsWithChildren, shallowEqual } from "../prop-helpers";
-import type { Slot, SlotKey } from "../render/slots";
+import { Slot, SlotKey } from "../render/slots";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
 import type { Component } from "../jsx";
 import type { DomResult, OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
 import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
-import { Deferred } from "./deferred-context";
+import { Defer } from "./defer-context";
 
 type CreateInstanceFn = <T extends Context | Component>(
   childId: string,
@@ -157,7 +157,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   }
 
   deferred() {
-    return resolveCtxValue(this.ctx, Deferred);
+    return resolveCtxValue(this.ctx, Defer);
   }
 
   scheduleRender(reason: symbol, deferred?: boolean): void {
@@ -228,7 +228,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         continue;
       }
       const next = result.value;
-      if (next.type === "DOM") {
+      if (next.type === "UPDATE_UI") {
         domUpdates.push(next);
         result = genNext();
         continue;
@@ -259,7 +259,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
           }
           break;
         }
-        case "SET_PROPS": {
+        case "ENSURE_PROPS": {
           toBeUnmounted.delete(next.instance.childId);
           next.instance.setProps(next.vnode);
           next.instance.remount();

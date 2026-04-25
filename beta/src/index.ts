@@ -21,7 +21,7 @@ export {
   type DependencyList,
   type RefObject,
 } from "./hooks";
-export { Deferred } from "./instances/deferred-context";
+export { Defer } from "./instances/defer-context";
 export {
   type Child,
   type Component,

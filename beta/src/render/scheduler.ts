@@ -8,7 +8,7 @@
  *
  * Drain order per outer-loop iteration: primary renders → primary effects
  * → deferred renders. The outer loop runs until both render queues are
- * empty. Deferred renders may be time-sliced and bail when primary work
+ * empty. Defer renders may be time-sliced and bail when primary work
  * arrives; the bailed work is re-scheduled and resumed in a later
  * iteration.
  */

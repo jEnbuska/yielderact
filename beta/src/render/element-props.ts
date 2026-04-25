@@ -57,6 +57,7 @@ function isReservedProp(key: string): boolean {
     case "deps":
     case "ref":
     case "shown":
+    case "children":
       return true;
     default:
       return false;
@@ -85,9 +86,7 @@ function assertPropValue(key: string, value: unknown): void {
   if (key === "style") {
     if (!isPlainStyleObject(value)) {
       const got = Array.isArray(value) ? "array" : value === null ? "null" : typeof value;
-      throw new Error(
-        `yract-beta: "style" prop must be a plain object or undefined (got ${got})`,
-      );
+      throw new Error(`yract-beta: "style" prop must be a plain object or undefined (got ${got})`);
     }
   }
 }
@@ -324,10 +323,7 @@ export function diffElementProps(
         ensure().style = next as Record<string, unknown>;
         continue;
       }
-      const styleDiff = diffStyle(
-        prev as Record<string, unknown>,
-        next as Record<string, unknown>,
-      );
+      const styleDiff = diffStyle(prev as Record<string, unknown>, next as Record<string, unknown>);
       if (styleDiff) ensure().style = styleDiff;
       continue;
     }

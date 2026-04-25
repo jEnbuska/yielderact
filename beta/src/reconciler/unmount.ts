@@ -20,22 +20,10 @@ export function* unmountSlot(slot: Slot): Generator<UpdateResult, void> {
     // The instance tears down its own subtree — see BaseInstance.render's
     // unmount branch.
     yield updateResult({ type: "UNMOUNT", instance: slot.instance, slotPath: slot.slotPath });
-    return;
-  }
-  if (isElementSlot(slot)) {
-    yield updateResult({
-      type: "DOM",
-      callback: () => {
-        const ref = slot.props["ref"]; // TODO use WeakRef
-        if (ref) ref.current = undefined;
-      },
-    });
+  } else if (isElementSlot(slot)) {
     for (const child of slot.slots) yield* unmountSlot(child);
-    return;
-  }
-  if (isFragmentSlot(slot)) {
+  } else if (isFragmentSlot(slot)) {
     for (const child of slot.slots) yield* unmountSlot(child);
-    return;
   }
 }
 
