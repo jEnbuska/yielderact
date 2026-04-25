@@ -17,10 +17,10 @@ import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types"
 const ROOT_VNODE: VNode<typeof Fragment> = { type: Fragment, props: {}, children: [] };
 
 export class RootInstance extends BaseInstance<typeof Fragment> {
-  private pendingVNode: VNode | null = null;
+  private pendingVNode: VNode | undefined;
 
   constructor(rctx: RenderContext) {
-    super("root", ROOT_VNODE, new Map(), 0, null, rctx, rctx.container);
+    super("root", ROOT_VNODE, new Map(), null, rctx, rctx.container);
   }
 
   protected *render(): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {

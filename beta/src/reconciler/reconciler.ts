@@ -327,7 +327,7 @@ function* buildComponent(
   slotPath: SlotPath,
   parentDom: Node,
 ): Generator<UpdateResult, ComponentSlot, ComponentInstance> {
-  const instance = yield* mountInstance(vnode, index, parentDom, slotPath);
+  const instance = yield* mountInstance(vnode, parentDom, slotPath);
   return {
     type: componentSlotType,
     instance: instance as ComponentInstance,
@@ -342,14 +342,12 @@ function* buildComponent(
 
 function* mountInstance<T extends Component | Context>(
   vnode: VNode<T>,
-  index: number,
   parentDom: Node,
   slotPath: SlotPath,
 ): Generator<UpdateResult, BaseInstance<T>, BaseInstance<T>> {
   const instance = yield updateResult({
     type: "MOUNT",
     vnode,
-    index,
     parentDom,
     slotPath,
   });
@@ -380,7 +378,7 @@ function* buildContext(
   slotPath: SlotPath,
   parentDom: Node,
 ): Generator<UpdateResult, ContextSlot, ContextInstance> {
-  const instance = yield* mountInstance(vnode, index, parentDom, slotPath);
+  const instance = yield* mountInstance(vnode, parentDom, slotPath);
   return {
     type: contextSlotType,
     instance,

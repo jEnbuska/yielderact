@@ -28,7 +28,6 @@ export class ContextInstance extends BaseInstance<Context> {
     childId: string,
     vnode: VNode<Context>,
     parentCtx: ContextMap,
-    index: number,
     parent: BaseInstance | null,
     rctx: RenderContext,
     parentDom: Node,
@@ -55,7 +54,7 @@ export class ContextInstance extends BaseInstance<Context> {
     const extended = new Map(parentCtx);
     extended.set(ctxKey, handle);
 
-    super(childId, vnode, extended, index, parent, rctx, parentDom);
+    super(childId, vnode, extended, parent, rctx, parentDom);
     this.contextKey = ctxKey;
     this.handle = handle;
     this.subscribers = subscribers;

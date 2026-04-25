@@ -27,6 +27,8 @@ export class ComponentInstance extends BaseInstance<Component> {
     return reconcile([output], this, this.parentDom, this.endAnchor, "", this.slots, this.keyIndex);
   }
 
+  _handleBatch?: <T>(callback: () => T) => Promise<T>;
+
   private runGenerator(gen: Generator<unknown, Child, unknown>): Child {
     let hookIndex = 0;
     let step = gen.next();
@@ -41,7 +43,15 @@ export class ComponentInstance extends BaseInstance<Component> {
           break;
         }
         case $$BATCH: {
-          step = gen.next(this.handleBatch);
+          this._handleBatch ??= async <T>(callback: () => T): Promise<T> => {
+            try {
+              this.rctx.scheduler.beginBatch();
+              return await callback();
+            } finally {
+              this.rctx.scheduler.endBatch();
+            }
+          };
+          step = gen.next(this._handleBatch);
           break;
         }
         default: {

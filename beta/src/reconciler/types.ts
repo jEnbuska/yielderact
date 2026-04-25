@@ -6,7 +6,6 @@ export type MountResult = {
   type: "MOUNT";
   vnode: VNode<Component | Context>;
   slotPath: SlotPath;
-  index: number;
   parentDom: Node;
 };
 
