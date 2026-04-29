@@ -62,14 +62,14 @@ export class ContextInstance extends BaseInstance<Context> {
 
   private notify = false;
 
-  *apply() {
+  override *apply() {
     yield* super.apply();
     if (this.notify) {
       this.notifySubscribers();
     }
   }
 
-  protected render(
+  protected override render(
     props: VNodeProps,
   ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
     const newValue = props!["value"];

@@ -33,18 +33,27 @@ export class DeferredInstance extends BaseInstance<Context> {
     this.handle = handle;
   }
 
-  commit() {
+  runEffects() {
     this.initialRender = false;
     this.handle.ref.current = false;
-    super.commit();
   }
 
-  apply() {
-    if (!resolveCtxValue(this.parent?.ctx, Defer) && (this.initialRender || this.isUnmounted())) {
+  override apply() {
+    // Schedule an effect every render so `runEffects()` fires after the
+    // commit pass and flips the handle back to `false`. Without this,
+    // descendant updates after a deps-change would stay routed to the
+    // deferred queue indefinitely, instead of going back to primary once
+    // the in-flight deferred batch settles.
+    this.rctx.scheduler.scheduleEffect(this);
+    if (!resolveCtxValue(this.parent?.ctx, Defer) && this.initialRender) {
+      // First mount under a non-deferred parent: keep children synchronous
+      // so initial DOM appears immediately.
       this.handle.ref.current = false;
-      return super.apply();
+    } else {
+      // Subsequent renders (or nested under another `<Defer>`): route
+      // descendants through the deferred queue for time-sliced rendering.
+      this.handle.ref.current = true;
     }
-    this.handle.ref.current = true;
     return super.apply();
   }
 

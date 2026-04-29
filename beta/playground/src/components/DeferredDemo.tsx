@@ -98,14 +98,9 @@ function* TableData({ children }: ComponentProps<"td">) {
 
 /* ── Table row ── */
 
-function* TableRow({ row, index }: { row: Row; index: number }) {
-  if (row.id === "1") console.log("render", row.name, index);
-  yield* $effect(() => {
-    if (row.id === "1") console.log("MOUNTED", row.name, "At index", index);
-  }, [index]);
+function* TableRow({ row }: { row: Row }) {
   return (
     <tr>
-      <TableData>{index}</TableData>
       <TableData>
         {row.name} - {row.id}
       </TableData>
@@ -175,13 +170,21 @@ function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSo
             <th style={{ padding: "0.5rem", textAlign: "center" }}>Active</th>
           </tr>
         </thead>
-        <tbody data-testid="table-body">
-          {sortedRows.map((row, index) => (
-            <TableRow key={String(row.id)} row={row} index={index} />
-          ))}
-        </tbody>
+        <Defer value={true}>
+          <TableBody rows={sortedRows} />
+        </Defer>
       </table>
     </div>
+  );
+}
+
+function* TableBody({ rows }: { rows: Row[] }) {
+  return (
+    <tbody>
+      {rows.map((row, index) => (
+        <TableRow key={String(row.id)} row={row} deps={[row]} />
+      ))}
+    </tbody>
   );
 }
 
@@ -210,7 +213,7 @@ export function* DeferredDemo() {
     setSortDir((dir) => {
       if (dir === "desc") return "asc";
       return "desc";
-    }).then((it) => console.log("SORTED"));
+    }).then(() => console.log("SORTED"));
   });
 
   const [tick, setTick] = yield* $state(0);
@@ -256,11 +259,7 @@ export function* DeferredDemo() {
           {filtered.length} / {ALL_ROWS.length} rows
         </span>
       </div>
-      <Defer value={true}>
-        <div>
-          <Table rows={filtered} sortDir={sortDir} onSort={updateSortDir} />
-        </div>
-      </Defer>
+      <Table rows={filtered} sortDir={sortDir} onSort={updateSortDir} />
     </section>
   );
 }

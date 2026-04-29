@@ -13,8 +13,12 @@
  * change was irrelevant) or by the render actually executing. The scheduler
  * itself doesn't know about reasons; it just sees `schedule` / `unschedule`.
  *
- * Cleanup is split into small helpers so `unmount()` reads as a sequence of
- * responsibilities rather than one long block.
+ * Lazy collections: `_children`, `_unmountedChildren`, `_hookStates`,
+ * `_renderReasons`, `_resolveReasons`, `_effectReasons` are all
+ * null-initialized and allocated only on first write. Saves several
+ * hundred bytes per leaf instance (no Map/Set/Array allocation at construct
+ * time). Read sites use `this._field?.method(...)` / `this._field ?? []`;
+ * write sites go through the `??= new ...()` pattern.
  */
 
 import type { Context } from "../context";
@@ -45,7 +49,6 @@ let createInstanceFn: CreateInstanceFn;
 export function registerCreateInstance(fn: CreateInstanceFn): void {
   createInstanceFn = fn;
 }
-
 export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   /** Time-slice deadline set by the scheduler. invokeUpdates yields when exceeded. */
 
@@ -74,12 +77,13 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
 
   // Lazy collections — null until first write. Saves allocations on leaf
   // instances that never accumulate children, scheduling reasons, or hooks.
+
   private _children?: Map<string, BaseInstance>;
   private _unmountedChildren?: Set<BaseInstance>;
   private _hookStates?: HookState[];
   private _renderReasons?: Set<symbol>;
   private _resolveReasons?: Set<symbol>;
-  private _cleanupReasons?: Set<symbol>;
+  private _effectReasons?: Set<symbol>;
 
   // Slot tree state — undefined until first apply assigns. Reconcile's
   // default params accept undefined, so subclasses can pass these through
@@ -91,7 +95,14 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   private props: VNodeProps;
 
   /** Saved generator from an interrupted deferred render. */
-  private pendingGen?: Generator<void, ReconcileResult & { domUpdates: DomResult[] }>;
+  private pendingGen?: Generator<
+    void,
+    ReconcileResult & {
+      domUpdates: DomResult[];
+      unmountedChildren: Set<BaseInstance>;
+      nextChildren: Map<string, BaseInstance>;
+    }
+  >;
 
   /**
    * DOM anchor pair delimiting this instance's subtree. Everything between
@@ -181,8 +192,8 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   }
 
   scheduleEffect(reason: symbol): void {
-    if (this._cleanupReasons?.has(reason)) return;
-    (this._cleanupReasons ??= new Set()).add(reason);
+    if (this._effectReasons?.has(reason)) return;
+    (this._effectReasons ??= new Set()).add(reason);
     this.rctx.scheduler.scheduleEffect(this);
   }
 
@@ -194,7 +205,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    */
   *apply(): Generator<void, void, void> {
     if (this.isUnmounted()) return;
-    const gen = this.pendingGen ?? this.invokeUpdates();
+    const gen = this.pendingGen ?? this.invokeUpdates(this._children);
     this.pendingGen = gen;
     const result = yield* gen;
     this.pendingGen = undefined;
@@ -202,73 +213,76 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     this.pendingSlots = result.slots;
     this.pendingKeyIndex = result.keyIndex;
     this.pendingDomUpdates = result.domUpdates;
+    this._children = result.nextChildren;
+    this._unmountedChildren = result.unmountedChildren;
   }
 
-  private *invokeUpdates(): Generator<void, ReconcileResult & { domUpdates: DomResult[] }> {
+  private *invokeUpdates(children: Map<string, BaseInstance> = new Map()): Generator<
+    void,
+    ReconcileResult & {
+      domUpdates: DomResult[];
+      unmountedChildren: Set<BaseInstance>;
+      nextChildren: Map<string, BaseInstance>;
+    }
+  > {
     const generator = this.render(this.props);
-
     const domUpdates: Array<DomResult> = [];
-    const toBeUnmounted = this._children && new Map(this._children);
-    const pendingChildren: Map<string, BaseInstance> = new Map();
-    const genNext = (value?: BaseInstance) => {
-      return value !== undefined ? generator.next(value) : generator.next();
-    };
-    let result = genNext();
+    const unmountedChildren = new Set(children.values());
+    const newChildren = new Map<string, BaseInstance>();
+    const updatedChildren = new Map<BaseInstance, VNode>();
+    const nextChildren = new Map<string, BaseInstance>();
+    let result = generator.next();
     while (!result.done) {
       if (Date.now() >= BaseInstance.sliceDeadline) yield;
       if (!result.value) {
-        result = genNext();
+        result = generator.next();
         continue;
       }
       const next = result.value;
       if (next.type === "UPDATE_UI") {
         domUpdates.push(next);
-        result = genNext();
+        result = generator.next();
         continue;
       }
-      switch (next.type) {
-        case "MOUNT": {
-          const { vnode, parentDom } = next;
-          const path = next.slotPath;
-          const instance = this._children?.get(path);
-          toBeUnmounted?.delete(path);
-          if (vnode.type === instance?.vnode.type) {
-            instance.remount();
-            instance.setProps(vnode);
-            result = genNext(instance);
-          } else {
-            instance?.unmount();
-            const newInstance = createInstanceFn(path, vnode, this.ctx, this, this.rctx, parentDom);
-            pendingChildren.set(path, newInstance);
-            result = genNext(newInstance);
-          }
-          break;
-        }
-        case "ENSURE_PROPS": {
-          toBeUnmounted?.delete(next.instance.childId);
-          next.instance.setProps(next.vnode);
-          next.instance.remount();
-          result = genNext();
-          break;
-        }
-        case "UNMOUNT": {
-          next.instance.unmount();
-          result = genNext();
-          break;
-        }
+      if (next.type === "ENSURE_PROPS") {
+        const { instance, vnode } = next;
+        unmountedChildren.delete(instance);
+        updatedChildren.set(instance, vnode);
+        nextChildren.set(instance.childId, instance);
+        result = generator.next();
+        continue;
       }
-    }
-    if (pendingChildren.size) {
-      const children = (this._children ??= new Map());
-      for (const [path, instance] of pendingChildren) {
-        children.set(path, instance);
-        instance.scheduleRender(MOUNT_REASON);
+      const { vnode, parentDom, slotPath } = next;
+      const instance = children.get(slotPath);
+      if (instance) {
+        unmountedChildren.delete(instance);
+        updatedChildren.set(instance, vnode);
+        result = generator.next(instance);
+        continue;
       }
+      const newInstance = createInstanceFn(slotPath, vnode, this.ctx, this, this.rctx, parentDom);
+      newChildren.set(slotPath, newInstance);
+      nextChildren.set(slotPath, newInstance);
+      result = generator.next(newInstance);
     }
-    if (toBeUnmounted) {
-      for (const [, removedInstance] of toBeUnmounted) removedInstance.unmount();
+
+    const { scheduler } = this.rctx;
+    if (domUpdates.length) scheduler.scheduleDOMUpdate(this);
+    else scheduler.unscheduleDOMUpdate(this);
+
+    if (unmountedChildren.size) scheduler.scheduleUnmountChildren(this);
+    else scheduler.unscheduleUnmountChildren(this);
+
+    for (const [_, instance] of newChildren) instance.scheduleRender(MOUNT_REASON);
+
+    for (const instance of unmountedChildren) {
+      if (!instance._unmounted) instance.unmount();
+      nextChildren.set(instance.childId, instance);
     }
-    return { ...result.value, domUpdates };
+
+    for (const [instance, props] of updatedChildren) instance.setProps(props);
+
+    return { ...result.value, domUpdates, unmountedChildren, nextChildren };
   }
 
   protected abstract render(
@@ -283,6 +297,8 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
       throw new Error(this.debugLabel(), { cause: e });
     } finally {
       this.pendingDomUpdates.length = 0;
+      this.slots = this.pendingSlots;
+      this.keyIndex = this.pendingKeyIndex;
     }
   }
 
@@ -297,14 +313,11 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     }
   }
 
-  commit(): void {
-    if (this._unmounted) return;
-    this.slots = this.pendingSlots;
-    this.keyIndex = this.pendingKeyIndex;
+  unmountUnmounted() {
     if (this._unmountedChildren?.size) {
       const children = this._children;
       for (const child of this._unmountedChildren) {
-        child.runHookCleanupsLeafFirst();
+        child.unmountLeafsFirst();
         children?.delete(child.childId);
       }
       this._unmountedChildren.clear();
@@ -312,25 +325,23 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   }
 
   runEffects() {
-    if (this._unmounted) return;
-    if (this._hookStates) {
-      for (const state of this._hookStates) {
-        if (state.type === $EFFECT) {
-          if (!state.controller) {
-            const controller = new AbortController();
-            state.controller = controller;
-            void state.fn(controller.signal);
-          } else if (state.dirty) {
-            state.controller.abort();
-            const controller = new AbortController();
-            state.controller = controller;
-            state.dirty = false;
-            void state.fn(controller.signal);
-          }
+    if (!this._hookStates) return;
+    for (const state of this._hookStates) {
+      if (state.type === $EFFECT) {
+        if (!state.controller) {
+          const controller = new AbortController();
+          state.controller = controller;
+          void state.fn(controller.signal);
+        } else if (state.dirty) {
+          state.controller.abort();
+          const controller = new AbortController();
+          state.controller = controller;
+          state.dirty = false;
+          void state.fn(controller.signal);
         }
       }
     }
-    this._cleanupReasons?.clear();
+    this._effectReasons?.clear();
   }
 
   isUnmounted(): boolean {
@@ -344,12 +355,12 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   }
 
   /**
-   * Mark this instance unmounted and schedule it. The scheduler then
-   * calls `render()`, whose unmount branch drives `unmountSlot` on each
-   * owned slot — partitioning DOM/COMPONENT callbacks the same way
-   * `doRender` does — and queues a `removeRange` of this instance's own
-   * anchors into `domUpdates`. Hook cleanups still run from the parent's
-   * `afterRender` leaf-first.
+   * Mark this instance unmounted and unschedule any pending render. The
+   * actual hook cleanup (effect aborts, context unsubscribes, pending
+   * resolve clears) runs later via the parent's `unmountUnmounted()` →
+   * `unmountLeafsFirst()` walk, driven by the scheduler after the parent's
+   * render commits. DOM removal happens through the parent reconciler's
+   * `removeRange` ops, not from here.
    */
   unmount(): void {
     if (this._unmounted) return;
@@ -359,21 +370,15 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     // false without triggering a re-render, `updateDOM` must not fire ops
     // whose anchors may have been torn down or moved in the meantime.
     this.pendingDomUpdates.length = 0;
-    if (this.parent) {
-      (this.parent._unmountedChildren ??= new Set()).add(this);
-    }
     const { scheduler } = this.rctx;
     if (this._renderReasons?.size) scheduler.unscheduleRender(this);
-    if (this._resolveReasons?.size) scheduler.unscheduleResolve(this);
   }
 
   remount(): void {
     if (!this._unmounted) return;
     this._unmounted = false;
-    this.parent?._unmountedChildren?.delete(this);
     const { scheduler } = this.rctx;
     if (this._renderReasons?.size) scheduler.scheduleRender(this);
-    if (this._resolveReasons?.size) scheduler.scheduleResolve(this);
   }
 
   // ── Private helpers ───────────────────────────────────────────────────
@@ -382,25 +387,28 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    * Abort effect controllers and unsubscribe from context handles,
    * recursing into children first so cleanup runs leaf-up.
    */
-  private runHookCleanupsLeafFirst(): void {
-    if (this._children) {
-      for (const [, child] of this._children) {
+  private unmountLeafsFirst(): void {
+    const { _children, _hookStates } = this;
+    if (_children) {
+      for (const [, child] of _children) {
         child._unmounted = true;
-        child.runHookCleanupsLeafFirst();
+        child.unmountLeafsFirst();
       }
     }
-    if (this._hookStates) {
-      for (const state of this._hookStates) {
-        if (state === undefined) continue;
-        if (state.type === $EFFECT) {
-          state.controller?.abort();
-        } else if (state.type === $CONTEXT) {
-          state.unsubscribe?.();
-        } else if (state.type === $STATE) {
-          state.pendingResolve = undefined;
-        }
+    if (!_hookStates) return;
+    for (const state of _hookStates) {
+      if (state.type === $EFFECT) {
+        state.controller?.abort();
+      } else if (state.type === $CONTEXT) {
+        state.unsubscribe?.();
+      } else if (state.type === $STATE) {
+        state.pendingResolve = undefined;
       }
     }
+    const { scheduler } = this.rctx;
+    if (this._resolveReasons?.size) scheduler.unscheduleRender(this);
+    if (this._effectReasons?.size) scheduler.unscheduleEffect(this);
+    if (this._resolveReasons?.size) scheduler.unscheduleResolve(this);
   }
 
   setProps(vnode: VNode): void {

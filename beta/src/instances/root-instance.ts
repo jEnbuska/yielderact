@@ -23,7 +23,7 @@ export class RootInstance extends BaseInstance<typeof Fragment> {
     super("root", ROOT_VNODE, new Map(), null, rctx, rctx.container);
   }
 
-  protected *render(): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
+  protected override *render(): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
     if (!this.pendingVNode) return { slots: [], keyIndex: new Map() };
     return yield* reconcile(
       [this.pendingVNode],
@@ -42,7 +42,6 @@ export class RootInstance extends BaseInstance<typeof Fragment> {
     let result = gen.next();
     while (!result.done) result = gen.next();
     this.updateDOM();
-    this.commit();
   }
 
   debugLabel(): string {

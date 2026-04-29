@@ -14,7 +14,7 @@ import { $$BATCH, $$INSTANCE } from "../hooks/descriptors";
 import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
 
 export class ComponentInstance extends BaseInstance<Component> {
-  protected render(
+  protected override render(
     props: Record<string, unknown>,
   ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
     const fn = this.vnode.type as Component<Record<string, any>>;

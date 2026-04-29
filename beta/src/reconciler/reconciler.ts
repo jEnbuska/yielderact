@@ -61,13 +61,14 @@ import {
   type SlotPath,
 } from "../render/slots";
 import { getIterable } from "../iterable";
-import { removeRange, unmountSlot } from "./unmount";
+import { removeRange } from "./unmount";
 import type { OptionalUpdateResult, ReconcileResult, UpdateResult } from "./types";
 import { ensureSlotPosition, moveRange } from "./position";
 import { createSlotPath, updateResult } from "./utils";
 import type { ContextInstance } from "../instances/context-instance";
+import { createComponentId } from "../instances/component-id";
 
-export { unmountSlot, removeRange } from "./unmount";
+export { removeRange } from "./unmount";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -135,7 +136,6 @@ export function* reconcile(
     }
     let k = j + 1;
     while (k < prevSlots.length && !used.has(k)) k++;
-    for (let m = j; m < k; m++) yield* unmountSlot(prevSlots[m]!);
     const first = slotFirstNode(prevSlots[j]!);
     const last = slotLastNode(prevSlots[k - 1]!);
     yield updateResult({
@@ -255,8 +255,12 @@ function* buildElement(
     slotPath,
   );
   // Recursively reconcile children INTO the unattached element.
-  const { keyIndex, slots } = yield* delegateBuild(
-    build(vnode.children, parentInstance, slot.node, null, slotPath),
+  const { keyIndex, slots } = yield* build(
+    vnode.children,
+    parentInstance,
+    slot.node,
+    null,
+    slotPath,
   );
 
   slot.slots = slots;
@@ -281,43 +285,16 @@ function* buildFragment(
     callback: () => appendChildren(parentDom, slot.node, slot.endAnchor),
   });
   // Recursively reconcile children between the anchors.
-  const { keyIndex, slots } = yield* delegateBuild(
-    build(children, parentInstance, parentDom, slot.endAnchor, slotPath),
+  const { keyIndex, slots } = yield* build(
+    children,
+    parentInstance,
+    parentDom,
+    slot.endAnchor,
+    slotPath,
   );
   slot.slots = slots;
   slot.keyIndex = keyIndex;
   return slot;
-}
-
-function* delegateBuild(
-  generator: Generator<OptionalUpdateResult, ReconcileResult, BaseInstance>,
-): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
-  let result = generator.next();
-  while (!result.done) {
-    if (!result.value) {
-      yield;
-      result = generator.next();
-      continue;
-    }
-    switch (result.value.type) {
-      case "UPDATE_UI":
-        yield;
-        result.value.callback();
-        result = generator.next();
-        break;
-      case "MOUNT":
-      case "ENSURE_PROPS":
-        result = generator.next(yield result.value);
-        break;
-      case "UNMOUNT":
-        yield result.value;
-        result = generator.next();
-        break;
-      default:
-        throw new Error(`Unknown result value ${result.value}`);
-    }
-  }
-  return result.value;
 }
 
 function* buildComponent(
@@ -345,6 +322,7 @@ function* mountInstance<T extends Component | Context>(
   parentDom: Node,
   slotPath: SlotPath,
 ): Generator<UpdateResult, BaseInstance<T>, BaseInstance<T>> {
+  slotPath = createSlotPath(slotPath, createComponentId(vnode));
   const instance = yield updateResult({
     type: "MOUNT",
     vnode,

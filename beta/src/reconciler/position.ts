@@ -26,6 +26,11 @@ export function* ensureSlotPosition(
   yield updateResult({
     type: "UPDATE_UI",
     callback: () => {
+      // Skip when the node is already in the right position. An
+      // `insertBefore` of a node that's already a child of `parentDom`
+      // detaches and reinserts it, which blurs any focused descendant
+      // (and is wasted work besides). Mirrors `moveRange`'s early-exit.
+      if (slot.node.parentNode === parentDom && slot.node.nextSibling === beforeNode) return;
       parentDom.insertBefore(slot.node, beforeNode);
     },
   });
