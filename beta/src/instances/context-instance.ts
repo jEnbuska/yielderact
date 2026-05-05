@@ -78,7 +78,7 @@ export class ContextInstance extends BaseInstance<Context> {
       this.handle.ref.current = newValue;
     }
     const children = (props["children"] as Child[]) ?? [];
-    return reconcile(children, this, this.parentDom, this.endAnchor, "", this.slots, this.keyIndex);
+    return this.reconcile(children);
   }
 
   private notifySubscribers(): void {

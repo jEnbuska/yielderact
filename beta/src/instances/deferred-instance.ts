@@ -65,6 +65,6 @@ export class DeferredInstance extends BaseInstance<Context> {
     props: VNodeProps,
   ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
     const children = (props["children"] as Child[]) ?? [];
-    return reconcile(children, this, this.parentDom, this.endAnchor, "", this.slots, this.keyIndex);
+    return this.reconcile(children);
   }
 }

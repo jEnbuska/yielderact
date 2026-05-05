@@ -89,7 +89,7 @@ function generateRows(count: number): Row[] {
   return rows;
 }
 
-const TOTAL_ROWS = 25_000;
+const TOTAL_ROWS = 25_001;
 const ALL_ROWS = generateRows(TOTAL_ROWS);
 
 function* TableData({ children }: ComponentProps<"td">) {

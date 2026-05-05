@@ -42,6 +42,13 @@ export function isVNodeChild(child: Child): child is VNode {
   return child != null && typeof child === "object" && !(Symbol.iterator in child);
 }
 
+/** True when the child is a VNode (any flavour — element, component, context, fragment). */
+export function assertIsVNodeChild(child: Child): asserts child is VNode {
+  if (!isVNodeChild(child)) {
+    throw new Error(`yract-beta: non vNode child ${String(child)}`);
+  }
+}
+
 // ---------------------------------------------------------------------------
 // VNode-level guards (take an already-narrowed VNode)
 // ---------------------------------------------------------------------------
@@ -52,12 +59,14 @@ export function isFragmentVNode(vnode: VNode): vnode is VNode<typeof Fragment> {
 }
 
 /** Narrows a VNode to an intrinsic element (`<div>`, `<span>`, ...). */
-export function isElementVNode(vnode: VNode): vnode is VNode<string> {
+export function isElementVNode(vnode: Child): vnode is VNode<string> {
+  if (!isVNodeChild(vnode)) return false;
   return typeof vnode.type === "string";
 }
 
 /** Narrows a VNode to a context provider (`<Ctx value={...}>`). */
-export function isContextVNode(vnode: VNode): vnode is VNode<Context> {
+export function isContextVNode(vnode: Child): vnode is VNode<Context> {
+  if (!isVNodeChild(vnode)) return false;
   return typeof vnode.type === "function" && isContext(vnode.type);
 }
 
@@ -65,7 +74,8 @@ export function isContextVNode(vnode: VNode): vnode is VNode<Context> {
  * Narrows a VNode to a user-defined generator component. Excludes context
  * providers, which are also functions but carry the `ContextSymbol` tag.
  */
-export function isComponentVNode(vnode: VNode): vnode is VNode<Component> {
+export function isComponentVNode(vnode: Child): vnode is VNode<Component> {
+  if (!isVNodeChild(vnode)) return false;
   return typeof vnode.type === "function" && !isContext(vnode.type);
 }
 

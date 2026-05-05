@@ -11,7 +11,7 @@
 import { Fragment, type VNode } from "../jsx";
 import type { RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
-import { reconcile } from "../reconciler/reconciler";
+import { build } from "../reconciler/reconciler";
 import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
 
 const ROOT_VNODE: VNode<typeof Fragment> = { type: Fragment, props: {}, children: [] };
@@ -25,14 +25,12 @@ export class RootInstance extends BaseInstance<typeof Fragment> {
 
   protected override *render(): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
     if (!this.pendingVNode) return { slots: [], keyIndex: new Map() };
-    return yield* reconcile(
+    return yield* build(
       [this.pendingVNode],
       this,
       this.parentDom,
       null,
       "",
-      this.slots,
-      this.keyIndex,
     );
   }
 

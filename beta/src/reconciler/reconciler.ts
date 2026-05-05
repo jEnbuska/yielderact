@@ -25,6 +25,7 @@
  * ```
  */
 import {
+  assertIsVNodeChild,
   getChildKey,
   isComponentVNode,
   isContextVNode,
@@ -43,6 +44,8 @@ import { diffElementProps, updateElementProps } from "../render/element-props";
 import type { ComponentSlot, ContextSlot, ElementSlot } from "../render/slots";
 import {
   componentSlotType,
+  emptySlotType,
+  textSlotType,
   contextSlotType,
   createElementSlot,
   createEmptySlot,
@@ -59,6 +62,8 @@ import {
   type Slot,
   type SlotKey,
   type SlotPath,
+  fragmentSlotType,
+  elementSlotType,
 } from "../render/slots";
 import { getIterable } from "../iterable";
 import { removeRange } from "./unmount";
@@ -191,8 +196,14 @@ function* ensureSlotPositions(
     if (last.parentNode !== parentDom || last.nextSibling !== anchor) {
       yield* ensureSlotPosition(slot, parentDom, anchor);
     }
-    if (isComponentSlot(slot) || isContextSlot(slot)) anchor = slot.instance.startAnchor;
-    else anchor = slot.node;
+    switch (slot.type) {
+      case componentSlotType:
+      case contextSlotType:
+        anchor = slot.instance.startAnchor;
+        break;
+      default:
+        anchor = slot.node;
+    }
   }
 }
 
@@ -411,80 +422,73 @@ function* updateSlot(
   index: number,
   parent: BaseInstance,
 ): Generator<OptionalUpdateResult, Slot> {
-  if (isEmptySlot(prev)) {
-    if (prev.index === index) return prev;
-    return { ...prev, index };
-  }
-
-  if (isTextSlot(prev)) {
-    const text = String(child);
-    if (prev.index === index && prev.props === text) return prev;
-    if (text !== prev.props)
+  switch (prev.type) {
+    case emptySlotType:
+      if (prev.index === index) return prev;
+      return { ...prev, index };
+    case textSlotType: {
+      const text = String(child);
+      if (prev.index === index && prev.props === text) return prev;
+      if (text !== prev.props)
+        yield updateResult({
+          type: "UPDATE_UI",
+          callback: () => {
+            prev.node.nodeValue = text;
+          },
+        });
+      return { ...prev, index, props: text };
+    }
+    case elementSlotType: {
+      assertIsVNodeChild(child);
+      const childResult = yield* reconcile(
+        child.children,
+        parent,
+        prev.node,
+        null,
+        prev.slotPath,
+        prev.slots,
+        prev.keyIndex,
+      );
+      const slot: Slot = {
+        ...prev,
+        key: child.props.key ?? index,
+        index,
+      };
+      const patch = diffElementProps(prev.props, child.props);
+      if (patch) {
+        slot.props = child.props;
+        yield updateResult({
+          type: "UPDATE_UI",
+          callback: () => updateElementProps(prev.node, patch, parent.rctx.delegationRoot),
+        });
+      }
+      slot.slots = childResult.slots;
+      slot.keyIndex = childResult.keyIndex;
+      return slot;
+    }
+    case componentSlotType:
+    case contextSlotType:
+      assertIsVNodeChild(child);
       yield updateResult({
-        type: "UPDATE_UI",
-        callback: () => {
-          prev.node.nodeValue = text;
-        },
+        type: "ENSURE_PROPS",
+        instance: prev.instance,
+        vnode: child,
       });
-    return { ...prev, index, props: text };
+      return {
+        ...prev,
+        props: child.props,
+        key: child.props.key ?? index,
+        index,
+      };
+    case fragmentSlotType:
+      if (isIterableChild(child)) {
+        return yield* updateFragment(prev, child, emptyProps, index, parent);
+      }
+      assertIsVNodeChild(child);
+      return yield* updateFragment(prev, child.children, child.props, index, parent);
+    default:
+      throw new Error(`yract-beta: unknown Slot type ${String(prev satisfies never)}`);
   }
-
-  if (isFragmentSlot(prev)) {
-    if (isIterableChild(child)) {
-      return yield* updateFragment(prev, child, emptyProps, index, parent);
-    }
-    if (!isVNodeChild(child)) {
-      throw new Error("yract-beta: fragment slot matched non-iterable, non-VNode child");
-    }
-    return yield* updateFragment(prev, child.children, child.props, index, parent);
-  }
-
-  if (!isVNodeChild(child)) {
-    throw new Error("yract-beta: updateSlot reached VNode branch with non-VNode child");
-  }
-
-  if (isElementSlot(prev)) {
-    const childResult = yield* reconcile(
-      child.children,
-      parent,
-      prev.node,
-      null,
-      prev.slotPath,
-      prev.slots,
-      prev.keyIndex,
-    );
-    const slot: Slot = {
-      ...prev,
-      key: child.props.key ?? index,
-      index,
-    };
-    const patch = diffElementProps(prev.props, child.props);
-    if (patch) {
-      slot.props = child.props;
-      yield updateResult({
-        type: "UPDATE_UI",
-        callback: () => updateElementProps(prev.node, patch, parent.rctx.delegationRoot),
-      });
-    }
-    slot.slots = childResult.slots;
-    slot.keyIndex = childResult.keyIndex;
-    return slot;
-  }
-
-  if (isComponentSlot(prev) || isContextSlot(prev)) {
-    yield updateResult({
-      type: "ENSURE_PROPS",
-      instance: prev.instance,
-      vnode: child,
-    });
-    return {
-      ...prev,
-      props: child.props,
-      key: child.props.key ?? index,
-      index,
-    };
-  }
-  throw new Error(`yract-beta: unknown Slot type ${String(child.type)}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -501,17 +505,22 @@ function appendChildren(parent: Node, first: Node, second: Node): void {
 // ---------------------------------------------------------------------------
 
 function slotMatchesChild<T extends Slot = Slot>(slot: T, child: Child): boolean {
-  if (isEmptyChild(child)) return isEmptySlot(slot);
-  if (isTextChild(child)) return isTextSlot(slot);
-  if (isIterableChild(child)) return isFragmentSlot(slot);
-  if (!isVNodeChild(child)) return false;
-  if (isFragmentVNode(child)) return isFragmentSlot(slot);
-  if (isElementVNode(child)) return isElementSlot(slot) && slot.element === child.type;
-  if (isContextVNode(child)) return isContextSlot(slot) && slot.instance.contextKey === child.type;
-  if (isComponentVNode(child)) {
-    return isComponentSlot(slot) && slot.instance.vnode.type === child.type;
+  switch (slot.type) {
+    case emptySlotType:
+      return isEmptyChild(child);
+    case textSlotType:
+      return isTextChild(child);
+    case elementSlotType:
+      return isElementVNode(child) && slot.element === child.type;
+    case componentSlotType:
+      return isComponentVNode(child) && slot.instance.vnode.type === child.type;
+    case contextSlotType:
+      return isContextVNode(child) && slot.instance.contextKey === child.type;
+    case fragmentSlotType:
+      return isIterableChild(child) || (isVNodeChild(child) && isFragmentVNode(child));
+    default:
+      throw new Error(`yract-beta: unknown Slot type ${String(slot satisfies never)}`);
   }
-  return false;
 }
 
 function slotFirstNode(slot: Slot): Node {

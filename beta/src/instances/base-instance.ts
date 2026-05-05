@@ -26,12 +26,13 @@ import { resolveCtxValue } from "../context";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import type { DependencyList } from "../hooks/types";
 import { depsChanged } from "../hooks/utils";
-import type { VNode, VNodeProps, VNodeType } from "../jsx";
+import type { VNode, VNodeProps, VNodeType, IterableChild } from "../jsx";
 import { propsWithChildren, shallowEqual } from "../prop-helpers";
 import { Slot, SlotKey } from "../render/slots";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
 import type { Component } from "../jsx";
 import type { DomResult, OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
+import { reconcile, build } from "../reconciler/reconciler";
 import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
 import { Defer } from "./defer-context";
 
@@ -228,9 +229,9 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     const generator = this.render(this.props);
     const domUpdates: Array<DomResult> = [];
     const unmountedChildren = new Set(children.values());
-    const newChildren = new Map<string, BaseInstance>();
+    const newChildren = new Set<BaseInstance>();
     const updatedChildren = new Map<BaseInstance, VNode>();
-    const nextChildren = new Map<string, BaseInstance>();
+    const nextChildren = new Map<string, BaseInstance>(children);
     let result = generator.next();
     while (!result.done) {
       if (Date.now() >= BaseInstance.sliceDeadline) yield;
@@ -248,7 +249,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         const { instance, vnode } = next;
         unmountedChildren.delete(instance);
         updatedChildren.set(instance, vnode);
-        nextChildren.set(instance.childId, instance);
         result = generator.next();
         continue;
       }
@@ -261,7 +261,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         continue;
       }
       const newInstance = createInstanceFn(slotPath, vnode, this.ctx, this, this.rctx, parentDom);
-      newChildren.set(slotPath, newInstance);
+      newChildren.add(newInstance);
       nextChildren.set(slotPath, newInstance);
       result = generator.next(newInstance);
     }
@@ -273,12 +273,9 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     if (unmountedChildren.size) scheduler.scheduleUnmountChildren(this);
     else scheduler.unscheduleUnmountChildren(this);
 
-    for (const [_, instance] of newChildren) instance.scheduleRender(MOUNT_REASON);
+    for (const instance of newChildren) instance.scheduleRender(MOUNT_REASON);
 
-    for (const instance of unmountedChildren) {
-      if (!instance._unmounted) instance.unmount();
-      nextChildren.set(instance.childId, instance);
-    }
+    for (const instance of unmountedChildren) instance.unmount();
 
     for (const [instance, props] of updatedChildren) instance.setProps(props);
 
@@ -288,6 +285,13 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   protected abstract render(
     props: Record<string, unknown>,
   ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance>;
+
+  protected reconcile(children: IterableChild) {
+    if(this.slots?.length) {
+      return reconcile(children, this, this.parentDom, this.endAnchor, "", this.slots, this.keyIndex)
+    }
+    return build(children, this, this.parentDom, this.endAnchor, "")
+  }
 
   updateDOM(): void {
     if (this.isUnmounted()) return;
