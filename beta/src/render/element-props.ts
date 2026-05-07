@@ -355,35 +355,37 @@ export function diffElementProps(
  * no access to the previous props — the caller has already decided what
  * needs to happen.
  */
-export function updateElementProps(
+export function stageUpdateElementProps(
   el: HTMLElement,
   patch: ElementPatch,
   delegationRoot: DelegationRoot,
-): void {
-  if (patch.removeAttrs) {
-    for (const key of patch.removeAttrs) clearElementAttr(el, key);
-  }
-  if (patch.removeEvents) {
-    for (const key of patch.removeEvents) unRegisterElementEvent(el, key);
-  }
-  if (patch.style === null) {
-    el.style.cssText = "";
-  } else if (patch.style) {
-    Object.assign(el.style, patch.style);
-  }
-  if (patch.setAttrs) {
-    for (const key in patch.setAttrs) {
-      writeElementAttr(el, key, patch.setAttrs[key], delegationRoot);
+) {
+  return function updateElementProps() {
+    if (patch.removeAttrs) {
+      for (const key of patch.removeAttrs) clearElementAttr(el, key);
     }
-  }
-  if (patch.setEvents) {
-    for (const key in patch.setEvents) {
-      registerElementEvent(el, key, patch.setEvents[key]!, delegationRoot);
+    if (patch.removeEvents) {
+      for (const key of patch.removeEvents) unRegisterElementEvent(el, key);
     }
-  }
-  if (patch.refSwap) {
-    const { prev, next } = patch.refSwap;
-    if (prev) prev.current = undefined;
-    if (next) next.current = el;
-  }
+    if (patch.style === null) {
+      el.style.cssText = "";
+    } else if (patch.style) {
+      Object.assign(el.style, patch.style);
+    }
+    if (patch.setAttrs) {
+      for (const key in patch.setAttrs) {
+        writeElementAttr(el, key, patch.setAttrs[key], delegationRoot);
+      }
+    }
+    if (patch.setEvents) {
+      for (const key in patch.setEvents) {
+        registerElementEvent(el, key, patch.setEvents[key]!, delegationRoot);
+      }
+    }
+    if (patch.refSwap) {
+      const { prev, next } = patch.refSwap;
+      if (prev) prev.current = undefined;
+      if (next) next.current = el;
+    }
+  };
 }

@@ -1,4 +1,4 @@
-import type { Child, IterableChild } from "./jsx";
+import type { Child, IterableChildren } from "./jsx";
 
 class MultiIterable<T> {
   private done = false;
@@ -42,9 +42,9 @@ class MultiIterable<T> {
   }
 }
 
-const iterableMap = new WeakMap<IterableChild, MultiIterable<Child>>();
+const iterableMap = new WeakMap<IterableChildren, MultiIterable<Child>>();
 
-export function getIterable(children: IterableChild): Iterable<Child> {
+export function getIterable(children: IterableChildren): Iterable<Child> {
   if (Array.isArray(children)) return children;
   return iterableMap.getOrInsertComputed(children, () => new MultiIterable(children));
 }

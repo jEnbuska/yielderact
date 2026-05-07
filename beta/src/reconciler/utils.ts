@@ -1,5 +1,5 @@
-import type { SlotKey, SlotPath } from "../render/slots";
 import type { UpdateResult } from "./types";
+import { SlotKey, SlotPath } from "../slots/general";
 
 export function updateResult(result: Exclude<UpdateResult, void>): UpdateResult {
   return result;

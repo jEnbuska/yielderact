@@ -8,7 +8,6 @@
  */
 import { isHookDescriptor, processOneDescriptor } from "../hooks/utils";
 import type { Child, Component } from "../jsx";
-import { reconcile } from "../reconciler/reconciler";
 import { BaseInstance } from "./base-instance";
 import { $$BATCH, $$INSTANCE } from "../hooks/descriptors";
 import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";

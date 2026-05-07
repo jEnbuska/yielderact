@@ -1,6 +1,7 @@
-import type { Slot, SlotKey, SlotPath } from "../render/slots";
 import type { BaseInstance } from "../instances/base-instance";
 import type { Component, Context, VNode } from "yract-beta";
+import { Slot } from "../slots/slot";
+import { SlotKey, SlotPath } from "../slots/general";
 
 export type MountResult = {
   type: "MOUNT";

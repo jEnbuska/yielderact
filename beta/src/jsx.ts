@@ -17,7 +17,7 @@ export type VNodeType = typeof Fragment | Component<any> | Context | string;
 export interface VNode<T extends VNodeType = VNodeType> {
   type: T;
   props: VNodeProps;
-  children: Child[];
+  children: IterableChildren;
 }
 /**
  * Anything that can appear as a child in the virtual DOM.
@@ -27,9 +27,9 @@ export interface VNode<T extends VNodeType = VNodeType> {
  * at reconciliation time, so each nested array becomes a stable inner
  * slot whose own children are reconciled in place across renders.
  */
-export type Child = VNode | string | number | boolean | null | undefined | IterableChild;
+export type Child = VNode | string | number | boolean | null | undefined | IterableChildren;
 
-export type IterableChild = Iterable<Child, void, void>;
+export type IterableChildren = Iterable<Child, void, void>;
 
 /**
  * Framework props valid on every JSX element. Consumed by the framework

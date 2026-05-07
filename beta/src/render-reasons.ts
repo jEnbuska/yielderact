@@ -1,4 +1,4 @@
-import { $CONTEXT, $DEFER, $DEFERRED, $STATE } from "./hooks/descriptors";
+import { $CONTEXT, $STATE } from "./hooks/descriptors";
 
 export const PROPS_REASON = Symbol("$PROPS");
 export const MOUNT_REASON = Symbol("$MOUNT");

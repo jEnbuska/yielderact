@@ -3,7 +3,6 @@ import type { Child, VNode, VNodeProps } from "../jsx";
 import type { Context, ContextHandle } from "../context";
 import { resolveCtxValue } from "../context";
 import type { ContextMap, RenderContext } from "../render/types";
-import { reconcile } from "../reconciler/reconciler";
 import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
 import { Defer } from "./defer-context";
 

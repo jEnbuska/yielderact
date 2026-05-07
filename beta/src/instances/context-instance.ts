@@ -14,7 +14,6 @@
  */
 import { type Context, type ContextHandle, isContext } from "../context";
 import type { Child, VNode, VNodeProps } from "../jsx";
-import { reconcile } from "../reconciler/reconciler";
 import type { ContextMap, RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
 import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";

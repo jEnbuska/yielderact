@@ -26,15 +26,18 @@ import { resolveCtxValue } from "../context";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import type { DependencyList } from "../hooks/types";
 import { depsChanged } from "../hooks/utils";
-import type { VNode, VNodeProps, VNodeType, IterableChild } from "../jsx";
+import type { VNode, VNodeProps, VNodeType, IterableChildren } from "../jsx";
 import { propsWithChildren, shallowEqual } from "../prop-helpers";
-import { Slot, SlotKey } from "../render/slots";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
 import type { Component } from "../jsx";
 import type { DomResult, OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
-import { reconcile, build } from "../reconciler/reconciler";
+import { reconcile } from "../reconciler/reconciler";
 import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
 import { Defer } from "./defer-context";
+import { mount } from "../reconciler/mount";
+import { updateResult } from "../reconciler/utils";
+import { Slot } from "../slots/slot";
+import { SlotKey } from "../slots/general";
 
 type CreateInstanceFn = <T extends Context | Component>(
   childId: string,
@@ -59,6 +62,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   readonly vnode: VNode<TVNodeType>;
   readonly depth: number;
   readonly parent: BaseInstance | null;
+  private mounted = false;
   /**
    * Live DOM container the instance's anchors sit in. Updated by
    * `buildComponent` / `buildContext` when an existing instance is reused
@@ -252,6 +256,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         result = generator.next();
         continue;
       }
+      // "MOUNT"
       const { vnode, parentDom, slotPath } = next;
       const instance = children.get(slotPath);
       if (instance) {
@@ -286,11 +291,27 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     props: Record<string, unknown>,
   ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance>;
 
-  protected reconcile(children: IterableChild) {
-    if(this.slots?.length) {
-      return reconcile(children, this, this.parentDom, this.endAnchor, "", this.slots, this.keyIndex)
+  protected *reconcile(children: IterableChildren) {
+    if (this.mounted) {
+      const stagingDom = document.createDocumentFragment();
+      const result = yield* mount(children, this, this.parentDom, stagingDom, "");
+      yield updateResult({
+        type: "UPDATE_UI",
+        callback: () => {
+          this.parentDom.insertBefore(stagingDom, this.endAnchor);
+        },
+      });
+      return result;
     }
-    return build(children, this, this.parentDom, this.endAnchor, "")
+    return yield* reconcile(
+      children,
+      this,
+      this.parentDom,
+      this.endAnchor,
+      "",
+      this.slots,
+      this.keyIndex,
+    );
   }
 
   updateDOM(): void {
