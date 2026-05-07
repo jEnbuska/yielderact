@@ -58,8 +58,8 @@ function insertSorted(
   members.add(instance);
   let lo = 0;
   let hi = groups.length;
-  if (groups[groups.length - 1]?.depth === instance.depth) {
-    groups[groups.length - 1]!.instances.push(instance);
+  if (groups[hi - 1]?.depth === instance.depth) {
+    groups[hi - 1]!.instances.push(instance);
     return;
   }
   while (lo < hi) {
