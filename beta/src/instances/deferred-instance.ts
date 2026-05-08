@@ -3,7 +3,7 @@ import type { Child, VNode, VNodeProps } from "../jsx";
 import type { Context, ContextHandle } from "../context";
 import { resolveCtxValue } from "../context";
 import type { ContextMap, RenderContext } from "../render/types";
-import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
+import type { OptionalDelegationAction, ReconcileResult } from "../reconciler/types";
 import { Defer } from "./defer-context";
 import type { TagNamespace } from "../render/elements/namespaces";
 
@@ -64,7 +64,7 @@ export class DeferredInstance extends BaseInstance<Context> {
 
   protected render(
     props: VNodeProps,
-  ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
+  ): Generator<OptionalDelegationAction, ReconcileResult, BaseInstance> {
     const children = (props["children"] as Child[]) ?? [];
     return this.reconcile(children);
   }

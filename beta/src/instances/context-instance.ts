@@ -16,7 +16,7 @@ import { type Context, type ContextHandle, isContext } from "../context";
 import type { Child, VNode, VNodeProps } from "../jsx";
 import type { ContextMap, RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
-import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
+import type { OptionalDelegationAction, ReconcileResult } from "../reconciler/types";
 import type { TagNamespace } from "../render/elements/namespaces";
 
 export class ContextInstance extends BaseInstance<Context> {
@@ -72,7 +72,7 @@ export class ContextInstance extends BaseInstance<Context> {
 
   protected override render(
     props: VNodeProps,
-  ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
+  ): Generator<OptionalDelegationAction, ReconcileResult, BaseInstance> {
     const newValue = props!["value"];
     if (!Object.is(this.handle.ref.current, newValue)) {
       this.notify = true;

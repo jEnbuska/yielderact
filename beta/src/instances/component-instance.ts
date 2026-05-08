@@ -10,12 +10,12 @@ import { isHookDescriptor, processOneDescriptor } from "../hooks/utils";
 import type { Child, Component } from "../jsx";
 import { BaseInstance } from "./base-instance";
 import { $$BATCH, $$INSTANCE } from "../hooks/descriptors";
-import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
+import type { OptionalDelegationAction, ReconcileResult } from "../reconciler/types";
 
 export class ComponentInstance extends BaseInstance<Component> {
   protected override render(
     props: Record<string, unknown>,
-  ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
+  ): Generator<OptionalDelegationAction, ReconcileResult, BaseInstance> {
     const fn = this.vnode.type as Component<Record<string, any>>;
     if (typeof fn !== "function") {
       throw new Error(

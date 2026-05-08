@@ -44,9 +44,17 @@ import { diffElementProps, updateElementProps } from "../render/element-props";
 import { getIterable } from "../iterable";
 import { removeRange } from "./unmount";
 import { mount } from "./mount";
-import type { OptionalUpdateResult, ReconcileResult, UpdateResult } from "./types";
-import { moveRange, placeNode, stageAppend } from "./position";
-import { createSlotPath, emptyProps, isRefProps, registerRef, updateResult } from "./utils";
+import type { OptionalDelegationAction, ReconcileResult, DelegationAction } from "./types";
+import { moveRange, placeNode, appendChildren } from "./position";
+import {
+  createSlotPath,
+  emptyProps,
+  isRefProps,
+  $delegateProps,
+  $delegateMount,
+  $delegateRef,
+  $delegateUi,
+} from "./utils";
 import type { ContextInstance } from "../instances/context-instance";
 import { createComponentId } from "../instances/component-id";
 import { stage, stageInvokeAll } from "../general";
@@ -93,7 +101,7 @@ export function* reconcile(
   prevSlots: Slot[] = [],
   prevKeyIndex: Map<SlotKey, number> = new Map(),
   ns: TagNamespace,
-): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
+): Generator<OptionalDelegationAction, ReconcileResult, BaseInstance> {
   const used = new Set<number>();
   const slots: Slot[] = [];
   const nextKeyIndex = new Map<SlotKey, number>();
@@ -138,32 +146,6 @@ export function* reconcile(
   return { slots: slots, keyIndex: nextKeyIndex };
 }
 
-export function* build(
-  children: IterableChildren,
-  parentInstance: BaseInstance,
-  parentDom: Node,
-  beforeNode: Node | null,
-  parentPath: SlotPath,
-  ns: TagNamespace,
-): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
-  const slots: Slot[] = [];
-  const nextKeyIndex = new Map<SlotKey, number>();
-
-  // Pass 1: build. Build nextKeyIndex as we go.
-  let i = 0;
-  for (const child of getIterable(children)) {
-    const idx = i++;
-    const key = getChildKey(child, idx);
-    const slotPath: SlotPath = createSlotPath(parentPath, key);
-    const slot = yield* buildSlot(child, idx, key, slotPath, parentInstance, parentDom, ns);
-    slots.push(slot);
-    nextKeyIndex.set(getSlotKey(slot), slots.length - 1);
-  }
-
-  yield* addSlots(parentDom, beforeNode, slots);
-  return { slots: slots, keyIndex: nextKeyIndex };
-}
-
 // Pass 2 of `reconcile`: remove unused prev slots. Walks `prevSlots` in DOM
 // order and emits one batched `Range.deleteContents()` callback per maximal
 // run of consecutive unused indices — `prevSlots` is DOM-ordered, so a run
@@ -172,7 +154,7 @@ export function* build(
 function* removeUnmountedSlots(
   prevSlots: Slot[],
   used: Set<number>,
-): Generator<UpdateResult | void, void> {
+): Generator<DelegationAction | void, void> {
   const ops: Array<() => void> = [];
   for (let from = 0; from < prevSlots.length; ) {
     if (used.has(from)) {
@@ -188,17 +170,14 @@ function* removeUnmountedSlots(
     yield;
   }
   if (!ops.length) return;
-  yield updateResult({
-    type: "UPDATE_UI",
-    callback: stageInvokeAll(ops),
-  });
+  yield $delegateUi(stageInvokeAll(ops));
 }
 
 function* ensureSlotPositions(
   parentDom: Node,
   beforeNode: Node | null,
   slots: Slot[],
-): Generator<UpdateResult, void> {
+): Generator<DelegationAction, void> {
   const ops: Array<() => void> = [];
   let anchor: Node | null = beforeNode;
   for (let j = slots.length - 1; j >= 0; j--) {
@@ -224,33 +203,7 @@ function* ensureSlotPositions(
     anchor = slotFirstNode(slot);
   }
   if (!ops.length) return;
-  yield updateResult({
-    type: "UPDATE_UI",
-    callback: stageInvokeAll(ops),
-  });
-}
-
-// Build-only positioning. Walks slots forward with a constant `beforeNode`
-// target — sequential `insertBefore(_, beforeNode)` produces correct sibling
-// order because each newly inserted node lands as the immediate left of
-// `beforeNode`, pushing earlier inserts further left. No skip-in-place check
-// needed: every freshly built slot is either detached (leaves) or appended
-// at the end of `parentDom` (component / fragment anchors), so positioning
-// is always required.
-function* addSlots(
-  parentDom: Node,
-  beforeNode: Node | null,
-  slots: Slot[],
-): Generator<UpdateResult, void> {
-  if (!slots.length) return;
-  yield updateResult({
-    type: "UPDATE_UI",
-    callback: () => {
-      for (const node of initialSlotsIterable(slots)) {
-        parentDom.insertBefore(node, beforeNode);
-      }
-    },
-  });
+  yield $delegateUi(stageInvokeAll(ops));
 }
 
 // ---------------------------------------------------------------------------
@@ -265,7 +218,7 @@ function* buildSlot(
   parentInstance: BaseInstance,
   parentDom: Node,
   ns: TagNamespace,
-): Generator<OptionalUpdateResult, Slot> {
+): Generator<OptionalDelegationAction, Slot> {
   if (isEmptyChild(child)) {
     return createEmptySlot(index, slotPath);
   }
@@ -314,7 +267,7 @@ function* buildElement(
   slotPath: SlotPath,
   parentInstance: BaseInstance,
   ns: TagNamespace,
-): Generator<OptionalUpdateResult, ElementSlot> {
+): Generator<OptionalDelegationAction, ElementSlot> {
   // Create node + apply props (node is unattached — no visible DOM change).
   const slot = createElementSlot(index, vnode, parentInstance.rctx.delegationRoot, slotPath, ns);
   // Children mount directly INTO the detached element via sync `appendChild` —
@@ -328,7 +281,7 @@ function* buildElement(
     slotPath,
     slot.ns,
   );
-  if (isRefProps(vnode.props)) yield registerRef(slot.node, vnode.props.ref);
+  if (isRefProps(vnode.props)) yield $delegateRef(slot.node, vnode.props.ref);
   slot.slots = slots;
   slot.keyIndex = keyIndex;
   return slot;
@@ -343,15 +296,12 @@ function* buildFragment(
   parentInstance: BaseInstance,
   parentDom: Node,
   ns: TagNamespace,
-): Generator<OptionalUpdateResult, FragmentSlot> {
+): Generator<OptionalDelegationAction, FragmentSlot> {
   const slot = createFragmentSlot(index, props, slotPath);
   slot.key = key;
   const stagingDom = document.createDocumentFragment();
   // Anchors must be in the DOM before children can be positioned between them.
-  yield updateResult({
-    type: "UPDATE_UI",
-    callback: stageAppend(parentDom, stagingDom),
-  });
+  yield $delegateUi(appendChildren(parentDom, stagingDom));
   stagingDom.appendChild(slot.node);
   // Recursively reconcile children between the anchors.
   const { keyIndex, slots } = yield* mount(
@@ -377,7 +327,7 @@ function* buildComponent(
   slotPath: SlotPath,
   parentDom: Node,
   ns: TagNamespace,
-): Generator<UpdateResult, ComponentSlot, ComponentInstance> {
+): Generator<DelegationAction, ComponentSlot, ComponentInstance> {
   const instance = yield* mountInstance(vnode, parentDom, slotPath, ns);
   return {
     type: componentSlotType,
@@ -396,31 +346,19 @@ function* mountInstance<T extends Component | Context>(
   parentDom: Node,
   slotPath: SlotPath,
   ns: TagNamespace,
-): Generator<UpdateResult, BaseInstance<T>, BaseInstance<T>> {
+): Generator<DelegationAction, BaseInstance<T>, BaseInstance<T>> {
   slotPath = createSlotPath(slotPath, createComponentId(vnode));
-  const instance = yield updateResult({
-    type: "MOUNT",
-    vnode,
-    parentDom,
-    slotPath,
-    ns,
-  });
+  const instance = yield $delegateMount(vnode, slotPath, parentDom, ns);
   if (instance.parentDom !== parentDom) {
     // Reused instance migrating to a new DOM container — physically relocate
     // the whole subtree (anchors + everything between) so DOM and hook state
     // stay paired. `moveRange` walks `startAnchor.nextSibling` in the old
     // parent up to `endAnchor` and `insertBefore`s the lot into the new one.
     instance.parentDom = parentDom;
-    yield updateResult({
-      type: "UPDATE_UI",
-      callback: stage(moveRange, instance.startAnchor, instance.endAnchor, parentDom, null),
-    });
+    yield $delegateUi(stage(moveRange, instance.startAnchor, instance.endAnchor, parentDom, null));
   } else {
     // Fresh instance — anchors were just created, not yet attached anywhere.
-    yield updateResult({
-      type: "UPDATE_UI",
-      callback: stageAppend(parentDom, instance.startAnchor, instance.endAnchor),
-    });
+    yield $delegateUi(stage(appendChildren, parentDom, instance.startAnchor, instance.endAnchor));
   }
   return instance;
 }
@@ -432,7 +370,7 @@ function* buildContext(
   slotPath: SlotPath,
   parentDom: Node,
   ns: TagNamespace,
-): Generator<UpdateResult, ContextSlot, ContextInstance> {
+): Generator<DelegationAction, ContextSlot, ContextInstance> {
   const instance = yield* mountInstance(vnode, parentDom, slotPath, ns);
   return {
     type: contextSlotType,
@@ -457,7 +395,7 @@ function* updateFragment(
   newIndex: number,
   parentInstance: BaseInstance,
   ns: TagNamespace,
-): Generator<OptionalUpdateResult, FragmentSlot> {
+): Generator<OptionalDelegationAction, FragmentSlot> {
   const parentDom = prev.node.parentNode;
   if (!parentDom) {
     throw new Error("yract-beta: fragment slot reconciled with detached start anchor");
@@ -490,7 +428,7 @@ function* updateSlot(
   index: number,
   parent: BaseInstance,
   ns: TagNamespace,
-): Generator<OptionalUpdateResult, Slot> {
+): Generator<OptionalDelegationAction, Slot> {
   switch (prev.type) {
     case emptySlotType:
       if (prev.index === index) return prev;
@@ -498,11 +436,7 @@ function* updateSlot(
     case textSlotType: {
       const text = String(child);
       if (prev.index === index && prev.props === text) return prev;
-      if (text !== prev.props)
-        yield updateResult({
-          type: "UPDATE_UI",
-          callback: stageSetText(prev, text),
-        });
+      if (text !== prev.props) yield $delegateUi(stageSetText(prev, text));
       return { ...prev, index, props: text };
     }
     case elementSlotType: {
@@ -524,18 +458,11 @@ function* updateSlot(
       };
       const patch = diffElementProps(prev.props, child.props);
       if (isRefProps(child.props)) {
-        yield updateResult({
-          type: "REF",
-          ref: child.props.ref,
-          element: slot.node,
-        });
+        yield $delegateRef(slot.node, child.props.ref);
       }
       if (patch) {
         slot.props = child.props;
-        yield updateResult({
-          type: "UPDATE_UI",
-          callback: stage(updateElementProps, prev.node, patch, parent.rctx.delegationRoot),
-        });
+        yield $delegateUi(stage(updateElementProps, prev.node, patch, parent.rctx.delegationRoot));
       }
       slot.slots = childResult.slots;
       slot.keyIndex = childResult.keyIndex;
@@ -544,11 +471,7 @@ function* updateSlot(
     case componentSlotType:
     case contextSlotType:
       assertIsVNodeChild(child);
-      yield updateResult({
-        type: "ENSURE_PROPS",
-        instance: prev.instance,
-        vnode: child,
-      });
+      yield $delegateProps(prev.instance, child);
       return {
         ...prev,
         props: child.props,

@@ -30,12 +30,12 @@ import type { VNode, VNodeProps, VNodeType, IterableChildren } from "../jsx";
 import { propsWithChildren, shallowEqual } from "../prop-helpers";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
 import type { Component } from "../jsx";
-import type { DomResult, OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
+import type { DelegatedUI, OptionalDelegationAction, ReconcileResult } from "../reconciler/types";
 import { reconcile } from "../reconciler/reconciler";
 import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
 import { Defer } from "./defer-context";
 import { mount } from "../reconciler/mount";
-import { updateResult } from "../reconciler/utils";
+import { $delegateUi } from "../reconciler/utils";
 import type { Slot } from "../slots/slot";
 import type { SlotKey } from "../slots/general";
 import type { RefLike } from "../render/element-props";
@@ -76,7 +76,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    * has to follow so subsequent reconciles read the right parent.
    */
   parentDom: Node;
-  protected pendingDomUpdates: DomResult[] = [];
+  protected pendingDomUpdates: DelegatedUI[] = [];
   /**
    * ContextMap this instance exposes to its children and reads for its own
    * `context` hooks. ComponentInstance keeps the parent map unchanged;
@@ -110,7 +110,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   private pendingGen?: Generator<
     void,
     ReconcileResult & {
-      domUpdates: DomResult[];
+      domUpdates: DelegatedUI[];
       unmountedChildren: Set<BaseInstance>;
       nextChildren: Map<string, BaseInstance>;
       nextRefs: Map<SlotElement, RefLike> | undefined;
@@ -236,14 +236,14 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   private *invokeUpdates(children: Map<string, BaseInstance> = new Map()): Generator<
     void,
     ReconcileResult & {
-      domUpdates: DomResult[];
+      domUpdates: DelegatedUI[];
       unmountedChildren: Set<BaseInstance>;
       nextChildren: Map<string, BaseInstance>;
       nextRefs: Map<SlotElement, RefLike> | undefined;
     }
   > {
     const generator = this.render(this.props);
-    const domUpdates: Array<DomResult> = [];
+    const domUpdates: Array<DelegatedUI> = [];
     const unmountedChildren = new Set(children.values());
     const newChildren = new Set<BaseInstance>();
     const updatedChildren = new Map<BaseInstance, VNode>();
@@ -319,18 +319,13 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
 
   protected abstract render(
     props: Record<string, unknown>,
-  ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance>;
+  ): Generator<OptionalDelegationAction, ReconcileResult, BaseInstance>;
 
   protected *reconcile(children: IterableChildren) {
     if (this.mounted) {
       const stagingDom = document.createDocumentFragment();
       const result = yield* mount(children, this, this.parentDom, stagingDom, "", this.ns);
-      yield updateResult({
-        type: "UPDATE_UI",
-        callback: () => {
-          this.parentDom.insertBefore(stagingDom, this.endAnchor);
-        },
-      });
+      yield $delegateUi(() => this.parentDom.insertBefore(stagingDom, this.endAnchor));
       return result;
     }
     return yield* reconcile(

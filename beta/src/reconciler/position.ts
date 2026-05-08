@@ -40,9 +40,8 @@ export function moveRange(first: Node, last: Node, parent: Node, beforeNode: Nod
   }
 }
 
-export function stageAppend(parentNode: Node, ...nodes: Node[]) {
-  const appendChild = parentNode.appendChild.bind(parentNode);
-  return function appendChildren() {
-    nodes.forEach(appendChild);
-  };
+export function appendChildren(parentNode: Node, ...nodes: Node[]) {
+  for (const node of nodes) {
+    parentNode.appendChild(node);
+  }
 }

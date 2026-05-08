@@ -13,13 +13,13 @@ export type MountResult = {
   ns: TagNamespace;
 };
 
-export type DomResult = { type: "UPDATE_UI"; callback: () => void };
-export type RefResult = { type: "REF"; ref: RefLike; element: SlotElement };
-export type UpdateResult = MountResult | DomResult | SetPropsResult | RefResult;
-export type OptionalUpdateResult = void | UpdateResult;
+export type DelegatedUI = { type: "UI"; callback: () => void };
+export type DelegatedRef = { type: "REF"; ref: RefLike; element: SlotElement };
+export type DelegationAction = MountResult | DelegatedUI | DelegatedProps | DelegatedRef;
+export type OptionalDelegationAction = void | DelegationAction;
 
-export type SetPropsResult = {
-  type: "ENSURE_PROPS";
+export type DelegatedProps = {
+  type: "PROPS";
   instance: BaseInstance;
   vnode: VNode;
 };

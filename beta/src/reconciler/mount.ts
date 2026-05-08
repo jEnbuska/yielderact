@@ -11,8 +11,8 @@ import {
   isIterableChild,
   isTextChild,
 } from "../child";
-import { createSlotPath, emptyProps, isRefProps, registerRef, updateResult } from "./utils";
-import type { OptionalUpdateResult } from "./types";
+import { createSlotPath, emptyProps, isRefProps, $delegateMount, $delegateRef } from "./utils";
+import type { OptionalDelegationAction } from "./types";
 import type { Context } from "yract-beta";
 import {
   createComponentSlot,
@@ -58,7 +58,7 @@ function* mountSlot(
   parentDom: Node,
   stagingDom: Node,
   ns: TagNamespace,
-): Generator<OptionalUpdateResult, Slot> {
+): Generator<OptionalDelegationAction, Slot> {
   if (isEmptyChild(child)) {
     return mountEmptySlot(stagingDom, index, slotPath);
   }
@@ -127,7 +127,7 @@ function* mountFragmentSlot(
   children: IterableChildren,
   parentInstance: BaseInstance,
   ns: TagNamespace,
-): Generator<OptionalUpdateResult, FragmentSlot> {
+): Generator<OptionalDelegationAction, FragmentSlot> {
   const slot = createFragmentSlot(index, props, slotPath);
   stagingDom.appendChild(slot.node);
   // Children stage alongside the fragment's anchors but their `instance.parentDom`
@@ -154,7 +154,7 @@ function* mountElementSlot(
   child: VNode<string>,
   parentInstance: BaseInstance,
   ns: TagNamespace,
-): Generator<OptionalUpdateResult, ElementSlot> {
+): Generator<OptionalDelegationAction, ElementSlot> {
   const slot = createElementSlot(index, child, parentInstance.rctx.delegationRoot, slotPath, ns);
   stagingDom.appendChild(slot.node);
   // Element children live inside the element — both logical parent and staging
@@ -167,7 +167,7 @@ function* mountElementSlot(
     slotPath,
     slot.ns,
   );
-  if (isRefProps(child.props)) yield registerRef(slot.node, child.props.ref);
+  if (isRefProps(child.props)) yield $delegateRef(slot.node, child.props.ref);
   slot.slots = slots;
   slot.keyIndex = keyIndex;
   return slot;
@@ -180,14 +180,8 @@ function* mountContextSlot(
   slotPath: SlotPath,
   vnode: VNode<Context>,
   ns: TagNamespace,
-): Generator<OptionalUpdateResult, ContextSlot, BaseInstance<Context>> {
-  const instance = yield updateResult({
-    type: "MOUNT",
-    vnode,
-    parentDom,
-    slotPath,
-    ns,
-  });
+): Generator<OptionalDelegationAction, ContextSlot, BaseInstance<Context>> {
+  const instance = yield $delegateMount(vnode, slotPath, parentDom, ns);
   stagingDom.appendChild(instance.startAnchor);
   stagingDom.appendChild(instance.endAnchor);
   return createContextSlot(index, instance, slotPath);
@@ -200,14 +194,8 @@ function* mountComponentSlot(
   slotPath: SlotPath,
   vnode: VNode<Component>,
   ns: TagNamespace,
-): Generator<OptionalUpdateResult, ComponentSlot, BaseInstance<Component>> {
-  const instance = yield updateResult({
-    type: "MOUNT",
-    vnode,
-    parentDom,
-    slotPath,
-    ns,
-  });
+): Generator<OptionalDelegationAction, ComponentSlot, BaseInstance<Component>> {
+  const instance = yield $delegateMount(vnode, slotPath, parentDom, ns);
   stagingDom.appendChild(instance.startAnchor);
   stagingDom.appendChild(instance.endAnchor);
   return createComponentSlot(index, instance, slotPath);
