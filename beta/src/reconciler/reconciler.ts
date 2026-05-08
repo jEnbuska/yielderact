@@ -27,8 +27,8 @@
 import {
   assertIsVNodeChild,
   getChildKey,
-  isComponentVNode,
-  isContextVNode,
+  isComponentChild,
+  isContextChild,
   isElementVNode,
   isEmptyChild,
   isFragmentVNode,
@@ -40,12 +40,13 @@ import type { Context } from "../context";
 import type { BaseInstance } from "../instances/base-instance";
 import type { ComponentInstance } from "../instances/component-instance";
 import type { Child, Component, IterableChildren, VNode, VNodeProps } from "../jsx";
-import { diffElementProps, stageUpdateElementProps } from "../render/element-props";
+import { diffElementProps, updateElementProps } from "../render/element-props";
 import { getIterable } from "../iterable";
 import { removeRange } from "./unmount";
+import { mount } from "./mount";
 import type { OptionalUpdateResult, ReconcileResult, UpdateResult } from "./types";
-import { moveRange, placeNode } from "./position";
-import { createSlotPath, updateResult } from "./utils";
+import { moveRange, placeNode, stageAppend } from "./position";
+import { createSlotPath, emptyProps, isRefProps, registerRef, updateResult } from "./utils";
 import type { ContextInstance } from "../instances/context-instance";
 import { createComponentId } from "../instances/component-id";
 import { stage, stageInvokeAll } from "../general";
@@ -63,7 +64,7 @@ import {
   fragmentSlotType,
   textSlotType,
 } from "../slots/type";
-import {
+import type {
   ComponentSlot,
   ContextSlot,
   ElementSlot,
@@ -72,13 +73,12 @@ import {
   TextSlot,
 } from "../slots/slot";
 import { getSlotKey } from "../slots/utils";
-import { SlotKey, SlotPath } from "../slots/general";
+import type { SlotKey, SlotPath } from "../slots/general";
+import type { TagNamespace } from "../render/elements/namespaces";
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
-
-const emptyProps: VNodeProps = {};
 
 // ---------------------------------------------------------------------------
 // reconcile — build new slot tree, yield DOM callbacks
@@ -92,6 +92,7 @@ export function* reconcile(
   parentPath: SlotPath,
   prevSlots: Slot[] = [],
   prevKeyIndex: Map<SlotKey, number> = new Map(),
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
   const used = new Set<number>();
   const slots: Slot[] = [];
@@ -115,12 +116,12 @@ export function* reconcile(
       !slotMatchesChild(prevSlots[prevIdx]!, child)
     ) {
       const slotPath: SlotPath = createSlotPath(parentPath, key);
-      slot = yield* buildSlot(child, idx, key, slotPath, parentInstance, parentDom);
+      slot = yield* buildSlot(child, idx, key, slotPath, parentInstance, parentDom, ns);
       dirtyPositions = true;
     } else {
       // Reuse prev.slotPath — matching key means the path value is identical,
       // so there's no need to allocate a new array.
-      slot = yield* updateSlot(prevSlots[prevIdx]!, child, idx, parentInstance);
+      slot = yield* updateSlot(prevSlots[prevIdx]!, child, idx, parentInstance, ns);
       used.add(prevIdx);
       if (prevIdx !== idx) dirtyPositions = true;
     }
@@ -138,22 +139,23 @@ export function* reconcile(
 }
 
 export function* build(
-  nextChildren: IterableChildren,
+  children: IterableChildren,
   parentInstance: BaseInstance,
   parentDom: Node,
   beforeNode: Node | null,
   parentPath: SlotPath,
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
   const slots: Slot[] = [];
   const nextKeyIndex = new Map<SlotKey, number>();
 
   // Pass 1: build. Build nextKeyIndex as we go.
   let i = 0;
-  for (const child of getIterable(nextChildren)) {
+  for (const child of getIterable(children)) {
     const idx = i++;
     const key = getChildKey(child, idx);
     const slotPath: SlotPath = createSlotPath(parentPath, key);
-    const slot = yield* buildSlot(child, idx, key, slotPath, parentInstance, parentDom);
+    const slot = yield* buildSlot(child, idx, key, slotPath, parentInstance, parentDom, ns);
     slots.push(slot);
     nextKeyIndex.set(getSlotKey(slot), slots.length - 1);
   }
@@ -262,6 +264,7 @@ function* buildSlot(
   slotPath: SlotPath,
   parentInstance: BaseInstance,
   parentDom: Node,
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, Slot> {
   if (isEmptyChild(child)) {
     return createEmptySlot(index, slotPath);
@@ -270,7 +273,16 @@ function* buildSlot(
     return createTextSlot(index, child, slotPath);
   }
   if (isIterableChild(child)) {
-    return yield* buildFragment(child, index, key, emptyProps, slotPath, parentInstance, parentDom);
+    return yield* buildFragment(
+      child,
+      index,
+      key,
+      emptyProps,
+      slotPath,
+      parentInstance,
+      parentDom,
+      ns,
+    );
   }
   if (isFragmentVNode(child)) {
     return yield* buildFragment(
@@ -281,16 +293,17 @@ function* buildSlot(
       slotPath,
       parentInstance,
       parentDom,
+      ns,
     );
   }
   if (isElementVNode(child)) {
-    return yield* buildElement(child, index, slotPath, parentInstance);
+    return yield* buildElement(child, index, slotPath, parentInstance, ns);
   }
-  if (isContextVNode(child)) {
-    return yield* buildContext(child, index, key, slotPath, parentDom);
+  if (isContextChild(child)) {
+    return yield* buildContext(child, index, key, slotPath, parentDom, ns);
   }
-  if (isComponentVNode(child)) {
-    return yield* buildComponent(child, index, key, slotPath, parentDom);
+  if (isComponentChild(child)) {
+    return yield* buildComponent(child, index, key, slotPath, parentDom, ns);
   }
   throw new Error(`yract-beta: unknown VNode type ${String(child.type)}`);
 }
@@ -300,18 +313,22 @@ function* buildElement(
   index: number,
   slotPath: SlotPath,
   parentInstance: BaseInstance,
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, ElementSlot> {
   // Create node + apply props (node is unattached — no visible DOM change).
-  const slot = createElementSlot(index, vnode, parentInstance.rctx.delegationRoot, slotPath);
-  // Recursively reconcile children INTO the unattached element.
-  const { keyIndex, slots } = yield* build(
+  const slot = createElementSlot(index, vnode, parentInstance.rctx.delegationRoot, slotPath, ns);
+  // Children mount directly INTO the detached element via sync `appendChild` —
+  // since `slot.node` is unattached, the eager mutations don't affect live DOM
+  // and we skip the per-child positioning queue that `build` would emit.
+  const { keyIndex, slots } = yield* mount(
     vnode.children,
     parentInstance,
     slot.node,
-    null,
+    slot.node,
     slotPath,
+    slot.ns,
   );
-
+  if (isRefProps(vnode.props)) yield registerRef(slot.node, vnode.props.ref);
   slot.slots = slots;
   slot.keyIndex = keyIndex;
   return slot;
@@ -325,22 +342,29 @@ function* buildFragment(
   slotPath: SlotPath,
   parentInstance: BaseInstance,
   parentDom: Node,
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, FragmentSlot> {
   const slot = createFragmentSlot(index, props, slotPath);
   slot.key = key;
+  const stagingDom = document.createDocumentFragment();
   // Anchors must be in the DOM before children can be positioned between them.
   yield updateResult({
     type: "UPDATE_UI",
-    callback: stageAppendChildren(parentDom, slot.node, slot.endAnchor),
+    callback: stageAppend(parentDom, stagingDom),
   });
+  stagingDom.appendChild(slot.node);
   // Recursively reconcile children between the anchors.
-  const { keyIndex, slots } = yield* build(
+  const { keyIndex, slots } = yield* mount(
     children,
     parentInstance,
     parentDom,
-    slot.endAnchor,
+    stagingDom,
     slotPath,
+    ns,
   );
+
+  stagingDom.appendChild(slot.endAnchor);
+
   slot.slots = slots;
   slot.keyIndex = keyIndex;
   return slot;
@@ -352,8 +376,9 @@ function* buildComponent(
   key: SlotKey,
   slotPath: SlotPath,
   parentDom: Node,
+  ns: TagNamespace,
 ): Generator<UpdateResult, ComponentSlot, ComponentInstance> {
-  const instance = yield* mountInstance(vnode, parentDom, slotPath);
+  const instance = yield* mountInstance(vnode, parentDom, slotPath, ns);
   return {
     type: componentSlotType,
     instance: instance as ComponentInstance,
@@ -370,6 +395,7 @@ function* mountInstance<T extends Component | Context>(
   vnode: VNode<T>,
   parentDom: Node,
   slotPath: SlotPath,
+  ns: TagNamespace,
 ): Generator<UpdateResult, BaseInstance<T>, BaseInstance<T>> {
   slotPath = createSlotPath(slotPath, createComponentId(vnode));
   const instance = yield updateResult({
@@ -377,6 +403,7 @@ function* mountInstance<T extends Component | Context>(
     vnode,
     parentDom,
     slotPath,
+    ns,
   });
   if (instance.parentDom !== parentDom) {
     // Reused instance migrating to a new DOM container — physically relocate
@@ -392,7 +419,7 @@ function* mountInstance<T extends Component | Context>(
     // Fresh instance — anchors were just created, not yet attached anywhere.
     yield updateResult({
       type: "UPDATE_UI",
-      callback: stageAppendChildren(parentDom, instance.startAnchor, instance.endAnchor),
+      callback: stageAppend(parentDom, instance.startAnchor, instance.endAnchor),
     });
   }
   return instance;
@@ -404,8 +431,9 @@ function* buildContext(
   key: SlotKey,
   slotPath: SlotPath,
   parentDom: Node,
+  ns: TagNamespace,
 ): Generator<UpdateResult, ContextSlot, ContextInstance> {
-  const instance = yield* mountInstance(vnode, parentDom, slotPath);
+  const instance = yield* mountInstance(vnode, parentDom, slotPath, ns);
   return {
     type: contextSlotType,
     instance,
@@ -428,6 +456,7 @@ function* updateFragment(
   props: VNodeProps,
   newIndex: number,
   parentInstance: BaseInstance,
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, FragmentSlot> {
   const parentDom = prev.node.parentNode;
   if (!parentDom) {
@@ -443,6 +472,7 @@ function* updateFragment(
     slotPath,
     prev.slots,
     prev.keyIndex,
+    ns,
   );
   return {
     ...prev,
@@ -459,6 +489,7 @@ function* updateSlot(
   child: Child,
   index: number,
   parent: BaseInstance,
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, Slot> {
   switch (prev.type) {
     case emptySlotType:
@@ -484,6 +515,7 @@ function* updateSlot(
         prev.slotPath,
         prev.slots,
         prev.keyIndex,
+        prev.ns,
       );
       const slot: Slot = {
         ...prev,
@@ -491,11 +523,18 @@ function* updateSlot(
         index,
       };
       const patch = diffElementProps(prev.props, child.props);
+      if (isRefProps(child.props)) {
+        yield updateResult({
+          type: "REF",
+          ref: child.props.ref,
+          element: slot.node,
+        });
+      }
       if (patch) {
         slot.props = child.props;
         yield updateResult({
           type: "UPDATE_UI",
-          callback: stageUpdateElementProps(prev.node, patch, parent.rctx.delegationRoot),
+          callback: stage(updateElementProps, prev.node, patch, parent.rctx.delegationRoot),
         });
       }
       slot.slots = childResult.slots;
@@ -518,24 +557,13 @@ function* updateSlot(
       };
     case fragmentSlotType:
       if (isIterableChild(child)) {
-        return yield* updateFragment(prev, child, emptyProps, index, parent);
+        return yield* updateFragment(prev, child, emptyProps, index, parent, ns);
       }
       assertIsVNodeChild(child);
-      return yield* updateFragment(prev, child.children, child.props, index, parent);
+      return yield* updateFragment(prev, child.children, child.props, index, parent, ns);
     default:
       throw new Error(`yract-beta: unknown Slot type ${String(prev satisfies never)}`);
   }
-}
-
-// ---------------------------------------------------------------------------
-// DOM operations — plain functions yielded as callbacks
-// ---------------------------------------------------------------------------
-
-function stageAppendChildren(parent: Node, first: Node, second: Node) {
-  return function appendChildren() {
-    parent.appendChild(first);
-    parent.appendChild(second);
-  };
 }
 
 // ---------------------------------------------------------------------------
@@ -551,9 +579,9 @@ function slotMatchesChild<T extends Slot = Slot>(slot: T, child: Child): boolean
     case elementSlotType:
       return isElementVNode(child) && slot.element === child.type;
     case componentSlotType:
-      return isComponentVNode(child) && slot.instance.vnode.type === child.type;
+      return isComponentChild(child) && slot.instance.vnode.type === child.type;
     case contextSlotType:
-      return isContextVNode(child) && slot.instance.contextKey === child.type;
+      return isContextChild(child) && slot.instance.contextKey === child.type;
     case fragmentSlotType:
       return isIterableChild(child) || (isVNodeChild(child) && isFragmentVNode(child));
     default:
@@ -599,6 +627,7 @@ function* initialSlotsIterable(slots: Slot[]): Generator<Node, void, void> {
         continue;
       case fragmentSlotType:
         yield slot.node;
+        yield* initialSlotsIterable(slot.slots);
         yield slot.endAnchor;
         continue;
       default:

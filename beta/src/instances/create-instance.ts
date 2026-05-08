@@ -7,6 +7,7 @@ import type { Context } from "../context";
 import { isContext } from "../context";
 import type { Component, VNode } from "../jsx";
 import { ComponentInstance } from "./component-instance";
+import type { TagNamespace } from "../render/elements/namespaces";
 
 export function createInstance<T extends Context | Component>(
   childId: string,
@@ -15,13 +16,38 @@ export function createInstance<T extends Context | Component>(
   parent: BaseInstance | null,
   rctx: RenderContext,
   parentDom: Node,
+  ns: TagNamespace,
 ): BaseInstance<T> {
   if (vnode.type === Defer) {
-    return new DeferredInstance(childId, vnode as any, parentCtx, parent, rctx, parentDom) as any;
+    return new DeferredInstance(
+      childId,
+      vnode as any,
+      parentCtx,
+      parent,
+      rctx,
+      parentDom,
+      ns,
+    ) as any;
   }
   if (isContext(vnode.type)) {
-    return new ContextInstance(childId, vnode as any, parentCtx, parent, rctx, parentDom) as any;
+    return new ContextInstance(
+      childId,
+      vnode as any,
+      parentCtx,
+      parent,
+      rctx,
+      parentDom,
+      ns,
+    ) as any;
   }
 
-  return new ComponentInstance(childId, vnode as any, parentCtx, parent, rctx, parentDom) as any;
+  return new ComponentInstance(
+    childId,
+    vnode as any,
+    parentCtx,
+    parent,
+    rctx,
+    parentDom,
+    ns,
+  ) as any;
 }

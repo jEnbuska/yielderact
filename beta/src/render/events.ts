@@ -10,6 +10,7 @@
  */
 
 import { createSyntheticEvent, type SyntheticEvent } from "../events";
+import type { SlotElement } from "./elements/namespaces";
 
 /**
  * Maps each DOM element to its currently-registered non-delegated event
@@ -52,7 +53,7 @@ export function addNonDelegatedListener(
  * @param eventName - Lowercase event name (must match the name used in
  *   `addNonDelegatedListener`).
  */
-export function removeNonDelegatedListener(el: Element, eventName: string): void {
+export function removeNonDelegatedListener(el: SlotElement, eventName: string): void {
   const wrapper = listenerWrappers.get(el)?.get(eventName);
   if (!wrapper) return;
   el.removeEventListener(eventName, wrapper);

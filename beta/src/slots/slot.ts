@@ -4,18 +4,19 @@ import type {
   ElementSlotType,
   EmptySlotType,
   FragmentSlotType,
+  SlotType,
   TextSlotType,
 } from "./type";
 import type { Component, Context, VNodeProps } from "yract-beta";
 import type { RefLike } from "../render/element-props";
 import type { BaseInstance } from "../instances/base-instance";
 import type { SlotKey, SlotPath } from "./general";
+import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
 
-export interface EmptySlot {
+interface SlotBase<T extends SlotType, N> {
+  type: T;
   /** position in parent's slot list */
   index: number;
-  node: Text;
-  type: EmptySlotType;
   /**
    * Path to this slot in the render tree, as an array of `SlotKey`
    * (`key` when the child VNode has one, falling back to the positional
@@ -23,15 +24,15 @@ export interface EmptySlot {
    * renders as long as `key` / index don't change.
    */
   slotPath: SlotPath;
+  node: N;
 }
+export interface EmptySlot extends SlotBase<EmptySlotType, Text> {}
 
-export interface TextSlot extends Omit<EmptySlot, "type"> {
-  type: TextSlotType;
+export interface TextSlot extends SlotBase<TextSlotType, Text> {
   props: string;
 }
 
-export interface ElementSlot extends Omit<TextSlot, "type" | "props" | "node"> {
-  node: HTMLElement;
+interface ParentSlotBase<T extends SlotType, N> extends SlotBase<T, N> {
   key: SlotKey;
   slots: Slot[];
   /** Pre-built key index for this slot's children, ready for the next reconcile. */
@@ -43,33 +44,25 @@ export interface ElementSlot extends Omit<TextSlot, "type" | "props" | "node"> {
    * VNode has the same type and `shallowEqual(prevSlot.props, newProps)`,
    * the component is skipped (no rerender).
    */
+  props: VNodeProps;
+}
+export interface ElementSlot extends ParentSlotBase<ElementSlotType, SlotElement> {
+  ns: TagNamespace;
   props: VNodeProps & { ref?: RefLike };
-  type: ElementSlotType;
   element: string;
 }
 
-export interface FragmentSlot extends Omit<ElementSlot, "type" | "element" | "node"> {
-  node: Comment;
-  type: FragmentSlotType;
-  props: VNodeProps;
+export interface FragmentSlot extends ParentSlotBase<FragmentSlotType, Comment> {
   /** End-of-range marker so the reconciler can move/remove the fragment as a unit. */
   endAnchor: Node;
-  keyIndex?: Map<SlotKey, number>;
 }
 
-export interface ComponentSlot extends Omit<ElementSlot, "type" | "element" | "node"> {
-  node: Comment;
+export interface ComponentSlot extends ParentSlotBase<ComponentSlotType, Comment> {
   instance: BaseInstance<Component>;
-  type: ComponentSlotType;
-  keyIndex?: Map<SlotKey, number>;
 }
 
-export interface ContextSlot extends Omit<ElementSlot, "type" | "element" | "props" | "node"> {
-  node: Comment;
+export interface ContextSlot extends ParentSlotBase<ContextSlotType, Comment> {
   instance: BaseInstance<Context>;
-  props: VNodeProps;
-  type: ContextSlotType;
-  keyIndex?: Map<SlotKey, number>;
 }
 
 export type Slot = EmptySlot | TextSlot | ElementSlot | FragmentSlot | ComponentSlot | ContextSlot;

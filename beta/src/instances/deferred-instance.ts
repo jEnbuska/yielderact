@@ -5,6 +5,7 @@ import { resolveCtxValue } from "../context";
 import type { ContextMap, RenderContext } from "../render/types";
 import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
 import { Defer } from "./defer-context";
+import type { TagNamespace } from "../render/elements/namespaces";
 
 export class DeferredInstance extends BaseInstance<Context> {
   readonly contextKey: Context = Defer;
@@ -18,6 +19,7 @@ export class DeferredInstance extends BaseInstance<Context> {
     parent: BaseInstance | null,
     rctx: RenderContext,
     parentDom: Node,
+    ns: TagNamespace,
   ) {
     const extended = new Map(parentCtx);
     const handle: ContextHandle<boolean> = {
@@ -28,7 +30,7 @@ export class DeferredInstance extends BaseInstance<Context> {
       depth: (parent?.depth ?? -1) + 1,
     };
     extended.set(Defer, handle);
-    super(childId, vnode, extended, parent, rctx, parentDom);
+    super(childId, vnode, extended, parent, rctx, parentDom, ns);
     this.handle = handle;
   }
 

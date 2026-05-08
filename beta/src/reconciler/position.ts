@@ -39,3 +39,10 @@ export function moveRange(first: Node, last: Node, parent: Node, beforeNode: Nod
     cur = next;
   }
 }
+
+export function stageAppend(parentNode: Node, ...nodes: Node[]) {
+  const appendChild = parentNode.appendChild.bind(parentNode);
+  return function appendChildren() {
+    nodes.forEach(appendChild);
+  };
+}

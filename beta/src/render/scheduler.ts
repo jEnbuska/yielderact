@@ -58,10 +58,6 @@ function insertSorted(
   members.add(instance);
   let lo = 0;
   let hi = groups.length;
-  if (groups[hi - 1]?.depth === instance.depth) {
-    groups[hi - 1]!.instances.push(instance);
-    return;
-  }
   while (lo < hi) {
     const mid = (lo + hi) >>> 1;
     const group = groups[mid]!;
@@ -187,12 +183,17 @@ export class Scheduler {
    * Yield to the browser via MessageChannel + requestIdleCallback so
    * input events and paint can run between deferred work slices.
    */
-  private async scheduleYield(): Promise<void> {
-    const { promise, resolve } = createResolvable<unknown>();
-    const { port1, port2 } = new MessageChannel();
-    port1.onmessage = resolve;
-    port2.postMessage(null);
-    await promise;
+
+  private async checkAwait(): Promise<void> {
+    if (Date.now() > BaseInstance.sliceDeadline) {
+      const { promise, resolve } = createResolvable<unknown>();
+      const { port1, port2 } = new MessageChannel();
+      port1.onmessage = resolve;
+      port2.postMessage(null);
+
+      await promise;
+      BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
+    }
   }
 
   private run = async (): Promise<void> => {
@@ -202,7 +203,8 @@ export class Scheduler {
       updateDOM(this.domPrimaryGroups, this.domPrimaryMembers);
       unmountUnmounted(this.primaryInstancesWithUnmounted);
       runEffects(this.effectPrimaryGroups, this.effectPrimaryMembers);
-      await this.scheduleYield();
+
+      await this.checkAwait();
       await this.runDeferredQueue();
     }
     const { resolveGroups, resolveMembers } = this;
@@ -264,18 +266,15 @@ export class Scheduler {
     while (this.renderDeferredGroups.length) {
       const { instances } = this.renderDeferredGroups[this.renderDeferredGroups.length - 1]!;
       while (instances.length) {
-        if (Date.now() > BaseInstance.sliceDeadline) {
-          await this.scheduleYield();
-          BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
-        }
         const instance = instances.pop()!;
         if (!this.renderDeferredMembers.delete(instance)) continue;
+        await this.checkAwait();
         if (!instance.deferred()) {
           // Re-route: instance was queued as deferred but its `<Defer>`
           // ancestor has since unmounted/committed, so it now belongs in
           // primary. Symmetric to the primary queue's re-route above.
           this.scheduleRender(instance);
-          continue;
+          return;
         }
 
         const gen = instance.apply();
@@ -289,8 +288,7 @@ export class Scheduler {
             return;
           }
           if (Date.now() > BaseInstance.sliceDeadline) {
-            await this.scheduleYield();
-            BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
+            await this.checkAwait();
           }
           res = gen.next();
         }

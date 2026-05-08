@@ -3,15 +3,15 @@ import type { BaseInstance } from "../instances/base-instance";
 import { getIterable } from "../iterable";
 import {
   getChildKey,
-  isComponentVNode,
-  isContextVNode,
+  isComponentChild,
+  isContextChild,
   isElementVNode,
   isEmptyChild,
   isFragmentVNode,
   isIterableChild,
   isTextChild,
 } from "../child";
-import { createSlotPath, updateResult } from "./utils";
+import { createSlotPath, emptyProps, isRefProps, registerRef, updateResult } from "./utils";
 import type { OptionalUpdateResult } from "./types";
 import type { Context } from "yract-beta";
 import {
@@ -22,28 +22,27 @@ import {
   createFragmentSlot,
   createTextSlot,
 } from "../slots/create";
-import { componentSlotType, contextSlotType } from "../slots/type";
 import type { ComponentSlot, ContextSlot, ElementSlot, FragmentSlot, Slot } from "../slots/slot";
 import { getSlotKey } from "../slots/utils";
 import type { SlotKey, SlotPath } from "../slots/general";
-
-const emptyProps: VNodeProps = {};
+import type { TagNamespace } from "../render/elements/namespaces";
 
 export function* mount(
-  nextChildren: IterableChildren,
+  children: IterableChildren,
   parentInstance: BaseInstance,
   parentDom: Node,
   stagingDom: Node,
   parentPath: SlotPath,
+  ns: TagNamespace,
 ) {
   const slots: Slot[] = [];
   const keyIndex = new Map<SlotKey, number>();
 
   let i = 0;
-  for (const child of getIterable(nextChildren)) {
+  for (const child of getIterable(children)) {
     const idx = i++;
     const slotPath: SlotPath = createSlotPath(parentPath, getChildKey(child, idx));
-    const slot = yield* mountSlot(child, idx, slotPath, parentInstance, parentDom, stagingDom);
+    const slot = yield* mountSlot(child, idx, slotPath, parentInstance, parentDom, stagingDom, ns);
     slots.push(slot);
     keyIndex.set(getSlotKey(slot), slots.length - 1);
     yield;
@@ -58,6 +57,7 @@ function* mountSlot(
   parentInstance: BaseInstance,
   parentDom: Node,
   stagingDom: Node,
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, Slot> {
   if (isEmptyChild(child)) {
     return mountEmptySlot(stagingDom, index, slotPath);
@@ -74,6 +74,7 @@ function* mountSlot(
       emptyProps,
       child,
       parentInstance,
+      ns,
     );
   }
   if (isFragmentVNode(child)) {
@@ -85,16 +86,17 @@ function* mountSlot(
       child.props,
       child.children,
       parentInstance,
+      ns,
     );
   }
   if (isElementVNode(child)) {
-    return yield* mountElementSlot(stagingDom, index, slotPath, child, parentInstance);
+    return yield* mountElementSlot(stagingDom, index, slotPath, child, parentInstance, ns);
   }
-  if (isContextVNode(child)) {
-    return yield* mountContextSlot(parentDom, stagingDom, index, slotPath, child);
+  if (isContextChild(child)) {
+    return yield* mountContextSlot(parentDom, stagingDom, index, slotPath, child, ns);
   }
-  if (isComponentVNode(child)) {
-    return yield* mountComponentSlot(parentDom, stagingDom, index, slotPath, child);
+  if (isComponentChild(child)) {
+    return yield* mountComponentSlot(parentDom, stagingDom, index, slotPath, child, ns);
   }
   throw new Error(`yract-beta: unknown VNode type ${String(child.type)}`);
 }
@@ -124,6 +126,7 @@ function* mountFragmentSlot(
   props: VNodeProps,
   children: IterableChildren,
   parentInstance: BaseInstance,
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, FragmentSlot> {
   const slot = createFragmentSlot(index, props, slotPath);
   stagingDom.appendChild(slot.node);
@@ -136,6 +139,7 @@ function* mountFragmentSlot(
     parentDom,
     stagingDom,
     slotPath,
+    ns,
   );
   stagingDom.appendChild(slot.endAnchor);
   slot.slots = slots;
@@ -149,8 +153,9 @@ function* mountElementSlot(
   slotPath: SlotPath,
   child: VNode<string>,
   parentInstance: BaseInstance,
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, ElementSlot> {
-  const slot = createElementSlot(index, child, parentInstance.rctx.delegationRoot, slotPath);
+  const slot = createElementSlot(index, child, parentInstance.rctx.delegationRoot, slotPath, ns);
   stagingDom.appendChild(slot.node);
   // Element children live inside the element — both logical parent and staging
   // target collapse to `slot.node` for the recursion.
@@ -160,7 +165,9 @@ function* mountElementSlot(
     slot.node,
     slot.node,
     slotPath,
+    slot.ns,
   );
+  if (isRefProps(child.props)) yield registerRef(slot.node, child.props.ref);
   slot.slots = slots;
   slot.keyIndex = keyIndex;
   return slot;
@@ -172,12 +179,14 @@ function* mountContextSlot(
   index: number,
   slotPath: SlotPath,
   vnode: VNode<Context>,
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, ContextSlot, BaseInstance<Context>> {
   const instance = yield updateResult({
     type: "MOUNT",
     vnode,
     parentDom,
     slotPath,
+    ns,
   });
   stagingDom.appendChild(instance.startAnchor);
   stagingDom.appendChild(instance.endAnchor);
@@ -190,12 +199,14 @@ function* mountComponentSlot(
   index: number,
   slotPath: SlotPath,
   vnode: VNode<Component>,
+  ns: TagNamespace,
 ): Generator<OptionalUpdateResult, ComponentSlot, BaseInstance<Component>> {
   const instance = yield updateResult({
     type: "MOUNT",
     vnode,
     parentDom,
     slotPath,
+    ns,
   });
   stagingDom.appendChild(instance.startAnchor);
   stagingDom.appendChild(instance.endAnchor);

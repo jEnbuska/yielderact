@@ -11,27 +11,29 @@
 import { Fragment, type VNode } from "../jsx";
 import type { RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
-import { build } from "../reconciler/reconciler";
 import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
+import { mount } from "../reconciler/mount";
+import { updateResult } from "../reconciler/utils";
+import { HTML_NS } from "../render/elements/namespaces";
 
 const ROOT_VNODE: VNode<typeof Fragment> = { type: Fragment, props: {}, children: [] };
 
 export class RootInstance extends BaseInstance<typeof Fragment> {
   private pendingVNode: VNode | undefined;
-
   constructor(rctx: RenderContext) {
-    super("root", ROOT_VNODE, new Map(), null, rctx, rctx.container);
+    super("root", ROOT_VNODE, new Map(), null, rctx, rctx.container, HTML_NS);
   }
-
   protected override *render(): Generator<OptionalUpdateResult, ReconcileResult, BaseInstance> {
     if (!this.pendingVNode) return { slots: [], keyIndex: new Map() };
-    return yield* build(
-      [this.pendingVNode],
-      this,
-      this.parentDom,
-      null,
-      "",
-    );
+    const stagingDom = document.createDocumentFragment();
+    const result = yield* mount([this.pendingVNode], this, this.parentDom, stagingDom, "", this.ns);
+    yield updateResult({
+      type: "UPDATE_UI",
+      callback: () => {
+        this.parentDom.appendChild(stagingDom);
+      },
+    });
+    return result;
   }
 
   run(vnode: VNode) {

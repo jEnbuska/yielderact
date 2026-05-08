@@ -11,7 +11,7 @@ import { type Context, isContext } from "./context";
 import type { IterableChildren } from "./jsx";
 import { type Child, type Component, Fragment, type VNode } from "./jsx";
 
-import { SlotKey } from "./slots/general";
+import type { SlotKey } from "./slots/general";
 
 // ---------------------------------------------------------------------------
 // Child-level guards (take the full `Child` union as input)
@@ -55,29 +55,29 @@ export function assertIsVNodeChild(child: Child): asserts child is VNode {
 // ---------------------------------------------------------------------------
 
 /** Narrows a VNode to the Fragment marker. */
-export function isFragmentVNode(vnode: VNode): vnode is VNode<typeof Fragment> {
-  return vnode.type === Fragment;
+export function isFragmentVNode(child: VNode): child is VNode<typeof Fragment> {
+  return child.type === Fragment;
 }
 
 /** Narrows a VNode to an intrinsic element (`<div>`, `<span>`, ...). */
-export function isElementVNode(vnode: Child): vnode is VNode<string> {
-  if (!isVNodeChild(vnode)) return false;
-  return typeof vnode.type === "string";
+export function isElementVNode(child: Child): child is VNode<string> {
+  if (!isVNodeChild(child)) return false;
+  return typeof child.type === "string";
 }
 
 /** Narrows a VNode to a context provider (`<Ctx value={...}>`). */
-export function isContextVNode(vnode: Child): vnode is VNode<Context> {
-  if (!isVNodeChild(vnode)) return false;
-  return typeof vnode.type === "function" && isContext(vnode.type);
+export function isContextChild(child: Child): child is VNode<Context> {
+  if (!isVNodeChild(child)) return false;
+  return typeof child.type === "function" && isContext(child.type);
 }
 
 /**
  * Narrows a VNode to a user-defined generator component. Excludes context
  * providers, which are also functions but carry the `ContextSymbol` tag.
  */
-export function isComponentVNode(vnode: Child): vnode is VNode<Component> {
-  if (!isVNodeChild(vnode)) return false;
-  return typeof vnode.type === "function" && !isContext(vnode.type);
+export function isComponentChild(child: Child): child is VNode<Component> {
+  if (!isVNodeChild(child)) return false;
+  return typeof child.type === "function" && !isContext(child.type);
 }
 
 // ---------------------------------------------------------------------------

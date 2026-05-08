@@ -10,3 +10,11 @@ export const componentSlotType = "yract-component" as const;
 export type ComponentSlotType = typeof componentSlotType;
 export const contextSlotType = "yract-context" as const;
 export type ContextSlotType = typeof contextSlotType;
+
+export type SlotType =
+  | EmptySlotType
+  | TextSlotType
+  | ElementSlotType
+  | FragmentSlotType
+  | ComponentSlotType
+  | ContextSlotType;

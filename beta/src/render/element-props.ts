@@ -32,6 +32,8 @@ import {
   unregisterHandler,
 } from "./delegation";
 import { addNonDelegatedListener, removeNonDelegatedListener } from "./events";
+import { clearSvgElementAttr, isSvg, writeSvgAttr } from "./elements/svg";
+import type { SlotElement } from "./elements/namespaces";
 
 // ── Key classification ─────────────────────────────────────────────────────
 
@@ -94,7 +96,7 @@ function assertPropValue(key: string, value: unknown): void {
 // ── Event registration helpers ─────────────────────────────────────────────
 
 function registerElementEvent(
-  el: HTMLElement,
+  el: SlotElement,
   propKey: string,
   handler: (e: SyntheticEvent) => void,
   delegationRoot: DelegationRoot,
@@ -108,7 +110,7 @@ function registerElementEvent(
   }
 }
 
-function unRegisterElementEvent(el: HTMLElement, propKey: string): void {
+function unRegisterElementEvent(el: SlotElement, propKey: string): void {
   const { domEvent, isCapture } = resolveEventProp(propKey);
   if (NON_DELEGATED_EVENTS.has(domEvent)) {
     removeNonDelegatedListener(el, domEvent);
@@ -121,36 +123,48 @@ function unRegisterElementEvent(el: HTMLElement, propKey: string): void {
  * declare `ref` (it lives on `HTMLAttributes`/`SVGAttributes` only), so the
  * runtime accesses it through this lightweight cast. */
 export type RefLike = { current: unknown };
+export function assertIsRefLike(value: unknown): asserts value is RefLike {
+  if (value && typeof value === "object" && "current" in value) return;
+  throw new Error(`Invalid ref ${value}`);
+}
 
 // ── Attribute writes ───────────────────────────────────────────────────────
 
 function writeElementAttr(
-  el: HTMLElement,
+  el: SlotElement,
   key: string,
   value: unknown,
   delegationRoot: DelegationRoot,
 ): void {
-  if (isEventKey(key) && typeof value === "function") {
-    registerElementEvent(el, key, value as (e: SyntheticEvent) => void, delegationRoot);
-    return;
+  switch (key) {
+    case "className": {
+      if (!value) return el.removeAttribute("class");
+      return el.setAttribute("class", String(value));
+    }
+    case "style": {
+      if (isPlainStyleObject(value)) Object.assign(el.style, value);
+      else el.removeAttribute("style");
+      return;
+    }
+    default: {
+      if (isEventKey(key)) {
+        if (typeof value === "function") {
+          registerElementEvent(el, key, value as (e: SyntheticEvent) => void, delegationRoot);
+        } else {
+          unRegisterElementEvent(el, key);
+        }
+        return;
+      }
+    }
   }
-  if (key === "className") {
-    el.className = value == null ? "" : String(value);
-    return;
-  }
-  if (key === "htmlFor") {
-    if (value == null) {
-      el.removeAttribute("for");
-    } else {
+  if (isSvg(el)) {
+    writeSvgAttr(el, key, value);
+  } else if (key === "htmlFor") {
+    if (value == null) el.removeAttribute("for");
+    else {
       el.setAttribute("for", String(value));
     }
-    return;
-  }
-  if (key === "style" && isPlainStyleObject(value)) {
-    Object.assign(el.style, value);
-    return;
-  }
-  if (
+  } else if (
     key === "value" &&
     (el instanceof HTMLInputElement ||
       el instanceof HTMLTextAreaElement ||
@@ -158,34 +172,28 @@ function writeElementAttr(
   ) {
     el.value = value == null ? "" : String(value);
     return;
-  }
-  if (key === "checked" && el instanceof HTMLInputElement) {
+  } else if (key === "checked" && el instanceof HTMLInputElement) {
     el.checked = Boolean(value);
     return;
-  }
-  if (value === false || value == null) {
+  } else if (value === false || value == null) {
     el.removeAttribute(key);
     return;
+  } else {
+    el.setAttribute(key.toLowerCase(), String(value));
   }
-  el.setAttribute(key, String(value));
 }
 
-function clearElementAttr(el: HTMLElement, key: string): void {
-  if (key === "className") {
-    el.className = "";
-    return;
-  }
-  if (key === "htmlFor") {
-    el.removeAttribute("for");
-    return;
-  }
-  el.removeAttribute(key);
+function clearElementAttr(el: SlotElement, key: string): void {
+  if (key === "className") el.removeAttribute("class");
+  else if (isSvg(el)) return clearSvgElementAttr(el, key);
+  else if (key === "htmlFor") el.removeAttribute("for");
+  else el.removeAttribute(key);
 }
 
 // ── Initial mount ───────────────────────────────────────────────────────────
 
 export function applyElementProps(
-  el: HTMLElement,
+  element: SlotElement,
   props: VNodeProps,
   delegationRoot: DelegationRoot,
 ): void {
@@ -195,16 +203,17 @@ export function applyElementProps(
     const value = props[key];
     if (value === undefined) continue;
     assertPropValue(key, value);
-    writeElementAttr(el, key, value, delegationRoot);
+    writeElementAttr(element, key, value, delegationRoot);
   }
-  const ref = props["ref"] as RefLike | undefined;
-  if (ref) ref.current = el;
-
-  // Derived-from-props defaults. No DOM reads.
-  if (el instanceof HTMLButtonElement && props["type"] == null) {
-    el.type = "button";
-  }
-  if (el instanceof HTMLAnchorElement && props["target"] === "_blank" && props["rel"] == null) {
+  if (element instanceof HTMLButtonElement) {
+    if (props["type"]) return;
+    // Derived-from-props defaults. No DOM reads.
+    element.type = "button";
+  } else if (
+    element instanceof HTMLAnchorElement &&
+    props["target"] === "_blank" &&
+    props["rel"] == null
+  ) {
     console.warn(
       'yract-beta: <a target="_blank"> is missing rel="noopener". ' +
         'Add rel="noopener noreferrer" to prevent tab-napping attacks.',
@@ -355,37 +364,35 @@ export function diffElementProps(
  * no access to the previous props — the caller has already decided what
  * needs to happen.
  */
-export function stageUpdateElementProps(
-  el: HTMLElement,
+export function updateElementProps(
+  el: SlotElement,
   patch: ElementPatch,
   delegationRoot: DelegationRoot,
 ) {
-  return function updateElementProps() {
-    if (patch.removeAttrs) {
-      for (const key of patch.removeAttrs) clearElementAttr(el, key);
+  if (patch.removeAttrs) {
+    for (const key of patch.removeAttrs) clearElementAttr(el, key);
+  }
+  if (patch.removeEvents) {
+    for (const key of patch.removeEvents) unRegisterElementEvent(el, key);
+  }
+  if (patch.style === null) {
+    el.style.cssText = "";
+  } else if (patch.style) {
+    Object.assign(el.style, patch.style);
+  }
+  if (patch.setAttrs) {
+    for (const key in patch.setAttrs) {
+      writeElementAttr(el, key, patch.setAttrs[key], delegationRoot);
     }
-    if (patch.removeEvents) {
-      for (const key of patch.removeEvents) unRegisterElementEvent(el, key);
+  }
+  if (patch.setEvents) {
+    for (const key in patch.setEvents) {
+      registerElementEvent(el, key, patch.setEvents[key]!, delegationRoot);
     }
-    if (patch.style === null) {
-      el.style.cssText = "";
-    } else if (patch.style) {
-      Object.assign(el.style, patch.style);
-    }
-    if (patch.setAttrs) {
-      for (const key in patch.setAttrs) {
-        writeElementAttr(el, key, patch.setAttrs[key], delegationRoot);
-      }
-    }
-    if (patch.setEvents) {
-      for (const key in patch.setEvents) {
-        registerElementEvent(el, key, patch.setEvents[key]!, delegationRoot);
-      }
-    }
-    if (patch.refSwap) {
-      const { prev, next } = patch.refSwap;
-      if (prev) prev.current = undefined;
-      if (next) next.current = el;
-    }
-  };
+  }
+  if (patch.refSwap) {
+    const { prev, next } = patch.refSwap;
+    if (prev) prev.current = undefined;
+    if (next) next.current = el;
+  }
 }

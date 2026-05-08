@@ -17,6 +17,7 @@ import type { Child, VNode, VNodeProps } from "../jsx";
 import type { ContextMap, RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
 import type { OptionalUpdateResult, ReconcileResult } from "../reconciler/types";
+import type { TagNamespace } from "../render/elements/namespaces";
 
 export class ContextInstance extends BaseInstance<Context> {
   readonly contextKey: Context;
@@ -30,6 +31,7 @@ export class ContextInstance extends BaseInstance<Context> {
     parent: BaseInstance | null,
     rctx: RenderContext,
     parentDom: Node,
+    ns: TagNamespace,
   ) {
     if (!isContext(vnode.type)) {
       throw new Error(
@@ -53,7 +55,7 @@ export class ContextInstance extends BaseInstance<Context> {
     const extended = new Map(parentCtx);
     extended.set(ctxKey, handle);
 
-    super(childId, vnode, extended, parent, rctx, parentDom);
+    super(childId, vnode, extended, parent, rctx, parentDom, ns);
     this.contextKey = ctxKey;
     this.handle = handle;
     this.subscribers = subscribers;

@@ -19,6 +19,8 @@ import type {
   TextSlot,
 } from "./slot";
 import type { SlotKey, SlotPath } from "./general";
+import { createElement } from "../render/elements/create";
+import type { TagNamespace } from "../render/elements/namespaces";
 
 export function createEmptySlot(index: number, slotPath: SlotPath): EmptySlot {
   const node = document.createTextNode("");
@@ -36,20 +38,22 @@ export function createElementSlot(
   vnode: VNode<string>,
   delegationRoot: DelegationRoot,
   slotPath: SlotPath,
+  ns: TagNamespace,
 ): ElementSlot {
   const { props, type } = vnode;
-  const el = document.createElement(type);
-  applyElementProps(el, props, delegationRoot);
+  const node = createElement(ns, type);
+  applyElementProps(node, props, delegationRoot);
   const key: SlotKey = props.key ?? index;
   return {
     type: elementSlotType,
-    node: el,
+    node,
     props,
     slots: [],
     key,
     index,
     element: type,
     slotPath,
+    ns: node.namespaceURI as TagNamespace,
   };
 }
 
