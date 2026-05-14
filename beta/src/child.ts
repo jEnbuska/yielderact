@@ -7,47 +7,19 @@
  * `vnode.type` inline. Keeping the guards in one file means the full
  * Child/VNode taxonomy is visible at a glance.
  */
-import { type Context, isContext } from "./context";
-import type { IterableChildren } from "./jsx";
+import { type Context, ContextSymbol } from "./context";
 import { type Child, type Component, Fragment, type VNode } from "./jsx";
 
-import type { SlotKey } from "./slots/general";
+import type { ElementChild, SlotChild, SlotType } from "./slots/slot";
+import { elementSlotType, emptySlotType, textSlotType } from "./slots/slot";
 
 // ---------------------------------------------------------------------------
 // Child-level guards (take the full `Child` union as input)
 // ---------------------------------------------------------------------------
 
-/**
- * True when the child produces no DOM at all: `null`, `undefined`, either
- * boolean, or a VNode with `shown === false`. The reconciler maps these
- * to an `EmptySlot`.
- */
-export function isEmptyChild(child: Child): child is null | undefined | boolean {
-  if (child == null || typeof child === "boolean") return true;
-  if (isVNodeChild(child) && child.props.shown === false) return true;
-  return false;
-}
-
 /** True when the child is a text primitive (string or number). */
 export function isTextChild(child: Child): child is string | number {
   return typeof child === "string" || typeof child === "number";
-}
-
-/** True when the child is an iterable (array, generator, Set, etc.) — not a string or VNode. */
-export function isIterableChild(child: Child): child is IterableChildren {
-  return child != null && typeof child === "object" && Symbol.iterator in child;
-}
-
-/** True when the child is a VNode (any flavour — element, component, context, fragment). */
-export function isVNodeChild(child: Child): child is VNode {
-  return child != null && typeof child === "object" && !(Symbol.iterator in child);
-}
-
-/** True when the child is a VNode (any flavour — element, component, context, fragment). */
-export function assertIsVNodeChild(child: Child): asserts child is VNode {
-  if (!isVNodeChild(child)) {
-    throw new Error(`yract-beta: non vNode child ${String(child)}`);
-  }
 }
 
 // ---------------------------------------------------------------------------
@@ -60,36 +32,64 @@ export function isFragmentVNode(child: VNode): child is VNode<typeof Fragment> {
 }
 
 /** Narrows a VNode to an intrinsic element (`<div>`, `<span>`, ...). */
-export function isElementVNode(child: Child): child is VNode<string> {
-  if (!isVNodeChild(child)) return false;
+export function isElementVNode(child: VNode): child is VNode<keyof JSX.IntrinsicElements> {
   return typeof child.type === "string";
 }
 
-/** Narrows a VNode to a context provider (`<Ctx value={...}>`). */
-export function isContextChild(child: Child): child is VNode<Context> {
-  if (!isVNodeChild(child)) return false;
-  return typeof child.type === "function" && isContext(child.type);
+/**
+ * True when the child produces no DOM at all: `null`, `undefined`, either
+ * boolean, or a VNode with `shown === false`. The reconciler maps these
+ * to an `EmptySlot`.
+ */
+export function isEmptyChild(child: Child): child is null | undefined | boolean {
+  return child == null || typeof child === "boolean";
 }
 
-/**
- * Narrows a VNode to a user-defined generator component. Excludes context
- * providers, which are also functions but carry the `ContextSymbol` tag.
- */
-export function isComponentChild(child: Child): child is VNode<Component> {
-  if (!isVNodeChild(child)) return false;
-  return typeof child.type === "function" && !isContext(child.type);
+export function isContextVNode(child: VNode): child is VNode<Context> {
+  return ContextSymbol in child;
 }
 
 // ---------------------------------------------------------------------------
 // Child helpers
 // ---------------------------------------------------------------------------
 
+const stringIdMap = new Map<string, string>();
+const otherIdMap = new WeakMap<typeof Fragment | Component<any> | Context, string>();
+
+function randomId(): string {
+  let s = Math.random().toString(36).slice(2);
+  while (s.length < 8) s += Math.random().toString(36).slice(2);
+  return s.slice(0, 8);
+}
 /**
  * The key the reconciler uses to match a child against a previous slot.
  * Falls back to the positional index when the child has no `key`.
  */
-export function getChildKey(child: Child, fallback: SlotKey): SlotKey {
-  if (!isVNodeChild(child)) return fallback;
-  const key = child.props.key;
-  return key ?? fallback;
+export function getChildKey<C extends SlotChild>(
+  child: C,
+  fallback: number,
+  type: SlotType,
+): string {
+  switch (type) {
+    case emptySlotType:
+    case textSlotType: {
+      const slotId = stringIdMap.getOrInsertComputed(type, randomId);
+      const numberId = stringIdMap.getOrInsertComputed("number", randomId);
+      return `${slotId}${numberId}${fallback}`;
+    }
+    case elementSlotType: {
+      const { type, props } = child as ElementChild;
+      const slotId = stringIdMap.getOrInsertComputed(type, randomId);
+      const keyId = props.key ?? fallback;
+      const keyTypeId = stringIdMap.getOrInsertComputed(typeof keyId, randomId);
+      return `${slotId}${keyTypeId}${keyId}`;
+    }
+    default: {
+      const { type, props } = child as VNode<typeof Fragment | Component | Context>;
+      const slotId = otherIdMap.getOrInsertComputed(type, randomId);
+      const keyId = props.key ?? fallback;
+      const keyTypeId = stringIdMap.getOrInsertComputed(typeof keyId, randomId);
+      return `${slotId}${keyTypeId}${keyId}`;
+    }
+  }
 }

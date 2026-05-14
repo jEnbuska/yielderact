@@ -1,4 +1,4 @@
-import type { Context, ContextProviderProps } from "./context";
+import type { Context } from "./context";
 import type { ComponentGenerator, DependencyList } from "./hooks/types";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
 
@@ -9,15 +9,12 @@ export const Fragment: unique symbol = Symbol("Fragment");
 // any prop shape — function-parameter contravariance otherwise rejects
 // concrete prop types when the union member is the narrow `Component<FrameworkProps>`.
 
-export type VNodeType = typeof Fragment | Component<any> | Context | string;
+export type VNodeType = typeof Fragment | Component<any> | Context | keyof JSX.IntrinsicElements;
 
-/**
- * Virtual DOM node produced by createElement / JSX.
- */
+/** Virtual DOM node produced by the JSX runtime. */
 export interface VNode<T extends VNodeType = VNodeType> {
   type: T;
   props: VNodeProps;
-  children: IterableChildren;
 }
 /**
  * Anything that can appear as a child in the virtual DOM.
@@ -27,9 +24,8 @@ export interface VNode<T extends VNodeType = VNodeType> {
  * at reconciliation time, so each nested array becomes a stable inner
  * slot whose own children are reconciled in place across renders.
  */
-export type Child = VNode | string | number | boolean | null | undefined | IterableChildren;
-
-export type IterableChildren = Iterable<Child, void, void>;
+export type SingleChild = VNode | string | number | boolean | null | undefined;
+export type Child = SingleChild | Child[];
 
 /**
  * Framework props valid on every JSX element. Consumed by the framework
@@ -57,7 +53,7 @@ export interface FrameworkProps {
 /**
  * Opt-in for components that accept JSX children. The required `children`
  * field is what discriminates children-accepting from children-rejecting
- * components in `createElement`'s overloads — making it optional would
+ * components in the `jsx` runtime overloads — making it optional would
  * collapse the two overloads to the same constraint.
  */
 export interface PropsWithChildren extends FrameworkProps {
@@ -70,7 +66,7 @@ export interface PropsWithChildren extends FrameworkProps {
  * hence the index signature. Component-author types (`FrameworkProps`,
  * `PropsWithChildren`) are narrower to drive JSX validation.
  */
-export type VNodeProps = FrameworkProps & Record<string, unknown>;
+export type VNodeProps = FrameworkProps & Record<string, unknown> & { children: Child };
 
 /**
  * A generator component.
@@ -97,69 +93,6 @@ export type ComponentProps<T> = T extends keyof JSX.IntrinsicElements
   : T extends Component<infer P>
     ? P
     : never;
-
-// ---------------------------------------------------------------------------
-// createElement overloads
-// ---------------------------------------------------------------------------
-
-const emptyChildren: Child[] = [];
-export function createElement<T extends keyof JSX.IntrinsicElements>(
-  type: T,
-  props: (FrameworkProps & JSX.IntrinsicElements[T]) | null,
-  ...children: Child[]
-): VNode;
-// Component that opts into children (its props include a required `children`).
-// JSX positional children are forwarded as the rest argument; the runtime
-// merges them back onto the props object as `children` before calling the
-// generator.
-export function createElement<P extends PropsWithChildren>(
-  type: Component<Omit<P, keyof FrameworkProps>>,
-  props: Omit<P, "children"> | null,
-  ...children: Child[]
-): VNode;
-// Component that does NOT take childreNo in — no rest parameter, so passing
-// children is a type error.
-export function createElement<P extends FrameworkProps>(
-  type: Component<Omit<P, keyof FrameworkProps>>,
-  props: P | null,
-): VNode;
-export function createElement(
-  type: Context,
-  props: ContextProviderProps | null,
-  ...children: Child[]
-): VNode;
-export function createElement(
-  type: typeof Fragment,
-  props: FrameworkProps | null,
-  ...children: Child[]
-): VNode;
-export function createElement(
-  type: string,
-  props: (Omit<FrameworkProps, "deps"> & Record<string, unknown>) | null,
-  ...children: Child[]
-): VNode;
-export function createElement(
-  type: any,
-  props: Record<string, any> | null,
-  ...children: Child[]
-): VNode {
-  props ??= {};
-  if ("children" in props && props["children"] !== undefined) {
-    const value = (props as VNodeProps)["children"];
-    children = Array.isArray(value) ? (value as Child[]) : [value as Child];
-  } else if (children.length) {
-    (props as VNodeProps)["children"] = children;
-  } else {
-    children = emptyChildren;
-    (props as VNodeProps)["children"] = emptyChildren;
-  }
-
-  return {
-    type,
-    props: props as VNodeProps,
-    children,
-  };
-}
 
 declare global {
   namespace JSX {

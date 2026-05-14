@@ -68,10 +68,7 @@ export function* ContextDemo() {
         . The inner card must always display <em>dark</em>.
       </p>
       <ThemeCtx value={theme}>
-        <div
-          data-testid="outer-card"
-          style={{ padding: "0.5rem", ...themeStyles[theme] }}
-        >
+        <div data-testid="outer-card" style={{ padding: "0.5rem", ...themeStyles[theme] }}>
           <span>Outer card -- theme: </span>
           <ThemeBadge data-testid="outer-theme-badge" />
           <ThemeCtx value="dark">

@@ -1,37 +1,47 @@
 /**
  * JSX automatic runtime — used when `jsxImportSource: "yract-beta"`.
  *
- * TypeScript's automatic JSX runtime hardcodes `children` as the prop name
- * it packs JSX children under (this is not configurable via
- * `JSX.ElementChildrenAttribute` for components). We accept that
- * convention here, destructure `children` out, and forward it as positional
- * rest args to `createElement`, which then re-keys it as `children` on
- * the vnode props (the framework convention). We also re-key the
- * transform's `key` argument to `key`.
- *
- * The `children` ↔ `children` bridge at the type-checking layer is
- * handled by `JSX.LibraryManagedAttributes` in `jsx.ts`, which exposes a
- * component's `children` prop as `children` to JSX validation.
+ * Normalizes `props.children` to an array and returns the VNode directly.
  */
-import { type Child, createElement, Fragment, type VNode } from "./jsx";
+import type { Component, FrameworkProps, PropsWithChildren, VNodeProps } from "./jsx";
+import { Fragment, type VNode } from "./jsx";
+import type { Context, ContextProviderProps } from "./context";
 
 export { Fragment };
 
+const defaultProps: VNodeProps = Object.freeze({ children: [] });
+export function jsx<P extends Record<string, any>>(
+  type: Component<Omit<P, keyof FrameworkProps>>,
+  props: (P & FrameworkProps) | null,
+): VNode;
+export function jsx<T>(type: Context<T>, props: FrameworkProps & ContextProviderProps<T>): VNode;
+export function jsx<T extends keyof JSX.IntrinsicElements>(
+  type: T,
+  props: (Omit<FrameworkProps, "deps"> & JSX.IntrinsicElements[T] & PropsWithChildren) | null,
+): VNode;
 export function jsx(
-  type: VNode["type"],
-  props: { children?: Child | Child[] } & Record<string, unknown>,
-  key?: string | number | null,
-): VNode {
-  const { children, ...rest } = props;
-  if (key != null) rest["key"] = String(key);
-  if (children === undefined) {
-    return createElement(type, rest);
-  }
-  if (Array.isArray(children)) {
-    return createElement(type, rest, ...children);
-  }
-  return createElement(type, rest, children);
+  type: typeof Fragment,
+  props: (Omit<FrameworkProps, "deps"> & PropsWithChildren) | null,
+): VNode;
+export function jsx(type: any, props: any): VNode {
+  return { type, props: (props ?? defaultProps) as any };
 }
 
-export const jsxs = jsx;
+export function jsxs<P extends Record<string, any>>(
+  type: Component<Omit<P, keyof FrameworkProps>>,
+  props: P & FrameworkProps,
+): VNode;
+export function jsxs<T>(type: Context<T>, props: FrameworkProps & ContextProviderProps<T>): VNode;
+export function jsxs<T extends keyof JSX.IntrinsicElements>(
+  type: T,
+  props: Omit<FrameworkProps, "deps"> & JSX.IntrinsicElements[T] & PropsWithChildren,
+): VNode;
+export function jsxs(
+  type: typeof Fragment,
+  props: Omit<FrameworkProps, "deps"> & PropsWithChildren,
+): VNode;
+export function jsxs(type: any, props: any): VNode {
+  return { type, props };
+}
+
 export const jsxDEV = jsx;

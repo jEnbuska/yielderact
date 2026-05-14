@@ -26,7 +26,6 @@ export {
   type Child,
   type Component,
   type ComponentProps,
-  createElement,
   Fragment,
   type FrameworkProps,
   type PropsWithChildren,

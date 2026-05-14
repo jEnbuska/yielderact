@@ -23,10 +23,7 @@ export function* TodoList() {
   const emptyMsgId = yield* $id();
 
   const [state, setState] = yield* $state<TodoState>({
-    todos: [
-      { id: 1, text: "Learn yract", done: false },
-      { id: 2, text: "Build something with generators", done: false },
-    ],
+    todos: [],
     nextId: 3,
     inputValue: "",
   });
@@ -56,7 +53,7 @@ export function* TodoList() {
 
   return (
     <section aria-label="Todo list example">
-      <h2>Todo List</h2>
+      <h2>Todo List {todos.length % 2 ? "EVEN" : null}</h2>
       <p>
         Array state lives in <code>yield* $state</code> — no special reactive primitives needed,
         just plain objects and setters.

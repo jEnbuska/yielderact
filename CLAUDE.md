@@ -106,7 +106,7 @@ function* Counter(_props: object) {
 
 | File                      | Responsibility                                                          |
 | :------------------------ | :---------------------------------------------------------------------- |
-| `jsx.ts`                  | VNode types, `createElement`, `createPortal`, `Portal`, `FrameworkProps`, `SpecialProps`, `Component` |
+| `jsx.ts`                  | VNode types, `createPortal`, `Portal`, `FrameworkProps`, `SpecialProps`, `Component` |
 | `jsx-types.ts`            | Intrinsic element type definitions (HTML/SVG attribute types)           |
 | `jsx-runtime.ts`          | Automatic JSX transform (`jsx`, `jsxs`, `jsxDEV`)                      |
 | `events.ts`               | `SyntheticEvent` type and proxy-based event wrapper                     |
@@ -143,7 +143,7 @@ function* Counter(_props: object) {
 - **Prefer `satisfies` over `as`:** Strongly avoid `as` type assertions. Use `satisfies` to validate that a value conforms to a type without silencing the type checker. Only use `as` where genuine type narrowing is required (e.g., DOM element downcasts, narrowing `T | undefined` to `T`, casting `unknown` from external APIs, generator yield values). Never use `as` when `satisfies` would work.
 - **Special Props:** Always support the `$shown={boolean}` prop.
 - **Dependencies:** Zero-dependency goal.
-- **JSX Config:** The library build uses the classic `react` transform (`jsxFactory: "createElement"`). Consumers (including `examples/`) use `react-jsx` with `jsxImportSource: "yract"`, backed by `src/jsx-runtime.ts`.
+- **JSX Config:** Both the library and consumers (including `examples/`) use the automatic `react-jsx` transform with `jsxImportSource: "yract-beta"`, backed by `src/jsx-runtime.ts`.
 - **Multi-root:** Each `render()`/`createRoot()` creates an independent `RenderContext` with its own state (scheduler queue, context map, DOM ops queue). The global `idCounter` is the only shared state (IDs must be globally unique).
 - **Prefer Destructuring:** Use destructuring when extracting properties from objects (e.g., `const { gen } = instance` instead of `const gen = instance.gen`). For save/restore patterns use destructuring with rename (e.g., `const { activePriority: prevPriority } = rctx`).
 - **Shorthand Properties:** Always use shorthand property syntax in object literals when the key matches the variable name (e.g., `{ instance }` instead of `{ instance: instance }`).

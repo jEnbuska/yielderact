@@ -26,10 +26,9 @@ import { resolveCtxValue } from "../context";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import type { DependencyList } from "../hooks/types";
 import { depsChanged } from "../hooks/utils";
-import type { VNode, VNodeProps, VNodeType, IterableChildren } from "../jsx";
+import type { Child, Component, VNode, VNodeProps, VNodeType } from "../jsx";
 import { propsWithChildren, shallowEqual } from "../prop-helpers";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
-import type { Component } from "../jsx";
 import type { DelegatedUI, OptionalDelegationAction, ReconcileResult } from "../reconciler/types";
 import { reconcile } from "../reconciler/reconciler";
 import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
@@ -37,7 +36,6 @@ import { Defer } from "./defer-context";
 import { mount } from "../reconciler/mount";
 import { $delegateUi } from "../reconciler/utils";
 import type { Slot } from "../slots/slot";
-import type { SlotKey } from "../slots/general";
 import type { RefLike } from "../render/element-props";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
 
@@ -61,12 +59,11 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
 
   static sliceDeadline = Infinity;
   public readonly ns: TagNamespace;
-  protected _unmounted?: boolean;
-  readonly contextKey?: Context;
+  protected _unmounted?: boolean = false;
+  readonly contextKey?: Context = undefined;
   readonly vnode: VNode<TVNodeType>;
   readonly depth: number;
   readonly parent: BaseInstance | null;
-  private mounted = false;
 
   /**
    * Live DOM container the instance's anchors sit in. Updated by
@@ -88,22 +85,22 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   // Lazy collections — null until first write. Saves allocations on leaf
   // instances that never accumulate children, scheduling reasons, or hooks.
 
-  private _children?: Map<string, BaseInstance>;
-  private _unmountedChildren?: Set<BaseInstance>;
-  private _hookStates?: HookState[];
-  private _renderReasons?: Set<symbol>;
-  private _resolveReasons?: Set<symbol>;
-  private _effectReasons?: Set<symbol>;
-  private _refs?: Map<SlotElement, RefLike>;
-  private _nextRefs?: Map<SlotElement, RefLike>;
+  private _children?: Map<string, BaseInstance> = undefined;
+  private _unmountedChildren?: Set<BaseInstance> = undefined;
+  private _hookStates?: HookState[] = undefined;
+  private _renderReasons?: Set<symbol> = undefined;
+  private _resolveReasons?: Set<symbol> = undefined;
+  private _effectReasons?: Set<symbol> = undefined;
+  private _refs?: Map<SlotElement, RefLike> = undefined;
+  private _nextRefs?: Map<SlotElement, RefLike> = undefined;
 
   // Slot tree state — undefined until first apply assigns. Reconcile's
   // default params accept undefined, so subclasses can pass these through
   // without a fallback.
-  slots?: Slot[];
-  pendingSlots?: Slot[];
-  keyIndex?: Map<SlotKey, number>;
-  pendingKeyIndex?: Map<SlotKey, number>;
+  slots?: Slot[] = undefined;
+  pendingSlots?: Slot[] = undefined;
+  keyIndex?: Map<string, number> = undefined;
+  pendingKeyIndex?: Map<string, number> = undefined;
   private props: VNodeProps;
 
   /** Saved generator from an interrupted deferred render. */
@@ -259,11 +256,11 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
 
       const next = result.value;
       switch (next.type) {
-        case "UPDATE_UI":
+        case "UI":
           domUpdates.push(next);
           result = generator.next();
           break;
-        case "ENSURE_PROPS": {
+        case "PROPS": {
           const { instance, vnode } = next;
           unmountedChildren.delete(instance);
           updatedChildren.set(instance, vnode);
@@ -277,8 +274,8 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
           break;
         }
         case "MOUNT": {
-          const { vnode, parentDom, slotPath, ns } = next;
-          const instance = children.get(slotPath);
+          const { vnode, parentDom, path, ns } = next;
+          const instance = children.get(path);
           if (instance) {
             unmountedChildren.delete(instance);
             updatedChildren.set(instance, vnode);
@@ -286,7 +283,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
             continue;
           }
           const newInstance = createInstanceFn(
-            slotPath,
+            path,
             vnode,
             this.ctx,
             this,
@@ -295,7 +292,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
             ns,
           );
           newChildren.add(newInstance);
-          nextChildren.set(slotPath, newInstance);
+          nextChildren.set(path, newInstance);
           result = generator.next(newInstance);
         }
       }
@@ -321,8 +318,8 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     props: Record<string, unknown>,
   ): Generator<OptionalDelegationAction, ReconcileResult, BaseInstance>;
 
-  protected *reconcile(children: IterableChildren) {
-    if (this.mounted) {
+  protected *reconcile(children: Child[]) {
+    if (!this.keyIndex) {
       const stagingDom = document.createDocumentFragment();
       const result = yield* mount(children, this, this.parentDom, stagingDom, "", this.ns);
       yield $delegateUi(() => this.parentDom.insertBefore(stagingDom, this.endAnchor));
@@ -332,11 +329,11 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
       children,
       this,
       this.parentDom,
-      this.endAnchor,
       "",
       this.slots,
       this.keyIndex,
       this.ns,
+      this.endAnchor,
     );
   }
 

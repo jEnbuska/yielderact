@@ -1,144 +1,131 @@
-import type { Child, Component, IterableChildren, VNode, VNodeProps } from "../jsx";
+import type { Child, Component } from "../jsx";
 import type { BaseInstance } from "../instances/base-instance";
-import { getIterable } from "../iterable";
-import {
-  getChildKey,
-  isComponentChild,
-  isContextChild,
-  isElementVNode,
-  isEmptyChild,
-  isFragmentVNode,
-  isIterableChild,
-  isTextChild,
-} from "../child";
-import { createSlotPath, emptyProps, isRefProps, $delegateMount, $delegateRef } from "./utils";
+import { $delegateMount, $delegateRef, isRefProps } from "./utils";
 import type { OptionalDelegationAction } from "./types";
 import type { Context } from "yract-beta";
+import type {
+  ComponentSlot,
+  ComponentSlotType,
+  ContextSlot,
+  ContextSlotType,
+  ElementSlot,
+  ElementSlotType,
+  EmptySlotType,
+  FragmentSlot,
+  FragmentSlotType,
+  Slot,
+  SlotType,
+  TextSlotType,
+} from "../slots/slot";
+import {
+  componentSlotType,
+  contextSlotType,
+  elementSlotType,
+  emptySlotType,
+  fragmentSlotType,
+  textSlotType,
+} from "../slots/slot";
 import {
   createComponentSlot,
   createContextSlot,
   createElementSlot,
   createEmptySlot,
   createFragmentSlot,
+  createSlotPath,
   createTextSlot,
-} from "../slots/create";
-import type { ComponentSlot, ContextSlot, ElementSlot, FragmentSlot, Slot } from "../slots/slot";
-import { getSlotKey } from "../slots/utils";
-import type { SlotKey, SlotPath } from "../slots/general";
+} from "../slots/utils";
 import type { TagNamespace } from "../render/elements/namespaces";
+import type { DraftIntent } from "./prepare";
+import { draftIntents } from "./prepare";
 
 export function* mount(
-  children: IterableChildren,
+  children: Child[],
   parentInstance: BaseInstance,
   parentDom: Node,
   stagingDom: Node,
-  parentPath: SlotPath,
+  parentPath: string,
   ns: TagNamespace,
-) {
+): Generator<OptionalDelegationAction, { keyIndex: Map<string, number>; slots: Slot[] }> {
+  const { drafts, keyIndex } = draftIntents(children);
   const slots: Slot[] = [];
-  const keyIndex = new Map<SlotKey, number>();
 
-  let i = 0;
-  for (const child of getIterable(children)) {
-    const idx = i++;
-    const slotPath: SlotPath = createSlotPath(parentPath, getChildKey(child, idx));
-    const slot = yield* mountSlot(child, idx, slotPath, parentInstance, parentDom, stagingDom, ns);
-    slots.push(slot);
-    keyIndex.set(getSlotKey(slot), slots.length - 1);
-    yield;
+  for (let index = 0; index < drafts.length; index++) {
+    const draft = drafts[index]!;
+    const path = createSlotPath(parentPath, draft.key);
+    slots.push(yield* mountSlot(draft, path, parentInstance, parentDom, stagingDom, ns));
   }
   return { slots, keyIndex };
 }
 
-function* mountSlot(
-  child: Child,
-  index: number,
-  slotPath: SlotPath,
+function* mountSlot<T extends SlotType>(
+  intent: DraftIntent<T>,
+  path: string,
   parentInstance: BaseInstance,
   parentDom: Node,
   stagingDom: Node,
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, Slot> {
-  if (isEmptyChild(child)) {
-    return mountEmptySlot(stagingDom, index, slotPath);
+  switch (intent.type) {
+    case componentSlotType: {
+      const d = intent as DraftIntent<ComponentSlotType>;
+      return yield* mountComponentSlot(d, parentDom, stagingDom, path, ns);
+    }
+    case textSlotType: {
+      const d = intent as DraftIntent<TextSlotType>;
+      return mountTextSlot(d, stagingDom, path);
+    }
+    case elementSlotType: {
+      const d = intent as DraftIntent<ElementSlotType>;
+      return yield* mountElementSlot(d, stagingDom, path, parentInstance, ns);
+    }
+    case emptySlotType: {
+      const d = intent as DraftIntent<EmptySlotType>;
+      return mountEmptySlot(d, stagingDom, path);
+    }
+    case fragmentSlotType: {
+      const d = intent as DraftIntent<FragmentSlotType>;
+      return yield* mountFragmentSlot(d, parentDom, stagingDom, path, parentInstance, ns);
+    }
+    case contextSlotType: {
+      const d = intent as DraftIntent<ContextSlotType>;
+      return yield* mountContextSlot(d, parentDom, stagingDom, path, ns);
+    }
+    default:
+      throw new Error(`yract-beta: unknown SlotType: ${intent.type satisfies never}`);
   }
-  if (isTextChild(child)) {
-    return mountTextSlot(stagingDom, index, slotPath, child);
-  }
-  if (isIterableChild(child)) {
-    return yield* mountFragmentSlot(
-      parentDom,
-      stagingDom,
-      index,
-      slotPath,
-      emptyProps,
-      child,
-      parentInstance,
-      ns,
-    );
-  }
-  if (isFragmentVNode(child)) {
-    return yield* mountFragmentSlot(
-      parentDom,
-      stagingDom,
-      index,
-      slotPath,
-      child.props,
-      child.children,
-      parentInstance,
-      ns,
-    );
-  }
-  if (isElementVNode(child)) {
-    return yield* mountElementSlot(stagingDom, index, slotPath, child, parentInstance, ns);
-  }
-  if (isContextChild(child)) {
-    return yield* mountContextSlot(parentDom, stagingDom, index, slotPath, child, ns);
-  }
-  if (isComponentChild(child)) {
-    return yield* mountComponentSlot(parentDom, stagingDom, index, slotPath, child, ns);
-  }
-  throw new Error(`yract-beta: unknown VNode type ${String(child.type)}`);
 }
 
-function mountEmptySlot(stagingDom: Node, index: number, slotPath: SlotPath) {
-  const slot = createEmptySlot(index, slotPath);
+function mountEmptySlot(intent: DraftIntent<EmptySlotType>, stagingDom: Node, path: string) {
+  const slot = createEmptySlot(intent, path);
   stagingDom.appendChild(slot.node);
   return slot;
 }
 
-function mountTextSlot(
-  stagingDom: Node,
-  index: number,
-  slotPath: SlotPath,
-  child: number | string,
-) {
-  const slot = createTextSlot(index, child, slotPath);
+function mountTextSlot(intent: DraftIntent<TextSlotType>, stagingDom: Node, path: string) {
+  const slot = createTextSlot(intent, path);
   stagingDom.appendChild(slot.node);
   return slot;
 }
 
 function* mountFragmentSlot(
+  intent: DraftIntent<FragmentSlotType>,
   parentDom: Node,
   stagingDom: Node,
-  index: number,
-  slotPath: SlotPath,
-  props: VNodeProps,
-  children: IterableChildren,
+  path: string,
   parentInstance: BaseInstance,
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, FragmentSlot> {
-  const slot = createFragmentSlot(index, props, slotPath);
+  const slot = createFragmentSlot(intent, path);
   stagingDom.appendChild(slot.node);
   // Children stage alongside the fragment's anchors but their `instance.parentDom`
   // tracks the real outer parent — when the staging fragment commits, the children's
   // anchors land as siblings inside the real parent.
   const { keyIndex, slots } = yield* mount(
-    children,
+    intent.children,
     parentInstance,
     parentDom,
     stagingDom,
-    slotPath,
+    path,
     ns,
   );
   stagingDom.appendChild(slot.endAnchor);
@@ -148,55 +135,52 @@ function* mountFragmentSlot(
 }
 
 function* mountElementSlot(
+  intent: DraftIntent<ElementSlotType>,
   stagingDom: Node,
-  index: number,
-  slotPath: SlotPath,
-  child: VNode<string>,
+  path: string,
   parentInstance: BaseInstance,
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, ElementSlot> {
-  const slot = createElementSlot(index, child, parentInstance.rctx.delegationRoot, slotPath, ns);
+  const slot = createElementSlot(intent, parentInstance.rctx.delegationRoot, path, ns);
   stagingDom.appendChild(slot.node);
   // Element children live inside the element — both logical parent and staging
   // target collapse to `slot.node` for the recursion.
   const { keyIndex, slots } = yield* mount(
-    child.children,
+    intent.children,
     parentInstance,
     slot.node,
     slot.node,
-    slotPath,
-    slot.ns,
+    path,
+    slot.node.namespaceURI as TagNamespace,
   );
-  if (isRefProps(child.props)) yield $delegateRef(slot.node, child.props.ref);
+  if (isRefProps(intent.child.props)) yield $delegateRef(slot.node, intent.child.props.ref);
   slot.slots = slots;
   slot.keyIndex = keyIndex;
   return slot;
 }
 
 function* mountContextSlot(
+  intent: DraftIntent<ContextSlotType>,
   parentDom: Node,
   stagingDom: Node,
-  index: number,
-  slotPath: SlotPath,
-  vnode: VNode<Context>,
+  path: string,
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, ContextSlot, BaseInstance<Context>> {
-  const instance = yield $delegateMount(vnode, slotPath, parentDom, ns);
+  const instance = yield $delegateMount(intent.child, path, parentDom, ns);
   stagingDom.appendChild(instance.startAnchor);
   stagingDom.appendChild(instance.endAnchor);
-  return createContextSlot(index, instance, slotPath);
+  return createContextSlot(intent, instance, path);
 }
 
 function* mountComponentSlot(
+  intent: DraftIntent<ComponentSlotType>,
   parentDom: Node,
   stagingDom: Node,
-  index: number,
-  slotPath: SlotPath,
-  vnode: VNode<Component>,
+  path: string,
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, ComponentSlot, BaseInstance<Component>> {
-  const instance = yield $delegateMount(vnode, slotPath, parentDom, ns);
+  const instance = yield $delegateMount(intent.child, path, parentDom, ns);
   stagingDom.appendChild(instance.startAnchor);
   stagingDom.appendChild(instance.endAnchor);
-  return createComponentSlot(index, instance, slotPath);
+  return createComponentSlot(intent, instance, path);
 }

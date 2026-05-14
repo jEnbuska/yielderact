@@ -16,10 +16,10 @@ import { mount } from "../reconciler/mount";
 import { $delegateUi } from "../reconciler/utils";
 import { HTML_NS } from "../render/elements/namespaces";
 
-const ROOT_VNODE: VNode<typeof Fragment> = { type: Fragment, props: {}, children: [] };
+const ROOT_VNODE: VNode<typeof Fragment> = { type: Fragment, props: { children: [] } };
 
 export class RootInstance extends BaseInstance<typeof Fragment> {
-  private pendingVNode: VNode | undefined;
+  private pendingVNode: VNode | undefined = undefined;
   constructor(rctx: RenderContext) {
     super("root", ROOT_VNODE, new Map(), null, rctx, rctx.container, HTML_NS);
   }

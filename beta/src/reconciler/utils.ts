@@ -1,10 +1,12 @@
-import type { DelegatedProps, MountResult, DelegatedRef, DelegatedUI } from "./types";
-import type { SlotKey, SlotPath } from "../slots/general";
+import type { DelegatedProps, DelegatedRef, DelegatedUI, MountResult } from "./types";
 import type { Component, Context, VNode, VNodeProps } from "yract-beta";
 import type { RefLike } from "../render/element-props";
 import { assertIsRefLike } from "../render/element-props";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
 import type { BaseInstance } from "../instances/base-instance";
+
+import type { Slot } from "../slots/slot";
+import { componentSlotType, contextSlotType, fragmentSlotType } from "../slots/slot";
 
 export function isRefProps<T extends VNodeProps>(props: T): props is T & { ref: RefLike } {
   if ("ref" in props) {
@@ -25,20 +27,20 @@ export function $delegateRef(element: SlotElement, ref: RefLike): DelegatedRef {
 
 export function $delegateUi(callback: () => unknown): DelegatedUI {
   return {
-    type: "UPDATE_UI",
+    type: "UI",
     callback,
   };
 }
 export function $delegateMount(
   vnode: VNode<Component | Context>,
-  slotPath: SlotPath,
+  path: string,
   parentDom: Node,
   ns: TagNamespace,
 ): MountResult {
   return {
     type: "MOUNT",
     vnode,
-    slotPath,
+    path,
     parentDom,
     ns,
   };
@@ -51,14 +53,25 @@ export function $delegateProps(instance: BaseInstance, vnode: VNode): DelegatedP
     vnode,
   };
 }
-/**
- * Build a unique slot path string from a parent path and a child key.
- * Positional indices (number) are prefixed with `#`.
- * User-provided string keys are length-prefixed with `$` to avoid
- * collisions with indices and to handle arbitrary string content safely.
- */
-export function createSlotPath(parentPath: SlotPath, key: SlotKey): SlotPath {
-  if (typeof key === "number") return `${parentPath}#${key}`;
-  return `${parentPath}$${key.length}:${key}`;
+
+export function slotFirstNode(slot: Slot): Node {
+  switch (slot.type) {
+    case componentSlotType:
+    case contextSlotType:
+      return slot.instance.startAnchor;
+    default:
+      return slot.node;
+  }
 }
-export const emptyProps: VNodeProps = {};
+
+export function slotLastNode(slot: Slot): Node {
+  switch (slot.type) {
+    case componentSlotType:
+    case contextSlotType:
+      return slot.instance.endAnchor;
+    case fragmentSlotType:
+      return slot.endAnchor;
+    default:
+      return slot.node;
+  }
+}

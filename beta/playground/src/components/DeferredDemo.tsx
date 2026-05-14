@@ -224,10 +224,7 @@ export function* DeferredDemo() {
         { id: `${Math.random()}`, tick: Date.now() },
       ]);
     }, 100);
-    signal.onabort = () => {
-      console.log("Cancel idle callbnack!!!");
-      clearInterval(handle);
-    };
+    signal.onabort = () => clearInterval(handle);
   });
   const start = yield* $ref(Date.now());
 

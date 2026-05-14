@@ -22,8 +22,8 @@ export class ComponentInstance extends BaseInstance<Component> {
         `yract-beta: ComponentInstance.render called for non-function type ${String(fn)}`,
       );
     }
-    const output = this.runGenerator(fn(props));
-    return this.reconcile([output]);
+    const children = this.runGenerator(fn(props));
+    return this.reconcile(Array.isArray(children) ? children : [children]);
   }
 
   _handleBatch?: <T>(callback: () => T) => Promise<T>;

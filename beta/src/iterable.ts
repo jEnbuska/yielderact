@@ -1,5 +1,3 @@
-import type { Child, IterableChildren } from "./jsx";
-
 class MultiIterable<T> {
   private done = false;
   private values: T[] = [];
@@ -40,11 +38,4 @@ class MultiIterable<T> {
       },
     };
   }
-}
-
-const iterableMap = new WeakMap<IterableChildren, MultiIterable<Child>>();
-
-export function getIterable(children: IterableChildren): Iterable<Child> {
-  if (Array.isArray(children)) return children;
-  return iterableMap.getOrInsertComputed(children, () => new MultiIterable(children));
 }

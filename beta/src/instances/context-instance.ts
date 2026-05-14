@@ -13,7 +13,7 @@
  * `children` using the extended ctx map.
  */
 import { type Context, type ContextHandle, isContext } from "../context";
-import type { Child, VNode, VNodeProps } from "../jsx";
+import type { VNode, VNodeProps } from "../jsx";
 import type { ContextMap, RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
 import type { OptionalDelegationAction, ReconcileResult } from "../reconciler/types";
@@ -78,8 +78,8 @@ export class ContextInstance extends BaseInstance<Context> {
       this.notify = true;
       this.handle.ref.current = newValue;
     }
-    const children = (props["children"] as Child[]) ?? [];
-    return this.reconcile(children);
+    const children = props["children"];
+    return this.reconcile(Array.isArray(children) ? children : [children]);
   }
 
   private notifySubscribers(): void {

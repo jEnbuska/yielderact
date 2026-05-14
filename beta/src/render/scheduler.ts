@@ -116,7 +116,7 @@ export class Scheduler {
   private resolvable = createResolvable();
 
   constructor() {
-    this.resolvable.promise.then(this.run);
+    void this.resolvable.promise.then(this.run);
   }
 
   scheduleRender(instance: BaseInstance, deferred = instance.deferred()): void {
@@ -197,7 +197,6 @@ export class Scheduler {
   }
 
   private run = async (): Promise<void> => {
-    await this.resolvable.promise;
     while (this.renderPrimaryGroups.length || this.renderDeferredGroups.length) {
       this.runPrimaryQueue();
       updateDOM(this.domPrimaryGroups, this.domPrimaryMembers);
@@ -239,7 +238,8 @@ export class Scheduler {
       this.resolvable = createResolvable();
     }
 
-    this.resolvable.promise.then(this.run);
+    await this.resolvable.promise;
+    void this.run();
   };
 
   private runPrimaryQueue() {

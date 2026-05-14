@@ -1,14 +1,13 @@
 import type { BaseInstance } from "../instances/base-instance";
-import type { Component, Context, VNode } from "yract-beta";
-import type { Slot } from "../slots/slot";
-import type { SlotKey, SlotPath } from "../slots/general";
+import type { Child, Component, Context, VNode } from "yract-beta";
+import type { Slot, SlotChild, SlotType } from "../slots/slot";
 import type { RefLike } from "../render/element-props";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
 
 export type MountResult = {
   type: "MOUNT";
   vnode: VNode<Component | Context>;
-  slotPath: SlotPath;
+  path: string;
   parentDom: Node;
   ns: TagNamespace;
 };
@@ -26,5 +25,30 @@ export type DelegatedProps = {
 
 export interface ReconcileResult {
   slots: Slot[];
-  keyIndex: Map<SlotKey, number>;
+  keyIndex: Map<string, number>;
 }
+
+export type SlotIntent<T extends SlotType = SlotType> = CreateSlotIntent<T> | RenderSlotIntent<T>;
+
+type GenericSlotIntent<A extends string, T extends SlotType, S> = {
+  action: A;
+  type: T;
+  child: SlotChild<T>;
+  text: undefined | string;
+  children: Child[];
+  key: string;
+  index: number;
+  move: boolean;
+  prev: S;
+};
+
+export type CreateSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<
+  "CREATED",
+  T,
+  undefined
+>;
+export type RenderSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<
+  "RENDERED",
+  T,
+  Slot<T>
+>;

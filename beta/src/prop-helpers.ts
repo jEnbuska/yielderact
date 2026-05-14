@@ -18,6 +18,5 @@ export function shallowEqual(a: Record<string, unknown>, b: Record<string, unkno
  */
 export function propsWithChildren(vnode: VNode): VNodeProps {
   const { key: _k, shown: _s, deps: _d, ...rest } = vnode.props;
-  if (vnode.children.length === 0) return rest as VNodeProps;
-  return { ...rest, children: vnode.children } as VNodeProps;
+  return { ...rest, children: vnode.props.children } as VNodeProps;
 }
