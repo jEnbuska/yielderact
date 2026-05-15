@@ -36,6 +36,7 @@ import {
   createTextSlot,
 } from "../slots/utils";
 import type { TagNamespace } from "../render/elements/namespaces";
+import { nodeNameSpace } from "../render/elements/namespaces";
 import { createDraftIntent, draftIntents } from "./prepare";
 import { getChildKey, getChildType } from "../child";
 
@@ -157,7 +158,7 @@ function* mountElementSlot(
     slot.node,
     slot.node,
     path,
-    slot.node.namespaceURI as TagNamespace,
+    nodeNameSpace(slot.node),
   );
   if (isRefProps(intent.props)) yield $delegateRef(slot.node, intent.props.ref);
   slot.slots = slots;

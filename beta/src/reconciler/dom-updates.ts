@@ -42,12 +42,6 @@ export function moveRange(first: Node, last: Node, parent: Node, beforeNode: Nod
   }
 }
 
-export function appendChildren(parentNode: Node, ...nodes: Node[]) {
-  for (const node of nodes) {
-    parentNode.appendChild(node);
-  }
-}
-
 export function move(first: Node, last: Node, parent: Node, beforeNode: Node | null) {
   if (
     first.parentNode === parent &&

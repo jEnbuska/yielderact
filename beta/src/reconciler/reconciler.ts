@@ -28,6 +28,7 @@ import {
   textSlotType,
 } from "../slots/slot";
 import type { TagNamespace } from "../render/elements/namespaces";
+import { nodeNameSpace } from "../render/elements/namespaces";
 import type { DelegationAction, OptionalDelegationAction } from "./types";
 import { createDraftIntent, delegateRemovals, draftIntents, fillIntentDrafts } from "./prepare";
 import {
@@ -246,7 +247,7 @@ function* buildElementSlot(
     slot.node,
     slot.node,
     path,
-    slot.node.namespaceURI as TagNamespace,
+    nodeNameSpace(slot.node),
   );
 
   if (isRefProps(slot.props)) yield $delegateRef(slot.node, slot.props.ref);
@@ -370,7 +371,7 @@ function* updateElement(
     intent.prev.node,
     intent.prev.path,
     intent.prev.slots,
-    ns,
+    nodeNameSpace(intent.prev.node),
     null,
   );
   const patch = diffElementProps(intent.prev.props, intent.props);
