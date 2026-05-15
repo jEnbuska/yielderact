@@ -1,8 +1,7 @@
-import type { Component, Context, Fragment, VNode, VNodeProps } from "yract-beta";
+import type { Child, Component, Context, Fragment, VNode, VNodeProps } from "yract-beta";
 import type { RefLike } from "../render/element-props";
 import type { BaseInstance } from "../instances/base-instance";
 import type { SlotElement } from "../render/elements/namespaces";
-import type { DraftIntent } from "../reconciler/prepare";
 
 export const emptySlotType = "yract-empty" as const;
 export type EmptySlotType = typeof emptySlotType;
@@ -47,9 +46,7 @@ export interface TextSlot extends SlotBase<TextSlotType, Text> {
 export type TextChild = string | number;
 
 interface ParentSlotBase<T extends SlotType, N> extends SlotBase<T, N> {
-  slots: Slot[];
-  /** Pre-built key index for this slot's children, ready for the next reconcile. */
-  keyIndex?: Map<string, number>;
+  slots: Map<string, Slot>;
   /**
    * The props object at last render.
    *
@@ -110,55 +107,89 @@ export type SlotChild<T extends SlotType = SlotType> = T extends EmptySlotType
             ? ContextChild
             : never;
 
+type GenericSlotIntent<
+  TAction extends string,
+  T extends SlotType,
+  TPrev extends undefined | Slot<T>,
+> = {
+  action: TAction;
+  type: T;
+  child: T extends TextSlotType | EmptySlotType ? undefined : SlotChild<T>;
+  children: Child[];
+  key: string;
+  index: number;
+  move: boolean;
+  prev: TPrev;
+  nextKey: undefined | string;
+  text: T extends TextSlotType ? string : undefined;
+  props: T extends TextSlotType | EmptySlotType ? undefined : VNodeProps;
+};
+
+export type DraftSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<string, T, any>;
+
+export type SlotIntent<T extends SlotType = SlotType> = CreateSlotIntent<T> | RenderSlotIntent<T>;
+export type CreateSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<
+  "CREATED",
+  T,
+  undefined
+>;
+export type RenderSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<
+  "RENDERED",
+  T,
+  Slot<T>
+>;
+
 const emptySlots: Slot[] = [];
-export type MakeSlotDraft<T extends SlotType> = Pick<DraftIntent<T>, "type" | "index" | "key">;
-export function makeSlot(intent: MakeSlotDraft<EmptySlotType>, path: string, node: Text): EmptySlot;
+export type MakeSlotIntent<T extends SlotType> = Pick<
+  DraftSlotIntent<T>,
+  "type" | "index" | "key" | "text" | "child" | "props"
+>;
 export function makeSlot(
-  intent: MakeSlotDraft<TextSlotType>,
+  intent: MakeSlotIntent<EmptySlotType>,
+  path: string,
+  node: Text,
+): EmptySlot;
+export function makeSlot(
+  intent: MakeSlotIntent<TextSlotType>,
   path: string,
   node: Text,
   props: undefined,
-  text: string,
 ): TextSlot;
 export function makeSlot(
-  intent: MakeSlotDraft<FragmentSlotType>,
+  intent: MakeSlotIntent<FragmentSlotType>,
   path: string,
   node: Comment,
   props: VNodeProps,
-  text: undefined,
   instance: undefined,
   endAnchor: Node,
 ): FragmentSlot;
 export function makeSlot(
-  intent: MakeSlotDraft<ElementSlotType>,
+  intent: MakeSlotIntent<ElementSlotType>,
   path: string,
   node: SlotElement,
   props: VNodeProps & { ref?: RefLike },
 ): ElementSlot;
 export function makeSlot(
-  intent: MakeSlotDraft<ComponentSlotType>,
+  intent: MakeSlotIntent<ComponentSlotType>,
   path: string,
   node: Comment,
   props: VNodeProps,
-  text: undefined,
   instance: BaseInstance<Component>,
 ): ComponentSlot;
 
 export function makeSlot(
-  intent: MakeSlotDraft<ContextSlotType>,
+  intent: MakeSlotIntent<ContextSlotType>,
   path: string,
   node: Comment,
   props: VNodeProps,
-  text: undefined,
   instance: BaseInstance<Context>,
 ): ContextSlot;
 
 export function makeSlot(
-  intent: MakeSlotDraft<SlotType>,
+  intent: MakeSlotIntent<SlotType>,
   path: string,
   node: any,
   props?: any,
-  text?: string,
   instance?: any,
   endAnchor?: any,
 ) {
@@ -166,10 +197,10 @@ export function makeSlot(
     type: intent.type,
     index: intent.index,
     key: intent.key,
+    text: intent.text,
     path,
     node,
     props,
-    text,
     instance,
     endAnchor,
     slots: emptySlots,

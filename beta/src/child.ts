@@ -8,10 +8,17 @@
  * Child/VNode taxonomy is visible at a glance.
  */
 import { type Context, ContextSymbol } from "./context";
-import { type Child, type Component, Fragment, type VNode } from "./jsx";
+import { type Child, type Component, Fragment, type SingleChild, type VNode } from "./jsx";
 
 import type { ElementChild, SlotChild, SlotType } from "./slots/slot";
-import { elementSlotType, emptySlotType, textSlotType } from "./slots/slot";
+import {
+  componentSlotType,
+  contextSlotType,
+  elementSlotType,
+  emptySlotType,
+  fragmentSlotType,
+  textSlotType,
+} from "./slots/slot";
 
 // ---------------------------------------------------------------------------
 // Child-level guards (take the full `Child` union as input)
@@ -89,7 +96,20 @@ export function getChildKey<C extends SlotChild>(
       const slotId = otherIdMap.getOrInsertComputed(type, randomId);
       const keyId = props.key ?? fallback;
       const keyTypeId = stringIdMap.getOrInsertComputed(typeof keyId, randomId);
+      console.log("props.key", props.key);
+      console.log("", `${slotId}${keyTypeId}${keyId}`);
       return `${slotId}${keyTypeId}${keyId}`;
     }
   }
+}
+
+export function getChildType(child: SingleChild): SlotType {
+  if (isEmptyChild(child)) return emptySlotType;
+  if (isTextChild(child)) return textSlotType;
+  if (child.props.shown === false) return emptySlotType;
+  if (isElementVNode(child)) return elementSlotType;
+  if (isFragmentVNode(child)) return fragmentSlotType;
+  if (isContextVNode(child)) return contextSlotType;
+  if (typeof child.type === "function") return componentSlotType;
+  throw new Error("Invalid child");
 }

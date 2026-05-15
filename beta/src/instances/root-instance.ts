@@ -11,10 +11,11 @@
 import { Fragment, type VNode } from "../jsx";
 import type { RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
-import type { OptionalDelegationAction, ReconcileResult } from "../reconciler/types";
-import { mount } from "../reconciler/mount";
+import type { OptionalDelegationAction } from "../reconciler/types";
+import { mountRoot } from "../reconciler/mount";
 import { $delegateUi } from "../reconciler/utils";
 import { HTML_NS } from "../render/elements/namespaces";
+import type { Slot } from "../slots/slot";
 
 const ROOT_VNODE: VNode<typeof Fragment> = { type: Fragment, props: { children: [] } };
 
@@ -23,10 +24,13 @@ export class RootInstance extends BaseInstance<typeof Fragment> {
   constructor(rctx: RenderContext) {
     super("root", ROOT_VNODE, new Map(), null, rctx, rctx.container, HTML_NS);
   }
-  protected override *render(): Generator<OptionalDelegationAction, ReconcileResult, BaseInstance> {
-    if (!this.pendingVNode) return { slots: [], keyIndex: new Map() };
+  protected override *render(): Generator<
+    OptionalDelegationAction,
+    { key: string; slot: Slot },
+    BaseInstance
+  > {
     const stagingDom = document.createDocumentFragment();
-    const result = yield* mount([this.pendingVNode], this, this.parentDom, stagingDom, "", this.ns);
+    const result = yield* mountRoot(this.pendingVNode, this, this.parentDom, stagingDom, this.ns);
     yield $delegateUi(() => this.parentDom.appendChild(stagingDom));
     return result;
   }

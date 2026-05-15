@@ -86,7 +86,7 @@ export function processOneDescriptor(
   hookIndex: number,
   instance: BaseInstance,
 ): unknown {
-  const { hookStates } = instance;
+  const hookStates = instance.hookStates!;
   switch (descriptor.type) {
     case $STATE: {
       const prev = getTypedPrev(hookStates, hookIndex, $STATE, instance);

@@ -1,4 +1,4 @@
-import type { Child, Component } from "../jsx";
+import type { Child, Component, SingleChild } from "../jsx";
 import type { BaseInstance } from "../instances/base-instance";
 import { $delegateMount, $delegateRef, isRefProps } from "./utils";
 import type { OptionalDelegationAction } from "./types";
@@ -8,6 +8,7 @@ import type {
   ComponentSlotType,
   ContextSlot,
   ContextSlotType,
+  DraftSlotIntent,
   ElementSlot,
   ElementSlotType,
   EmptySlotType,
@@ -35,8 +36,8 @@ import {
   createTextSlot,
 } from "../slots/utils";
 import type { TagNamespace } from "../render/elements/namespaces";
-import type { DraftIntent } from "./prepare";
-import { draftIntents } from "./prepare";
+import { createDraftIntent, draftIntents } from "./prepare";
+import { getChildKey, getChildType } from "../child";
 
 export function* mount(
   children: Child[],
@@ -45,20 +46,33 @@ export function* mount(
   stagingDom: Node,
   parentPath: string,
   ns: TagNamespace,
-): Generator<OptionalDelegationAction, { keyIndex: Map<string, number>; slots: Slot[] }> {
-  const { drafts, keyIndex } = draftIntents(children);
-  const slots: Slot[] = [];
-
-  for (let index = 0; index < drafts.length; index++) {
-    const draft = drafts[index]!;
-    const path = createSlotPath(parentPath, draft.key);
-    slots.push(yield* mountSlot(draft, path, parentInstance, parentDom, stagingDom, ns));
+): Generator<OptionalDelegationAction, Map<string, Slot>> {
+  const drafts = draftIntents(children);
+  const slots = new Map<string, Slot>();
+  for (const [key, draft] of drafts) {
+    const path = createSlotPath(parentPath, key);
+    const slot = yield* mountSlot(draft, path, parentInstance, parentDom, stagingDom, ns);
+    slots.set(key, slot);
   }
-  return { slots, keyIndex };
+  return slots;
+}
+
+export function* mountRoot(
+  child: SingleChild,
+  parentInstance: BaseInstance,
+  parentDom: Node,
+  stagingDom: Node,
+  ns: TagNamespace,
+): Generator<OptionalDelegationAction, { slot: Slot; key: string }> {
+  const type = getChildType(child);
+  const key = getChildKey(child, 0, type);
+  const draft = createDraftIntent(type, child, key, 0);
+  const slot = yield* mountSlot(draft, key, parentInstance, parentDom, stagingDom, ns);
+  return { key, slot };
 }
 
 function* mountSlot<T extends SlotType>(
-  intent: DraftIntent<T>,
+  intent: DraftSlotIntent<T>,
   path: string,
   parentInstance: BaseInstance,
   parentDom: Node,
@@ -67,27 +81,27 @@ function* mountSlot<T extends SlotType>(
 ): Generator<OptionalDelegationAction, Slot> {
   switch (intent.type) {
     case componentSlotType: {
-      const d = intent as DraftIntent<ComponentSlotType>;
+      const d = intent as DraftSlotIntent<ComponentSlotType>;
       return yield* mountComponentSlot(d, parentDom, stagingDom, path, ns);
     }
     case textSlotType: {
-      const d = intent as DraftIntent<TextSlotType>;
+      const d = intent as DraftSlotIntent<TextSlotType>;
       return mountTextSlot(d, stagingDom, path);
     }
     case elementSlotType: {
-      const d = intent as DraftIntent<ElementSlotType>;
+      const d = intent as DraftSlotIntent<ElementSlotType>;
       return yield* mountElementSlot(d, stagingDom, path, parentInstance, ns);
     }
     case emptySlotType: {
-      const d = intent as DraftIntent<EmptySlotType>;
+      const d = intent as DraftSlotIntent<EmptySlotType>;
       return mountEmptySlot(d, stagingDom, path);
     }
     case fragmentSlotType: {
-      const d = intent as DraftIntent<FragmentSlotType>;
+      const d = intent as DraftSlotIntent<FragmentSlotType>;
       return yield* mountFragmentSlot(d, parentDom, stagingDom, path, parentInstance, ns);
     }
     case contextSlotType: {
-      const d = intent as DraftIntent<ContextSlotType>;
+      const d = intent as DraftSlotIntent<ContextSlotType>;
       return yield* mountContextSlot(d, parentDom, stagingDom, path, ns);
     }
     default:
@@ -95,20 +109,20 @@ function* mountSlot<T extends SlotType>(
   }
 }
 
-function mountEmptySlot(intent: DraftIntent<EmptySlotType>, stagingDom: Node, path: string) {
+function mountEmptySlot(intent: DraftSlotIntent<EmptySlotType>, stagingDom: Node, path: string) {
   const slot = createEmptySlot(intent, path);
   stagingDom.appendChild(slot.node);
   return slot;
 }
 
-function mountTextSlot(intent: DraftIntent<TextSlotType>, stagingDom: Node, path: string) {
+function mountTextSlot(intent: DraftSlotIntent<TextSlotType>, stagingDom: Node, path: string) {
   const slot = createTextSlot(intent, path);
   stagingDom.appendChild(slot.node);
   return slot;
 }
 
 function* mountFragmentSlot(
-  intent: DraftIntent<FragmentSlotType>,
+  intent: DraftSlotIntent<FragmentSlotType>,
   parentDom: Node,
   stagingDom: Node,
   path: string,
@@ -120,22 +134,14 @@ function* mountFragmentSlot(
   // Children stage alongside the fragment's anchors but their `instance.parentDom`
   // tracks the real outer parent — when the staging fragment commits, the children's
   // anchors land as siblings inside the real parent.
-  const { keyIndex, slots } = yield* mount(
-    intent.children,
-    parentInstance,
-    parentDom,
-    stagingDom,
-    path,
-    ns,
-  );
+  const slots = yield* mount(intent.children, parentInstance, parentDom, stagingDom, path, ns);
   stagingDom.appendChild(slot.endAnchor);
   slot.slots = slots;
-  slot.keyIndex = keyIndex;
   return slot;
 }
 
 function* mountElementSlot(
-  intent: DraftIntent<ElementSlotType>,
+  intent: DraftSlotIntent<ElementSlotType>,
   stagingDom: Node,
   path: string,
   parentInstance: BaseInstance,
@@ -145,7 +151,7 @@ function* mountElementSlot(
   stagingDom.appendChild(slot.node);
   // Element children live inside the element — both logical parent and staging
   // target collapse to `slot.node` for the recursion.
-  const { keyIndex, slots } = yield* mount(
+  const slots = yield* mount(
     intent.children,
     parentInstance,
     slot.node,
@@ -153,14 +159,13 @@ function* mountElementSlot(
     path,
     slot.node.namespaceURI as TagNamespace,
   );
-  if (isRefProps(intent.child.props)) yield $delegateRef(slot.node, intent.child.props.ref);
+  if (isRefProps(intent.props)) yield $delegateRef(slot.node, intent.props.ref);
   slot.slots = slots;
-  slot.keyIndex = keyIndex;
   return slot;
 }
 
 function* mountContextSlot(
-  intent: DraftIntent<ContextSlotType>,
+  intent: DraftSlotIntent<ContextSlotType>,
   parentDom: Node,
   stagingDom: Node,
   path: string,
@@ -173,7 +178,7 @@ function* mountContextSlot(
 }
 
 function* mountComponentSlot(
-  intent: DraftIntent<ComponentSlotType>,
+  intent: DraftSlotIntent<ComponentSlotType>,
   parentDom: Node,
   stagingDom: Node,
   path: string,

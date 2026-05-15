@@ -1,11 +1,13 @@
 import { BaseInstance } from "./base-instance";
 import type { Child, VNode, VNodeProps } from "../jsx";
+import { Fragment } from "../jsx";
 import type { Context, ContextHandle } from "../context";
 import { resolveCtxValue } from "../context";
 import type { ContextMap, RenderContext } from "../render/types";
-import type { OptionalDelegationAction, ReconcileResult } from "../reconciler/types";
+import type { OptionalDelegationAction } from "../reconciler/types";
 import { Defer } from "./defer-context";
 import type { TagNamespace } from "../render/elements/namespaces";
+import type { Slot } from "../slots/slot";
 
 export class DeferredInstance extends BaseInstance<Context> {
   readonly contextKey: Context = Defer;
@@ -46,15 +48,7 @@ export class DeferredInstance extends BaseInstance<Context> {
     // deferred queue indefinitely, instead of going back to primary once
     // the in-flight deferred batch settles.
     this.rctx.scheduler.scheduleEffect(this);
-    if (!resolveCtxValue(this.parent?.ctx, Defer) && this.initialRender) {
-      // First mount under a non-deferred parent: keep children synchronous
-      // so initial DOM appears immediately.
-      this.handle.ref.current = false;
-    } else {
-      // Subsequent renders (or nested under another `<Defer>`): route
-      // descendants through the deferred queue for time-sliced rendering.
-      this.handle.ref.current = true;
-    }
+    this.handle.ref.current = !(!resolveCtxValue(this.parent?.ctx, Defer) && this.initialRender);
     return super.apply();
   }
 
@@ -64,8 +58,11 @@ export class DeferredInstance extends BaseInstance<Context> {
 
   protected render(
     props: VNodeProps,
-  ): Generator<OptionalDelegationAction, ReconcileResult, BaseInstance> {
+  ): Generator<OptionalDelegationAction, { key: string; slot: Slot }, BaseInstance> {
     const children = (props["children"] as Child[]) ?? [];
-    return this.reconcile(children);
+    return this.reconcile({
+      type: Fragment,
+      props: { children },
+    });
   }
 }

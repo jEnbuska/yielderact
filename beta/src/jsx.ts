@@ -79,7 +79,7 @@ export type VNodeProps = FrameworkProps & Record<string, unknown> & { children: 
  */
 export type Component<P extends Record<string, any> = Record<string, never>> = (
   props: P,
-) => ComponentGenerator<Child>;
+) => ComponentGenerator<SingleChild>;
 
 /**
  * Extract the props type from an intrinsic element tag name or a component.

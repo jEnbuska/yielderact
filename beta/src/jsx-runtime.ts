@@ -3,13 +3,14 @@
  *
  * Normalizes `props.children` to an array and returns the VNode directly.
  */
-import type { Component, FrameworkProps, PropsWithChildren, VNodeProps } from "./jsx";
+import type { Child, Component, FrameworkProps, PropsWithChildren, VNodeProps } from "./jsx";
 import { Fragment, type VNode } from "./jsx";
 import type { Context, ContextProviderProps } from "./context";
 
 export { Fragment };
 
-const defaultProps: VNodeProps = Object.freeze({ children: [] });
+const emptyChildren: Child[] = [];
+const defaultProps: VNodeProps = Object.freeze({ children: emptyChildren });
 export function jsx<P extends Record<string, any>>(
   type: Component<Omit<P, keyof FrameworkProps>>,
   props: (P & FrameworkProps) | null,
@@ -23,8 +24,14 @@ export function jsx(
   type: typeof Fragment,
   props: (Omit<FrameworkProps, "deps"> & PropsWithChildren) | null,
 ): VNode;
-export function jsx(type: any, props: any): VNode {
-  return { type, props: (props ?? defaultProps) as any };
+export function jsx(type: any, props: any, key?: string): VNode {
+  if (props == null) {
+    return { type, props: key === undefined ? defaultProps : { ...defaultProps, key } };
+  }
+  if (key !== undefined) {
+    return { type, props: { ...props, key } };
+  }
+  return { type, props };
 }
 
 export function jsxs<P extends Record<string, any>>(
@@ -40,7 +47,10 @@ export function jsxs(
   type: typeof Fragment,
   props: Omit<FrameworkProps, "deps"> & PropsWithChildren,
 ): VNode;
-export function jsxs(type: any, props: any): VNode {
+export function jsxs(type: any, props: any, key?: string): VNode {
+  if (key !== undefined) {
+    return { type, props: { ...props, key } };
+  }
   return { type, props };
 }
 

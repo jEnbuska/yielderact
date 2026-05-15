@@ -5,17 +5,20 @@
  * recreating them, and that component state is preserved
  * across reorders.
  */
-import { $ref, $state } from "yract-beta";
+import { $effect, $ref, $state } from "yract-beta";
 
 /* ── Stateful counter item ── */
 
 function* CounterItem({ id, color }: { id: string; color: string }) {
   const [count, setCount] = yield* $state(0);
-  const nodeRef = yield* $ref<HTMLDivElement>();
+  const renders = yield* $ref(1);
+  yield* $effect(() => {
+    renders.current++;
+    console.log("renders", renders.current);
+  }, [renders.current]);
 
   return (
     <div
-      ref={nodeRef}
       data-testid={`item-${id}`}
       data-id={id}
       style={{
@@ -27,6 +30,7 @@ function* CounterItem({ id, color }: { id: string; color: string }) {
         borderRadius: "4px",
         border: `2px solid ${color}`,
         background: "#fafafa",
+        justifyContent: "space-around",
       }}
     >
       <strong style={{ minWidth: "1.5rem" }}>{id}</strong>
@@ -34,6 +38,7 @@ function* CounterItem({ id, color }: { id: string; color: string }) {
       <button data-testid={`inc-${id}`} onClick={() => setCount(count + 1)}>
         +
       </button>
+      <div>Renders: {renders.current}</div>
     </div>
   );
 }
@@ -50,7 +55,8 @@ function* PlainTag({ label }: { label: string }) {
         marginRight: "0.35rem",
         marginBottom: "0.35rem",
         borderRadius: "12px",
-        background: "#e0e7ff",
+        background: label,
+        color: "white",
         fontSize: "0.85rem",
       }}
     >
@@ -123,11 +129,11 @@ export function* KeyShuffleDemo() {
         </button>
       </div>
       <div data-testid="generator-list">
-        <CounterItem id={"a"} color={"blue"} />
+        <CounterItem id={""} color={"blue"} />
         {order.map((id) => (
           <CounterItem key={id} id={id} color={COLORS[id] ?? "#999"} />
         ))}
-        <CounterItem id={"b"} color={"green"} />
+        <CounterItem id={""} color={"green"} />
       </div>
       <p data-testid="generator-order" style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>
         Order: {order.join(", ")}
