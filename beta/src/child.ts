@@ -96,8 +96,6 @@ export function getChildKey<C extends SlotChild>(
       const slotId = otherIdMap.getOrInsertComputed(type, randomId);
       const keyId = props.key ?? fallback;
       const keyTypeId = stringIdMap.getOrInsertComputed(typeof keyId, randomId);
-      console.log("props.key", props.key);
-      console.log("", `${slotId}${keyTypeId}${keyId}`);
       return `${slotId}${keyTypeId}${keyId}`;
     }
   }

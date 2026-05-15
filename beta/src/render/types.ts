@@ -1,19 +1,9 @@
 import type { Context } from "../context";
 import type { ContextHookState } from "../hooks/context";
-import type {
-  $EFFECT,
-  $ID,
-  $$INSTANCE,
-  $MEMO,
-  $REF,
-  $STABLE,
-  $STATE,
-  $$BATCH,
-} from "../hooks/descriptors";
+import type { $$BATCH, $EFFECT, $ID, $MEMO, $REF, $STABLE, $STATE } from "../hooks/descriptors";
 import type { DependencyList } from "../hooks/types";
 import type { DelegationRoot } from "./delegation";
 import type { Scheduler } from "./scheduler";
-import type { BaseInstance } from "../instances/base-instance";
 
 // ---------------------------------------------------------------------------
 // Context map — immutable map threaded through the instance tree
@@ -77,11 +67,6 @@ export interface EffectHookState {
   dirty?: boolean;
 }
 
-export interface InstanceHookState {
-  type: typeof $$INSTANCE;
-  value: BaseInstance;
-}
-
 export interface BatchHookState {
   type: typeof $$BATCH;
   value: <T>(callback: () => T) => Awaited<T>;
@@ -95,5 +80,4 @@ export type HookState =
   | StableHookState
   | EffectHookState
   | ContextHookState
-  | InstanceHookState
   | BatchHookState;

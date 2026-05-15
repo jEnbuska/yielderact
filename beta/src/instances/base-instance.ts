@@ -34,8 +34,8 @@ export function registerCreateInstance(fn: CreateInstanceFn): void {
 
 type InstanceReconcileResult = {
   domUpdates: DelegatedUI[];
-  unmountedChildren: Set<BaseInstance>;
-  nextChildInstances: Map<string, BaseInstance>;
+  unmountedChildren: Set<BaseInstance> | undefined;
+  nextChildInstances: Map<string, BaseInstance> | undefined;
   nextRefs: Map<SlotElement, RefLike> | undefined;
   nextSlot: Slot;
   nextKey: string;
@@ -206,13 +206,13 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     this.unmountedChildren = result.unmountedChildren;
   }
 
-  private *invokeUpdates(childInstances: Map<string, BaseInstance> = new Map()): RenderGenerator {
+  private *invokeUpdates(childInstances: Map<string, BaseInstance> | undefined): RenderGenerator {
     const generator = this.render(this.props);
     const domUpdates: Array<DelegatedUI> = [];
-    const unmountedChildren = new Set(childInstances.values());
-    const newChildren = new Set<BaseInstance>();
-    const updatedChildren = new Map<BaseInstance, VNode>();
-    const nextChildInstances = new Map<string, BaseInstance>(childInstances);
+    let unmountedChildren: Set<BaseInstance> | undefined;
+    let newChildren: Set<BaseInstance> | undefined;
+    let updatedChildren: Map<BaseInstance, VNode> | undefined;
+    let nextChildInstances: Map<string, BaseInstance> | undefined;
     let result = generator.next();
     let nextRefs: undefined | Map<SlotElement, RefLike> = undefined;
     while (!result.done) {
@@ -230,7 +230,9 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
           break;
         case "PROPS": {
           const { instance, vnode } = next;
+          unmountedChildren ??= new Set(childInstances?.values());
           unmountedChildren.delete(instance);
+          updatedChildren ??= new Map<BaseInstance, VNode>();
           updatedChildren.set(instance, vnode);
           result = generator.next();
           break;
@@ -244,9 +246,11 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         }
         case "MOUNT": {
           const { vnode, parentDom, path, ns } = next;
-          const instance = childInstances.get(path);
+          const instance = childInstances?.get(path);
           if (instance) {
+            unmountedChildren ??= new Set(childInstances?.values());
             unmountedChildren.delete(instance);
+            updatedChildren ??= new Map<BaseInstance, VNode>();
             updatedChildren.set(instance, vnode);
             result = generator.next(instance);
             continue;
@@ -260,7 +264,9 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
             parentDom,
             ns,
           );
+          newChildren ??= new Set<BaseInstance>();
           newChildren.add(newInstance);
+          nextChildInstances ??= new Map<string, BaseInstance>(childInstances);
           nextChildInstances.set(path, newInstance);
           result = generator.next(newInstance);
         }
@@ -271,14 +277,20 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     if (domUpdates.length) scheduler.scheduleDOMUpdate(this);
     else scheduler.unscheduleDOMUpdate(this);
 
-    if (unmountedChildren.size) scheduler.scheduleUnmountChildren(this);
+    if (unmountedChildren?.size) scheduler.scheduleUnmountChildren(this);
     else scheduler.unscheduleUnmountChildren(this);
 
-    for (const instance of newChildren) instance.scheduleRender(MOUNT_REASON);
+    if (newChildren) {
+      for (const instance of newChildren) instance.scheduleRender(MOUNT_REASON);
+    }
 
-    for (const instance of unmountedChildren) instance.unmount();
+    if (unmountedChildren) {
+      for (const instance of unmountedChildren) instance.unmount();
+    }
 
-    for (const [instance, props] of updatedChildren) instance.setProps(props);
+    if (updatedChildren) {
+      for (const [instance, props] of updatedChildren) instance.setProps(props);
+    }
 
     const { key, slot } = result.value;
     return {

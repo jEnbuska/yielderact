@@ -8,7 +8,6 @@ export const $MEMO = "$MEMO" as const;
 export const $STABLE = "$STABLE" as const;
 export const $EFFECT = "$EFFECT" as const;
 export const $CONTEXT = "$CONTEXT" as const;
-export const $$INSTANCE = "$$INSTANCE" as const;
 export const $$BATCH = "$$BATCH" as const;
 
 export type HookType =
@@ -19,7 +18,6 @@ export type HookType =
   | typeof $STABLE
   | typeof $EFFECT
   | typeof $CONTEXT
-  | typeof $$INSTANCE
   | typeof $$BATCH;
 
 export const HOOK_TYPES: ReadonlySet<HookType> = new Set<HookType>([
@@ -30,7 +28,6 @@ export const HOOK_TYPES: ReadonlySet<HookType> = new Set<HookType>([
   $STABLE,
   $EFFECT,
   $CONTEXT,
-  $$INSTANCE,
   $$BATCH,
 ]);
 
@@ -71,10 +68,6 @@ export interface ContextDescriptor {
   ctx: Context;
   depsSelector?: (ctx: unknown) => unknown[];
   transform?: (...args: unknown[]) => unknown;
-}
-
-export interface InstanceDescriptor {
-  type: typeof $$INSTANCE;
 }
 
 export interface BatchDescriptor {

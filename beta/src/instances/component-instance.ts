@@ -9,7 +9,7 @@
 import { isHookDescriptor, processOneDescriptor } from "../hooks/utils";
 import type { Component, SingleChild } from "../jsx";
 import { BaseInstance } from "./base-instance";
-import { $$BATCH, $$INSTANCE } from "../hooks/descriptors";
+import { $$BATCH } from "../hooks/descriptors";
 import type { OptionalDelegationAction } from "../reconciler/types";
 import type { Slot } from "../slots/slot";
 
@@ -33,17 +33,13 @@ export class ComponentInstance extends BaseInstance<Component> {
     let hookIndex = 0;
     let step = gen.next();
     if (step.done) return step.value;
-    this.hookStates = [];
+    this.hookStates ??= [];
     while (!step.done) {
       const value = step.value;
       if (!isHookDescriptor(value)) {
         return value as SingleChild;
       }
       switch (value.type) {
-        case $$INSTANCE: {
-          step = gen.next(this);
-          break;
-        }
         case $$BATCH: {
           this._handleBatch ??= async <T>(callback: () => T): Promise<T> => {
             try {
