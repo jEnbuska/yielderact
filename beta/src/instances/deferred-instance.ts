@@ -15,7 +15,7 @@ export class DeferredInstance extends BaseInstance<Context> {
   private initialRender = true;
 
   constructor(
-    childId: string,
+    path: string,
     vnode: VNode<Context>,
     parentCtx: ContextMap,
     parent: BaseInstance | null,
@@ -32,7 +32,7 @@ export class DeferredInstance extends BaseInstance<Context> {
       depth: (parent?.depth ?? -1) + 1,
     };
     extended.set(Defer, handle);
-    super(childId, vnode, extended, parent, rctx, parentDom, ns);
+    super(path, vnode, extended, parent, rctx, parentDom, ns);
     this.handle = handle;
   }
 

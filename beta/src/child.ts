@@ -63,10 +63,14 @@ export function isContextVNode(child: VNode): child is VNode<Context> {
 const stringIdMap = new Map<string, string>();
 const otherIdMap = new WeakMap<typeof Fragment | Component<any> | Context, string>();
 
+let randomRoot: string | undefined;
+let randomIndex = 0;
 function randomId(): string {
-  let s = Math.random().toString(36).slice(2);
-  while (s.length < 8) s += Math.random().toString(36).slice(2);
-  return s.slice(0, 8);
+  if (randomRoot === undefined) {
+    randomRoot = Math.random().toString(36).slice(2);
+    while (randomRoot.length < 8) randomRoot = Math.random().toString(36).slice(2);
+  }
+  return `${randomRoot}${randomIndex++}`;
 }
 /**
  * The key the reconciler uses to match a child against a previous slot.
@@ -80,23 +84,21 @@ export function getChildKey<C extends SlotChild>(
   switch (type) {
     case emptySlotType:
     case textSlotType: {
-      const slotId = stringIdMap.getOrInsertComputed(type, randomId);
-      const numberId = stringIdMap.getOrInsertComputed("number", randomId);
-      return `${slotId}${numberId}${fallback}`;
+      const keyTypeId = stringIdMap.getOrInsertComputed("number", randomId);
+      return `"${type}"${keyTypeId}"${fallback}"`;
     }
     case elementSlotType: {
       const { type, props } = child as ElementChild;
-      const slotId = stringIdMap.getOrInsertComputed(type, randomId);
-      const keyId = props.key ?? fallback;
-      const keyTypeId = stringIdMap.getOrInsertComputed(typeof keyId, randomId);
-      return `${slotId}${keyTypeId}${keyId}`;
+      const key = props.key ?? fallback;
+      const keyTypeId = stringIdMap.getOrInsertComputed(typeof key, randomId);
+      return `"${type}"${keyTypeId}"${key}"`;
     }
     default: {
       const { type, props } = child as VNode<typeof Fragment | Component | Context>;
       const slotId = otherIdMap.getOrInsertComputed(type, randomId);
-      const keyId = props.key ?? fallback;
-      const keyTypeId = stringIdMap.getOrInsertComputed(typeof keyId, randomId);
-      return `${slotId}${keyTypeId}${keyId}`;
+      const key = props.key ?? fallback;
+      const keyTypeId = stringIdMap.getOrInsertComputed(typeof type, randomId);
+      return `${slotId}${keyTypeId}"${key}"`;
     }
   }
 }

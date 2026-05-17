@@ -10,7 +10,7 @@ import { ComponentInstance } from "./component-instance";
 import type { TagNamespace } from "../render/elements/namespaces";
 
 export function createInstance<T extends Context | Component>(
-  childId: string,
+  path: string,
   vnode: VNode<T>,
   parentCtx: ContextMap,
   parent: BaseInstance | null,
@@ -19,35 +19,11 @@ export function createInstance<T extends Context | Component>(
   ns: TagNamespace,
 ): BaseInstance<T> {
   if (vnode.type === Defer) {
-    return new DeferredInstance(
-      childId,
-      vnode as any,
-      parentCtx,
-      parent,
-      rctx,
-      parentDom,
-      ns,
-    ) as any;
+    return new DeferredInstance(path, vnode as any, parentCtx, parent, rctx, parentDom, ns) as any;
   }
   if (isContext(vnode.type)) {
-    return new ContextInstance(
-      childId,
-      vnode as any,
-      parentCtx,
-      parent,
-      rctx,
-      parentDom,
-      ns,
-    ) as any;
+    return new ContextInstance(path, vnode as any, parentCtx, parent, rctx, parentDom, ns) as any;
   }
 
-  return new ComponentInstance(
-    childId,
-    vnode as any,
-    parentCtx,
-    parent,
-    rctx,
-    parentDom,
-    ns,
-  ) as any;
+  return new ComponentInstance(path, vnode as any, parentCtx, parent, rctx, parentDom, ns) as any;
 }

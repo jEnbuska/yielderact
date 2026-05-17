@@ -31,7 +31,7 @@ export function $delegateUi(callback: () => unknown): DelegatedUI {
     callback,
   };
 }
-export function $delegateMount(
+export function delegateMount(
   vnode: VNode<Component | Context>,
   path: string,
   parentDom: Node,

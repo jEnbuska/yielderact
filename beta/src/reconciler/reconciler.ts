@@ -32,10 +32,10 @@ import { nodeNameSpace } from "../render/elements/namespaces";
 import type { DelegationAction, OptionalDelegationAction } from "./types";
 import { createDraftIntent, delegateRemovals, draftIntents, fillIntentDrafts } from "./prepare";
 import {
-  $delegateMount,
   $delegateProps,
   $delegateRef,
   $delegateUi,
+  delegateMount,
   isRefProps,
   slotFirstNode,
   slotLastNode,
@@ -200,8 +200,9 @@ function* mountInstance<T extends Component | Context>(
   beforeNode: Node | null,
   ns: TagNamespace,
 ): Generator<DelegationAction, BaseInstance<T>, BaseInstance<T>> {
-  const instance = yield $delegateMount(vnode, path, parentDom, ns);
+  const instance = yield delegateMount(vnode, path, parentDom, ns);
   if (instance.parentDom !== parentDom) {
+    throw new Error("THIS SHOULD NEVER HAPPEN");
     // Reused instance migrating to a new DOM container — physically relocate
     // the whole subtree (anchors + everything between) so DOM and hook state
     // stay paired. `moveRange` walks `startAnchor.nextSibling` in the old
@@ -318,7 +319,7 @@ function* updateSlot<T extends SlotType>(
     }
     case elementSlotType: {
       const p = intent as RenderSlotIntent<ElementSlotType>;
-      const slot = yield* updateElement(p, parentInstance, ns);
+      const slot = yield* updateElement(p, parentInstance);
       return slot as Slot<T>;
     }
     case fragmentSlotType: {
@@ -363,7 +364,6 @@ function* updateFragment(
 function* updateElement(
   intent: RenderSlotIntent<ElementSlotType>,
   parentInstance: BaseInstance,
-  ns: TagNamespace,
 ): Generator<OptionalDelegationAction, ElementSlot> {
   const slots = yield* reconcile(
     intent.children,
@@ -404,15 +404,12 @@ function* updateInstance(
 function* updateText(
   intent: RenderSlotIntent<TextSlotType>,
 ): Generator<DelegationAction, TextSlot> {
-  const { prev, index, text } = intent;
+  const { prev, text } = intent;
 
-  if (text === intent.prev.text) {
-    if (index === prev.index) return intent.prev;
-  } else {
-    yield $delegateUi(stage(setText, intent.prev.node, text));
+  if (text !== prev.text) {
+    yield $delegateUi(stage(setText, prev.node, text));
   }
-  const slot = { ...intent.prev };
+  const slot = { ...prev };
   slot.text = text;
-  slot.index = intent.index;
   return slot;
 }

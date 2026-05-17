@@ -220,7 +220,7 @@ export function* DeferredDemo() {
   yield* $effect((signal) => {
     const handle = setInterval(() => {
       setTicks((prev) => [
-        ...prev.slice(Math.max(0, prev.length - 200)),
+        ...prev.slice(Math.max(0, prev.length - 100)),
         { id: `${Math.random()}`, tick: Date.now() },
       ]);
     }, 100);

@@ -6,7 +6,7 @@ import { depsChanged } from "../hooks/utils";
 import type { Component, SingleChild, VNode, VNodeProps, VNodeType } from "../jsx";
 import { propsWithChildren, shallowEqual } from "../prop-helpers";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
-import type { DelegatedUI, OptionalDelegationAction } from "../reconciler/types";
+import type { OptionalDelegationAction } from "../reconciler/types";
 import { reconcileRoot } from "../reconciler/reconciler";
 import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
 import { Defer } from "./defer-context";
@@ -17,7 +17,7 @@ import type { RefLike } from "../render/element-props";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
 
 type CreateInstanceFn = <T extends Context | Component>(
-  childId: string,
+  path: string,
   vnode: VNode<T>,
   parentCtx: ContextMap,
   parent: BaseInstance | null,
@@ -33,9 +33,9 @@ export function registerCreateInstance(fn: CreateInstanceFn): void {
 }
 
 type InstanceReconcileResult = {
-  domUpdates: DelegatedUI[];
-  unmountedChildren: Set<BaseInstance> | undefined;
-  nextChildInstances: Map<string, BaseInstance> | undefined;
+  domUpdates: Array<() => void>;
+  unmountedInstances: Set<BaseInstance> | undefined;
+  nextInstances: Map<string, BaseInstance> | undefined;
   nextRefs: Map<SlotElement, RefLike> | undefined;
   nextSlot: Slot;
   nextKey: string;
@@ -62,7 +62,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    * has to follow so subsequent reconciles read the right parent.
    */
   parentDom: Node;
-  protected pendingDomUpdates: DelegatedUI[] = [];
+  protected pendingDomUpdates: Array<() => void> = [];
   /**
    * ContextMap this instance exposes to its children and reads for its own
    * `context` hooks. ComponentInstance keeps the parent map unchanged;
@@ -74,8 +74,8 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   // Lazy collections — null until first write. Saves allocations on leaf
   // instances that never accumulate children, scheduling reasons, or hooks.
 
-  private childInstances?: Map<string, BaseInstance> = undefined;
-  private unmountedChildren?: Set<BaseInstance> = undefined;
+  private instances?: Map<string, BaseInstance> = undefined;
+  private unmountedInstances?: Set<BaseInstance> = undefined;
   public hookStates?: HookState[] = undefined;
   private renderReasons?: Set<symbol> = undefined;
   private resolveReasons?: Set<symbol> = undefined;
@@ -113,10 +113,10 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     return this.debugLabel();
   }
 
-  childId: string;
+  path: string;
 
   constructor(
-    childId: string,
+    path: string,
     vnode: VNode<TVNodeType>,
     ctx: ContextMap,
     parent: BaseInstance | null,
@@ -124,7 +124,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     parentDom: Node,
     ns: TagNamespace,
   ) {
-    this.childId = childId;
+    this.path = path;
     this.vnode = vnode;
     this.parent = parent;
     this.ctx = ctx;
@@ -193,7 +193,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    */
   *apply(): Generator<void, void, void> {
     if (this.isUnmounted()) return;
-    const gen = this.pendingRender ?? this.invokeUpdates(this.childInstances);
+    const gen = this.pendingRender ?? this.invokeUpdates(this.instances);
     this.pendingRender = gen;
     const result = yield* gen;
     this.pendingRender = undefined;
@@ -202,21 +202,37 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     this.nextSlot = result.nextSlot;
     this.pendingDomUpdates = result.domUpdates;
     this.nextRefs = result.nextRefs;
-    this.childInstances = result.nextChildInstances;
-    this.unmountedChildren = result.unmountedChildren;
+    this.instances = result.nextInstances;
+    this.unmountedInstances = result.unmountedInstances;
   }
 
-  private *invokeUpdates(childInstances: Map<string, BaseInstance> | undefined): RenderGenerator {
+  private pendingInstances: undefined | Map<string, BaseInstance> = undefined;
+
+  private *invokeUpdates(instances: Map<string, BaseInstance> | undefined): RenderGenerator {
     const generator = this.render(this.props);
-    const domUpdates: Array<DelegatedUI> = [];
-    let unmountedChildren: Set<BaseInstance> | undefined;
-    let newChildren: Set<BaseInstance> | undefined;
-    let updatedChildren: Map<BaseInstance, VNode> | undefined;
-    let nextChildInstances: Map<string, BaseInstance> | undefined;
+    const domUpdates: Array<() => void> = [];
+    let unmountedInstances: Set<BaseInstance> | undefined = instances?.size
+      ? new Set(instances.values())
+      : undefined;
+    let newInstances: Set<BaseInstance> | undefined;
+    let updatedInstances: Map<BaseInstance, VNode> | undefined;
+    let nextInstances: Map<string, BaseInstance> | undefined = instances?.size
+      ? new Map()
+      : undefined;
     let result = generator.next();
     let nextRefs: undefined | Map<SlotElement, RefLike> = undefined;
+
+    function handleSetProps(instance: BaseInstance, vnode: VNode) {
+      unmountedInstances ??= new Set(instances?.values());
+      unmountedInstances.delete(instance);
+      updatedInstances ??= new Map<BaseInstance, VNode>();
+      updatedInstances.set(instance, vnode);
+      nextInstances ??= new Map();
+      nextInstances?.set(instance.path, instance);
+    }
+
     while (!result.done) {
-      if (Date.now() >= BaseInstance.sliceDeadline) yield;
+      yield;
       if (!result.value) {
         result = generator.next();
         continue;
@@ -225,50 +241,43 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
       const next = result.value;
       switch (next.type) {
         case "UI":
-          domUpdates.push(next);
+          domUpdates.push(next.callback);
           result = generator.next();
           break;
         case "PROPS": {
           const { instance, vnode } = next;
-          unmountedChildren ??= new Set(childInstances?.values());
-          unmountedChildren.delete(instance);
-          updatedChildren ??= new Map<BaseInstance, VNode>();
-          updatedChildren.set(instance, vnode);
+          handleSetProps(instance, vnode);
           result = generator.next();
           break;
         }
         case "REF": {
           nextRefs ??= new Map();
-          nextRefs.set(next.element, next.ref);
-          next.ref.current = next.element;
+          nextRefs!.set(next.element, next.ref);
           result = generator.next();
           break;
         }
         case "MOUNT": {
           const { vnode, parentDom, path, ns } = next;
-          const instance = childInstances?.get(path);
-          if (instance) {
-            unmountedChildren ??= new Set(childInstances?.values());
-            unmountedChildren.delete(instance);
-            updatedChildren ??= new Map<BaseInstance, VNode>();
-            updatedChildren.set(instance, vnode);
-            result = generator.next(instance);
-            continue;
+          const existingInstance = instances?.get(path);
+          const pendingInstance = this.pendingInstances?.get(path);
+          let instance: BaseInstance;
+          if (existingInstance) {
+            handleSetProps(existingInstance, vnode);
+            instance = existingInstance;
+            /*} else if (pendingInstance) {
+              handleSetProps(pendingInstance, vnode);
+              instance = pendingInstance;
+              newInstances ??= new Set<BaseInstance>();
+              newInstances.add(instance);*/
+          } else {
+            instance = createInstanceFn(path, vnode, this.ctx, this, this.rctx, parentDom, ns);
+            this.pendingInstances ??= new Map();
+            newInstances ??= new Set<BaseInstance>();
+            newInstances.add(instance);
+            nextInstances ??= new Map<string, BaseInstance>(instances);
+            nextInstances.set(path, instance);
           }
-          const newInstance = createInstanceFn(
-            path,
-            vnode,
-            this.ctx,
-            this,
-            this.rctx,
-            parentDom,
-            ns,
-          );
-          newChildren ??= new Set<BaseInstance>();
-          newChildren.add(newInstance);
-          nextChildInstances ??= new Map<string, BaseInstance>(childInstances);
-          nextChildInstances.set(path, newInstance);
-          result = generator.next(newInstance);
+          result = generator.next(instance);
         }
       }
     }
@@ -277,26 +286,31 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     if (domUpdates.length) scheduler.scheduleDOMUpdate(this);
     else scheduler.unscheduleDOMUpdate(this);
 
-    if (unmountedChildren?.size) scheduler.scheduleUnmountChildren(this);
+    if (unmountedInstances?.size) scheduler.scheduleUnmountChildren(this);
     else scheduler.unscheduleUnmountChildren(this);
 
-    if (newChildren) {
-      for (const instance of newChildren) instance.scheduleRender(MOUNT_REASON);
+    if (newInstances) {
+      for (const instance of newInstances) {
+        if (instance.unmounted) {
+        }
+        instance.scheduleRender(MOUNT_REASON);
+      }
     }
 
-    if (unmountedChildren) {
-      for (const instance of unmountedChildren) instance.unmount();
+    if (unmountedInstances) {
+      for (const instance of unmountedInstances.values()) instance.unmount();
     }
 
-    if (updatedChildren) {
-      for (const [instance, props] of updatedChildren) instance.setProps(props);
+    if (updatedInstances) {
+      for (const [instance, props] of updatedInstances) instance.setProps(props);
     }
 
     const { key, slot } = result.value;
+    nextInstances ??= instances;
     return {
       domUpdates,
-      unmountedChildren,
-      nextChildInstances,
+      unmountedInstances,
+      nextInstances,
       nextRefs,
       nextKey: key,
       nextSlot: slot,
@@ -319,33 +333,31 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
 
   updateDOM(): void {
     if (this.isUnmounted()) return;
-    try {
-      for (const update of this.pendingDomUpdates) update.callback();
-    } catch (e: any) {
-      throw new Error(this.debugLabel(), { cause: e });
-    } finally {
-      this.pendingDomUpdates.length = 0;
-      this.slot = this.nextSlot;
-      this.key = this.nextKey;
-      if (this.nextRefs) {
-        for (const [element, ref] of this.nextRefs) {
-          const prev = this.refs?.get(element);
-          if (prev) {
-            prev.current = undefined;
-            this.refs!.delete(element);
-          }
-          ref.current = element;
-        }
+    for (const domUpdate of this.pendingDomUpdates) domUpdate();
+    this.pendingDomUpdates.length = 0;
+    this.slot = this.nextSlot;
+    this.key = this.nextKey;
+    this.updateRefs();
+  }
+
+  private updateRefs() {
+    // Pass 1: release old refs that aren't being carried over with the same binding
+    if (this.refs) {
+      for (const [element, ref] of this.refs) {
+        if (this.nextRefs?.get(element) === ref) continue; // unchanged binding
+        if (ref.current === element) ref.current = undefined; // still ours to clear
       }
-      if (this.refs) {
-        for (const [element, ref] of this.refs) {
-          if (element !== ref.current) continue;
-          ref.current = undefined;
-        }
-      }
-      this.refs = this.nextRefs;
-      this.nextRefs = undefined;
     }
+
+    // Pass 2: assign all new refs
+    if (this.nextRefs) {
+      for (const [element, ref] of this.nextRefs) {
+        ref.current = element;
+      }
+    }
+
+    this.refs = this.nextRefs;
+    this.nextRefs = undefined;
   }
 
   resolveStatePromises() {
@@ -360,13 +372,13 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
   }
 
   unmountUnmounted() {
-    if (this.unmountedChildren?.size) {
-      const children = this.childInstances;
-      for (const child of this.unmountedChildren) {
+    if (this.unmountedInstances?.size) {
+      const children = this.instances;
+      for (const child of this.unmountedInstances) {
         child.unmountLeafsFirst();
-        children?.delete(child.childId);
+        children?.delete(child.path);
       }
-      this.unmountedChildren.clear();
+      this.unmountedInstances.clear();
     }
   }
 
@@ -408,13 +420,11 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    * render commits. DOM removal happens through the parent reconciler's
    * `removeRange` ops, not from here.
    */
+
   unmount(): void {
     if (this.unmounted) return;
     this.unmounted = true;
     this.pendingRender = undefined;
-    // Drop any pending DOM ops — if `remount()` flips `_unmounted` back to
-    // false without triggering a re-render, `updateDOM` must not fire ops
-    // whose anchors may have been torn down or moved in the meantime.
     this.pendingDomUpdates.length = 0;
     const { scheduler } = this.rctx;
     if (this.renderReasons?.size) scheduler.unscheduleRender(this);
@@ -427,9 +437,9 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    * recursing into children first so cleanup runs leaf-up.
    */
   private unmountLeafsFirst(): void {
-    const { childInstances, hookStates, refs } = this;
-    if (childInstances) {
-      for (const [, child] of childInstances) {
+    const { instances, hookStates, refs } = this;
+    if (instances) {
+      for (const [, child] of instances) {
         child.unmounted = true;
         child.unmountLeafsFirst();
       }

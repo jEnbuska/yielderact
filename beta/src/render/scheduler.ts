@@ -196,13 +196,19 @@ export class Scheduler {
     }
   }
 
+  private async tryGc() {
+    if (!window.requestIdleCallback) return;
+    await new Promise((res) => {
+      window.requestIdleCallback(res);
+    });
+  }
+
   private run = async (): Promise<void> => {
     while (this.renderPrimaryGroups.length || this.renderDeferredGroups.length) {
       this.runPrimaryQueue();
       updateDOM(this.domPrimaryGroups, this.domPrimaryMembers);
       unmountUnmounted(this.primaryInstancesWithUnmounted);
       runEffects(this.effectPrimaryGroups, this.effectPrimaryMembers);
-
       await this.checkAwait();
       await this.runDeferredQueue();
     }
@@ -260,14 +266,18 @@ export class Scheduler {
     }
   }
 
+  total = 0;
+
   private async runDeferredQueue() {
     BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
-
     while (this.renderDeferredGroups.length) {
       const { instances } = this.renderDeferredGroups[this.renderDeferredGroups.length - 1]!;
       while (instances.length) {
+        if (this.renderPrimaryMembers.size) return;
+        this.total++;
         const instance = instances.pop()!;
         if (!this.renderDeferredMembers.delete(instance)) continue;
+
         await this.checkAwait();
         if (!instance.deferred()) {
           // Re-route: instance was queued as deferred but its `<Defer>`
@@ -281,19 +291,30 @@ export class Scheduler {
         let res = gen.next();
 
         while (!res.done) {
+          this.total++;
           if (this.renderPrimaryGroups.length) {
             // Primary work appeared mid-render — preserve our progress and
             // bail so primary can run.
             this.scheduleRender(instance);
             return;
           }
+          if (this.total > 10_000) {
+            this.total = 0;
+            await this.tryGc();
+          }
           if (Date.now() > BaseInstance.sliceDeadline) {
             await this.checkAwait();
           }
           res = gen.next();
         }
+
+        // console.log("i", i, this.total);
       }
-      this.renderDeferredGroups.pop();
+      if (this.renderDeferredGroups[this.renderDeferredGroups.length - 1].instances === instances) {
+        this.renderDeferredGroups.pop();
+      } else {
+        console.error("STACK NOT UP TO DATE");
+      }
     }
   }
 }

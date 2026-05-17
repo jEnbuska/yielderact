@@ -34,11 +34,16 @@ export function moveRange(first: Node, last: Node, parent: Node, beforeNode: Nod
   ) {
     return;
   }
-  let cur: Node | null = first;
-  while (cur) {
-    const next: Node | null = cur === last ? null : cur.nextSibling;
-    placeNode(parent, cur, beforeNode);
-    cur = next;
+  try {
+    let cur: Node | null = first;
+    while (cur) {
+      const next: Node | null = cur === last ? null : cur.nextSibling;
+      placeNode(parent, cur, beforeNode);
+      cur = next;
+    }
+  } catch (e) {
+    console.error("insertInstanceAnchors");
+    throw e;
   }
 }
 
@@ -77,8 +82,13 @@ export function setText(node: Text, text: string) {
 }
 
 export function insertInstanceAnchors(instance: BaseInstance, beforeNode: Node | null) {
-  instance.parentDom.insertBefore(instance.endAnchor, beforeNode);
-  instance.parentDom.insertBefore(instance.startAnchor, instance.endAnchor);
+  try {
+    instance.parentDom.insertBefore(instance.endAnchor, beforeNode);
+    instance.parentDom.insertBefore(instance.startAnchor, instance.endAnchor);
+  } catch (e) {
+    console.error("insertInstanceAnchors");
+    throw e;
+  }
 }
 
 export function insertFragmentAnchors(

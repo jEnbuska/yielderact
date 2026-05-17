@@ -1,6 +1,6 @@
 import type { Child, Component, SingleChild } from "../jsx";
 import type { BaseInstance } from "../instances/base-instance";
-import { $delegateMount, $delegateRef, isRefProps } from "./utils";
+import { $delegateRef, delegateMount, isRefProps } from "./utils";
 import type { OptionalDelegationAction } from "./types";
 import type { Context } from "yract-beta";
 import type {
@@ -172,7 +172,7 @@ function* mountContextSlot(
   path: string,
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, ContextSlot, BaseInstance<Context>> {
-  const instance = yield $delegateMount(intent.child, path, parentDom, ns);
+  const instance = yield delegateMount(intent.child, path, parentDom, ns);
   stagingDom.appendChild(instance.startAnchor);
   stagingDom.appendChild(instance.endAnchor);
   return createContextSlot(intent, instance, path);
@@ -185,8 +185,10 @@ function* mountComponentSlot(
   path: string,
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, ComponentSlot, BaseInstance<Component>> {
-  const instance = yield $delegateMount(intent.child, path, parentDom, ns);
+  const instance = yield delegateMount(intent.child, path, parentDom, ns);
+
   stagingDom.appendChild(instance.startAnchor);
   stagingDom.appendChild(instance.endAnchor);
+
   return createComponentSlot(intent, instance, path);
 }

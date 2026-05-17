@@ -27,7 +27,7 @@ export class ContextInstance extends BaseInstance<Context> {
   private readonly subscribers: Set<() => void>;
 
   constructor(
-    childId: string,
+    path: string,
     vnode: VNode<Context>,
     parentCtx: ContextMap,
     parent: BaseInstance | null,
@@ -57,7 +57,7 @@ export class ContextInstance extends BaseInstance<Context> {
     const extended = new Map(parentCtx);
     extended.set(ctxKey, handle);
 
-    super(childId, vnode, extended, parent, rctx, parentDom, ns);
+    super(path, vnode, extended, parent, rctx, parentDom, ns);
     this.contextKey = ctxKey;
     this.handle = handle;
     this.subscribers = subscribers;

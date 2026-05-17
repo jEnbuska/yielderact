@@ -82,5 +82,4 @@ export type HookDescriptor =
   | StableDescriptor
   | EffectDescriptor
   | ContextDescriptor
-  | InstanceDescriptor
   | BatchDescriptor;
