@@ -33,8 +33,7 @@ export function createSlotPath(parentPath: string, key: string): string {
 
 export function createTextSlot(intent: MakeSlotIntent<TextSlotType>, path: string): TextSlot {
   const text = intent.text;
-  const node = document.createTextNode(text);
-  return makeSlot(intent, path, node, undefined);
+  return makeSlot(intent, path, [document.createTextNode(text)]);
 }
 
 export function createElementSlot(
@@ -47,19 +46,19 @@ export function createElementSlot(
   const { props } = child;
   const node = createElement(ns, child.type);
   applyElementProps(node, props, delegationRoot);
-  return makeSlot(intent, path, node, props);
+  return makeSlot(intent, path, [node], props);
 }
 
 export function createFragmentSlot(
   intent: MakeSlotIntent<FragmentSlotType>,
   path: string,
 ): FragmentSlot {
-  // Fragments use a start/end comment pair so the reconciler can relocate
-  // them as a unit. DocumentFragment isn't appropriate here because it
-  // becomes empty as soon as it's appended to its parent.
-  const node = document.createComment("fragment");
-  const endAnchor = document.createComment("/fragment");
-  return makeSlot(intent, path, node, intent.props, undefined, endAnchor);
+  return makeSlot(
+    intent,
+    path,
+    [document.createComment("fragment"), document.createComment("/fragment")],
+    intent.props,
+  );
 }
 
 export function createComponentSlot(
@@ -67,7 +66,7 @@ export function createComponentSlot(
   instance: BaseInstance<Component>,
   path: string,
 ): ComponentSlot {
-  return makeSlot(intent, path, instance.startAnchor, intent.props, instance);
+  return makeSlot(intent, path, [instance.startAnchor, instance.endAnchor], intent.props, instance);
 }
 
 export function createContextSlot(
@@ -75,5 +74,5 @@ export function createContextSlot(
   instance: BaseInstance<Context>,
   path: string,
 ): ContextSlot {
-  return makeSlot(intent, path, instance.startAnchor, intent.props, instance);
+  return makeSlot(intent, path, [instance.startAnchor, instance.endAnchor], intent.props, instance);
 }

@@ -15,3 +15,11 @@ export function getValuesReversed<T>(map: Map<any, T>): T[] {
 function valuesReversed<T>(map: Map<string, T>) {
   return Array.from(map.values()).reverse();
 }
+
+export function first<T>(arr: [T, ...T[]]): T {
+  return arr[0];
+}
+
+export function last<T>(arr: [T, ...T[]]): T {
+  return arr[arr.length - 1]!;
+}

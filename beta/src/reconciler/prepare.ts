@@ -81,6 +81,7 @@ export function createDraftIntent<T extends SlotType | EmptySlotType>(
     move: false,
     old: undefined,
     text,
+    nodes: undefined,
   } as any;
 }
 

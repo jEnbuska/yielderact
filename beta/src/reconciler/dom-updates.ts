@@ -8,9 +8,9 @@ import {
   fragmentSlotType,
   textSlotType,
 } from "../slots/slot";
-import { slotFirstNode, slotLastNode } from "./utils";
 
-import { getValuesReversed } from "../general";
+import { first, getValuesReversed, last } from "../general";
+import type { SlotElement } from "../render/elements/namespaces";
 
 type WithMoveBefore = Node & { moveBefore: (node: Node, child: Node | null) => void };
 
@@ -35,28 +35,28 @@ export function moveSlot(slot: Slot, parentDom: Node, beforeNode: Node | null): 
   switch (slot.type) {
     case componentSlotType:
     case contextSlotType: {
-      moveBefore(parentDom, slot.instance.endAnchor, beforeNode);
-      beforeNode = slot.instance.endAnchor;
+      const node = last<Comment>(slot.nodes);
+      moveBefore(parentDom, node, beforeNode);
+      beforeNode = node;
       if (slot.instance.slot) {
         moveSlot(slot.instance.slot, parentDom, beforeNode);
-        beforeNode = slotFirstNode(slot.instance.slot);
+        beforeNode = first<Node>(slot.instance.slot.nodes);
       }
-
-      moveBefore(parentDom, slot.instance.startAnchor, beforeNode);
+      moveBefore(parentDom, first<Comment>(slot.nodes), beforeNode);
       break;
     }
     case textSlotType:
     case elementSlotType:
-      moveBefore(parentDom, slot.node, beforeNode);
+      moveBefore(parentDom, first<Text | SlotElement>(slot.nodes), beforeNode);
       break;
     case fragmentSlotType: {
-      moveBefore(parentDom, slot.endAnchor, beforeNode);
-      beforeNode = slot.endAnchor;
+      moveBefore(parentDom, last<Comment>(slot.nodes), beforeNode);
+      beforeNode = last<Comment>(slot.nodes);
       for (const child of getValuesReversed(slot.slots)) {
         moveSlot(child, parentDom, beforeNode);
-        beforeNode = slotLastNode(child);
+        beforeNode = last<Node>(child.nodes);
       }
-      moveBefore(parentDom, slot.node, beforeNode);
+      moveBefore(parentDom, first<Comment>(slot.nodes), beforeNode);
       break;
     }
   }
@@ -65,7 +65,7 @@ export function removeSlotNodes(slot: Slot) {
   switch (slot.type) {
     case textSlotType:
     case elementSlotType:
-      slot.node.remove();
+      first<SlotElement | Text>(slot.nodes).remove();
       break;
     case fragmentSlotType:
       removeFragmentNodes(slot);
@@ -75,19 +75,19 @@ export function removeSlotNodes(slot: Slot) {
   }
 }
 
-function removeInstanceNodes(slot: ComponentSlot | ContextSlot) {
-  slot.instance.endAnchor.remove();
-  removeSlotNodes(slot.instance.slot!);
-  slot.instance.startAnchor.remove();
+function removeInstanceNodes({ nodes, instance }: ComponentSlot | ContextSlot) {
+  last(nodes).remove();
+  removeSlotNodes(instance.slot!);
+  first(nodes).remove();
 }
 
 function removeFragmentNodes(slot: FragmentSlot) {
-  slot.endAnchor.remove();
+  last(slot.nodes).remove();
   for (const next of slot.slots.values().toArray().reverse()) {
     switch (next.type) {
       case textSlotType:
       case elementSlotType:
-        next.node.remove();
+        first<Comment>(slot.nodes).remove();
         break;
       case fragmentSlotType:
         for (const child of next.slots.values().toArray().reverse()) {
@@ -98,5 +98,11 @@ function removeFragmentNodes(slot: FragmentSlot) {
         removeInstanceNodes(next);
     }
   }
-  slot.node.remove();
+  first(slot.nodes).remove();
+}
+
+export function appendSlotNodes(stagingDom: Node, slot: Slot) {
+  for (const node of slot.nodes) {
+    stagingDom.appendChild(node);
+  }
 }

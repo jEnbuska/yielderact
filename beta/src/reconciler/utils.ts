@@ -5,9 +5,6 @@ import { assertIsRefLike } from "../render/element-props";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
 import type { BaseInstance } from "../instances/base-instance";
 
-import type { Slot } from "../slots/slot";
-import { componentSlotType, contextSlotType, fragmentSlotType } from "../slots/slot";
-
 export function isRefProps<T extends VNodeProps>(props: T): props is T & { ref: RefLike } {
   if ("ref" in props) {
     const ref = props["ref"];
@@ -52,26 +49,4 @@ export function delegateProps(instance: BaseInstance, vnode: VNode): DelegatedPr
     instance,
     vnode,
   };
-}
-
-export function slotFirstNode(slot: Slot): Node {
-  switch (slot.type) {
-    case componentSlotType:
-    case contextSlotType:
-      return slot.instance.startAnchor;
-    default:
-      return slot.node;
-  }
-}
-
-export function slotLastNode(slot: Slot): Node {
-  switch (slot.type) {
-    case componentSlotType:
-    case contextSlotType:
-      return slot.instance.endAnchor;
-    case fragmentSlotType:
-      return slot.endAnchor;
-    default:
-      return slot.node;
-  }
 }

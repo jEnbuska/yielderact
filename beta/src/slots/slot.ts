@@ -22,7 +22,7 @@ export type SlotType =
   | ComponentSlotType
   | ContextSlotType;
 
-interface SlotBase<T extends SlotType, N> extends DraftSlotIntent {
+interface SlotBase<T extends SlotType, N extends Node[]> extends DraftSlotIntent {
   type: T;
   /** position in parent's slot list */
   index: number;
@@ -33,17 +33,17 @@ interface SlotBase<T extends SlotType, N> extends DraftSlotIntent {
    * renders as long as `key` / index don't change.
    */
   path: string;
-  node: N;
+  nodes: N;
   key: string;
 }
 
-export interface TextSlot extends SlotBase<TextSlotType, Text> {
+export interface TextSlot extends SlotBase<TextSlotType, [Text]> {
   text: string;
 }
 
 export type TextChild = string | number;
 
-interface ParentSlotBase<T extends SlotType, N> extends SlotBase<T, N> {
+interface ParentSlotBase<T extends SlotType, N extends Node[]> extends SlotBase<T, N> {
   slots: Map<string, Slot>;
   /**
    * The props object at last render.
@@ -54,25 +54,22 @@ interface ParentSlotBase<T extends SlotType, N> extends SlotBase<T, N> {
    */
   props: VNodeProps;
 }
-export interface ElementSlot extends ParentSlotBase<ElementSlotType, SlotElement> {
+export interface ElementSlot extends ParentSlotBase<ElementSlotType, [SlotElement]> {
   props: VNodeProps & { ref?: RefLike };
 }
 
 export type ElementChild = VNode<keyof JSX.IntrinsicElements>;
 
-export interface FragmentSlot extends ParentSlotBase<FragmentSlotType, Comment> {
-  /** End-of-range marker so the reconciler can move/remove the fragment as a unit. */
-  endAnchor: Comment;
-}
+export interface FragmentSlot extends ParentSlotBase<FragmentSlotType, [Comment, Comment]> {}
 
 export type FragmentChild = VNode<typeof Fragment>;
 
-export interface ComponentSlot extends ParentSlotBase<ComponentSlotType, Comment> {
+export interface ComponentSlot extends ParentSlotBase<ComponentSlotType, [Comment, Comment]> {
   instance: BaseInstance<Component>;
 }
 
 export type ComponentChild = VNode<Component>;
-export interface ContextSlot extends ParentSlotBase<ContextSlotType, Comment> {
+export interface ContextSlot extends ParentSlotBase<ContextSlotType, [Comment, Comment]> {
   instance: BaseInstance<Context>;
 }
 export type ContextChild = VNode<Context>;
@@ -123,6 +120,7 @@ type GenericSlotIntent<
   old: TPrev;
   text: T extends TextSlotType ? string : undefined;
   props: T extends TextSlotType | EmptySlotType ? undefined : VNodeProps;
+  nodes: undefined | Node[];
 };
 
 export type DraftSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<T, any>;
@@ -147,27 +145,24 @@ export type MakeSlotIntent<T extends SlotType> = Pick<
 export function makeSlot(
   intent: MakeSlotIntent<TextSlotType>,
   path: string,
-  node: Text,
-  props: undefined,
+  nodes: [Text],
 ): TextSlot;
 export function makeSlot(
   intent: MakeSlotIntent<FragmentSlotType>,
   path: string,
-  node: Comment,
+  nodes: [Comment, Comment],
   props: VNodeProps,
-  instance: undefined,
-  endAnchor: Node,
 ): FragmentSlot;
 export function makeSlot(
   intent: MakeSlotIntent<ElementSlotType>,
   path: string,
-  node: SlotElement,
+  nodes: [SlotElement],
   props: VNodeProps & { ref?: RefLike },
 ): ElementSlot;
 export function makeSlot(
   intent: MakeSlotIntent<ComponentSlotType>,
   path: string,
-  node: Comment,
+  nodes: [Comment, Comment],
   props: VNodeProps,
   instance: BaseInstance<Component>,
 ): ComponentSlot;
@@ -175,7 +170,7 @@ export function makeSlot(
 export function makeSlot(
   intent: MakeSlotIntent<ContextSlotType>,
   path: string,
-  node: Comment,
+  nodes: [Comment, Comment],
   props: VNodeProps,
   instance: BaseInstance<Context>,
 ): ContextSlot;
@@ -183,10 +178,9 @@ export function makeSlot(
 export function makeSlot(
   intent: MakeSlotIntent<SlotType>,
   path: string,
-  node: any,
+  nodes: Node[],
   props?: any,
-  instance?: any,
-  endAnchor?: any,
+  instance?: BaseInstance,
 ) {
   return {
     action: undefined,
@@ -195,11 +189,9 @@ export function makeSlot(
     key: intent.key,
     text: intent.text,
     path,
-    node,
+    nodes,
     props,
     instance,
-    endAnchor,
     slots: emptySlots,
-    keyIndex: undefined,
   } as any;
 }

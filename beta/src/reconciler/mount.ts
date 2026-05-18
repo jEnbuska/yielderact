@@ -17,13 +17,7 @@ import type {
   SlotType,
   TextSlotType,
 } from "../slots/slot";
-import {
-  componentSlotType,
-  contextSlotType,
-  elementSlotType,
-  fragmentSlotType,
-  textSlotType,
-} from "../slots/slot";
+import { componentSlotType, contextSlotType, elementSlotType, fragmentSlotType, textSlotType, } from "../slots/slot";
 import {
   createComponentSlot,
   createContextSlot,
@@ -36,6 +30,8 @@ import type { TagNamespace } from "../render/elements/namespaces";
 import { nodeNameSpace } from "../render/elements/namespaces";
 import { createDraftIntent, draftIntents } from "./prepare";
 import { getChildKey, getChildType } from "../child";
+import { appendSlotNodes } from "./dom-updates";
+import { first, last } from "../general";
 
 export function* mount(
   children: Child[],
@@ -111,7 +107,7 @@ function* mountSlot<T extends SlotType>(
 
 function mountTextSlot(intent: DraftSlotIntent<TextSlotType>, stagingDom: Node, path: string) {
   const slot = createTextSlot(intent, path);
-  stagingDom.appendChild(slot.node);
+  stagingDom.appendChild(first(slot.nodes));
   return slot;
 }
 
@@ -124,12 +120,12 @@ function* mountFragmentSlot(
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, FragmentSlot> {
   const slot = createFragmentSlot(intent, path);
-  stagingDom.appendChild(slot.node);
+  stagingDom.appendChild(first(slot.nodes));
   // Children stage alongside the fragment's anchors but their `instance.parentDom`
   // tracks the real outer parent — when the staging fragment commits, the children's
   // anchors land as siblings inside the real parent.
   const slots = yield* mount(intent.children, parentInstance, parentDom, stagingDom, path, ns);
-  stagingDom.appendChild(slot.endAnchor);
+  stagingDom.appendChild(last(slot.nodes));
   slot.slots = slots;
   return slot;
 }
@@ -142,18 +138,20 @@ function* mountElementSlot(
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, ElementSlot> {
   const slot = createElementSlot(intent, parentInstance.rctx.delegationRoot, path, ns);
-  stagingDom.appendChild(slot.node);
+
+  const node = first(slot.nodes);
+  stagingDom.appendChild(node);
   // Element children live inside the element — both logical parent and staging
   // target collapse to `slot.node` for the recursion.
   const slots = yield* mount(
     intent.children,
     parentInstance,
-    slot.node,
-    slot.node,
+    node,
+    node,
     path,
-    nodeNameSpace(slot.node),
+    nodeNameSpace(node),
   );
-  if (isRefProps(intent.props)) yield delegateRef(slot.node, intent.props.ref);
+  if (isRefProps(intent.props)) yield delegateRef(node, intent.props.ref);
   slot.slots = slots;
   return slot;
 }
@@ -166,9 +164,9 @@ function* mountContextSlot(
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, ContextSlot, BaseInstance<Context>> {
   const instance = yield delegateMount(intent.child, path, parentDom, ns);
-  stagingDom.appendChild(instance.startAnchor);
-  stagingDom.appendChild(instance.endAnchor);
-  return createContextSlot(intent, instance, path);
+  const slot = createContextSlot(intent, instance, path);
+  appendSlotNodes(stagingDom, slot);
+  return slot;
 }
 
 function* mountComponentSlot(
@@ -179,9 +177,7 @@ function* mountComponentSlot(
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, ComponentSlot, BaseInstance<Component>> {
   const instance = yield delegateMount(intent.child, path, parentDom, ns);
-
-  stagingDom.appendChild(instance.startAnchor);
-  stagingDom.appendChild(instance.endAnchor);
-
-  return createComponentSlot(intent, instance, path);
+  const slot = createComponentSlot(intent, instance, path);
+  appendSlotNodes(stagingDom, slot);
+  return slot;
 }
