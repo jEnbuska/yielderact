@@ -11,7 +11,7 @@ import { reconcileRoot } from "../reconciler/reconciler";
 import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
 import { Defer } from "./defer-context";
 import { mountRoot } from "../reconciler/mount";
-import { $delegateUi } from "../reconciler/utils";
+import { delegateUi } from "../reconciler/utils";
 import type { Slot } from "../slots/slot";
 import type { RefLike } from "../render/element-props";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
@@ -35,17 +35,17 @@ export function registerCreateInstance(fn: CreateInstanceFn): void {
 type InstanceReconcileResult = {
   domUpdates: Array<() => void>;
   unmountedInstances: Set<BaseInstance> | undefined;
-  nextInstances: Map<string, BaseInstance> | undefined;
+  instances: Map<string, BaseInstance> | undefined;
   nextRefs: Map<SlotElement, RefLike> | undefined;
   nextSlot: Slot;
   nextKey: string;
 };
 type RenderGenerator = Generator<void, InstanceReconcileResult>;
 
-export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
+export abstract class BaseInstance<
+  TVNodeType extends Exclude<VNodeType, string> = Exclude<VNodeType, string>,
+> {
   /** Time-slice deadline set by the scheduler. invokeUpdates yields when exceeded. */
-
-  static sliceDeadline = Infinity;
 
   public readonly ns: TagNamespace;
   protected unmounted?: boolean;
@@ -109,10 +109,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
    */
   deps?: DependencyList;
 
-  get [Symbol.toStringTag]() {
-    return this.debugLabel();
-  }
-
   path: string;
 
   constructor(
@@ -137,11 +133,8 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     this.ns = ns;
   }
 
-  debugLabel(): string {
-    const { type } = this.vnode;
-    if (typeof type === "string") return `<${type}>`;
-    else if (typeof type === "function") return `<${type.name || "Component"}>`;
-    return "<?>";
+  debugLabel() {
+    return `<${this.vnode.type?.name ?? "Root"}>`
   }
 
   deferred() {
@@ -202,11 +195,11 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     this.nextSlot = result.nextSlot;
     this.pendingDomUpdates = result.domUpdates;
     this.nextRefs = result.nextRefs;
-    this.instances = result.nextInstances;
+    this.instances = result.instances;
     this.unmountedInstances = result.unmountedInstances;
   }
 
-  private pendingInstances: undefined | Map<string, BaseInstance> = undefined;
+  private preparedInstances: Map<string, BaseInstance> | undefined;
 
   private *invokeUpdates(instances: Map<string, BaseInstance> | undefined): RenderGenerator {
     const generator = this.render(this.props);
@@ -237,7 +230,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         result = generator.next();
         continue;
       }
-
       const next = result.value;
       switch (next.type) {
         case "UI":
@@ -259,23 +251,20 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
         case "MOUNT": {
           const { vnode, parentDom, path, ns } = next;
           const existingInstance = instances?.get(path);
-          const pendingInstance = this.pendingInstances?.get(path);
           let instance: BaseInstance;
           if (existingInstance) {
             handleSetProps(existingInstance, vnode);
             instance = existingInstance;
-            /*} else if (pendingInstance) {
-              handleSetProps(pendingInstance, vnode);
-              instance = pendingInstance;
-              newInstances ??= new Set<BaseInstance>();
-              newInstances.add(instance);*/
           } else {
-            instance = createInstanceFn(path, vnode, this.ctx, this, this.rctx, parentDom, ns);
-            this.pendingInstances ??= new Map();
+            instance =
+              this.preparedInstances?.get(path) ??
+              createInstanceFn(path, vnode, this.ctx, this, this.rctx, parentDom, ns);
             newInstances ??= new Set<BaseInstance>();
             newInstances.add(instance);
             nextInstances ??= new Map<string, BaseInstance>(instances);
             nextInstances.set(path, instance);
+            this.preparedInstances ??= new Map();
+            this.preparedInstances.set(path, instance);
           }
           result = generator.next(instance);
         }
@@ -291,8 +280,6 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
 
     if (newInstances) {
       for (const instance of newInstances) {
-        if (instance.unmounted) {
-        }
         instance.scheduleRender(MOUNT_REASON);
       }
     }
@@ -306,11 +293,11 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     }
 
     const { key, slot } = result.value;
-    nextInstances ??= instances;
+    this.preparedInstances = undefined;
     return {
       domUpdates,
       unmountedInstances,
-      nextInstances,
+      instances: nextInstances ?? instances,
       nextRefs,
       nextKey: key,
       nextSlot: slot,
@@ -325,7 +312,7 @@ export abstract class BaseInstance<TVNodeType extends VNodeType = VNodeType> {
     if (!this.slot) {
       const stagingDom = document.createDocumentFragment();
       const result = yield* mountRoot(child, this, this.parentDom, stagingDom, this.ns);
-      yield $delegateUi(() => this.parentDom.insertBefore(stagingDom, this.endAnchor));
+      yield delegateUi(() => this.parentDom.insertBefore(stagingDom, this.endAnchor));
       return result;
     }
     return yield* reconcileRoot(child, this, this.parentDom, this.slot, this.ns, this.endAnchor);

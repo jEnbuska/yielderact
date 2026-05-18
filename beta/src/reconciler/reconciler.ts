@@ -5,8 +5,6 @@ import type {
   ContextSlotType,
   CreateSlotIntent,
   ElementSlotType,
-  EmptySlot,
-  EmptySlotType,
   FragmentSlotType,
   RenderSlotIntent,
   Slot,
@@ -22,7 +20,6 @@ import {
   contextSlotType,
   type ElementSlot,
   elementSlotType,
-  emptySlotType,
   type FragmentSlot,
   fragmentSlotType,
   textSlotType,
@@ -31,34 +28,18 @@ import type { TagNamespace } from "../render/elements/namespaces";
 import { nodeNameSpace } from "../render/elements/namespaces";
 import type { DelegationAction, OptionalDelegationAction } from "./types";
 import { createDraftIntent, delegateRemovals, draftIntents, fillIntentDrafts } from "./prepare";
-import {
-  $delegateProps,
-  $delegateRef,
-  $delegateUi,
-  delegateMount,
-  isRefProps,
-  slotFirstNode,
-  slotLastNode,
-} from "./utils";
-import {
-  insertBefore,
-  insertFragmentAnchors,
-  insertInstanceAnchors,
-  moveRange,
-  removeRange,
-  setText,
-} from "./dom-updates";
+import { delegateMount, delegateProps, delegateRef, delegateUi, isRefProps, slotFirstNode, } from "./utils";
+import { insertBefore, moveSlot, removeSlotNodes, setText } from "./dom-updates";
 import type { ComponentInstance } from "../instances/component-instance";
 import type { Context } from "yract-beta";
 import {
   createComponentSlot,
   createContextSlot,
   createElementSlot,
-  createEmptySlot,
   createFragmentSlot,
   createTextSlot,
 } from "../slots/utils";
-import { stage } from "../general";
+import { getValuesReversed, stage } from "../general";
 import type { ContextInstance } from "../instances/context-instance";
 import { mount } from "./mount";
 import { diffElementProps, updateElementProps } from "../render/element-props";
@@ -70,38 +51,39 @@ export function* reconcile(
   parentInstance: BaseInstance,
   parentDom: Node,
   parentPath: string,
-  prevSlots: Map<string, Slot> = new Map(),
+  oldSlots: Map<string, Slot> = new Map(),
   ns: TagNamespace,
   beforeNode: Node | null,
 ): Generator<OptionalDelegationAction, Map<string, Slot>, BaseInstance> {
   const drafts = draftIntents(children);
-  yield* delegateRemovals(drafts, prevSlots);
-  const stableIndexes = deriveStableIndexes(drafts, prevSlots);
+  yield* delegateRemovals(drafts, oldSlots);
+  const stableIndexes = deriveStableIndexes(drafts, oldSlots);
   yield;
-  fillIntentDrafts(prevSlots, drafts, stableIndexes);
+  fillIntentDrafts(oldSlots, drafts, stableIndexes);
+
   const intents = drafts;
-  const slots = new Map<string, Slot>();
-  for (const intent of intents.values().toArray().reverse()) {
+
+  for (const intent of getValuesReversed<SlotIntent>(intents)) {
     let slot: Slot;
     if (intent.action === "CREATED") {
       slot = yield* buildSlot(intent, parentPath, parentInstance, parentDom, beforeNode, ns);
     } else {
-      if (intent.move) {
-        yield $delegateUi(stage(moveSlot, slots, intent, parentDom, beforeNode));
-      }
       slot = yield* updateSlot(intent, parentInstance, ns);
+      if (intent.move) {
+        yield delegateUi(stage(moveSlot, slot, parentDom, beforeNode));
+      }
     }
-    slots.set(intent.key, slot);
+    intents.set(slot.key, slot);
     beforeNode = slotFirstNode(slot);
   }
-  return slots;
+  return intents as Map<string, Slot>;
 }
 
 export function* reconcileRoot(
   child: SingleChild,
   parentInstance: BaseInstance,
   parentDom: Node,
-  prev: Slot,
+  old: Slot,
   ns: TagNamespace,
   beforeNode: Node | null,
 ): Generator<OptionalDelegationAction, { slot: Slot; key: string }, BaseInstance> {
@@ -109,37 +91,18 @@ export function* reconcileRoot(
   const key = getChildKey(child, 0, type);
   const draft = createDraftIntent(type, child, key, 0);
   let slot: Slot;
-  if (key !== prev.key) {
-    yield $delegateUi(stage(removeRange, slotFirstNode(prev), slotLastNode(prev)));
+  if (key !== old.key) {
+    yield delegateUi(stage(removeSlotNodes, old));
     const intent = draft as CreateSlotIntent;
     intent.action = "CREATED";
     slot = yield* buildSlot(intent, "", parentInstance, parentDom, beforeNode, ns);
   } else {
     const intent = draft as any as RenderSlotIntent;
     intent.action = "RENDERED";
-    intent.prev = prev;
+    intent.old = old;
     slot = yield* updateSlot(intent, parentInstance, ns);
   }
   return { slot, key };
-}
-
-function moveSlot(
-  slots: Map<string, Slot>,
-  intent: SlotIntent,
-  parentDom: Node,
-  beforeNode: Node | null,
-): void {
-  const slot = slots.get(intent.key)!;
-  let target: Node | null;
-  if (!intent.nextKey) {
-    target = beforeNode;
-  } else {
-    const next = slots.get(intent.nextKey)!;
-    target = slotFirstNode(next);
-  }
-  const first = slotFirstNode(slot);
-  const last = slotLastNode(slot);
-  moveRange(first, last, parentDom, target);
 }
 
 function* buildSlot<T extends SlotType>(
@@ -156,6 +119,10 @@ function* buildSlot<T extends SlotType>(
       const p = intent as CreateSlotIntent<ComponentSlotType>;
       return yield* buildComponentSlot(p, path, parentDom, beforeNode, ns);
     }
+    case textSlotType: {
+      const p = intent as CreateSlotIntent<TextSlotType>;
+      return yield* buildTextSlot(p, path, parentDom, beforeNode);
+    }
     case elementSlotType: {
       const p = intent as CreateSlotIntent<ElementSlotType>;
       return yield* buildElementSlot(p, path, parentInstance, parentDom, beforeNode, ns);
@@ -167,14 +134,6 @@ function* buildSlot<T extends SlotType>(
     case contextSlotType: {
       const p = intent as CreateSlotIntent<ContextSlotType>;
       return yield* buildContextSlot(p, path, parentDom, beforeNode, ns);
-    }
-    case textSlotType: {
-      const p = intent as CreateSlotIntent<TextSlotType>;
-      return yield* buildTextSlot(p, path, parentDom, beforeNode);
-    }
-    case emptySlotType: {
-      const p = intent as CreateSlotIntent<EmptySlotType>;
-      return yield* buildEmptySlot(p, path, parentDom, beforeNode);
     }
     default: {
       throw new Error(`yract-beta: unknown SlotType: ${intent.type satisfies never}`);
@@ -201,7 +160,7 @@ function* mountInstance<T extends Component | Context>(
   ns: TagNamespace,
 ): Generator<DelegationAction, BaseInstance<T>, BaseInstance<T>> {
   const instance = yield delegateMount(vnode, path, parentDom, ns);
-  if (instance.parentDom !== parentDom) {
+  /*if (instance.parentDom !== parentDom) {
     throw new Error("THIS SHOULD NEVER HAPPEN");
     // Reused instance migrating to a new DOM container — physically relocate
     // the whole subtree (anchors + everything between) so DOM and hook state
@@ -209,12 +168,14 @@ function* mountInstance<T extends Component | Context>(
     // parent up to `endAnchor` and `insertBefore`s the lot into the new one.
     instance.parentDom = parentDom;
     yield $delegateUi(
-      stage(moveRange, instance.startAnchor, instance.endAnchor, parentDom, beforeNode),
+      stage(moveRange, instance.startAnchor!, instance.endAnchor, parentDom, beforeNode),
     );
-  } else {
-    // Fresh instance — anchors were just created, not yet attached anywhere.
-    yield $delegateUi(stage(insertInstanceAnchors, instance, beforeNode));
-  }
+  } else {*/
+  // Fresh instance — anchors were just created, not yet attached anywhere.
+  const fragment = document.createDocumentFragment();
+  fragment.append(instance.startAnchor, instance.endAnchor);
+  yield delegateUi(stage(insertBefore, parentDom, fragment, beforeNode));
+  //}
   return instance;
 }
 
@@ -251,9 +212,9 @@ function* buildElementSlot(
     nodeNameSpace(slot.node),
   );
 
-  if (isRefProps(slot.props)) yield $delegateRef(slot.node, slot.props.ref);
+  if (isRefProps(slot.props)) yield delegateRef(slot.node, slot.props.ref);
 
-  yield $delegateUi(stage(insertBefore, parentDom, slot.node, beforeNode));
+  yield delegateUi(stage(insertBefore, parentDom, slot.node, beforeNode));
   slot.slots = slots;
   return slot;
 }
@@ -269,11 +230,10 @@ function* buildFragmentSlot(
   const slot = createFragmentSlot(prepared, path);
   const stagingDom = document.createDocumentFragment();
   stagingDom.appendChild(slot.node);
+  stagingDom.appendChild(slot.endAnchor);
   // Recursively reconcile children between the anchors.
   const slots = yield* mount(prepared.children, parentInstance, parentDom, stagingDom, path, ns);
-  yield $delegateUi(
-    stage(insertFragmentAnchors, parentDom, stagingDom, slot.endAnchor, beforeNode),
-  );
+  yield delegateUi(stage(insertBefore, parentDom, stagingDom, beforeNode));
   slot.slots = slots;
   return slot;
 }
@@ -285,18 +245,7 @@ export function* buildTextSlot(
   beforeNode: null | Node,
 ): Generator<OptionalDelegationAction, TextSlot> {
   const slot = createTextSlot(intent, path);
-  yield $delegateUi(stage(insertBefore, parentDom, slot.node, beforeNode));
-  return slot;
-}
-
-export function* buildEmptySlot(
-  intent: CreateSlotIntent<EmptySlotType>,
-  path: string,
-  parentDom: Node,
-  beforeNode: null | Node,
-): Generator<OptionalDelegationAction, EmptySlot> {
-  const slot = createEmptySlot(intent, path);
-  yield $delegateUi(stage(insertBefore, parentDom, slot.node, beforeNode));
+  yield delegateUi(stage(insertBefore, parentDom, slot.node, beforeNode));
   return slot;
 }
 
@@ -327,8 +276,6 @@ function* updateSlot<T extends SlotType>(
       const slot = yield* updateFragment(p, parentInstance, ns);
       return slot as Slot<T>;
     }
-    case emptySlotType:
-      return intent.prev;
     default:
       throw new Error(`Unhandled update slot ${intent.type}`);
   }
@@ -339,7 +286,7 @@ function* updateFragment(
   parentInstance: BaseInstance,
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, FragmentSlot> {
-  const parentDom = intent.prev.node.parentNode;
+  const parentDom = intent.old.node.parentNode;
   if (!parentDom) {
     throw new Error("yract-beta: fragment slot reconciled with detached start anchor");
   }
@@ -349,12 +296,12 @@ function* updateFragment(
     intent.children,
     parentInstance,
     parentDom,
-    intent.prev.path,
-    intent.prev.slots,
+    intent.old.path,
+    intent.old.slots,
     ns,
-    intent.prev.endAnchor,
+    intent.old.endAnchor,
   );
-  const slot = { ...intent.prev };
+  const slot = { ...intent.old };
   slot.index = intent.index;
   slot.slots = slots;
   slot.props = intent.props;
@@ -368,23 +315,23 @@ function* updateElement(
   const slots = yield* reconcile(
     intent.children,
     parentInstance,
-    intent.prev.node,
-    intent.prev.path,
-    intent.prev.slots,
-    nodeNameSpace(intent.prev.node),
+    intent.old.node,
+    intent.old.path,
+    intent.old.slots,
+    nodeNameSpace(intent.old.node),
     null,
   );
-  const patch = diffElementProps(intent.prev.props, intent.props);
+  const patch = diffElementProps(intent.old.props, intent.props);
   if (isRefProps(intent.props)) {
-    yield $delegateRef(intent.prev.node, intent.props.ref);
+    yield delegateRef(intent.old.node, intent.props.ref);
   }
 
   if (patch) {
-    yield $delegateUi(
-      stage(updateElementProps, intent.prev.node, patch, parentInstance.rctx.delegationRoot),
+    yield delegateUi(
+      stage(updateElementProps, intent.old.node, patch, parentInstance.rctx.delegationRoot),
     );
   }
-  const slot: ElementSlot = { ...intent.prev };
+  const slot: ElementSlot = { ...intent.old };
   slot.slots = slots;
   slot.index = intent.index;
   slot.props = intent.props;
@@ -394,8 +341,8 @@ function* updateElement(
 function* updateInstance(
   intent: RenderSlotIntent<ContextSlotType | ComponentSlotType>,
 ): Generator<DelegationAction, ComponentSlot | ContextSlot> {
-  yield $delegateProps(intent.prev.instance, intent.child);
-  const slot = { ...intent.prev };
+  yield delegateProps(intent.old.instance, intent.child);
+  const slot = { ...intent.old };
   slot.props = intent.props;
   slot.index = intent.index;
   return slot;
@@ -404,12 +351,9 @@ function* updateInstance(
 function* updateText(
   intent: RenderSlotIntent<TextSlotType>,
 ): Generator<DelegationAction, TextSlot> {
-  const { prev, text } = intent;
-
-  if (text !== prev.text) {
-    yield $delegateUi(stage(setText, prev.node, text));
-  }
-  const slot = { ...prev };
+  const { old, text } = intent;
+  if (text !== old.text) yield delegateUi(stage(setText, old.node, text));
+  const slot = { ...old };
   slot.text = text;
   return slot;
 }

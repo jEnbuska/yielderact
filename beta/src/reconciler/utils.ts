@@ -1,4 +1,4 @@
-import type { DelegatedProps, DelegatedRef, DelegatedUI, MountResult } from "./types";
+import type { DelegatedProps, DelegatedRef, DelegatedUI, DelegateMount } from "./types";
 import type { Component, Context, VNode, VNodeProps } from "yract-beta";
 import type { RefLike } from "../render/element-props";
 import { assertIsRefLike } from "../render/element-props";
@@ -17,7 +17,7 @@ export function isRefProps<T extends VNodeProps>(props: T): props is T & { ref: 
   return false;
 }
 
-export function $delegateRef(element: SlotElement, ref: RefLike): DelegatedRef {
+export function delegateRef(element: SlotElement, ref: RefLike): DelegatedRef {
   return {
     type: "REF",
     ref,
@@ -25,7 +25,7 @@ export function $delegateRef(element: SlotElement, ref: RefLike): DelegatedRef {
   };
 }
 
-export function $delegateUi(callback: () => unknown): DelegatedUI {
+export function delegateUi(callback: () => unknown): DelegatedUI {
   return {
     type: "UI",
     callback,
@@ -36,7 +36,7 @@ export function delegateMount(
   path: string,
   parentDom: Node,
   ns: TagNamespace,
-): MountResult {
+): DelegateMount {
   return {
     type: "MOUNT",
     vnode,
@@ -46,7 +46,7 @@ export function delegateMount(
   };
 }
 
-export function $delegateProps(instance: BaseInstance, vnode: VNode): DelegatedProps {
+export function delegateProps(instance: BaseInstance, vnode: VNode): DelegatedProps {
   return {
     type: "PROPS",
     instance,

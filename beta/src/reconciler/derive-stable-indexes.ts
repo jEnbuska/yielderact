@@ -1,12 +1,12 @@
 export function deriveStableIndexes<Slot extends { index: number }>(
   drafts: Map<string, any>,
-  prevSlots: Map<string, Slot>,
+  oldSlots: Map<string, Slot>,
 ): Set<number> {
   const tailPos: number[] = []; // tailPos[k] = old slot index of the smallest tail of an LIS of length k+1
-  const prev: Array<number | undefined> = new Array(prevSlots.size);
+  const prev: Array<number | undefined> = new Array(oldSlots.size);
 
   for (const key of drafts.keys()) {
-    const slot = prevSlots.get(key);
+    const slot = oldSlots.get(key);
     if (slot === undefined) continue;
     const x = slot.index;
 

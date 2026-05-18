@@ -6,7 +6,7 @@ import { deriveStableIndexes } from "../reconciler/derive-stable-indexes";
  *
  * Contract recap:
  *   - Input: `drafts` (new render's intents, iterated in new-order),
- *     `prevSlots` (previous render's slots, keyed by the same string keys).
+ *     `oldSlots` (previous render's slots, keyed by the same string keys).
  *   - Output: a Set of *previous-render slot indices* that participate in
  *     the Longest Increasing Subsequence of "survivors' old indices in
  *     new order". Survivors whose old index is in the set are in a
@@ -28,7 +28,7 @@ import { deriveStableIndexes } from "../reconciler/derive-stable-indexes";
 // ── Test helpers ──────────────────────────────────────────────────────────
 
 /**
- * The minimal shape of an entry in `prevSlots` that the function
+ * The minimal shape of an entry in `oldSlots` that the function
  * actually reads — just `.index`. The function's type signature uses a
  * generic `T extends { index: number }`, so this is the structurally
  * minimal type that satisfies it.
@@ -49,7 +49,7 @@ function makeDrafts(keys: string[]): Map<string, unknown> {
 }
 
 /**
- * Build a `prevSlots` map keyed by string. Each entry carries the index
+ * Build a `oldSlots` map keyed by string. Each entry carries the index
  * the slot occupied in the previous render — the position in the
  * argument array.
  */
@@ -355,9 +355,9 @@ describe("deriveStableIndexes — LIS correctness on tricky sequences", () => {
 
 describe("deriveStableIndexes — invariants", () => {
   /**
-   * For any (drafts, prevSlots) pair:
+   * For any (drafts, oldSlots) pair:
    *
-   *   1. Every value in `result` must equal `prevSlots.get(key).index` for
+   *   1. Every value in `result` must equal `oldSlots.get(key).index` for
    *      some `key` that exists in both maps.
    *   2. The size of `result` equals the length of the LIS over the
    *      sequence of "old indices of survivors in draft order".
@@ -367,11 +367,11 @@ describe("deriveStableIndexes — invariants", () => {
 
   function survivorOldIndices(
     drafts: Map<string, unknown>,
-    prevSlots: Map<string, StubSlot>,
+    oldSlots: Map<string, StubSlot>,
   ): number[] {
     const out: number[] = [];
     for (const key of drafts.keys()) {
-      const s = prevSlots.get(key);
+      const s = oldSlots.get(key);
       if (s !== undefined) out.push(s.index);
     }
     return out;
@@ -404,18 +404,18 @@ describe("deriveStableIndexes — invariants", () => {
   for (const { name, prev, next } of cases) {
     it(`${name}: result size equals classical LIS length`, () => {
       const drafts = makeDrafts(next);
-      const prevSlots = makePrevSlots(prev);
-      const result = deriveStableIndexes(drafts, prevSlots);
-      const lisInput = survivorOldIndices(drafts, prevSlots);
+      const oldSlots = makePrevSlots(prev);
+      const result = deriveStableIndexes(drafts, oldSlots);
+      const lisInput = survivorOldIndices(drafts, oldSlots);
       expect(result.size).toBe(classicalLisLength(lisInput));
     });
 
     it(`${name}: every result entry is a real prev slot index`, () => {
       const drafts = makeDrafts(next);
-      const prevSlots = makePrevSlots(prev);
-      const result = deriveStableIndexes(drafts, prevSlots);
+      const oldSlots = makePrevSlots(prev);
+      const result = deriveStableIndexes(drafts, oldSlots);
       const validOldIndices = new Set<number>();
-      for (const slot of prevSlots.values()) validOldIndices.add(slot.index);
+      for (const slot of oldSlots.values()) validOldIndices.add(slot.index);
       for (const idx of result) {
         expect(validOldIndices.has(idx)).toBe(true);
       }
@@ -423,11 +423,11 @@ describe("deriveStableIndexes — invariants", () => {
 
     it(`${name}: result entries in draft-key order are strictly increasing`, () => {
       const drafts = makeDrafts(next);
-      const prevSlots = makePrevSlots(prev);
-      const result = deriveStableIndexes(drafts, prevSlots);
+      const oldSlots = makePrevSlots(prev);
+      const result = deriveStableIndexes(drafts, oldSlots);
       const ordered: number[] = [];
       for (const key of drafts.keys()) {
-        const s = prevSlots.get(key);
+        const s = oldSlots.get(key);
         if (s !== undefined && result.has(s.index)) ordered.push(s.index);
       }
       for (let i = 1; i < ordered.length; i++) {

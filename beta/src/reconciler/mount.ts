@@ -1,6 +1,6 @@
 import type { Child, Component, SingleChild } from "../jsx";
 import type { BaseInstance } from "../instances/base-instance";
-import { $delegateRef, delegateMount, isRefProps } from "./utils";
+import { delegateMount, delegateRef, isRefProps } from "./utils";
 import type { OptionalDelegationAction } from "./types";
 import type { Context } from "yract-beta";
 import type {
@@ -11,7 +11,6 @@ import type {
   DraftSlotIntent,
   ElementSlot,
   ElementSlotType,
-  EmptySlotType,
   FragmentSlot,
   FragmentSlotType,
   Slot,
@@ -22,7 +21,6 @@ import {
   componentSlotType,
   contextSlotType,
   elementSlotType,
-  emptySlotType,
   fragmentSlotType,
   textSlotType,
 } from "../slots/slot";
@@ -30,7 +28,6 @@ import {
   createComponentSlot,
   createContextSlot,
   createElementSlot,
-  createEmptySlot,
   createFragmentSlot,
   createSlotPath,
   createTextSlot,
@@ -49,13 +46,19 @@ export function* mount(
   ns: TagNamespace,
 ): Generator<OptionalDelegationAction, Map<string, Slot>> {
   const drafts = draftIntents(children);
-  const slots = new Map<string, Slot>();
   for (const [key, draft] of drafts) {
     const path = createSlotPath(parentPath, key);
-    const slot = yield* mountSlot(draft, path, parentInstance, parentDom, stagingDom, ns);
-    slots.set(key, slot);
+    const slot = yield* mountSlot(
+      draft as DraftSlotIntent,
+      path,
+      parentInstance,
+      parentDom,
+      stagingDom,
+      ns,
+    );
+    drafts.set(key, slot);
   }
-  return slots;
+  return drafts as Map<string, Slot>;
 }
 
 export function* mountRoot(
@@ -93,10 +96,6 @@ function* mountSlot<T extends SlotType>(
       const d = intent as DraftSlotIntent<ElementSlotType>;
       return yield* mountElementSlot(d, stagingDom, path, parentInstance, ns);
     }
-    case emptySlotType: {
-      const d = intent as DraftSlotIntent<EmptySlotType>;
-      return mountEmptySlot(d, stagingDom, path);
-    }
     case fragmentSlotType: {
       const d = intent as DraftSlotIntent<FragmentSlotType>;
       return yield* mountFragmentSlot(d, parentDom, stagingDom, path, parentInstance, ns);
@@ -108,12 +107,6 @@ function* mountSlot<T extends SlotType>(
     default:
       throw new Error(`yract-beta: unknown SlotType: ${intent.type satisfies never}`);
   }
-}
-
-function mountEmptySlot(intent: DraftSlotIntent<EmptySlotType>, stagingDom: Node, path: string) {
-  const slot = createEmptySlot(intent, path);
-  stagingDom.appendChild(slot.node);
-  return slot;
 }
 
 function mountTextSlot(intent: DraftSlotIntent<TextSlotType>, stagingDom: Node, path: string) {
@@ -160,7 +153,7 @@ function* mountElementSlot(
     path,
     nodeNameSpace(slot.node),
   );
-  if (isRefProps(intent.props)) yield $delegateRef(slot.node, intent.props.ref);
+  if (isRefProps(intent.props)) yield delegateRef(slot.node, intent.props.ref);
   slot.slots = slots;
   return slot;
 }

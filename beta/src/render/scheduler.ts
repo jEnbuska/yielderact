@@ -12,7 +12,7 @@
  * arrives; the bailed work is re-scheduled and resumed in a later
  * iteration.
  */
-import { BaseInstance } from "../instances/base-instance";
+import type { BaseInstance } from "../instances/base-instance";
 import { createResolvable } from "../create-resolvable";
 
 /** Apply pending DOM ops parent-first */
@@ -56,31 +56,20 @@ function insertSorted(
 ): void {
   if (members.has(instance)) return;
   members.add(instance);
-  let lo = 0;
-  let hi = groups.length;
-  while (lo < hi) {
-    const mid = (lo + hi) >>> 1;
-    const group = groups[mid]!;
-    // Same depth → cluster together (siblings or cousins render order is
-    // irrelevant; only parent-before-child matters).
-    if (group.depth === instance.depth) {
+  let i = 0;
+  while (i < groups.length) {
+    const group = groups[i]!;
+    if (group.depth! === instance.depth) {
       group.instances.push(instance);
       return;
     }
-    // Deeper instances go earlier in the queue; shallowest end up at the
-    // tail so `queue.pop()` yields the topmost ancestor first, giving the
-    // render drain parent-before-child order.
-    if (instance.depth > group.depth) {
-      hi = mid;
-    } else {
-      lo = mid + 1;
-    }
+    if (group.depth < instance.depth) break;
+    i++;
   }
-  groups.splice(lo, 0, { depth: instance.depth, instances: [instance] });
+  groups.splice(i, 0, { depth: instance.depth, instances: [instance] });
 }
 
-/** Time budget per deferred work slice (ms), matching React 19. */
-const SLICE_MS = 10;
+const SLICE_MS = 50;
 type QueueGroup = {
   depth: number;
   instances: Array<BaseInstance>;
@@ -114,6 +103,8 @@ export class Scheduler {
   private batchDepth = 0;
 
   private resolvable = createResolvable();
+
+  private workYieldDeadline = Infinity;
 
   constructor() {
     void this.resolvable.promise.then(this.run);
@@ -184,68 +175,55 @@ export class Scheduler {
    * input events and paint can run between deferred work slices.
    */
 
+  awaitChannel = new MessageChannel();
   private async checkAwait(): Promise<void> {
-    if (Date.now() > BaseInstance.sliceDeadline) {
+    if (Date.now() > this.workYieldDeadline) {
       const { promise, resolve } = createResolvable<unknown>();
-      const { port1, port2 } = new MessageChannel();
+      const { port1, port2 } = this.awaitChannel;
       port1.onmessage = resolve;
       port2.postMessage(null);
-
       await promise;
-      BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
+      this.workYieldDeadline = Date.now() + SLICE_MS;
     }
-  }
-
-  private async tryGc() {
-    if (!window.requestIdleCallback) return;
-    await new Promise((res) => {
-      window.requestIdleCallback(res);
-    });
   }
 
   private run = async (): Promise<void> => {
-    while (this.renderPrimaryGroups.length || this.renderDeferredGroups.length) {
-      this.runPrimaryQueue();
-      updateDOM(this.domPrimaryGroups, this.domPrimaryMembers);
-      unmountUnmounted(this.primaryInstancesWithUnmounted);
-      runEffects(this.effectPrimaryGroups, this.effectPrimaryMembers);
-      await this.checkAwait();
-      await this.runDeferredQueue();
-    }
-    const { resolveGroups, resolveMembers } = this;
-    this.resolveMembers = new Set();
-    this.resolveGroups = [];
+    while (true) {
+      while (this.renderPrimaryGroups.length || this.renderDeferredGroups.length) {
+        this.runPrimaryQueue();
+        updateDOM(this.domPrimaryGroups, this.domPrimaryMembers);
+        unmountUnmounted(this.primaryInstancesWithUnmounted);
+        runEffects(this.effectPrimaryGroups, this.effectPrimaryMembers);
 
-    updateDOM(this.domDeferredGroups, this.domDeferredMembers);
-    unmountUnmounted(this.deferredInstancesWithUnmounted);
-    runEffects(this.effectDeferredGroups, this.effectDeferredMembers);
-    for (const { instances } of resolveGroups) {
-      for (const instance of instances) {
-        if (resolveMembers.delete(instance)) {
-          instance.resolveStatePromises();
+        await this.runDeferredQueue();
+      }
+      const { resolveGroups, resolveMembers } = this;
+      this.resolveMembers = new Set();
+      this.resolveGroups = [];
+
+      updateDOM(this.domDeferredGroups, this.domDeferredMembers);
+      unmountUnmounted(this.deferredInstancesWithUnmounted);
+      runEffects(this.effectDeferredGroups, this.effectDeferredMembers);
+      for (const { instances } of resolveGroups) {
+        for (const instance of instances) {
+          if (resolveMembers.delete(instance)) {
+            instance.resolveStatePromises();
+          }
         }
       }
-    }
 
-    // Only recreate the resolvable when *all* queues are empty. If a
-    // `scheduleRender`/`scheduleEffect`/`scheduleResolve` fired during
-    // post-processing it called `resolve()` on the (already-settled) old
-    // resolvable — a no-op. Re-attaching `.then(this.run)` to that same
-    // resolved promise fires `run` again on the next microtask, draining
-    // the gap-added work. Recreate only when there's nothing pending so we
-    // genuinely wait for the next external schedule.
-    if (
-      !this.renderPrimaryGroups.length &&
-      !this.renderDeferredGroups.length &&
-      !this.effectPrimaryGroups.length &&
-      !this.effectDeferredGroups.length &&
-      !this.resolveGroups.length
-    ) {
-      this.resolvable = createResolvable();
-    }
+      if (
+        !this.renderPrimaryGroups.length &&
+        !this.renderDeferredGroups.length &&
+        !this.effectPrimaryGroups.length &&
+        !this.effectDeferredGroups.length &&
+        !this.resolveGroups.length
+      ) {
+        this.resolvable = createResolvable();
+      }
 
-    await this.resolvable.promise;
-    void this.run();
+      await this.resolvable.promise;
+    }
   };
 
   private runPrimaryQueue() {
@@ -266,19 +244,15 @@ export class Scheduler {
     }
   }
 
-  total = 0;
-
   private async runDeferredQueue() {
-    BaseInstance.sliceDeadline = Date.now() + SLICE_MS;
+    this.workYieldDeadline = Date.now() + SLICE_MS;
     while (this.renderDeferredGroups.length) {
       const { instances } = this.renderDeferredGroups[this.renderDeferredGroups.length - 1]!;
       while (instances.length) {
+        await this.checkAwait();
         if (this.renderPrimaryMembers.size) return;
-        this.total++;
         const instance = instances.pop()!;
         if (!this.renderDeferredMembers.delete(instance)) continue;
-
-        await this.checkAwait();
         if (!instance.deferred()) {
           // Re-route: instance was queued as deferred but its `<Defer>`
           // ancestor has since unmounted/committed, so it now belongs in
@@ -291,30 +265,15 @@ export class Scheduler {
         let res = gen.next();
 
         while (!res.done) {
-          this.total++;
-          if (this.renderPrimaryGroups.length) {
-            // Primary work appeared mid-render — preserve our progress and
-            // bail so primary can run.
-            this.scheduleRender(instance);
-            return;
-          }
-          if (this.total > 10_000) {
-            this.total = 0;
-            await this.tryGc();
-          }
-          if (Date.now() > BaseInstance.sliceDeadline) {
-            await this.checkAwait();
-          }
+          if (this.renderPrimaryGroups.length) return this.scheduleRender(instance);
+          await this.checkAwait();
           res = gen.next();
         }
 
         // console.log("i", i, this.total);
       }
-      if (this.renderDeferredGroups[this.renderDeferredGroups.length - 1].instances === instances) {
-        this.renderDeferredGroups.pop();
-      } else {
-        console.error("STACK NOT UP TO DATE");
-      }
+
+      this.renderDeferredGroups.pop();
     }
   }
 }

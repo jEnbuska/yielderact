@@ -10,7 +10,13 @@
 import { type Context, ContextSymbol } from "./context";
 import { type Child, type Component, Fragment, type SingleChild, type VNode } from "./jsx";
 
-import type { ElementChild, SlotChild, SlotType } from "./slots/slot";
+import type {
+  ElementChild,
+  EmptySlotChild,
+  EmptySlotType,
+  SlotChild,
+  SlotType,
+} from "./slots/slot";
 import {
   componentSlotType,
   contextSlotType,
@@ -59,8 +65,6 @@ export function isContextVNode(child: VNode): child is VNode<Context> {
 // ---------------------------------------------------------------------------
 // Child helpers
 // ---------------------------------------------------------------------------
-
-const stringIdMap = new Map<string, string>();
 const otherIdMap = new WeakMap<typeof Fragment | Component<any> | Context, string>();
 
 let randomRoot: string | undefined;
@@ -76,34 +80,33 @@ function randomId(): string {
  * The key the reconciler uses to match a child against a previous slot.
  * Falls back to the positional index when the child has no `key`.
  */
-export function getChildKey<C extends SlotChild>(
+export function getChildKey<C extends SlotChild | EmptySlotChild>(
   child: C,
   fallback: number,
-  type: SlotType,
+  type: SlotType | EmptySlotType,
 ): string {
   switch (type) {
-    case emptySlotType:
-    case textSlotType: {
-      const keyTypeId = stringIdMap.getOrInsertComputed("number", randomId);
-      return `"${type}"${keyTypeId}"${fallback}"`;
+    case componentSlotType:
+    case contextSlotType:
+    case fragmentSlotType: {
+      const { type, props } = child as VNode<typeof Fragment | Component | Context>;
+      const slotId = otherIdMap.getOrInsertComputed(type, randomId);
+      const key = props.key ?? fallback;
+      return `"${slotId}"${typeof key}"${key}"`;
+    }
+    case textSlotType:
+    case emptySlotType: {
+      return `"leaf""${fallback}"`;
     }
     case elementSlotType: {
       const { type, props } = child as ElementChild;
       const key = props.key ?? fallback;
-      const keyTypeId = stringIdMap.getOrInsertComputed(typeof key, randomId);
-      return `"${type}"${keyTypeId}"${key}"`;
-    }
-    default: {
-      const { type, props } = child as VNode<typeof Fragment | Component | Context>;
-      const slotId = otherIdMap.getOrInsertComputed(type, randomId);
-      const key = props.key ?? fallback;
-      const keyTypeId = stringIdMap.getOrInsertComputed(typeof type, randomId);
-      return `${slotId}${keyTypeId}"${key}"`;
+      return `"${type}"${typeof key}"${key}"`;
     }
   }
 }
 
-export function getChildType(child: SingleChild): SlotType {
+export function getChildType(child: SingleChild): SlotType | EmptySlotType {
   if (isEmptyChild(child)) return emptySlotType;
   if (isTextChild(child)) return textSlotType;
   if (child.props.shown === false) return emptySlotType;

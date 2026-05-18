@@ -5,7 +5,7 @@
  * column and search by the first column or a combined text search
  * across all columns (datalist-style filtering).
  */
-import { $effect, $memo, $ref, $stable, $state, createContext, Defer } from "yract-beta";
+import { $effect, $memo, $ref, $stable, $state, Defer } from "yract-beta";
 import { ComponentProps } from "../../../src/jsx";
 
 /* ── Data generation ── */
@@ -89,34 +89,42 @@ function generateRows(count: number): Row[] {
   return rows;
 }
 
-const TOTAL_ROWS = 25_001;
+const TOTAL_ROWS = 100_000;
 const ALL_ROWS = generateRows(TOTAL_ROWS);
 
 function* TableData({ children }: ComponentProps<"td">) {
-  return <td>{children}</td>;
+  return <div role={"cell"}>{children}</div>;
 }
 
 /* ── Table row ── */
 
 function* TableRow({ row }: { row: Row }) {
   return (
-    <tr>
+    <div
+      style={{
+        display: "grid",
+        contentVisibility: "auto",
+        containIntrinsicSize: "auto 18.5px",
+        gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr",
+      }}
+      role="row"
+    >
       <TableData>
         {row.name} - {row.id}
       </TableData>
-      <td>{row.department}</td>
+      <div role={"cell"}>{row.department}</div>
       <TableData>{row.city}</TableData>
-      <td style={{ textAlign: "right" }}>{row.score}</td>
+      <div role={"cell"} style={{ textAlign: "right" }}>
+        {row.score}
+      </div>
       <TableData style={{ textAlign: "center" }}>{row.active ? "Yes" : "No"}</TableData>
-    </tr>
+    </div>
   );
 }
 
 /* ── Table (reads deferred context) ── */
 
 type SortDir = "asc" | "desc" | "none";
-
-const SearchContext = createContext("");
 
 function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSort: () => void }) {
   const sortLabel = sortDir === "asc" ? " ▲" : sortDir === "desc" ? " ▼" : "";
@@ -140,19 +148,27 @@ function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSo
         borderRadius: "4px",
       }}
     >
-      <table
+      <div
         data-testid="Defer-table"
+        role="table"
         style={{
-          width: "100%",
-          borderCollapse: "collapse",
           fontSize: "0.85rem",
           opacity: false ? "0.5" : "1",
           transition: "opacity 0.15s",
+          width: "100%",
         }}
       >
-        <thead style={{ position: "sticky", top: 0, background: "#f0f0f0" }}>
-          <tr>
-            <th
+        <div
+          style={{
+            position: "sticky",
+            top: 0,
+            background: "#f0f0f0",
+            zIndex: 1,
+          }}
+        >
+          <div role="row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr" }}>
+            <div
+              role={"columnheader"}
               data-testid="sort-name"
               onClick={onSort}
               style={{
@@ -163,28 +179,36 @@ function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSo
               }}
             >
               Name{sortLabel}
-            </th>
-            <th style={{ padding: "0.5rem", textAlign: "left" }}>Department</th>
-            <th style={{ padding: "0.5rem", textAlign: "left" }}>City</th>
-            <th style={{ padding: "0.5rem", textAlign: "right" }}>Score</th>
-            <th style={{ padding: "0.5rem", textAlign: "center" }}>Active</th>
-          </tr>
-        </thead>
+            </div>
+            <div role={"columnheader"} style={{ padding: "0.5rem", textAlign: "left" }}>
+              Department
+            </div>
+            <div role={"columnheader"} style={{ padding: "0.5rem", textAlign: "left" }}>
+              City
+            </div>
+            <div role={"columnheader"} style={{ padding: "0.5rem", textAlign: "right" }}>
+              Score
+            </div>
+            <div role={"columnheader"} style={{ padding: "0.5rem", textAlign: "center" }}>
+              Active
+            </div>
+          </div>
+        </div>
         <Defer value={true}>
           <TableBody rows={sortedRows} />
         </Defer>
-      </table>
+      </div>
     </div>
   );
 }
 
 function* TableBody({ rows }: { rows: Row[] }) {
   return (
-    <tbody>
+    <div role="rowgroup">
       {rows.map((row, index) => (
         <TableRow key={String(row.id)} row={row} deps={[row]} />
       ))}
-    </tbody>
+    </div>
   );
 }
 

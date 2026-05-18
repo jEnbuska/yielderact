@@ -16,14 +16,13 @@ export type ComponentSlotType = typeof componentSlotType;
 export const contextSlotType = "yract-context" as const;
 export type ContextSlotType = typeof contextSlotType;
 export type SlotType =
-  | EmptySlotType
   | TextSlotType
   | ElementSlotType
   | FragmentSlotType
   | ComponentSlotType
   | ContextSlotType;
 
-interface SlotBase<T extends SlotType, N> {
+interface SlotBase<T extends SlotType, N> extends DraftSlotIntent {
   type: T;
   /** position in parent's slot list */
   index: number;
@@ -37,7 +36,6 @@ interface SlotBase<T extends SlotType, N> {
   node: N;
   key: string;
 }
-export interface EmptySlot extends SlotBase<EmptySlotType, Text> {}
 
 export interface TextSlot extends SlotBase<TextSlotType, Text> {
   text: string;
@@ -79,22 +77,25 @@ export interface ContextSlot extends ParentSlotBase<ContextSlotType, Comment> {
 }
 export type ContextChild = VNode<Context>;
 
-export type Slot<T extends SlotType = SlotType> = T extends EmptySlotType
-  ? EmptySlot
-  : T extends TextSlotType
-    ? TextSlot
-    : T extends ElementSlotType
-      ? ElementSlot
-      : T extends FragmentSlotType
-        ? FragmentSlot
-        : T extends ComponentSlotType
-          ? ComponentSlot
-          : T extends ContextSlotType
-            ? ContextSlot
-            : never;
+export type EmptySlotTypeToTextSlotType<T extends SlotType | EmptySlotType> =
+  T extends EmptySlotType ? TextSlotType : T;
 
-export type SlotChild<T extends SlotType = SlotType> = T extends EmptySlotType
-  ? undefined | null | number | boolean | VNode
+export type Slot<T extends SlotType = SlotType> = T extends TextSlotType
+  ? TextSlot
+  : T extends ElementSlotType
+    ? ElementSlot
+    : T extends FragmentSlotType
+      ? FragmentSlot
+      : T extends ComponentSlotType
+        ? ComponentSlot
+        : T extends ContextSlotType
+          ? ContextSlot
+          : never;
+
+export type EmptySlotChild = undefined | null | number | boolean | VNode;
+
+export type SlotChild<T extends SlotType | EmptySlotType = SlotType> = T extends EmptySlotType
+  ? EmptySlotChild
   : T extends TextSlotType
     ? TextChild
     : T extends ElementSlotType
@@ -108,9 +109,9 @@ export type SlotChild<T extends SlotType = SlotType> = T extends EmptySlotType
             : never;
 
 type GenericSlotIntent<
-  TAction extends string,
   T extends SlotType,
   TPrev extends undefined | Slot<T>,
+  TAction extends "CREATED" | "RENDERED" = "CREATED" | "RENDERED",
 > = {
   action: TAction;
   type: T;
@@ -119,24 +120,23 @@ type GenericSlotIntent<
   key: string;
   index: number;
   move: boolean;
-  prev: TPrev;
-  nextKey: undefined | string;
+  old: TPrev;
   text: T extends TextSlotType ? string : undefined;
   props: T extends TextSlotType | EmptySlotType ? undefined : VNodeProps;
 };
 
-export type DraftSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<string, T, any>;
+export type DraftSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<T, any>;
 
 export type SlotIntent<T extends SlotType = SlotType> = CreateSlotIntent<T> | RenderSlotIntent<T>;
 export type CreateSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<
-  "CREATED",
   T,
-  undefined
+  undefined,
+  "CREATED"
 >;
 export type RenderSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<
-  "RENDERED",
   T,
-  Slot<T>
+  Slot<T>,
+  "RENDERED"
 >;
 
 const emptySlots: Slot[] = [];
@@ -144,11 +144,6 @@ export type MakeSlotIntent<T extends SlotType> = Pick<
   DraftSlotIntent<T>,
   "type" | "index" | "key" | "text" | "child" | "props"
 >;
-export function makeSlot(
-  intent: MakeSlotIntent<EmptySlotType>,
-  path: string,
-  node: Text,
-): EmptySlot;
 export function makeSlot(
   intent: MakeSlotIntent<TextSlotType>,
   path: string,
@@ -194,6 +189,7 @@ export function makeSlot(
   endAnchor?: any,
 ) {
   return {
+    action: undefined,
     type: intent.type,
     index: intent.index,
     key: intent.key,

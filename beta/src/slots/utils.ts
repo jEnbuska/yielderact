@@ -2,7 +2,6 @@ import type {
   ComponentSlotType,
   ContextSlotType,
   ElementSlotType,
-  EmptySlotType,
   FragmentSlot,
   FragmentSlotType,
   MakeSlotIntent,
@@ -12,7 +11,6 @@ import {
   type ComponentSlot,
   type ContextSlot,
   type ElementSlot,
-  type EmptySlot,
   makeSlot,
   type TextSlot,
 } from "./slot";
@@ -31,11 +29,6 @@ import { applyElementProps } from "../render/element-props";
  */
 export function createSlotPath(parentPath: string, key: string): string {
   return `${parentPath}$${key.length}:${key}`;
-}
-
-export function createEmptySlot(intent: MakeSlotIntent<EmptySlotType>, path: string): EmptySlot {
-  const node = document.createTextNode("");
-  return makeSlot(intent, path, node);
 }
 
 export function createTextSlot(intent: MakeSlotIntent<TextSlotType>, path: string): TextSlot {

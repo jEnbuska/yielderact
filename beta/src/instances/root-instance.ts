@@ -13,7 +13,7 @@ import type { RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
 import type { OptionalDelegationAction } from "../reconciler/types";
 import { mountRoot } from "../reconciler/mount";
-import { $delegateUi } from "../reconciler/utils";
+import { delegateUi } from "../reconciler/utils";
 import { HTML_NS } from "../render/elements/namespaces";
 import type { Slot } from "../slots/slot";
 
@@ -31,7 +31,7 @@ export class RootInstance extends BaseInstance<typeof Fragment> {
   > {
     const stagingDom = document.createDocumentFragment();
     const result = yield* mountRoot(this.pendingVNode, this, this.parentDom, stagingDom, this.ns);
-    yield $delegateUi(() => this.parentDom.appendChild(stagingDom));
+    yield delegateUi(() => this.parentDom.appendChild(stagingDom));
     return result;
   }
 
@@ -41,9 +41,5 @@ export class RootInstance extends BaseInstance<typeof Fragment> {
     let result = gen.next();
     while (!result.done) result = gen.next();
     this.updateDOM();
-  }
-
-  debugLabel(): string {
-    return "<Root>";
   }
 }
