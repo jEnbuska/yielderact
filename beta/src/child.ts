@@ -31,8 +31,15 @@ import {
 // ---------------------------------------------------------------------------
 
 /** True when the child is a text primitive (string or number). */
-export function isTextChild(child: Child): child is string | number {
-  return typeof child === "string" || typeof child === "number";
+export function isTextChild(child: Child): child is string | number | bigint {
+  const type = typeof child;
+  switch (type) {
+    case "string":
+    case "number":
+    case "bigint":
+      return true;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------
@@ -87,8 +94,8 @@ export function getChildKey<C extends SlotChild | EmptySlotChild>(
 ): string {
   switch (type) {
     case componentSlotType:
-    case contextSlotType:
-    case fragmentSlotType: {
+    case fragmentSlotType:
+    case contextSlotType: {
       const { type, props } = child as VNode<typeof Fragment | Component | Context>;
       const slotId = otherIdMap.getOrInsertComputed(type, randomId);
       const key = props.key ?? fallback;

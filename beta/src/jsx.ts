@@ -24,7 +24,7 @@ export interface VNode<T extends VNodeType = VNodeType> {
  * at reconciliation time, so each nested array becomes a stable inner
  * slot whose own children are reconciled in place across renders.
  */
-export type SingleChild = VNode | string | number | boolean | null | undefined;
+export type SingleChild = VNode | string | number | bigint | boolean | null | undefined;
 export type Child = SingleChild | Child[];
 
 /**

@@ -269,8 +269,6 @@ export class Scheduler {
           await this.checkAwait();
           res = gen.next();
         }
-
-        // console.log("i", i, this.total);
       }
 
       this.renderDeferredGroups.pop();

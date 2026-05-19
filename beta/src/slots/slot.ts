@@ -2,6 +2,7 @@ import type { Child, Component, Context, Fragment, VNode, VNodeProps } from "yra
 import type { RefLike } from "../render/element-props";
 import type { BaseInstance } from "../instances/base-instance";
 import type { SlotElement } from "../render/elements/namespaces";
+import { emptyMap } from "../general";
 
 export const emptySlotType = "yract-empty" as const;
 export type EmptySlotType = typeof emptySlotType;
@@ -22,7 +23,15 @@ export type SlotType =
   | ComponentSlotType
   | ContextSlotType;
 
-interface SlotBase<T extends SlotType, N extends Node[]> extends DraftSlotIntent {
+export type SlotNodes<T extends SlotType = SlotType> = T extends TextSlotType
+  ? [Text]
+  : T extends ElementSlotType
+    ? [SlotElement]
+    : [Comment, Comment];
+
+interface SlotBase<T extends SlotType> {
+  action: "";
+  move: undefined;
   type: T;
   /** position in parent's slot list */
   index: number;
@@ -33,17 +42,18 @@ interface SlotBase<T extends SlotType, N extends Node[]> extends DraftSlotIntent
    * renders as long as `key` / index don't change.
    */
   path: string;
-  nodes: N;
+  nodes: SlotNodes<T>;
   key: string;
+  children: SlotChild<T>;
 }
 
-export interface TextSlot extends SlotBase<TextSlotType, [Text]> {
+export interface TextSlot extends SlotBase<TextSlotType> {
   text: string;
 }
 
-export type TextChild = string | number;
+export type TextChild = string | number | bigint;
 
-interface ParentSlotBase<T extends SlotType, N extends Node[]> extends SlotBase<T, N> {
+interface ParentSlotBase<T extends SlotType> extends SlotBase<T> {
   slots: Map<string, Slot>;
   /**
    * The props object at last render.
@@ -54,22 +64,22 @@ interface ParentSlotBase<T extends SlotType, N extends Node[]> extends SlotBase<
    */
   props: VNodeProps;
 }
-export interface ElementSlot extends ParentSlotBase<ElementSlotType, [SlotElement]> {
+export interface ElementSlot extends ParentSlotBase<ElementSlotType> {
   props: VNodeProps & { ref?: RefLike };
 }
 
 export type ElementChild = VNode<keyof JSX.IntrinsicElements>;
 
-export interface FragmentSlot extends ParentSlotBase<FragmentSlotType, [Comment, Comment]> {}
+export interface FragmentSlot extends ParentSlotBase<FragmentSlotType> {}
 
 export type FragmentChild = VNode<typeof Fragment>;
 
-export interface ComponentSlot extends ParentSlotBase<ComponentSlotType, [Comment, Comment]> {
+export interface ComponentSlot extends ParentSlotBase<ComponentSlotType> {
   instance: BaseInstance<Component>;
 }
 
 export type ComponentChild = VNode<Component>;
-export interface ContextSlot extends ParentSlotBase<ContextSlotType, [Comment, Comment]> {
+export interface ContextSlot extends ParentSlotBase<ContextSlotType> {
   instance: BaseInstance<Context>;
 }
 export type ContextChild = VNode<Context>;
@@ -112,18 +122,24 @@ type GenericSlotIntent<
 > = {
   action: TAction;
   type: T;
+  path: "";
   child: T extends TextSlotType | EmptySlotType ? undefined : SlotChild<T>;
-  children: Child[];
+  children: Child;
   key: string;
   index: number;
   move: boolean;
   old: TPrev;
   text: T extends TextSlotType ? string : undefined;
   props: T extends TextSlotType | EmptySlotType ? undefined : VNodeProps;
-  nodes: undefined | Node[];
+  nodes: unknown[];
+  instance: undefined;
+  slots: Map<unknown, unknown>;
 };
 
-export type DraftSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<T, any>;
+export type DraftSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<
+  T,
+  undefined | Slot<T>
+>;
 
 export type SlotIntent<T extends SlotType = SlotType> = CreateSlotIntent<T> | RenderSlotIntent<T>;
 export type CreateSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<

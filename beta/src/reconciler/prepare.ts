@@ -11,22 +11,28 @@ import type {
   SlotType,
   TextSlotType,
 } from "../slots/slot";
-import { emptySlotType, textSlotType } from "../slots/slot";
+import { emptySlotType, fragmentSlotType, textSlotType } from "../slots/slot";
 import type { Child, VNode, VNodeProps } from "../jsx";
 import { Fragment } from "../jsx";
-import type { DelegatedUI } from "./types";
 import { getChildKey, getChildType } from "../child";
-import { delegateUi } from "./utils";
-import { stage } from "../general";
+import type { DelegatedUI } from "./delegation";
+import { delegateUi } from "./delegation";
+import { emptyMap, stage } from "../general";
 
 import { removeSlotNodes } from "./dom-updates";
 
-export function draftIntents(children: Child[]) {
-  const drafts = new Map<string, DraftSlotIntent | Slot>();
+export function draftIntents(children: Child[]): Map<string, DraftSlotIntent | Slot> {
+  if (children.length === 0) return emptyMap;
+  const drafts = new Map<string, DraftSlotIntent>();
   for (let index = 0; index < children.length; index++) {
     let child = children[index]!;
-    if (Array.isArray(child)) child = asFragmentChild(child);
-    const type = getChildType(child);
+    let type: SlotType | EmptySlotType;
+    if (Array.isArray(child)) {
+      child = asFragmentChild(child);
+      type = fragmentSlotType;
+    } else {
+      type = getChildType(child);
+    }
     const key = getChildKey(child, index, type);
     const intent = createDraftIntent(type, child, key, index);
     drafts.set(key, intent);
@@ -43,6 +49,7 @@ function asFragmentChild(children: Child[]): FragmentChild {
   };
 }
 
+const defaultNodes: [Node, ...Node[]] = [] as any;
 export function createDraftIntent<T extends SlotType | EmptySlotType>(
   type: T,
   slotChild: SlotChild<T>,
@@ -71,7 +78,8 @@ export function createDraftIntent<T extends SlotType | EmptySlotType>(
       );
   }
   return {
-    action: "INITIAL",
+    action: "",
+    path: "",
     type,
     props,
     child,
@@ -102,25 +110,24 @@ export function fillIntentDrafts(
       p.action = "CREATED";
     }
   }
+  return drafts as Map<string, SlotIntent>;
 }
 
 const emptyChildren: Child[] = [];
 function getIntentChildren<T extends Exclude<SlotType, EmptySlotType | TextSlotType>>(
   child: SlotChild<T>,
-): Child[] {
-  if ("children" in child.props) {
-    const { children } = child.props;
-    if (children == null || typeof children === "boolean") return emptyChildren;
-    if (Array.isArray(children)) return children;
-    return [children as Child];
-  }
-  return emptyChildren;
+): Child {
+  const { children } = child.props;
+  if (children === undefined) return emptyChildren;
+  if (Array.isArray(children)) return children;
+  return [children];
 }
 
 export function* delegateRemovals(
   drafts: Map<string, any>,
-  oldSlots: Map<string, Slot>,
+  oldSlots: Map<string, Slot> | undefined,
 ): Generator<DelegatedUI, void, unknown> {
+  if (!oldSlots) return;
   for (const [key, slot] of oldSlots) {
     if (drafts.has(key)) continue;
     yield delegateUi(stage(removeSlotNodes, slot));

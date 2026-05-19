@@ -23,3 +23,4 @@ export function first<T>(arr: [T, ...T[]]): T {
 export function last<T>(arr: [T, ...T[]]): T {
   return arr[arr.length - 1]!;
 }
+export const emptyMap = new Map<string, any>();
