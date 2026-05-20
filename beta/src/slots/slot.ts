@@ -126,23 +126,25 @@ export type SlotIntentAction = "CREATED" | "RENDERED";
 export type SlotIntent<
   T extends SlotType = SlotType,
   TAction extends SlotIntentAction = "CREATED" | "RENDERED",
-> = {
-  action: TAction;
-  child: SlotIntentChild<T>;
-  children: Child[];
-  headNode: Node | undefined;
-  index: number;
-  instance: undefined | BaseInstance;
-  key: string;
-  move?: boolean;
-  path: string;
-  props: SlotProps<T>;
-  prevProps: undefined | SlotProps<T>;
-  slots: Map<string, Slot>;
-  tailNode: Node | undefined;
-  text: SlotText<T>;
-  type: T;
-};
+> = T extends SlotType
+  ? {
+      action: TAction;
+      child: SlotIntentChild<T>;
+      children: Child[];
+      headNode: Node | undefined;
+      index: number;
+      instance: undefined | BaseInstance;
+      key: string;
+      move?: boolean;
+      path: string;
+      props: SlotProps<T>;
+      prevProps: undefined | SlotProps<T>;
+      slots: Map<string, Slot>;
+      tailNode: Node | undefined;
+      text: SlotText<T>;
+      type: T;
+    }
+  : never;
 
 export function intentToSlot(
   intent: SlotIntent<TextSlotType>,

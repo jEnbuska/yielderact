@@ -39,40 +39,17 @@ export function buildIntentToSlot(
 ): Generator<OptionalDelegationAction, void> {
   switch (intent.type) {
     case componentSlotType:
-      return buildIntentToComponentSlot(
-        intent as SlotIntent<ComponentSlotType>,
-        parentDom,
-        beforeNode,
-        ns,
-      );
+      return buildIntentToComponentSlot(intent, parentDom, beforeNode, ns);
     case textSlotType:
-      return buildIntentToTextSlot(intent as SlotIntent<TextSlotType>, parentDom, beforeNode);
-
+      return buildIntentToTextSlot(intent, parentDom, beforeNode);
     case elementSlotType:
-      return buildIntentToElementSlot(
-        intent as SlotIntent<ElementSlotType>,
-        parentDom,
-        beforeNode,
-        ns,
-        parentInstance,
-      );
+      return buildIntentToElementSlot(intent, parentDom, beforeNode, ns, parentInstance);
     case fragmentSlotType:
-      return buildIntentToFragmentSlot(
-        intent as SlotIntent<FragmentSlotType>,
-        parentDom,
-        beforeNode,
-        ns,
-        parentInstance,
-      );
+      return buildIntentToFragmentSlot(intent, parentDom, beforeNode, ns, parentInstance);
     case contextSlotType:
-      return buildIntentToContextSlot(
-        intent as SlotIntent<ContextSlotType>,
-        parentDom,
-        beforeNode,
-        ns,
-      );
+      return buildIntentToContextSlot(intent, parentDom, beforeNode, ns);
     default:
-      throw new Error(`yract-beta: unknown SlotType: ${intent.type satisfies never}`);
+      throw new Error(`yract-beta: unknown intent: ${intent satisfies never}`);
   }
 }
 

@@ -31,39 +31,23 @@ import { mount } from "./reconciler";
 export function mountSlot(
   intent: SlotIntent,
   parentInstance: BaseInstance,
+  ns: TagNamespace,
   parentDom: Node,
   stagingDom: Node,
-  ns: TagNamespace,
 ): Generator<OptionalDelegationAction, void> {
   switch (intent.type) {
-    case componentSlotType: {
-      return mountComponentSlot(intent as SlotIntent<ComponentSlotType>, parentDom, stagingDom, ns);
-    }
-    case textSlotType: {
-      return mountTextSlot(intent as SlotIntent<TextSlotType>, stagingDom);
-    }
-    case elementSlotType: {
-      return mountElementSlot(
-        intent as SlotIntent<ElementSlotType>,
-        stagingDom,
-        parentInstance,
-        ns,
-      );
-    }
-    case fragmentSlotType: {
-      return mountFragmentSlot(
-        intent as SlotIntent<FragmentSlotType>,
-        parentDom,
-        stagingDom,
-        parentInstance,
-        ns,
-      );
-    }
-    case contextSlotType: {
-      return mountContextSlot(intent as SlotIntent<ContextSlotType>, parentDom, stagingDom, ns);
-    }
+    case componentSlotType:
+      return mountComponentSlot(intent, parentDom, stagingDom, ns);
+    case textSlotType:
+      return mountTextSlot(intent, stagingDom);
+    case elementSlotType:
+      return mountElementSlot(intent, stagingDom, parentInstance, ns);
+    case fragmentSlotType:
+      return mountFragmentSlot(intent, parentDom, stagingDom, parentInstance, ns);
+    case contextSlotType:
+      return mountContextSlot(intent, parentDom, stagingDom, ns);
     default:
-      throw new Error(`yract-beta: unknown SlotType: ${intent.type satisfies never}`);
+      throw new Error(`yract-beta: unknown SlotType: ${intent satisfies never}`);
   }
 }
 

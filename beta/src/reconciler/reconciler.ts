@@ -1,15 +1,9 @@
 import type { Child, SingleChild } from "../jsx";
 import type { BaseInstance } from "../instances/base-instance";
-import type { Slot, SlotIntent } from "../slots/slot";
+import type { Slot } from "../slots/slot";
 import type { TagNamespace } from "../render/elements/namespaces";
 import type { OptionalDelegationAction } from "./types";
-import {
-  createDraftIntent,
-  delegateRemovals,
-  draftIntents,
-  fillIntentDrafts,
-  inheritSlot,
-} from "./slot-intent";
+import { createDraftIntent, delegateRemovals, draftIntents, fillIntentDrafts, inheritSlot, } from "./slot-intent";
 import { delegateUi } from "./delegation";
 import { moveSlot } from "./dom-updates";
 import { getValuesReversed, stage } from "../general";
@@ -83,7 +77,7 @@ export function* mount(
   const drafts = draftIntents(children, parentPath);
   const slots = drafts as any as Map<string, Slot>;
   for (const [key, draft] of drafts) {
-    yield* mountSlot(draft as SlotIntent, parentInstance, parentDom, stagingDom, ns);
+    yield* mountSlot(draft, parentInstance, ns, parentDom, stagingDom);
     slots.set(key, draft as Slot);
   }
   return slots;
@@ -98,6 +92,6 @@ export function* mountRoot(
 ): Generator<OptionalDelegationAction, Slot> {
   const type = getChildType(child);
   const draft = createDraftIntent(type, child, 0, "");
-  yield* mountSlot(draft, parentInstance, parentDom, stagingDom, ns);
+  yield* mountSlot(draft, parentInstance, ns, parentDom, stagingDom);
   return draft as Slot;
 }
