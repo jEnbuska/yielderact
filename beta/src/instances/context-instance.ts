@@ -74,7 +74,7 @@ export class ContextInstance extends BaseInstance<Context> {
 
   protected override render(
     props: VNodeProps,
-  ): Generator<OptionalDelegationAction, { slot: Slot; key: string }, BaseInstance> {
+  ): Generator<OptionalDelegationAction, Slot, BaseInstance> {
     const newValue = props!["value"];
     if (!Object.is(this.handle.ref.current, newValue)) {
       this.notify = true;

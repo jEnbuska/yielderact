@@ -1,8 +1,6 @@
 import type { Child, Component, Context, Fragment, VNode, VNodeProps } from "yract-beta";
-import type { RefLike } from "../render/element-props";
 import type { BaseInstance } from "../instances/base-instance";
 import type { SlotElement } from "../render/elements/namespaces";
-import { emptyMap } from "../general";
 
 export const emptySlotType = "yract-empty" as const;
 export type EmptySlotType = typeof emptySlotType;
@@ -23,28 +21,41 @@ export type SlotType =
   | ComponentSlotType
   | ContextSlotType;
 
-export type SlotNodes<T extends SlotType = SlotType> = T extends TextSlotType
-  ? [Text]
+export type SlotHeadNode<T extends SlotType = SlotType> = T extends TextSlotType
+  ? Text
   : T extends ElementSlotType
-    ? [SlotElement]
-    : [Comment, Comment];
+    ? SlotElement
+    : Comment;
 
-interface SlotBase<T extends SlotType> {
-  action: "";
-  move: undefined;
-  type: T;
-  /** position in parent's slot list */
+export type SlotTailNode<T extends SlotType = SlotType> = T extends TextSlotType
+  ? undefined
+  : T extends ElementSlotType
+    ? undefined
+    : Comment;
+
+type SlotInstance<T extends SlotType> = T extends ComponentSlotType
+  ? BaseInstance<Component>
+  : T extends ContextSlotType
+    ? BaseInstance<Context>
+    : undefined;
+
+interface SlotBase<T extends SlotType, TAction extends SlotIntentAction = SlotIntentAction> {
+  action: TAction;
+  child: SlotIntentChild<T>;
+  children: Child[];
+  headNode: SlotHeadNode<T>;
   index: number;
-  /**
-   * Path to this slot in the render tree, as an array of `SlotKey`
-   * (`key` when the child VNode has one, falling back to the positional
-   * index). Computed by the reconciler on build / update and stable across
-   * renders as long as `key` / index don't change.
-   */
-  path: string;
-  nodes: SlotNodes<T>;
+  instance: SlotInstance<T>;
   key: string;
-  children: SlotChild<T>;
+  move: undefined | boolean;
+  path: string;
+  props: SlotProps<T>;
+  prevProps: SlotProps<T>;
+  slots: Map<string, Slot>;
+  tailNode: SlotTailNode<T>;
+  text: SlotText<T>;
+  prevText: SlotText<T>;
+  type: T;
 }
 
 export interface TextSlot extends SlotBase<TextSlotType> {
@@ -53,35 +64,16 @@ export interface TextSlot extends SlotBase<TextSlotType> {
 
 export type TextChild = string | number | bigint;
 
-interface ParentSlotBase<T extends SlotType> extends SlotBase<T> {
-  slots: Map<string, Slot>;
-  /**
-   * The props object at last render.
-   *
-   * Used by the reconciler for shallow-equality memoization: if the new
-   * VNode has the same type and `shallowEqual(prevSlot.props, newProps)`,
-   * the component is skipped (no rerender).
-   */
-  props: VNodeProps;
-}
-export interface ElementSlot extends ParentSlotBase<ElementSlotType> {
-  props: VNodeProps & { ref?: RefLike };
-}
+export type ElementSlot = SlotBase<ElementSlotType, "RENDERED">;
 
 export type ElementChild = VNode<keyof JSX.IntrinsicElements>;
-
-export interface FragmentSlot extends ParentSlotBase<FragmentSlotType> {}
-
+export type FragmentSlot = SlotBase<FragmentSlotType, "RENDERED">;
 export type FragmentChild = VNode<typeof Fragment>;
 
-export interface ComponentSlot extends ParentSlotBase<ComponentSlotType> {
-  instance: BaseInstance<Component>;
-}
+export type ComponentSlot = SlotBase<ComponentSlotType, "RENDERED">;
 
 export type ComponentChild = VNode<Component>;
-export interface ContextSlot extends ParentSlotBase<ContextSlotType> {
-  instance: BaseInstance<Context>;
-}
+export type ContextSlot = SlotBase<ContextSlotType>;
 export type ContextChild = VNode<Context>;
 
 export type EmptySlotTypeToTextSlotType<T extends SlotType | EmptySlotType> =
@@ -115,99 +107,75 @@ export type SlotChild<T extends SlotType | EmptySlotType = SlotType> = T extends
             ? ContextChild
             : never;
 
-type GenericSlotIntent<
-  T extends SlotType,
-  TPrev extends undefined | Slot<T>,
-  TAction extends "CREATED" | "RENDERED" = "CREATED" | "RENDERED",
+export type SlotIntentChild<T extends SlotType | EmptySlotType> = T extends
+  | TextSlotType
+  | EmptySlotType
+  ? undefined
+  : SlotChild<T>;
+
+export type SlotText<T extends SlotType | EmptySlotType> = T extends TextSlotType
+  ? string
+  : undefined;
+
+export type SlotProps<T extends SlotType | EmptySlotType> = T extends TextSlotType | EmptySlotType
+  ? undefined
+  : VNodeProps;
+
+export type SlotIntentAction = "CREATED" | "RENDERED";
+
+export type SlotIntent<
+  T extends SlotType = SlotType,
+  TAction extends SlotIntentAction = "CREATED" | "RENDERED",
 > = {
   action: TAction;
-  type: T;
-  path: "";
-  child: T extends TextSlotType | EmptySlotType ? undefined : SlotChild<T>;
-  children: Child;
-  key: string;
+  child: SlotIntentChild<T>;
+  children: Child[];
+  headNode: Node | undefined;
   index: number;
-  move: boolean;
-  old: TPrev;
-  text: T extends TextSlotType ? string : undefined;
-  props: T extends TextSlotType | EmptySlotType ? undefined : VNodeProps;
-  nodes: unknown[];
-  instance: undefined;
-  slots: Map<unknown, unknown>;
+  instance: undefined | BaseInstance;
+  key: string;
+  move?: boolean;
+  path: string;
+  props: SlotProps<T>;
+  prevProps: undefined | SlotProps<T>;
+  slots: Map<string, Slot>;
+  tailNode: Node | undefined;
+  text: SlotText<T>;
+  type: T;
 };
 
-export type DraftSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<
-  T,
-  undefined | Slot<T>
->;
-
-export type SlotIntent<T extends SlotType = SlotType> = CreateSlotIntent<T> | RenderSlotIntent<T>;
-export type CreateSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<
-  T,
-  undefined,
-  "CREATED"
->;
-export type RenderSlotIntent<T extends SlotType = SlotType> = GenericSlotIntent<
-  T,
-  Slot<T>,
-  "RENDERED"
->;
-
-const emptySlots: Slot[] = [];
-export type MakeSlotIntent<T extends SlotType> = Pick<
-  DraftSlotIntent<T>,
-  "type" | "index" | "key" | "text" | "child" | "props"
->;
-export function makeSlot(
-  intent: MakeSlotIntent<TextSlotType>,
-  path: string,
-  nodes: [Text],
-): TextSlot;
-export function makeSlot(
-  intent: MakeSlotIntent<FragmentSlotType>,
-  path: string,
-  nodes: [Comment, Comment],
-  props: VNodeProps,
-): FragmentSlot;
-export function makeSlot(
-  intent: MakeSlotIntent<ElementSlotType>,
-  path: string,
-  nodes: [SlotElement],
-  props: VNodeProps & { ref?: RefLike },
-): ElementSlot;
-export function makeSlot(
-  intent: MakeSlotIntent<ComponentSlotType>,
-  path: string,
-  nodes: [Comment, Comment],
-  props: VNodeProps,
+export function intentToSlot(
+  intent: SlotIntent<TextSlotType>,
+  headNode: Text,
+): asserts intent is TextSlot;
+export function intentToSlot(
+  intent: SlotIntent<FragmentSlotType>,
+  headNode: Comment,
+  tailNode: Comment,
+): asserts intent is FragmentSlot;
+export function intentToSlot(
+  intent: SlotIntent<ElementSlotType>,
+  headNode: SlotElement,
+): asserts intent is ElementSlot;
+export function intentToSlot(
+  intent: SlotIntent<ComponentSlotType>,
+  headNode: Comment,
+  tailNode: Comment,
   instance: BaseInstance<Component>,
-): ComponentSlot;
-
-export function makeSlot(
-  intent: MakeSlotIntent<ContextSlotType>,
-  path: string,
-  nodes: [Comment, Comment],
-  props: VNodeProps,
+): asserts intent is ComponentSlot;
+export function intentToSlot(
+  intent: SlotIntent<ContextSlotType>,
+  headNode: Comment,
+  tailNode: Comment,
   instance: BaseInstance<Context>,
-): ContextSlot;
-
-export function makeSlot(
-  intent: MakeSlotIntent<SlotType>,
-  path: string,
-  nodes: Node[],
-  props?: any,
+): asserts intent is ContextSlot;
+export function intentToSlot(
+  intent: SlotIntent,
+  headNode: Node,
+  tailNode?: Node | undefined,
   instance?: BaseInstance,
-) {
-  return {
-    action: undefined,
-    type: intent.type,
-    index: intent.index,
-    key: intent.key,
-    text: intent.text,
-    path,
-    nodes,
-    props,
-    instance,
-    slots: emptySlots,
-  } as any;
+): any {
+  intent.headNode = headNode;
+  intent.tailNode = tailNode;
+  intent.instance = instance;
 }

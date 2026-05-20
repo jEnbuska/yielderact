@@ -1,0 +1,51 @@
+import type { Slot } from "../slots/slot";
+import {
+  type ComponentSlot,
+  type ContextSlot,
+  elementSlotType,
+  type FragmentSlot,
+  fragmentSlotType,
+  textSlotType,
+} from "../slots/slot";
+import { getValuesReversed } from "../general";
+
+export function removeSlotNodes(slot: Slot) {
+  switch (slot.type) {
+    case textSlotType:
+    case elementSlotType:
+      slot.headNode.remove();
+      break;
+    case fragmentSlotType:
+      removeFragmentNodes(slot);
+      break;
+    default:
+      removeInstanceNodes(slot);
+  }
+}
+
+function removeInstanceNodes(slot: ComponentSlot | ContextSlot) {
+  const { headNode, tailNode, instance } = slot;
+  headNode.remove();
+  removeSlotNodes(instance.slot!);
+  tailNode.remove();
+}
+
+function removeFragmentNodes({ tailNode, slots, headNode }: FragmentSlot) {
+  tailNode.remove();
+  for (const next of getValuesReversed(slots)) {
+    switch (next.type) {
+      case textSlotType:
+      case elementSlotType:
+        headNode.remove();
+        break;
+      case fragmentSlotType:
+        for (const child of getValuesReversed(next.slots)) {
+          removeSlotNodes(child);
+        }
+        break;
+      default:
+        removeInstanceNodes(next);
+    }
+  }
+  headNode.remove();
+}

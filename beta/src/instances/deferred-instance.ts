@@ -56,9 +56,7 @@ export class DeferredInstance extends BaseInstance<Context> {
     return !this.initialRender || resolveCtxValue(this.parent?.ctx, Defer);
   }
 
-  protected render(
-    props: VNodeProps,
-  ): Generator<OptionalDelegationAction, { key: string; slot: Slot }, BaseInstance> {
+  protected render(props: VNodeProps): Generator<OptionalDelegationAction, Slot, BaseInstance> {
     const children = (props["children"] as Child[]) ?? [];
     return this.reconcile({
       type: Fragment,

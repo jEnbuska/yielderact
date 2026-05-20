@@ -7,11 +7,10 @@ import type { Component, SingleChild, VNode, VNodeProps, VNodeType } from "../js
 import { propsWithChildren, shallowEqual } from "../prop-helpers";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
 import type { OptionalDelegationAction } from "../reconciler/types";
-import { reconcileRoot } from "../reconciler/reconciler";
+import { mountRoot, reconcileRoot } from "../reconciler/reconciler";
 import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
 import { Defer } from "./defer-context";
-import { mountRoot } from "../reconciler/mount";
-import { delegateUi } from "../reconciler/utils";
+import { delegateUi } from "../reconciler/delegation";
 import type { Slot } from "../slots/slot";
 import type { RefLike } from "../render/element-props";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
@@ -38,7 +37,6 @@ type InstanceReconcileResult = {
   instances: Map<string, BaseInstance> | undefined;
   nextRefs: Map<SlotElement, RefLike> | undefined;
   nextSlot: Slot;
-  nextKey: string;
 };
 type RenderGenerator = Generator<void, InstanceReconcileResult>;
 
@@ -86,9 +84,6 @@ export abstract class BaseInstance<
   slot?: Slot = undefined;
   nextSlot?: Slot = undefined;
 
-  key?: string = undefined;
-  nextKey?: string = undefined;
-
   private props: VNodeProps;
 
   /** Saved generator from an interrupted deferred render. */
@@ -134,7 +129,7 @@ export abstract class BaseInstance<
   }
 
   debugLabel() {
-    return `<${this.vnode.type?.name ?? "Root"}>`
+    return `<${this.vnode.type?.name ?? "Root"}>`;
   }
 
   deferred() {
@@ -191,7 +186,6 @@ export abstract class BaseInstance<
     const result = yield* gen;
     this.pendingRender = undefined;
     this.renderReasons?.clear();
-    this.nextKey = result.nextKey;
     this.nextSlot = result.nextSlot;
     this.pendingDomUpdates = result.domUpdates;
     this.nextRefs = result.nextRefs;
@@ -292,21 +286,20 @@ export abstract class BaseInstance<
       for (const [instance, props] of updatedInstances) instance.setProps(props);
     }
 
-    const { key, slot } = result.value;
+    const slot = result.value;
     this.preparedInstances = undefined;
     return {
       domUpdates,
       unmountedInstances,
       instances: nextInstances ?? instances,
       nextRefs,
-      nextKey: key,
       nextSlot: slot,
     };
   }
 
   protected abstract render(
     props: Record<string, unknown>,
-  ): Generator<OptionalDelegationAction, { key: string; slot: Slot }, BaseInstance>;
+  ): Generator<OptionalDelegationAction, Slot, BaseInstance>;
 
   protected *reconcile(child: SingleChild) {
     if (!this.slot) {
@@ -323,7 +316,6 @@ export abstract class BaseInstance<
     for (const domUpdate of this.pendingDomUpdates) domUpdate();
     this.pendingDomUpdates.length = 0;
     this.slot = this.nextSlot;
-    this.key = this.nextKey;
     this.updateRefs();
   }
 

@@ -4,14 +4,14 @@ import type {
   ElementSlotType,
   FragmentSlot,
   FragmentSlotType,
-  MakeSlotIntent,
+  SlotIntent,
   TextSlotType,
 } from "./slot";
 import {
   type ComponentSlot,
   type ContextSlot,
   type ElementSlot,
-  makeSlot,
+  intentToSlot,
   type TextSlot,
 } from "./slot";
 import type { Component, Context } from "yract-beta";
@@ -21,58 +21,39 @@ import type { TagNamespace } from "../render/elements/namespaces";
 import { createElement } from "../render/elements/create";
 import { applyElementProps } from "../render/element-props";
 
-/**
- * Build a unique slot path string from a parent path and a child key.
- * Positional indices (number) are prefixed with `#`.
- * User-provided string keys are length-prefixed with `$` to avoid
- * collisions with indices and to handle arbitrary string content safely.
- */
-export function createSlotPath(parentPath: string, key: string): string {
-  return `${parentPath}$${key.length}:${key}`;
-}
-
-export function createTextSlot(intent: MakeSlotIntent<TextSlotType>, path: string): TextSlot {
+export function toTextSlot(intent: SlotIntent<TextSlotType>): asserts intent is TextSlot {
   const text = intent.text;
-  return makeSlot(intent, path, [document.createTextNode(text)]);
+  intentToSlot(intent, document.createTextNode(text));
 }
 
-export function createElementSlot(
-  intent: MakeSlotIntent<ElementSlotType>,
+export function toElementSlot(
+  intent: SlotIntent<ElementSlotType>,
   delegationRoot: DelegationRoot,
-  path: string,
   ns: TagNamespace,
-): ElementSlot {
+): asserts intent is ElementSlot {
   const { child } = intent;
   const { props } = child;
   const node = createElement(ns, child.type);
   applyElementProps(node, props, delegationRoot);
-  return makeSlot(intent, path, [node], props);
+  intentToSlot(intent, node);
 }
 
-export function createFragmentSlot(
-  intent: MakeSlotIntent<FragmentSlotType>,
-  path: string,
-): FragmentSlot {
-  return makeSlot(
-    intent,
-    path,
-    [document.createComment("fragment"), document.createComment("/fragment")],
-    intent.props,
-  );
+export function toFragmentSlot(
+  intent: SlotIntent<FragmentSlotType>,
+): asserts intent is FragmentSlot {
+  intentToSlot(intent, document.createComment("fragment"), document.createComment("/fragment"));
 }
 
-export function createComponentSlot(
-  intent: MakeSlotIntent<ComponentSlotType>,
+export function toComponentSlot(
+  intent: SlotIntent<ComponentSlotType>,
   instance: BaseInstance<Component>,
-  path: string,
-): ComponentSlot {
-  return makeSlot(intent, path, [instance.startAnchor, instance.endAnchor], intent.props, instance);
+): asserts intent is ComponentSlot {
+  intentToSlot(intent, instance.startAnchor, instance.endAnchor, instance);
 }
 
-export function createContextSlot(
-  intent: MakeSlotIntent<ContextSlotType>,
+export function toContextSlot(
+  intent: SlotIntent<ContextSlotType>,
   instance: BaseInstance<Context>,
-  path: string,
-): ContextSlot {
-  return makeSlot(intent, path, [instance.startAnchor, instance.endAnchor], intent.props, instance);
+): asserts intent is ContextSlot {
+  intentToSlot(intent, instance.startAnchor, instance.endAnchor, instance);
 }

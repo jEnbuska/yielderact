@@ -16,7 +16,7 @@ import type { Slot } from "../slots/slot";
 export class ComponentInstance extends BaseInstance<Component> {
   protected override render(
     props: Record<string, unknown>,
-  ): Generator<OptionalDelegationAction, { slot: Slot; key: string }, BaseInstance> {
+  ): Generator<OptionalDelegationAction, Slot, BaseInstance> {
     const fn = this.vnode.type as Component<Record<string, any>>;
     if (typeof fn !== "function") {
       throw new Error(

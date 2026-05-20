@@ -11,10 +11,11 @@ import { type Context, ContextSymbol } from "./context";
 import { type Child, type Component, Fragment, type SingleChild, type VNode } from "./jsx";
 
 import type {
+  ComponentChild,
+  ContextChild,
   ElementChild,
-  EmptySlotChild,
   EmptySlotType,
-  SlotChild,
+  FragmentChild,
   SlotType,
 } from "./slots/slot";
 import {
@@ -69,9 +70,6 @@ export function isContextVNode(child: VNode): child is VNode<Context> {
   return ContextSymbol in child;
 }
 
-// ---------------------------------------------------------------------------
-// Child helpers
-// ---------------------------------------------------------------------------
 const otherIdMap = new WeakMap<typeof Fragment | Component<any> | Context, string>();
 
 let randomRoot: string | undefined;
@@ -83,35 +81,6 @@ function randomId(): string {
   }
   return `${randomRoot}${randomIndex++}`;
 }
-/**
- * The key the reconciler uses to match a child against a previous slot.
- * Falls back to the positional index when the child has no `key`.
- */
-export function getChildKey<C extends SlotChild | EmptySlotChild>(
-  child: C,
-  fallback: number,
-  type: SlotType | EmptySlotType,
-): string {
-  switch (type) {
-    case componentSlotType:
-    case fragmentSlotType:
-    case contextSlotType: {
-      const { type, props } = child as VNode<typeof Fragment | Component | Context>;
-      const slotId = otherIdMap.getOrInsertComputed(type, randomId);
-      const key = props.key ?? fallback;
-      return `"${slotId}"${typeof key}"${key}"`;
-    }
-    case textSlotType:
-    case emptySlotType: {
-      return `"leaf""${fallback}"`;
-    }
-    case elementSlotType: {
-      const { type, props } = child as ElementChild;
-      const key = props.key ?? fallback;
-      return `"${type}"${typeof key}"${key}"`;
-    }
-  }
-}
 
 export function getChildType(child: SingleChild): SlotType | EmptySlotType {
   if (isEmptyChild(child)) return emptySlotType;
@@ -122,4 +91,24 @@ export function getChildType(child: SingleChild): SlotType | EmptySlotType {
   if (isContextVNode(child)) return contextSlotType;
   if (typeof child.type === "function") return componentSlotType;
   throw new Error("Invalid child");
+}
+
+export function getCustomChildKey(
+  child: FragmentChild | ComponentChild | ContextChild,
+  fallback: number,
+): string {
+  const { type, props } = child as VNode<typeof Fragment | Component | Context>;
+  const slotId = otherIdMap.getOrInsertComputed(type, randomId);
+  const key = props.key ?? fallback;
+  return `"${slotId}"${typeof key}"${key}"`;
+}
+
+export function getLeafChildKey(fallback: number): string {
+  return `"leaf""${fallback}"`;
+}
+
+export function getElementChildKey(child: ElementChild, fallback: number): string {
+  const { type, props } = child;
+  const key = props.key ?? fallback;
+  return `"${type}"${typeof key}"${key}"`;
 }
