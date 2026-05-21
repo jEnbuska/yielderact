@@ -1,4 +1,4 @@
-import type { VNode, VNodeProps } from "./jsx";
+import type { VNodeProps } from "./jsx";
 
 /** Shallow equality check for two objects (same keys, all values `Object.is`). */
 export function shallowEqual(a: Record<string, unknown>, b: Record<string, unknown>): boolean {
@@ -16,7 +16,15 @@ export function shallowEqual(a: Record<string, unknown>, b: Record<string, unkno
  * stripping framework directives (`key`, `shown`) that are consumed
  * by the reconciler and should never reach component/context instances.
  */
-export function propsWithChildren(vnode: VNode): VNodeProps {
-  const { key: _k, shown: _s, deps: _d, ...rest } = vnode.props;
-  return { ...rest, children: vnode.props.children } as VNodeProps;
+export function propsWithChildren(props: VNodeProps): VNodeProps {
+  const { key: _k, shown: _s, deps: _d, ...rest } = props;
+  let children = props.children;
+  if (Array.isArray(children)) {
+    if (children.length === 1) {
+      children = children[0];
+    } else if (children.length === 0) {
+      children = undefined;
+    }
+  }
+  return { ...rest, children };
 }

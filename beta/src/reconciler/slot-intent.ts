@@ -26,8 +26,8 @@ import {
 import type { Child } from "../jsx";
 import { Fragment } from "../jsx";
 import { getChildType, getCustomChildKey, getElementChildKey, getLeafChildKey } from "../child";
-import type { DelegatedUI } from "./delegation";
-import { delegateUi } from "./delegation";
+import type { DelegateUI } from "./delegation";
+import { deferUi } from "./delegation";
 import { emptyMap, getValuesReversed, stage } from "../general";
 
 import { removeSlotNodes } from "./dom-remove";
@@ -59,7 +59,6 @@ function asFragmentChild(children: Child[]): FragmentChild {
   };
 }
 
-const defaultAction = "CREATED";
 export function createDraftIntent<T extends SlotType | EmptySlotType>(
   type: T,
   slotChild: SlotChild<T>,
@@ -131,7 +130,6 @@ export function createDraftIntent<T extends SlotType | EmptySlotType>(
     }
   }
   return {
-    action: defaultAction,
     child,
     children,
     headNode: undefined,
@@ -141,6 +139,7 @@ export function createDraftIntent<T extends SlotType | EmptySlotType>(
     move: undefined,
     path: `${parentPath}${key}`,
     prevProps: undefined,
+    prevText: undefined,
     props,
     slots: emptyMap,
     tailNode: undefined,
@@ -153,7 +152,7 @@ export function fillIntentDrafts(
   oldSlots: Map<string, Slot>,
   drafts: Map<string, SlotIntent>,
   stableIndexes: Set<number>,
-): asserts drafts is Map<string, Slot | SlotIntent<SlotType, "CREATED">> {
+): asserts drafts is Map<string, Slot | SlotIntent> {
   for (const [key, draft] of drafts) {
     const prev = oldSlots.get(key);
     if (prev === undefined) continue;
@@ -163,7 +162,6 @@ export function fillIntentDrafts(
 }
 
 export function inheritSlot(draft: SlotIntent, prev: Slot): asserts draft is Slot {
-  draft.action = "RENDERED";
   draft.prevProps = prev.props;
   draft.headNode = prev.headNode;
   draft.tailNode = prev.tailNode;
@@ -184,10 +182,10 @@ function getIntentChildren<T extends Exclude<SlotType, EmptySlotType | TextSlotT
 export function* delegateRemovals(
   drafts: Map<string, any>,
   oldSlots: Map<string, Slot> | undefined,
-): Generator<DelegatedUI, void, unknown> {
+): Generator<DelegateUI, void, unknown> {
   if (!oldSlots) return;
   for (const slot of getValuesReversed(oldSlots)) {
     if (drafts.has(slot.key)) continue;
-    yield delegateUi(stage(removeSlotNodes, slot));
+    yield deferUi(stage(removeSlotNodes, slot));
   }
 }

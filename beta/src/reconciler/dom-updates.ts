@@ -37,7 +37,7 @@ export function moveSlot(slot: Slot, parentDom: Node, beforeNode: Node | null): 
       beforeNode = node;
       if (slot.instance.slot) {
         moveSlot(slot.instance.slot, parentDom, beforeNode);
-        beforeNode = slot.headNode;
+        beforeNode = slot.instance.slot.headNode;
       }
       moveBefore(parentDom, slot.headNode, beforeNode);
       break;
@@ -52,7 +52,7 @@ export function moveSlot(slot: Slot, parentDom: Node, beforeNode: Node | null): 
       beforeNode = node;
       for (const child of getValuesReversed(slot.slots)) {
         moveSlot(child, parentDom, beforeNode);
-        beforeNode = child.tailNode ?? child.headNode;
+        beforeNode = child.headNode;
       }
       moveBefore(parentDom, slot.headNode, beforeNode);
       break;

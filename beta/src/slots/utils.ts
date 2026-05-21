@@ -1,21 +1,11 @@
 import type {
-  ComponentSlotType,
-  ContextSlotType,
   ElementSlotType,
   FragmentSlot,
   FragmentSlotType,
   SlotIntent,
   TextSlotType,
 } from "./slot";
-import {
-  type ComponentSlot,
-  type ContextSlot,
-  type ElementSlot,
-  intentToSlot,
-  type TextSlot,
-} from "./slot";
-import type { Component, Context } from "yract-beta";
-import type { BaseInstance } from "../instances/base-instance";
+import { type ElementSlot, intentToSlot, type TextSlot } from "./slot";
 import type { DelegationRoot } from "../render/delegation";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { createElement } from "../render/elements/create";
@@ -42,18 +32,4 @@ export function toFragmentSlot(
   intent: SlotIntent<FragmentSlotType>,
 ): asserts intent is FragmentSlot {
   intentToSlot(intent, document.createComment("fragment"), document.createComment("/fragment"));
-}
-
-export function toComponentSlot(
-  intent: SlotIntent<ComponentSlotType>,
-  instance: BaseInstance<Component>,
-): asserts intent is ComponentSlot {
-  intentToSlot(intent, instance.startAnchor, instance.endAnchor, instance);
-}
-
-export function toContextSlot(
-  intent: SlotIntent<ContextSlotType>,
-  instance: BaseInstance<Context>,
-): asserts intent is ContextSlot {
-  intentToSlot(intent, instance.startAnchor, instance.endAnchor, instance);
 }

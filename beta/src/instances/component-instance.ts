@@ -10,19 +10,14 @@ import { isHookDescriptor, processOneDescriptor } from "../hooks/utils";
 import type { Component, SingleChild } from "../jsx";
 import { BaseInstance } from "./base-instance";
 import { $$BATCH } from "../hooks/descriptors";
-import type { OptionalDelegationAction } from "../reconciler/types";
+import type { OptionalDelegationAction } from "../reconciler/delegation";
 import type { Slot } from "../slots/slot";
 
-export class ComponentInstance extends BaseInstance<Component> {
+export class ComponentInstance extends BaseInstance {
   protected override render(
     props: Record<string, unknown>,
   ): Generator<OptionalDelegationAction, Slot, BaseInstance> {
     const fn = this.vnode.type as Component<Record<string, any>>;
-    if (typeof fn !== "function") {
-      throw new Error(
-        `yract-beta: ComponentInstance.render called for non-function type ${String(fn)}`,
-      );
-    }
     const child = this.runHooks(fn(props));
     return this.reconcile(child);
   }

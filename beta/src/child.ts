@@ -8,7 +8,7 @@
  * Child/VNode taxonomy is visible at a glance.
  */
 import { type Context, ContextSymbol } from "./context";
-import { type Child, type Component, Fragment, type SingleChild, type VNode } from "./jsx";
+import { type Component, Fragment, type SingleChild, type VNode } from "./jsx";
 
 import type {
   ComponentChild,
@@ -27,49 +27,6 @@ import {
   textSlotType,
 } from "./slots/slot";
 
-// ---------------------------------------------------------------------------
-// Child-level guards (take the full `Child` union as input)
-// ---------------------------------------------------------------------------
-
-/** True when the child is a text primitive (string or number). */
-export function isTextChild(child: Child): child is string | number | bigint {
-  const type = typeof child;
-  switch (type) {
-    case "string":
-    case "number":
-    case "bigint":
-      return true;
-  }
-  return false;
-}
-
-// ---------------------------------------------------------------------------
-// VNode-level guards (take an already-narrowed VNode)
-// ---------------------------------------------------------------------------
-
-/** Narrows a VNode to the Fragment marker. */
-export function isFragmentVNode(child: VNode): child is VNode<typeof Fragment> {
-  return child.type === Fragment;
-}
-
-/** Narrows a VNode to an intrinsic element (`<div>`, `<span>`, ...). */
-export function isElementVNode(child: VNode): child is VNode<keyof JSX.IntrinsicElements> {
-  return typeof child.type === "string";
-}
-
-/**
- * True when the child produces no DOM at all: `null`, `undefined`, either
- * boolean, or a VNode with `shown === false`. The reconciler maps these
- * to an `EmptySlot`.
- */
-export function isEmptyChild(child: Child): child is null | undefined | boolean {
-  return child == null || typeof child === "boolean";
-}
-
-export function isContextVNode(child: VNode): child is VNode<Context> {
-  return ContextSymbol in child;
-}
-
 const otherIdMap = new WeakMap<typeof Fragment | Component<any> | Context, string>();
 
 let randomRoot: string | undefined;
@@ -83,21 +40,31 @@ function randomId(): string {
 }
 
 export function getChildType(child: SingleChild): SlotType | EmptySlotType {
-  if (isEmptyChild(child)) return emptySlotType;
-  if (isTextChild(child)) return textSlotType;
-  if (child.props.shown === false) return emptySlotType;
-  if (isElementVNode(child)) return elementSlotType;
-  if (isFragmentVNode(child)) return fragmentSlotType;
-  if (isContextVNode(child)) return contextSlotType;
-  if (typeof child.type === "function") return componentSlotType;
-  throw new Error("Invalid child");
+  if (child == null) return emptySlotType;
+  const typeOfChild = typeof child;
+  switch (typeOfChild) {
+    case "boolean":
+      return emptySlotType;
+    case "string":
+    case "number":
+    case "bigint":
+      return textSlotType;
+  }
+  child = child as VNode;
+  const { type, props } = child;
+  if (props.shown === false) return emptySlotType;
+  if (type === Fragment) return fragmentSlotType;
+  const typeOfType = typeof type;
+  if (typeOfType === "string") return elementSlotType;
+  if (ContextSymbol in child) return contextSlotType;
+  return componentSlotType;
 }
 
 export function getCustomChildKey(
   child: FragmentChild | ComponentChild | ContextChild,
   fallback: number,
 ): string {
-  const { type, props } = child as VNode<typeof Fragment | Component | Context>;
+  const { type, props } = child;
   const slotId = otherIdMap.getOrInsertComputed(type, randomId);
   const key = props.key ?? fallback;
   return `"${slotId}"${typeof key}"${key}"`;

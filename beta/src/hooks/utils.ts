@@ -69,7 +69,7 @@ function getTypedPrev<K extends HookState["type"]>(
   if (prev === undefined) return undefined;
   if (prev.type !== expectedType) {
     throw new Error(
-      `yract-beta: hook order mismatch in ${instance.debugLabel()} at index ${hookIndex}: ` +
+      `yract-beta: hook order mismatch in <${(instance.vnode.type as any).name}> at index ${hookIndex}: ` +
         `expected ${prev.type} (from previous render) but got ${expectedType}. ` +
         `Hooks must be called in the same order on every render.`,
     );

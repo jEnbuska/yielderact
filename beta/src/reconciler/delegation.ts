@@ -1,24 +1,24 @@
-import type { Component, Context, VNode, VNodeProps } from "yract-beta";
+import type { VNodeProps } from "yract-beta";
 import type { RefLike } from "../render/element-props";
 import { assertIsRefLike } from "../render/element-props";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
 import type { BaseInstance } from "../instances/base-instance";
+import type { ComponentSlotType, ContextSlotType, SlotIntent } from "../slots/slot";
 
 export type DelegateMount = {
   type: "MOUNT";
-  vnode: VNode<Component | Context>;
-  path: string;
+  intent: SlotIntent<ComponentSlotType | ContextSlotType>;
   parentDom: Node;
   ns: TagNamespace;
 };
-export type DelegatedUI = { type: "UI"; callback: () => void };
-export type DelegatedRef = { type: "REF"; ref: RefLike; element: SlotElement };
-export type DelegationAction = DelegateMount | DelegatedUI | DelegatedProps | DelegatedRef;
+export type DelegateUI = { type: "UI"; callback: () => void; reverse: boolean | undefined };
+export type DelegateRef = { type: "REF"; ref: RefLike; element: SlotElement };
+export type DelegationAction = DelegateMount | DelegateUI | DelegateProps | DelegateRef;
 export type OptionalDelegationAction = void | DelegationAction;
-export type DelegatedProps = {
+export type DelegateProps = {
   type: "PROPS";
   instance: BaseInstance;
-  vnode: VNode;
+  props: VNodeProps;
 };
 
 export function isRefProps<T extends VNodeProps>(props: T): props is T & { ref: RefLike } {
@@ -30,7 +30,7 @@ export function isRefProps<T extends VNodeProps>(props: T): props is T & { ref: 
   return false;
 }
 
-export function delegateRef(element: SlotElement, ref: RefLike): DelegatedRef {
+export function deferRef(element: SlotElement, ref: RefLike): DelegateRef {
   return {
     type: "REF",
     ref,
@@ -38,31 +38,31 @@ export function delegateRef(element: SlotElement, ref: RefLike): DelegatedRef {
   };
 }
 
-export function delegateUi(callback: () => unknown): DelegatedUI {
+export function deferUi(callback: () => unknown): DelegateUI {
   return {
     type: "UI",
     callback,
+    reverse: false,
   };
 }
+
 export function delegateMount(
-  vnode: VNode<Component | Context>,
-  path: string,
+  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
   parentDom: Node,
   ns: TagNamespace,
 ): DelegateMount {
   return {
     type: "MOUNT",
-    vnode,
-    path,
+    intent,
     parentDom,
     ns,
   };
 }
 
-export function delegateProps(instance: BaseInstance, vnode: VNode): DelegatedProps {
+export function delegateProps(instance: BaseInstance, props: VNodeProps): DelegateProps {
   return {
     type: "PROPS",
     instance,
-    vnode,
+    props,
   };
 }

@@ -1,4 +1,4 @@
-import type { Child, Component, Context, Fragment, VNode, VNodeProps } from "yract-beta";
+import type { Child, VNode, VNodeProps } from "yract-beta";
 import type { BaseInstance } from "../instances/base-instance";
 import type { SlotElement } from "../render/elements/namespaces";
 
@@ -33,14 +33,11 @@ export type SlotTailNode<T extends SlotType = SlotType> = T extends TextSlotType
     ? undefined
     : Comment;
 
-type SlotInstance<T extends SlotType> = T extends ComponentSlotType
-  ? BaseInstance<Component>
-  : T extends ContextSlotType
-    ? BaseInstance<Context>
-    : undefined;
+type SlotInstance<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
+  ? BaseInstance
+  : undefined;
 
-interface SlotBase<T extends SlotType, TAction extends SlotIntentAction = SlotIntentAction> {
-  action: TAction;
+interface SlotBase<T extends SlotType> {
   child: SlotIntentChild<T>;
   children: Child[];
   headNode: SlotHeadNode<T>;
@@ -64,17 +61,17 @@ export interface TextSlot extends SlotBase<TextSlotType> {
 
 export type TextChild = string | number | bigint;
 
-export type ElementSlot = SlotBase<ElementSlotType, "RENDERED">;
+export type ElementSlot = SlotBase<ElementSlotType>;
 
-export type ElementChild = VNode<keyof JSX.IntrinsicElements>;
-export type FragmentSlot = SlotBase<FragmentSlotType, "RENDERED">;
-export type FragmentChild = VNode<typeof Fragment>;
+export type ElementChild = VNode<ElementSlotType>;
+export type FragmentSlot = SlotBase<FragmentSlotType>;
+export type FragmentChild = VNode<FragmentSlotType>;
 
-export type ComponentSlot = SlotBase<ComponentSlotType, "RENDERED">;
+export type ComponentSlot = SlotBase<ComponentSlotType>;
 
-export type ComponentChild = VNode<Component>;
+export type ComponentChild = VNode<ComponentSlotType>;
 export type ContextSlot = SlotBase<ContextSlotType>;
-export type ContextChild = VNode<Context>;
+export type ContextChild = VNode<ContextSlotType>;
 
 export type EmptySlotTypeToTextSlotType<T extends SlotType | EmptySlotType> =
   T extends EmptySlotType ? TextSlotType : T;
@@ -90,6 +87,11 @@ export type Slot<T extends SlotType = SlotType> = T extends TextSlotType
         : T extends ContextSlotType
           ? ContextSlot
           : never;
+
+export type InstanceSlotNodes = {
+  headNode: Comment;
+  tailNode: Comment;
+};
 
 export type EmptySlotChild = undefined | null | number | boolean | VNode;
 
@@ -121,14 +123,8 @@ export type SlotProps<T extends SlotType | EmptySlotType> = T extends TextSlotTy
   ? undefined
   : VNodeProps;
 
-export type SlotIntentAction = "CREATED" | "RENDERED";
-
-export type SlotIntent<
-  T extends SlotType = SlotType,
-  TAction extends SlotIntentAction = "CREATED" | "RENDERED",
-> = T extends SlotType
+export type SlotIntent<T extends SlotType = SlotType> = T extends SlotType
   ? {
-      action: TAction;
       child: SlotIntentChild<T>;
       children: Child[];
       headNode: Node | undefined;
@@ -142,6 +138,7 @@ export type SlotIntent<
       slots: Map<string, Slot>;
       tailNode: Node | undefined;
       text: SlotText<T>;
+      prevText: SlotText<T> | undefined;
       type: T;
     }
   : never;
@@ -163,13 +160,13 @@ export function intentToSlot(
   intent: SlotIntent<ComponentSlotType>,
   headNode: Comment,
   tailNode: Comment,
-  instance: BaseInstance<Component>,
+  instance: BaseInstance,
 ): asserts intent is ComponentSlot;
 export function intentToSlot(
   intent: SlotIntent<ContextSlotType>,
   headNode: Comment,
   tailNode: Comment,
-  instance: BaseInstance<Context>,
+  instance: BaseInstance,
 ): asserts intent is ContextSlot;
 export function intentToSlot(
   intent: SlotIntent,

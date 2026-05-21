@@ -1,6 +1,13 @@
 import type { Context } from "./context";
 import type { ComponentGenerator, DependencyList } from "./hooks/types";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
+import type {
+  ComponentSlotType,
+  ContextSlotType,
+  ElementSlot,
+  ElementSlotType,
+  FragmentSlotType,
+} from "./slots/slot";
 
 /** Fragment VNode type — children flatten through the reconciler. */
 export const Fragment: unique symbol = Symbol("Fragment");
@@ -9,11 +16,36 @@ export const Fragment: unique symbol = Symbol("Fragment");
 // any prop shape — function-parameter contravariance otherwise rejects
 // concrete prop types when the union member is the narrow `Component<FrameworkProps>`.
 
-export type VNodeType = typeof Fragment | Component<any> | Context | keyof JSX.IntrinsicElements;
+export type VNodeType<
+  T extends FragmentSlotType | ContextSlotType | ComponentSlotType | ElementSlotType =
+    | FragmentSlotType
+    | ContextSlotType
+    | ComponentSlotType
+    | ElementSlotType,
+> = T extends FragmentSlotType
+  ? typeof Fragment
+  : T extends ComponentSlotType
+    ? Component<any>
+    : T extends ContextSlotType
+      ? Context
+      : T extends ElementSlot
+        ? keyof JSX.IntrinsicElements
+        : never;
 
 /** Virtual DOM node produced by the JSX runtime. */
-export interface VNode<T extends VNodeType = VNodeType> {
-  type: T;
+export interface VNode<
+  T extends FragmentSlotType | ContextSlotType | ComponentSlotType | ElementSlotType =
+    | FragmentSlotType
+    | ContextSlotType
+    | ComponentSlotType
+    | ElementSlotType,
+> {
+  type: VNodeType<T>;
+  props: VNodeProps;
+}
+
+export interface InstanceVNode {
+  type: ContextSlotType | ComponentSlotType;
   props: VNodeProps;
 }
 /**

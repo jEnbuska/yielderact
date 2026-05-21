@@ -4,19 +4,21 @@ import { Fragment } from "../jsx";
 import type { Context, ContextHandle } from "../context";
 import { resolveCtxValue } from "../context";
 import type { ContextMap, RenderContext } from "../render/types";
-import type { OptionalDelegationAction } from "../reconciler/types";
+import type { OptionalDelegationAction } from "../reconciler/delegation";
 import { Defer } from "./defer-context";
 import type { TagNamespace } from "../render/elements/namespaces";
-import type { Slot } from "../slots/slot";
+import type { ContextSlotType, Slot } from "../slots/slot";
 
-export class DeferredInstance extends BaseInstance<Context> {
+export class DeferredInstance extends BaseInstance<ContextSlotType> {
   readonly contextKey: Context = Defer;
   readonly handle: ContextHandle<boolean>;
   private initialRender = true;
 
   constructor(
+    headNode: Comment,
+    tailNode: Comment,
     path: string,
-    vnode: VNode<Context>,
+    vnode: VNode<ContextSlotType>,
     parentCtx: ContextMap,
     parent: BaseInstance | null,
     rctx: RenderContext,
@@ -32,7 +34,7 @@ export class DeferredInstance extends BaseInstance<Context> {
       depth: (parent?.depth ?? -1) + 1,
     };
     extended.set(Defer, handle);
-    super(path, vnode, extended, parent, rctx, parentDom, ns);
+    super(headNode, tailNode, path, vnode, extended, parent, rctx, parentDom, ns);
     this.handle = handle;
   }
 

@@ -24,10 +24,16 @@ export function removeSlotNodes(slot: Slot) {
 }
 
 function removeInstanceNodes(slot: ComponentSlot | ContextSlot) {
-  const { headNode, tailNode, instance } = slot;
-  headNode.remove();
-  removeSlotNodes(instance.slot!);
-  tailNode.remove();
+  try {
+    const { headNode, tailNode, instance } = slot;
+    headNode.remove();
+    if (instance.slot) removeSlotNodes(instance.slot);
+    else console.log("NO NODES for", slot);
+    tailNode.remove();
+  } catch (e) {
+    console.log("slot", slot);
+    throw e;
+  }
 }
 
 function removeFragmentNodes({ tailNode, slots, headNode }: FragmentSlot) {

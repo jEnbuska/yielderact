@@ -4,10 +4,10 @@ import type { RenderContext } from "./types";
 import { RootInstance } from "../instances/root-instance";
 import { dispatchDelegatedEvent } from "./dispatch";
 import type { VNode } from "../jsx";
-import { registerCreateInstance } from "../instances/base-instance";
-import { createInstance } from "../instances/create-instance";
+import { registerFulFillCreateInstance } from "../instances/base-instance";
+import { fulFillCreateInstance } from "../instances/fulfill-create-instance";
 
-registerCreateInstance(createInstance);
+registerFulFillCreateInstance(fulFillCreateInstance);
 
 export class Root {
   readonly container: Element;

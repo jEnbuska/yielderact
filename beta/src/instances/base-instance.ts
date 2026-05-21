@@ -3,36 +3,46 @@ import { resolveCtxValue } from "../context";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import type { DependencyList } from "../hooks/types";
 import { depsChanged } from "../hooks/utils";
-import type { Component, SingleChild, VNode, VNodeProps, VNodeType } from "../jsx";
+import type { SingleChild, VNodeProps } from "../jsx";
 import { propsWithChildren, shallowEqual } from "../prop-helpers";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
-import type { OptionalDelegationAction } from "../reconciler/types";
+import type { OptionalDelegationAction } from "../reconciler/delegation";
+import { deferUi } from "../reconciler/delegation";
 import { mountRoot, reconcileRoot } from "../reconciler/reconciler";
 import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
 import { Defer } from "./defer-context";
-import { delegateUi } from "../reconciler/delegation";
-import type { Slot } from "../slots/slot";
+import type {
+  ComponentSlotType,
+  ContextSlotType,
+  InstanceSlotNodes,
+  Slot,
+  SlotChild,
+  SlotIntent,
+} from "../slots/slot";
+import { intentToSlot } from "../slots/slot";
 import type { RefLike } from "../render/element-props";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
 
-type CreateInstanceFn = <T extends Context | Component>(
-  path: string,
-  vnode: VNode<T>,
+type FulFillCreateInstance = (
+  headNode: Comment,
+  tailNode: Comment,
+  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
   parentCtx: ContextMap,
   parent: BaseInstance | null,
   rctx: RenderContext,
   parentDom: Node,
   ns: TagNamespace,
-) => BaseInstance<T>;
+) => BaseInstance;
 
-let createInstanceFn: CreateInstanceFn;
+let fulFillCreateInstance: FulFillCreateInstance;
 
-export function registerCreateInstance(fn: CreateInstanceFn): void {
-  createInstanceFn = fn;
+export function registerFulFillCreateInstance(callback: FulFillCreateInstance): void {
+  fulFillCreateInstance = callback;
 }
 
 type InstanceReconcileResult = {
   domUpdates: Array<() => void>;
+  reverseDomUpdates: Array<() => void>;
   unmountedInstances: Set<BaseInstance> | undefined;
   instances: Map<string, BaseInstance> | undefined;
   nextRefs: Map<SlotElement, RefLike> | undefined;
@@ -41,14 +51,14 @@ type InstanceReconcileResult = {
 type RenderGenerator = Generator<void, InstanceReconcileResult>;
 
 export abstract class BaseInstance<
-  TVNodeType extends Exclude<VNodeType, string> = Exclude<VNodeType, string>,
+  T extends ComponentSlotType | ContextSlotType = ComponentSlotType | ContextSlotType,
 > {
   /** Time-slice deadline set by the scheduler. invokeUpdates yields when exceeded. */
 
   public readonly ns: TagNamespace;
   protected unmounted?: boolean;
   readonly contextKey?: Context = undefined;
-  readonly vnode: VNode<TVNodeType>;
+  readonly vnode: SlotChild<T>;
   readonly depth: number;
   readonly parent: BaseInstance | null;
 
@@ -61,6 +71,7 @@ export abstract class BaseInstance<
    */
   parentDom: Node;
   protected pendingDomUpdates: Array<() => void> = [];
+  protected pendingReverseDomUpdates: Array<() => void> = [];
   /**
    * ContextMap this instance exposes to its children and reads for its own
    * `context` hooks. ComponentInstance keeps the parent map unchanged;
@@ -89,13 +100,8 @@ export abstract class BaseInstance<
   /** Saved generator from an interrupted deferred render. */
   private pendingRender?: RenderGenerator = undefined;
 
-  /**
-   * DOM anchor pair delimiting this instance's subtree. Everything between
-   * `startAnchor.nextSibling` and `endAnchor` belongs to this instance.
-   * The reconciler moves/inserts/removes the instance by walking this range.
-   */
-  readonly startAnchor: Comment;
-  readonly endAnchor: Comment = document.createComment("/");
+  readonly headNode: Comment;
+  readonly tailNode: Comment;
 
   /**
    * Dependency array for reconciliation memoization, set from the `deps`
@@ -104,32 +110,31 @@ export abstract class BaseInstance<
    */
   deps?: DependencyList;
 
-  path: string;
+  protected readonly path: string;
 
   constructor(
+    headNode: Comment,
+    tailNode: Comment,
     path: string,
-    vnode: VNode<TVNodeType>,
+    vnode: SlotChild<T>,
     ctx: ContextMap,
     parent: BaseInstance | null,
     rctx: RenderContext,
     parentDom: Node,
     ns: TagNamespace,
   ) {
+    this.headNode = headNode;
+    this.tailNode = tailNode;
     this.path = path;
     this.vnode = vnode;
     this.parent = parent;
     this.ctx = ctx;
     this.parentDom = parentDom;
     this.rctx = rctx;
-    this.props = propsWithChildren(vnode);
+    this.props = propsWithChildren(vnode.props);
     this.deps = vnode.props.deps;
     this.depth = (parent?.depth ?? -1) + 1;
-    this.startAnchor = document.createComment(this.debugLabel());
     this.ns = ns;
-  }
-
-  debugLabel() {
-    return `<${this.vnode.type?.name ?? "Root"}>`;
   }
 
   deferred() {
@@ -188,6 +193,7 @@ export abstract class BaseInstance<
     this.renderReasons?.clear();
     this.nextSlot = result.nextSlot;
     this.pendingDomUpdates = result.domUpdates;
+    this.pendingReverseDomUpdates = result.reverseDomUpdates;
     this.nextRefs = result.nextRefs;
     this.instances = result.instances;
     this.unmountedInstances = result.unmountedInstances;
@@ -198,22 +204,23 @@ export abstract class BaseInstance<
   private *invokeUpdates(instances: Map<string, BaseInstance> | undefined): RenderGenerator {
     const generator = this.render(this.props);
     const domUpdates: Array<() => void> = [];
+    const reverseDomUpdates: Array<() => void> = [];
     let unmountedInstances: Set<BaseInstance> | undefined = instances?.size
       ? new Set(instances.values())
       : undefined;
     let newInstances: Set<BaseInstance> | undefined;
-    let updatedInstances: Map<BaseInstance, VNode> | undefined;
+    let updatedInstances: Map<BaseInstance, VNodeProps> | undefined;
     let nextInstances: Map<string, BaseInstance> | undefined = instances?.size
       ? new Map()
       : undefined;
     let result = generator.next();
     let nextRefs: undefined | Map<SlotElement, RefLike> = undefined;
 
-    function handleSetProps(instance: BaseInstance, vnode: VNode) {
+    function handleSetProps(instance: BaseInstance, props: VNodeProps) {
       unmountedInstances ??= new Set(instances?.values());
       unmountedInstances.delete(instance);
-      updatedInstances ??= new Map<BaseInstance, VNode>();
-      updatedInstances.set(instance, vnode);
+      updatedInstances ??= new Map<BaseInstance, VNodeProps>();
+      updatedInstances.set(instance, props);
       nextInstances ??= new Map();
       nextInstances?.set(instance.path, instance);
     }
@@ -227,12 +234,13 @@ export abstract class BaseInstance<
       const next = result.value;
       switch (next.type) {
         case "UI":
-          domUpdates.push(next.callback);
+          if (next.reverse) reverseDomUpdates.push(next.callback);
+          else domUpdates.push(next.callback);
           result = generator.next();
           break;
         case "PROPS": {
-          const { instance, vnode } = next;
-          handleSetProps(instance, vnode);
+          const { instance, props } = next;
+          handleSetProps(instance, props);
           result = generator.next();
           break;
         }
@@ -243,24 +251,45 @@ export abstract class BaseInstance<
           break;
         }
         case "MOUNT": {
-          const { vnode, parentDom, path, ns } = next;
+          const { intent, parentDom, ns } = next;
+          const { path, child } = intent;
           const existingInstance = instances?.get(path);
           let instance: BaseInstance;
           if (existingInstance) {
-            handleSetProps(existingInstance, vnode);
+            handleSetProps(existingInstance, child.props);
             instance = existingInstance;
           } else {
-            instance =
-              this.preparedInstances?.get(path) ??
-              createInstanceFn(path, vnode, this.ctx, this, this.rctx, parentDom, ns);
-            newInstances ??= new Set<BaseInstance>();
-            newInstances.add(instance);
-            nextInstances ??= new Map<string, BaseInstance>(instances);
-            nextInstances.set(path, instance);
-            this.preparedInstances ??= new Map();
-            this.preparedInstances.set(path, instance);
+            const preparedInstance = this.preparedInstances?.get(path);
+            if (preparedInstance) {
+              instance = preparedInstance;
+              newInstances ??= new Set<BaseInstance>();
+              newInstances.add(instance);
+              nextInstances ??= new Map<string, BaseInstance>(instances);
+              nextInstances.set(path, instance);
+            } else {
+              const { name } = intent.child.type;
+              const headNode = document.createComment(`<${name}>`);
+              const tailNode = document.createComment(`</${name}>`);
+              instance = fulFillCreateInstance(
+                headNode,
+                tailNode,
+                intent,
+                this.ctx,
+                this,
+                this.rctx,
+                parentDom,
+                ns,
+              );
+              newInstances ??= new Set<BaseInstance>();
+              newInstances.add(instance);
+              nextInstances ??= new Map<string, BaseInstance>(instances);
+              nextInstances.set(path, instance);
+              this.preparedInstances ??= new Map();
+              this.preparedInstances.set(path, instance);
+            }
           }
-          result = generator.next(instance);
+          intentToSlot(intent as any, instance.headNode, instance.tailNode, instance);
+          result = generator.next(intent as Slot<ComponentSlotType | ContextSlotType>);
         }
       }
     }
@@ -268,6 +297,8 @@ export abstract class BaseInstance<
     const { scheduler } = this.rctx;
     if (domUpdates.length) scheduler.scheduleDOMUpdate(this);
     else scheduler.unscheduleDOMUpdate(this);
+    if (reverseDomUpdates.length) scheduler.scheduleReverseDOMUpdate(this);
+    else scheduler.unscheduleReverseDOMUpdate(this);
 
     if (unmountedInstances?.size) scheduler.scheduleUnmountChildren(this);
     else scheduler.unscheduleUnmountChildren(this);
@@ -294,27 +325,36 @@ export abstract class BaseInstance<
       instances: nextInstances ?? instances,
       nextRefs,
       nextSlot: slot,
+      reverseDomUpdates,
     };
   }
 
   protected abstract render(
     props: Record<string, unknown>,
-  ): Generator<OptionalDelegationAction, Slot, BaseInstance>;
+  ): Generator<OptionalDelegationAction, Slot, InstanceSlotNodes>;
 
   protected *reconcile(child: SingleChild) {
     if (!this.slot) {
       const stagingDom = document.createDocumentFragment();
       const result = yield* mountRoot(child, this, this.parentDom, stagingDom, this.ns);
-      yield delegateUi(() => this.parentDom.insertBefore(stagingDom, this.endAnchor));
+      yield deferUi(() => this.parentDom.insertBefore(stagingDom, this.tailNode));
       return result;
     }
-    return yield* reconcileRoot(child, this, this.parentDom, this.slot, this.ns, this.endAnchor);
+    return yield* reconcileRoot(child, this, this.parentDom, this.slot, this.ns, this.tailNode);
   }
 
   updateDOM(): void {
     if (this.isUnmounted()) return;
     for (const domUpdate of this.pendingDomUpdates) domUpdate();
     this.pendingDomUpdates.length = 0;
+    this.slot = this.nextSlot;
+    this.updateRefs();
+  }
+
+  updateDOMReverse(): void {
+    if (this.isUnmounted()) return;
+    for (const domUpdate of this.pendingReverseDomUpdates) domUpdate();
+    this.pendingReverseDomUpdates.length = 0;
     this.slot = this.nextSlot;
     this.updateRefs();
   }
@@ -448,11 +488,11 @@ export abstract class BaseInstance<
     if (this.resolveReasons?.size) scheduler.unscheduleResolve(this);
   }
 
-  setProps(vnode: VNode): void {
-    const deps = vnode.props.deps;
+  setProps(props: VNodeProps): void {
+    const deps = props.deps;
     if (!depsChanged(this.deps, deps)) return;
     this.deps = deps;
-    const props = propsWithChildren(vnode);
+    props = propsWithChildren(props);
     if (shallowEqual(this.props, props)) return;
     this.props = props;
     this.scheduleRender(PROPS_REASON);

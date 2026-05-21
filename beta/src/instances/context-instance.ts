@@ -12,23 +12,25 @@
  * The provider has no generator body and no hooks — it just reconciles its
  * `children` using the extended ctx map.
  */
-import { type Context, type ContextHandle, isContext } from "../context";
-import type { VNode, VNodeProps } from "../jsx";
-import { Fragment } from "../jsx";
-import type { ContextMap, RenderContext } from "../render/types";
-import { BaseInstance } from "./base-instance";
-import type { OptionalDelegationAction } from "../reconciler/types";
-import type { TagNamespace } from "../render/elements/namespaces";
-import type { Slot } from "../slots/slot";
+import {type Context, type ContextHandle, isContext} from "../context";
+import type {VNode, VNodeProps} from "../jsx";
+import {Fragment} from "../jsx";
+import type {ContextMap, RenderContext} from "../render/types";
+import {BaseInstance} from "./base-instance";
+import type {OptionalDelegationAction} from "../reconciler/delegation";
+import type {TagNamespace} from "../render/elements/namespaces";
+import type {ContextSlotType, Slot} from "../slots/slot";
 
-export class ContextInstance extends BaseInstance<Context> {
+export class ContextInstance extends BaseInstance<ContextSlotType> {
   readonly contextKey: Context;
   readonly handle: ContextHandle;
   private readonly subscribers: Set<() => void>;
 
   constructor(
+    headNode: Comment,
+    tailNode: Comment,
     path: string,
-    vnode: VNode<Context>,
+    vnode: VNode<ContextSlotType>,
     parentCtx: ContextMap,
     parent: BaseInstance | null,
     rctx: RenderContext,
@@ -57,7 +59,7 @@ export class ContextInstance extends BaseInstance<Context> {
     const extended = new Map(parentCtx);
     extended.set(ctxKey, handle);
 
-    super(path, vnode, extended, parent, rctx, parentDom, ns);
+    super(headNode, tailNode, path, vnode, extended, parent, rctx, parentDom, ns);
     this.contextKey = ctxKey;
     this.handle = handle;
     this.subscribers = subscribers;

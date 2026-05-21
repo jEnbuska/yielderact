@@ -11,23 +11,39 @@
 import { Fragment, type VNode } from "../jsx";
 import type { RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
-import type { OptionalDelegationAction } from "../reconciler/types";
-import { delegateUi } from "../reconciler/delegation";
+import type { OptionalDelegationAction } from "../reconciler/delegation";
+import { deferUi } from "../reconciler/delegation";
 import { HTML_NS } from "../render/elements/namespaces";
-import type { Slot } from "../slots/slot";
+import type { ComponentSlotType, ContextSlotType, FragmentSlotType, Slot } from "../slots/slot";
 import { mountRoot } from "../reconciler/reconciler";
 
-const ROOT_VNODE: VNode<typeof Fragment> = { type: Fragment, props: { children: [] } };
+const ROOT_VNODE: VNode<FragmentSlotType> = { type: Fragment, props: { children: [] } };
 
-export class RootInstance extends BaseInstance<typeof Fragment> {
+export class RootInstance extends BaseInstance<ContextSlotType> {
   private pendingVNode: VNode | undefined = undefined;
   constructor(rctx: RenderContext) {
-    super("root", ROOT_VNODE, new Map(), null, rctx, rctx.container, HTML_NS);
+    const headNode = document.createComment("<Root>");
+    const tailNode = document.createComment("</Root>");
+    super(
+      headNode,
+      tailNode,
+      "root",
+      ROOT_VNODE as any,
+      new Map(),
+      null,
+      rctx,
+      rctx.container,
+      HTML_NS,
+    );
   }
-  protected override *render(): Generator<OptionalDelegationAction, Slot, BaseInstance> {
+  protected override *render(): Generator<
+    OptionalDelegationAction,
+    Slot,
+    Slot<ComponentSlotType | ContextSlotType>
+  > {
     const stagingDom = document.createDocumentFragment();
     const slot = yield* mountRoot(this.pendingVNode, this, this.parentDom, stagingDom, this.ns);
-    yield delegateUi(() => this.parentDom.appendChild(stagingDom));
+    yield deferUi(() => this.parentDom.appendChild(stagingDom));
     return slot;
   }
 

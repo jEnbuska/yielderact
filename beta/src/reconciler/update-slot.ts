@@ -11,8 +11,8 @@ import {
 import type { BaseInstance } from "../instances/base-instance";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { nodeNameSpace } from "../render/elements/namespaces";
-import type { OptionalDelegationAction } from "./types";
-import { delegateProps, delegateRef, delegateUi, isRefProps } from "./delegation";
+import type { DelegateProps, DelegateUI, DelegationAction } from "./delegation";
+import { deferRef, deferUi, delegateProps, isRefProps } from "./delegation";
 import { stage } from "../general";
 import { setText } from "./dom-updates";
 import { diffElementProps, updateElementProps } from "../render/element-props";
@@ -22,7 +22,7 @@ export function updateSlot<T extends SlotType>(
   slot: Slot<T>,
   parentInstance: BaseInstance,
   ns: TagNamespace,
-): Generator<OptionalDelegationAction, void> {
+): Generator<DelegationAction, void> {
   switch (slot.type) {
     case componentSlotType:
     case contextSlotType:
@@ -42,52 +42,37 @@ function* updateFragment(
   slot: Slot<FragmentSlotType>,
   parentInstance: BaseInstance,
   ns: TagNamespace,
-): Generator<OptionalDelegationAction, void> {
-  const { headNode, tailNode } = slot;
-  const parentDom = headNode.parentNode;
+): Generator<DelegationAction, void> {
+  const { tailNode, children, path, slots } = slot;
+  const parentDom = tailNode.parentNode;
   if (!parentDom) {
     throw new Error("yract-beta: fragment slot reconciled with detached start anchor");
   }
-  slot.slots = yield* reconcile(
-    slot.children,
-    parentInstance,
-    parentDom,
-    slot.path,
-    slot.slots,
-    ns,
-    tailNode,
-  );
+  slot.slots = yield* reconcile(children, parentInstance, parentDom, path, slots, ns, tailNode);
 }
 
 function* updateElement(
   slot: ElementSlot,
   parentInstance: BaseInstance,
-): Generator<OptionalDelegationAction, void> {
-  const node = slot.headNode;
-  slot.slots = yield* reconcile(
-    slot.children,
-    parentInstance,
-    node,
-    slot.path,
-    slot.slots,
-    nodeNameSpace(node),
-    null,
-  );
-  const patch = diffElementProps(slot.prevProps, slot.props);
+): Generator<DelegationAction, void> {
+  const { headNode, children, path, slots, prevProps, props } = slot;
+  const ns = nodeNameSpace(headNode);
+  slot.slots = yield* reconcile(children, parentInstance, headNode, path, slots, ns, null);
+  const patch = diffElementProps(prevProps, props);
   if (isRefProps(slot.props)) {
-    yield delegateRef(node, slot.props.ref);
+    yield deferRef(headNode, slot.props.ref);
   }
   if (patch) {
-    yield delegateUi(stage(updateElementProps, node, patch, parentInstance.rctx.delegationRoot));
+    yield deferUi(stage(updateElementProps, headNode, patch, parentInstance.rctx.delegationRoot));
   }
 }
 
-function* updateText(slot: TextSlot): Generator<OptionalDelegationAction, void> {
+function* updateText(slot: TextSlot): Generator<DelegateUI, void> {
   const { text } = slot;
   if (text === slot.prevText) return;
-  yield delegateUi(stage(setText, slot.headNode, text));
+  yield deferUi(stage(setText, slot.headNode, text));
 }
 
-function* updateInstance(slot: ContextSlot | ComponentSlot) {
-  yield delegateProps(slot.instance, slot.child);
+function* updateInstance(slot: ContextSlot | ComponentSlot): Generator<DelegateProps, void> {
+  yield delegateProps(slot.instance, slot.props);
 }
