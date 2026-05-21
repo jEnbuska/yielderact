@@ -11,7 +11,7 @@ export type DelegateMount = {
   parentDom: Node;
   ns: TagNamespace;
 };
-export type DelegateUI = { type: "UI"; callback: () => void; reverse: boolean | undefined };
+export type DelegateUI = { type: "UI"; callback: () => void };
 export type DelegateRef = { type: "REF"; ref: RefLike; element: SlotElement };
 export type DelegationAction = DelegateMount | DelegateUI | DelegateProps | DelegateRef;
 export type DelegateProps = {
@@ -41,7 +41,6 @@ export function deferUi(callback: () => unknown): DelegateUI {
   return {
     type: "UI",
     callback,
-    reverse: false,
   };
 }
 

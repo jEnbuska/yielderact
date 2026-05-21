@@ -27,17 +27,6 @@ function updateDOM(groups: QueueGroup[], members: Set<BaseInstance>) {
   groups.length = 0;
 }
 
-function updateDOMReverse(groups: QueueGroup[], members: Set<BaseInstance>) {
-  for (let i = 0; i < groups.length; i++) {
-    const { instances } = groups[i]!;
-    for (const instance of instances) {
-      if (members.has(instance)) instance.updateDOMReverse();
-    }
-  }
-  members.clear();
-  groups.length = 0;
-}
-
 function runEffects(group: QueueGroup[], members: Set<BaseInstance>) {
   for (let i = 0; i < group.length; i++) {
     const { instances } = group[i]!;
@@ -101,12 +90,6 @@ export class Scheduler {
 
   private domDeferredMembers = new Set<BaseInstance>();
   private domDeferredGroups: QueueGroup[] = [];
-
-  private reverseDomPrimaryMembers = new Set<BaseInstance>();
-  private reverseDomPrimaryGroups: QueueGroup[] = [];
-
-  private reverseDomDeferredMembers = new Set<BaseInstance>();
-  private reverseDomDeferredGroups: QueueGroup[] = [];
 
   private effectPrimaryGroups: QueueGroup[] = [];
   private effectPrimaryMembers = new Set<BaseInstance>();
@@ -174,17 +157,6 @@ export class Scheduler {
     else this.domPrimaryMembers.delete(instance);
   }
 
-  scheduleReverseDOMUpdate(instance: BaseInstance, deferred = instance.deferred()): void {
-    if (deferred)
-      insertSorted(this.reverseDomDeferredGroups, this.reverseDomDeferredMembers, instance);
-    else insertSorted(this.reverseDomPrimaryGroups, this.reverseDomPrimaryMembers, instance);
-  }
-
-  unscheduleReverseDOMUpdate(instance: BaseInstance, deferred = instance.deferred()): void {
-    if (deferred) this.reverseDomDeferredMembers.delete(instance);
-    else this.reverseDomPrimaryMembers.delete(instance);
-  }
-
   unscheduleResolve(instance: BaseInstance): void {
     this.resolveMembers.delete(instance);
   }
@@ -219,7 +191,6 @@ export class Scheduler {
     while (true) {
       while (this.renderPrimaryGroups.length || this.renderDeferredGroups.length) {
         this.runPrimaryQueue();
-        updateDOMReverse(this.reverseDomPrimaryGroups, this.reverseDomPrimaryMembers);
         updateDOM(this.domPrimaryGroups, this.domPrimaryMembers);
         unmountUnmounted(this.primaryInstancesWithUnmounted);
         runEffects(this.effectPrimaryGroups, this.effectPrimaryMembers);
@@ -228,8 +199,6 @@ export class Scheduler {
       const { resolveGroups, resolveMembers } = this;
       this.resolveMembers = new Set();
       this.resolveGroups = [];
-
-      updateDOMReverse(this.reverseDomDeferredGroups, this.reverseDomDeferredMembers);
       updateDOM(this.domDeferredGroups, this.domDeferredMembers);
       unmountUnmounted(this.deferredInstancesWithUnmounted);
       runEffects(this.effectDeferredGroups, this.effectDeferredMembers);

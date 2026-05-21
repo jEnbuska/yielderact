@@ -42,7 +42,6 @@ export function registerCreateInstance(callback: CreateInstance): void {
 
 type InstanceReconcileResult = {
   domUpdates: Array<() => void>;
-  reverseDomUpdates: Array<() => void>;
   unmountedInstances: Set<BaseInstance> | undefined;
   instances: Map<string, BaseInstance> | undefined;
   refs: Map<SlotElement, RefLike> | undefined;
@@ -61,7 +60,6 @@ export abstract class BaseInstance<
   readonly parent: BaseInstance | null;
   parentDom: Node;
   protected domUpdates: Array<() => void> = [];
-  protected pendingReverseDomUpdates: Array<() => void> = [];
 
   readonly ctx: ContextMap;
   readonly rctx: RenderContext;
@@ -156,7 +154,6 @@ export abstract class BaseInstance<
     this.renderReasons?.clear();
     this.pendingSlots = result.slots;
     this.domUpdates = result.domUpdates;
-    this.pendingReverseDomUpdates = result.reverseDomUpdates;
     this.nextRefs = result.refs;
     this.instances = result.instances;
     this.unmountedInstances = result.unmountedInstances;
@@ -168,7 +165,6 @@ export abstract class BaseInstance<
   private *invokeUpdates(instances: Map<string, BaseInstance> | undefined): RenderGenerator {
     const generator = this.render(this.props);
     const domUpdates: Array<() => void> = [];
-    const reverseDomUpdates: Array<() => void> = [];
     let unmountedInstances: Set<BaseInstance> | undefined = instances?.size
       ? new Set(instances.values())
       : undefined;
@@ -193,8 +189,7 @@ export abstract class BaseInstance<
       const next = result.value;
       switch (next.type) {
         case "UI":
-          if (next.reverse) reverseDomUpdates.push(next.callback);
-          else domUpdates.push(next.callback);
+          domUpdates.push(next.callback);
           result = generator.next();
           break;
         case "PROPS": {
@@ -265,8 +260,6 @@ export abstract class BaseInstance<
     }
     if (domUpdates.length) scheduler.scheduleDOMUpdate(this);
     else scheduler.unscheduleDOMUpdate(this);
-    if (reverseDomUpdates.length) scheduler.scheduleReverseDOMUpdate(this);
-    else scheduler.unscheduleReverseDOMUpdate(this);
 
     if (unmountedInstances) {
       for (const instance of unmountedInstances.values()) instance.unmount();
@@ -283,7 +276,6 @@ export abstract class BaseInstance<
       instances: nextInstances ?? instances,
       refs,
       slots: result.value,
-      reverseDomUpdates,
     };
   }
 
@@ -305,14 +297,6 @@ export abstract class BaseInstance<
     if (this.isUnmounted()) return;
     for (const domUpdate of this.domUpdates) domUpdate();
     this.domUpdates.length = 0;
-    this.slot = this.pendingSlots;
-    this.updateRefs();
-  }
-
-  updateDOMReverse(): void {
-    if (this.isUnmounted()) return;
-    for (const domUpdate of this.pendingReverseDomUpdates) domUpdate();
-    this.pendingReverseDomUpdates.length = 0;
     this.slot = this.pendingSlots;
     this.updateRefs();
   }
