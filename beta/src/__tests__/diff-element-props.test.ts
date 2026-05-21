@@ -13,7 +13,10 @@ describe("diffElementProps", () => {
 
     it("returns null when every key+value is Object.is-equal", () => {
       expect(
-        diffElementProps(props({ id: "a", className: "foo" }), props({ id: "a", className: "foo" })),
+        diffElementProps(
+          props({ id: "a", className: "foo" }),
+          props({ id: "a", className: "foo" }),
+        ),
       ).toBeNull();
     });
 
@@ -72,7 +75,10 @@ describe("diffElementProps", () => {
     it("emits both remove + set when a handler is swapped", () => {
       const prevHandler = () => {};
       const nextHandler = () => {};
-      const patch = diffElementProps(props({ onClick: prevHandler }), props({ onClick: nextHandler }));
+      const patch = diffElementProps(
+        props({ onClick: prevHandler }),
+        props({ onClick: nextHandler }),
+      );
       expect(patch).toEqual({
         removeEvents: ["onClick"],
         setEvents: { onClick: nextHandler },
@@ -112,7 +118,7 @@ describe("diffElementProps", () => {
       expect(patch).toEqual({ style: { color: "blue" } });
     });
 
-    it("emits \"\" for style keys that disappeared", () => {
+    it('emits "" for style keys that disappeared', () => {
       const patch = diffElementProps(
         props({ style: { color: "red", padding: "4px" } }),
         props({ style: { color: "red" } }),
@@ -191,10 +197,7 @@ describe("diffElementProps", () => {
 
   describe("unified undefined semantics (attrs)", () => {
     it("treats next[key] = undefined as 'unset' and removes a set prev", () => {
-      const patch = diffElementProps(
-        props({ title: "hi" }),
-        props({ title: undefined }),
-      );
+      const patch = diffElementProps(props({ title: "hi" }), props({ title: undefined }));
       expect(patch).toEqual({ removeAttrs: ["title"] });
     });
 
@@ -203,16 +206,11 @@ describe("diffElementProps", () => {
     });
 
     it("returns null when both prev and next have undefined for a key", () => {
-      expect(
-        diffElementProps(props({ title: undefined }), props({ title: undefined })),
-      ).toBeNull();
+      expect(diffElementProps(props({ title: undefined }), props({ title: undefined }))).toBeNull();
     });
 
     it("treats prev[key] = undefined as 'unset' so next[key] = value is a plain add", () => {
-      const patch = diffElementProps(
-        props({ title: undefined }),
-        props({ title: "hi" }),
-      );
+      const patch = diffElementProps(props({ title: undefined }), props({ title: "hi" }));
       expect(patch).toEqual({ setAttrs: { title: "hi" } });
     });
   });
@@ -238,7 +236,7 @@ describe("diffElementProps", () => {
   });
 
   describe("unified undefined semantics (style)", () => {
-    it("emits \"\" when a style key becomes undefined", () => {
+    it('emits "" when a style key becomes undefined', () => {
       const patch = diffElementProps(
         props({ style: { color: "red" } }),
         props({ style: { color: undefined } }),
@@ -274,9 +272,9 @@ describe("diffElementProps", () => {
 
   describe("validation throws", () => {
     it("throws when an event prop on next is a string", () => {
-      expect(() =>
-        diffElementProps(props({}), props({ onClick: "alert(1)" })),
-      ).toThrow(/event prop "onClick"/);
+      expect(() => diffElementProps(props({}), props({ onClick: "alert(1)" }))).toThrow(
+        /event prop "onClick"/,
+      );
     });
 
     it("throws when an event prop on next is a number", () => {
@@ -292,15 +290,15 @@ describe("diffElementProps", () => {
     });
 
     it("throws when an event prop on prev is a non-function and next drops it", () => {
-      expect(() =>
-        diffElementProps(props({ onClick: "bad" }), props({})),
-      ).toThrow(/event prop "onClick"/);
+      expect(() => diffElementProps(props({ onClick: "bad" }), props({}))).toThrow(
+        /event prop "onClick"/,
+      );
     });
 
     it("throws when style is a string", () => {
-      expect(() =>
-        diffElementProps(props({}), props({ style: "color: red" })),
-      ).toThrow(/"style" prop must be a plain object/);
+      expect(() => diffElementProps(props({}), props({ style: "color: red" }))).toThrow(
+        /"style" prop must be a plain object/,
+      );
     });
 
     it("throws when style is a number", () => {
@@ -310,9 +308,9 @@ describe("diffElementProps", () => {
     });
 
     it("throws when style is an array", () => {
-      expect(() =>
-        diffElementProps(props({}), props({ style: [{ color: "red" }] })),
-      ).toThrow(/"style" prop must be a plain object/);
+      expect(() => diffElementProps(props({}), props({ style: [{ color: "red" }] }))).toThrow(
+        /"style" prop must be a plain object/,
+      );
     });
 
     it("throws when style is a boolean", () => {
@@ -322,9 +320,9 @@ describe("diffElementProps", () => {
     });
 
     it("throws when style on prev is an array and next drops it", () => {
-      expect(() =>
-        diffElementProps(props({ style: [{ color: "red" }] }), props({})),
-      ).toThrow(/"style" prop must be a plain object/);
+      expect(() => diffElementProps(props({ style: [{ color: "red" }] }), props({}))).toThrow(
+        /"style" prop must be a plain object/,
+      );
     });
   });
 
@@ -383,12 +381,7 @@ describe("diffElementProps", () => {
       prevStyle["color"] = "red";
       const nextStyle = Object.create(styleProto) as Record<string, unknown>;
       nextStyle["color"] = "red";
-      expect(
-        diffElementProps(
-          props({ style: prevStyle }),
-          props({ style: nextStyle }),
-        ),
-      ).toBeNull();
+      expect(diffElementProps(props({ style: prevStyle }), props({ style: nextStyle }))).toBeNull();
     });
   });
 
@@ -405,15 +398,11 @@ describe("diffElementProps", () => {
     });
 
     it("ref undefined → undefined produces no refSwap", () => {
-      expect(
-        diffElementProps(props({ ref: undefined }), props({ ref: undefined })),
-      ).toBeNull();
+      expect(diffElementProps(props({ ref: undefined }), props({ ref: undefined }))).toBeNull();
     });
 
     it("NaN on both sides de-dupes (Object.is-based compare)", () => {
-      expect(
-        diffElementProps(props({ tabIndex: NaN }), props({ tabIndex: NaN })),
-      ).toBeNull();
+      expect(diffElementProps(props({ tabIndex: NaN }), props({ tabIndex: NaN }))).toBeNull();
     });
 
     it("+0 vs -0 emits a diff (documented speed trade-off)", () => {
@@ -445,10 +434,7 @@ describe("diffElementProps", () => {
       const onClick = () => {};
       const nextRef = { current: null };
       const style = { color: "red" };
-      const patch = diffElementProps(
-        props({}),
-        props({ id: "a", onClick, style, ref: nextRef }),
-      );
+      const patch = diffElementProps(props({}), props({ id: "a", onClick, style, ref: nextRef }));
       expect(patch).toEqual({
         setAttrs: { id: "a" },
         setEvents: { onClick },

@@ -1,4 +1,4 @@
-import type { Child, VNode, VNodeProps } from "yract-beta";
+import type { Children, VNode, VNodeProps } from "yract-beta";
 import type { BaseInstance } from "../instances/base-instance";
 import type { SlotElement } from "../render/elements/namespaces";
 
@@ -39,7 +39,7 @@ type SlotInstance<T extends SlotType> = T extends ComponentSlotType | ContextSlo
 
 interface SlotBase<T extends SlotType> {
   child: SlotIntentChild<T>;
-  children: Child[];
+  children: Children[];
   headNode: SlotHeadNode<T>;
   index: number;
   instance: SlotInstance<T>;
@@ -48,7 +48,7 @@ interface SlotBase<T extends SlotType> {
   path: string;
   props: SlotProps<T>;
   prevProps: SlotProps<T>;
-  slots: Map<string, Slot>;
+  slots: ReadonlyMap<string, Slot>;
   tailNode: SlotTailNode<T>;
   text: SlotText<T>;
   prevText: SlotText<T>;
@@ -126,7 +126,7 @@ export type SlotProps<T extends SlotType | EmptySlotType> = T extends TextSlotTy
 export type SlotIntent<T extends SlotType = SlotType> = T extends SlotType
   ? {
       child: SlotIntentChild<T>;
-      children: Child[];
+      children: Children[];
       headNode: Node | undefined;
       index: number;
       instance: undefined | BaseInstance;
@@ -135,7 +135,7 @@ export type SlotIntent<T extends SlotType = SlotType> = T extends SlotType
       path: string;
       props: SlotProps<T>;
       prevProps: undefined | SlotProps<T>;
-      slots: Map<string, Slot>;
+      slots: ReadonlyMap<string, Slot>;
       tailNode: Node | undefined;
       text: SlotText<T>;
       prevText: SlotText<T> | undefined;

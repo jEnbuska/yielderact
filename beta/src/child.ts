@@ -8,7 +8,7 @@
  * Child/VNode taxonomy is visible at a glance.
  */
 import { type Context, ContextSymbol } from "./context";
-import { type Component, Fragment, type SingleChild, type VNode } from "./jsx";
+import { type Child, type Component, Fragment, type VNode } from "./jsx";
 
 import type {
   ComponentChild,
@@ -39,7 +39,7 @@ function randomId(): string {
   return `${randomRoot}${randomIndex++}`;
 }
 
-export function getChildType(child: SingleChild): SlotType | EmptySlotType {
+export function getChildType(child: Child): SlotType | EmptySlotType {
   if (child == null) return emptySlotType;
   const typeOfChild = typeof child;
   switch (typeOfChild) {

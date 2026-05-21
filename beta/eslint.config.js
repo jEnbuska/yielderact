@@ -5,7 +5,14 @@ import noFloatingGenerators from "./eslint-rules/no-floating-generators.js";
 
 export default tseslint.config(
   {
-    ignores: ["node_modules/**", "dist/**", "eslint-rules/**", "playground/**", "eslint.config.js", "vitest.config.ts"],
+    ignores: [
+      "node_modules/**",
+      "dist/**",
+      "eslint-rules/**",
+      "playground/**",
+      "eslint.config.js",
+      "vitest.config.ts",
+    ],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommended,
@@ -26,13 +33,19 @@ export default tseslint.config(
     },
     rules: {
       "@typescript-eslint/no-namespace": ["error", { allowDeclarations: true }],
-      "@typescript-eslint/no-empty-object-type": ["error", { allowInterfaces: "with-single-extends" }],
+      "@typescript-eslint/no-empty-object-type": [
+        "error",
+        { allowInterfaces: "with-single-extends" },
+      ],
       "@typescript-eslint/no-explicit-any": "off",
       "@typescript-eslint/no-non-null-assertion": "off",
       "@typescript-eslint/consistent-type-imports": "warn",
       "yract/no-floating-generators": "error",
       "require-yield": "off",
-      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_", varsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_", varsIgnorePattern: "^_" },
+      ],
     },
   },
 );

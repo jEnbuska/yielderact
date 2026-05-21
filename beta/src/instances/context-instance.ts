@@ -12,14 +12,14 @@
  * The provider has no generator body and no hooks — it just reconciles its
  * `children` using the extended ctx map.
  */
-import {type Context, type ContextHandle, isContext} from "../context";
-import type {VNode, VNodeProps} from "../jsx";
-import {Fragment} from "../jsx";
-import type {ContextMap, RenderContext} from "../render/types";
-import {BaseInstance} from "./base-instance";
-import type {OptionalDelegationAction} from "../reconciler/delegation";
-import type {TagNamespace} from "../render/elements/namespaces";
-import type {ContextSlotType, Slot} from "../slots/slot";
+import { type Context, type ContextHandle, isContext } from "../context";
+import type { VNode, VNodeProps } from "../jsx";
+import { Fragment } from "../jsx";
+import type { ContextMap, RenderContext } from "../render/types";
+import { BaseInstance } from "./base-instance";
+import type { DelegationAction } from "../reconciler/delegation";
+import type { TagNamespace } from "../render/elements/namespaces";
+import type { ContextSlotType, Slot } from "../slots/slot";
 
 export class ContextInstance extends BaseInstance<ContextSlotType> {
   readonly contextKey: Context;
@@ -74,18 +74,15 @@ export class ContextInstance extends BaseInstance<ContextSlotType> {
     }
   }
 
-  protected override render(
-    props: VNodeProps,
-  ): Generator<OptionalDelegationAction, Slot, BaseInstance> {
-    const newValue = props!["value"];
+  protected override render(props: VNodeProps): Generator<DelegationAction, Slot, BaseInstance> {
+    const newValue = props["value"];
     if (!Object.is(this.handle.ref.current, newValue)) {
       this.notify = true;
       this.handle.ref.current = newValue;
     }
-    const children = props["children"];
     return this.reconcile({
       type: Fragment,
-      props: { children },
+      props: { children: props.children },
     });
   }
 

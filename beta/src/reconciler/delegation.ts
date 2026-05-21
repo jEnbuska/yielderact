@@ -14,7 +14,6 @@ export type DelegateMount = {
 export type DelegateUI = { type: "UI"; callback: () => void; reverse: boolean | undefined };
 export type DelegateRef = { type: "REF"; ref: RefLike; element: SlotElement };
 export type DelegationAction = DelegateMount | DelegateUI | DelegateProps | DelegateRef;
-export type OptionalDelegationAction = void | DelegationAction;
 export type DelegateProps = {
   type: "PROPS";
   instance: BaseInstance;

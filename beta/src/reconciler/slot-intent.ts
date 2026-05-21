@@ -23,16 +23,19 @@ import {
   fragmentSlotType,
   textSlotType,
 } from "../slots/slot";
-import type { Child } from "../jsx";
+import type { Children } from "../jsx";
 import { Fragment } from "../jsx";
 import { getChildType, getCustomChildKey, getElementChildKey, getLeafChildKey } from "../child";
 import type { DelegateUI } from "./delegation";
 import { deferUi } from "./delegation";
-import { emptyMap, getValuesReversed, stage } from "../general";
+import { emptyMap, getMapValuesReversed, stage } from "../general";
 
 import { removeSlotNodes } from "./dom-remove";
 
-export function draftIntents(children: Child[], parentPath: string): Map<string, SlotIntent> {
+export function draftIntents(
+  children: Children[],
+  parentPath: string,
+): ReadonlyMap<string, SlotIntent> {
   if (children.length === 0) return emptyMap;
   const drafts = new Map<string, SlotIntent>();
   for (let index = 0; index < children.length; index++) {
@@ -50,7 +53,7 @@ export function draftIntents(children: Child[], parentPath: string): Map<string,
   return drafts;
 }
 
-function asFragmentChild(children: Child[]): FragmentChild {
+function asFragmentChild(children: Children[]): FragmentChild {
   return {
     type: Fragment,
     props: {
@@ -69,13 +72,13 @@ export function createDraftIntent<T extends SlotType | EmptySlotType>(
   let child: SlotIntentChild<T> | undefined;
   let text: SlotText<T> | undefined;
   let props: SlotProps<T> | undefined;
-  let children: Child[];
+  let children: Children[];
   switch (type) {
     case componentSlotType: {
       const c = slotChild as SlotChild<ComponentSlotType>;
       key = getCustomChildKey(c, index);
       child = c as SlotIntentChild<T>;
-      children = getIntentChildren(c);
+      children = getIntentChildren(c.props.children);
       // text = undefined
       props = c.props as SlotProps<T>;
       break;
@@ -84,7 +87,7 @@ export function createDraftIntent<T extends SlotType | EmptySlotType>(
       const c = slotChild as SlotChild<ElementSlotType>;
       key = getElementChildKey(c, index);
       child = c as SlotIntentChild<T>;
-      children = getIntentChildren(c);
+      children = getIntentChildren(c.props.children);
       // text = undefined
       props = c.props as SlotProps<T>;
       break;
@@ -102,7 +105,7 @@ export function createDraftIntent<T extends SlotType | EmptySlotType>(
       const c = slotChild as SlotChild<FragmentSlotType>;
       key = getCustomChildKey(c, index);
       child = c as SlotIntentChild<T>;
-      children = getIntentChildren(c);
+      children = getIntentChildren(c.props.children);
       // text = undefined
       props = c.props as SlotProps<T>;
       break;
@@ -120,7 +123,7 @@ export function createDraftIntent<T extends SlotType | EmptySlotType>(
       const c = slotChild as SlotChild<ContextSlotType>;
       key = getCustomChildKey(c, index);
       child = c as SlotIntentChild<T>;
-      children = getIntentChildren(c);
+      children = getIntentChildren(c.props.children);
       // text = undefined;
       props = c.props as SlotProps<T>;
       break;
@@ -149,10 +152,10 @@ export function createDraftIntent<T extends SlotType | EmptySlotType>(
 }
 
 export function fillIntentDrafts(
-  oldSlots: Map<string, Slot>,
-  drafts: Map<string, SlotIntent>,
+  oldSlots: ReadonlyMap<string, Slot>,
+  drafts: ReadonlyMap<string, SlotIntent>,
   stableIndexes: Set<number>,
-): asserts drafts is Map<string, Slot | SlotIntent> {
+): asserts drafts is ReadonlyMap<string, Slot | SlotIntent> {
   for (const [key, draft] of drafts) {
     const prev = oldSlots.get(key);
     if (prev === undefined) continue;
@@ -169,22 +172,19 @@ export function inheritSlot(draft: SlotIntent, prev: Slot): asserts draft is Slo
   draft.slots = prev.slots;
 }
 
-const emptyChildren: Child[] = [];
-function getIntentChildren<T extends Exclude<SlotType, EmptySlotType | TextSlotType>>(
-  child: SlotChild<T>,
-): Child[] {
-  const { children } = child.props;
-  if (children === undefined) return emptyChildren;
+const emptyChildren: Children[] = [];
+function getIntentChildren(children: Children): Children[] {
   if (Array.isArray(children)) return children;
+  if (children === undefined) return emptyChildren;
   return [children];
 }
 
 export function* delegateRemovals(
-  drafts: Map<string, any>,
-  oldSlots: Map<string, Slot> | undefined,
+  drafts: ReadonlyMap<string, any>,
+  oldSlots: ReadonlyMap<string, Slot> | undefined,
 ): Generator<DelegateUI, void, unknown> {
   if (!oldSlots) return;
-  for (const slot of getValuesReversed(oldSlots)) {
+  for (const slot of getMapValuesReversed(oldSlots)) {
     if (drafts.has(slot.key)) continue;
     yield deferUi(stage(removeSlotNodes, slot));
   }

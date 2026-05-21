@@ -8,7 +8,7 @@
  * @module jsx-types
  */
 import type { SyntheticEvent } from "./events";
-import type { Child, FrameworkProps } from "./jsx";
+import type { Children, FrameworkProps } from "./jsx";
 
 // ---------------------------------------------------------------------------
 // CSS Properties
@@ -417,7 +417,7 @@ export interface HTMLAttributes<T extends HTMLElement = HTMLElement>
    * elements have to expose `children` directly. Optional on every HTML
    * element; void elements are not yet enforced.
    */
-  children?: Child | Child[];
+  children?: Children;
   // ── Global HTML attributes ───────────────────────────────────────────────
   autoCapitalize?: string;
   autoFocus?: boolean;
@@ -919,7 +919,7 @@ export interface SVGAttributes<T extends SVGElement = SVGElement>
   /** Ref object — set to the SVG element on mount, undefined on unmount. */
   ref?: { current: T | undefined };
   /** JSX children. See `HTMLAttributes.children` for why this isn't `children`. */
-  children?: Child | Child[];
+  children?: Children;
   className?: string;
   id?: string;
   style?: CSSProperties;

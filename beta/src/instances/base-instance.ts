@@ -3,10 +3,10 @@ import { resolveCtxValue } from "../context";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import type { DependencyList } from "../hooks/types";
 import { depsChanged } from "../hooks/utils";
-import type { SingleChild, VNodeProps } from "../jsx";
+import type { Child, VNodeProps } from "../jsx";
 import { propsWithChildren, shallowEqual } from "../prop-helpers";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
-import type { OptionalDelegationAction } from "../reconciler/delegation";
+import type { DelegationAction } from "../reconciler/delegation";
 import { deferUi } from "../reconciler/delegation";
 import { mountRoot, reconcileRoot } from "../reconciler/reconciler";
 import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
@@ -109,6 +109,7 @@ export abstract class BaseInstance<
    * check in `setProps` with a `depsChanged()` comparison.
    */
   deps?: DependencyList;
+  protected mounted = false;
 
   protected readonly path: string;
 
@@ -197,6 +198,7 @@ export abstract class BaseInstance<
     this.nextRefs = result.nextRefs;
     this.instances = result.instances;
     this.unmountedInstances = result.unmountedInstances;
+    if (!this.mounted) this.scheduleEffect(MOUNT_REASON);
   }
 
   private preparedInstances: Map<string, BaseInstance> | undefined;
@@ -226,11 +228,6 @@ export abstract class BaseInstance<
     }
 
     while (!result.done) {
-      yield;
-      if (!result.value) {
-        result = generator.next();
-        continue;
-      }
       const next = result.value;
       switch (next.type) {
         case "UI":
@@ -295,10 +292,6 @@ export abstract class BaseInstance<
     }
 
     const { scheduler } = this.rctx;
-    if (domUpdates.length) scheduler.scheduleDOMUpdate(this);
-    else scheduler.unscheduleDOMUpdate(this);
-    if (reverseDomUpdates.length) scheduler.scheduleReverseDOMUpdate(this);
-    else scheduler.unscheduleReverseDOMUpdate(this);
 
     if (unmountedInstances?.size) scheduler.scheduleUnmountChildren(this);
     else scheduler.unscheduleUnmountChildren(this);
@@ -308,6 +301,10 @@ export abstract class BaseInstance<
         instance.scheduleRender(MOUNT_REASON);
       }
     }
+    if (domUpdates.length) scheduler.scheduleDOMUpdate(this);
+    else scheduler.unscheduleDOMUpdate(this);
+    if (reverseDomUpdates.length) scheduler.scheduleReverseDOMUpdate(this);
+    else scheduler.unscheduleReverseDOMUpdate(this);
 
     if (unmountedInstances) {
       for (const instance of unmountedInstances.values()) instance.unmount();
@@ -331,9 +328,9 @@ export abstract class BaseInstance<
 
   protected abstract render(
     props: Record<string, unknown>,
-  ): Generator<OptionalDelegationAction, Slot, InstanceSlotNodes>;
+  ): Generator<DelegationAction, Slot, InstanceSlotNodes>;
 
-  protected *reconcile(child: SingleChild) {
+  protected *reconcile(child: Child) {
     if (!this.slot) {
       const stagingDom = document.createDocumentFragment();
       const result = yield* mountRoot(child, this, this.parentDom, stagingDom, this.ns);
@@ -402,6 +399,8 @@ export abstract class BaseInstance<
   }
 
   runEffects() {
+    if (this.unmounted) return;
+    this.mounted = true;
     if (!this.hookStates) return;
     for (const state of this.hookStates) {
       if (state.type === $EFFECT) {

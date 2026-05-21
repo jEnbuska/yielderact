@@ -1,6 +1,15 @@
 import type { Context } from "../context";
 import type { ContextHookState } from "../hooks/context";
-import type { $$BATCH, $EFFECT, $ID, $MEMO, $REF, $STABLE, $STATE } from "../hooks/descriptors";
+import {
+  $$BATCH,
+  $EFFECT,
+  $ID,
+  $MEMO,
+  $REF,
+  $STABLE,
+  $STATE,
+  $WEAK_REF,
+} from "../hooks/descriptors";
 import type { DependencyList } from "../hooks/types";
 import type { DelegationRoot } from "./delegation";
 import type { Scheduler } from "./scheduler";
@@ -39,6 +48,12 @@ export interface StateHookState {
 export interface RefHookState {
   type: typeof $REF;
   current: unknown;
+}
+
+export interface WeakRefHookState {
+  type: typeof $WEAK_REF;
+  get current(): WeakKey | undefined;
+  set current(value: WeakKey);
 }
 
 export interface IdHookState {
@@ -80,4 +95,5 @@ export type HookState =
   | StableHookState
   | EffectHookState
   | ContextHookState
-  | BatchHookState;
+  | BatchHookState
+  | WeakRefHookState;

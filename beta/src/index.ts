@@ -23,7 +23,7 @@ export {
 } from "./hooks";
 export { Defer } from "./instances/defer-context";
 export {
-  type Child,
+  type Children,
   type Component,
   type ComponentProps,
   Fragment,

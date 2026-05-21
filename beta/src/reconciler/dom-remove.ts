@@ -7,7 +7,7 @@ import {
   fragmentSlotType,
   textSlotType,
 } from "../slots/slot";
-import { getValuesReversed } from "../general";
+import { getMapValuesReversed } from "../general";
 
 export function removeSlotNodes(slot: Slot) {
   switch (slot.type) {
@@ -38,14 +38,14 @@ function removeInstanceNodes(slot: ComponentSlot | ContextSlot) {
 
 function removeFragmentNodes({ tailNode, slots, headNode }: FragmentSlot) {
   tailNode.remove();
-  for (const next of getValuesReversed(slots)) {
+  for (const next of getMapValuesReversed(slots)) {
     switch (next.type) {
       case textSlotType:
       case elementSlotType:
         headNode.remove();
         break;
       case fragmentSlotType:
-        for (const child of getValuesReversed(next.slots)) {
+        for (const child of getMapValuesReversed(next.slots)) {
           removeSlotNodes(child);
         }
         break;

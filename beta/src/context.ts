@@ -1,5 +1,5 @@
 import type { ComponentGenerator } from "./hooks/types";
-import type { Child, PropsWithChildren } from "./jsx";
+import type { Children, PropsWithChildren } from "./jsx";
 
 export const ContextSymbol: unique symbol = Symbol("Context");
 
@@ -22,7 +22,7 @@ export interface ContextProviderProps<T = unknown> extends PropsWithChildren {
  * ```
  */
 export interface Context<T = any> {
-  (props: ContextProviderProps<T>): ComponentGenerator<Child>;
+  (props: ContextProviderProps<T>): ComponentGenerator<Children>;
   readonly defaultValue: T;
   readonly [ContextSymbol]: true;
 }
@@ -42,7 +42,7 @@ export function isContext(value: unknown): value is Context {
  * directly based on the `ContextSymbol` marker.
  */
 export function createContext<T>(defaultValue: T): Context<T> {
-  const Context = function* (_: ContextProviderProps<T>): ComponentGenerator<Child> {
+  const Context = function* (_: ContextProviderProps<T>): ComponentGenerator<Children> {
     return null;
   };
   return Object.assign(Context, {

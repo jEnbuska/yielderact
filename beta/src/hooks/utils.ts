@@ -26,6 +26,7 @@ import {
   $REF,
   $STABLE,
   $STATE,
+  $WEAK_REF,
   HOOK_TYPES,
   type HookDescriptor,
   type HookType,
@@ -37,6 +38,7 @@ import { processRef } from "./ref";
 import { processStable } from "./stable";
 import { createStateSetter, processState } from "./state";
 import type { DependencyList } from "./types";
+import { processWeakRef } from "./weakRef";
 
 /** Returns true when the dependency arrays differ (shallow `Object.is` comparison). */
 export function depsChanged(
@@ -97,6 +99,12 @@ export function processOneDescriptor(
     case $REF: {
       const prev = getTypedPrev(hookStates, hookIndex, $REF, instance);
       const state = processRef(descriptor, prev);
+      hookStates[hookIndex] = state;
+      return state;
+    }
+    case $WEAK_REF: {
+      const prev = getTypedPrev(hookStates, hookIndex, $WEAK_REF, instance);
+      const state = processWeakRef(prev);
       hookStates[hookIndex] = state;
       return state;
     }

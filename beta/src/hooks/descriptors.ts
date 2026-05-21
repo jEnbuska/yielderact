@@ -3,6 +3,7 @@ import type { DependencyList } from "./types";
 
 export const $STATE = "$STATE" as const;
 export const $REF = "$REF" as const;
+export const $WEAK_REF = "$WEAK_REF" as const;
 export const $ID = "$ID" as const;
 export const $MEMO = "$MEMO" as const;
 export const $STABLE = "$STABLE" as const;
@@ -17,6 +18,7 @@ export type HookType =
   | typeof $MEMO
   | typeof $STABLE
   | typeof $EFFECT
+  | typeof $WEAK_REF
   | typeof $CONTEXT
   | typeof $$BATCH;
 
@@ -29,6 +31,7 @@ export const HOOK_TYPES: ReadonlySet<HookType> = new Set<HookType>([
   $EFFECT,
   $CONTEXT,
   $$BATCH,
+  $WEAK_REF,
 ]);
 
 export interface StateDescriptor {
@@ -40,6 +43,10 @@ export interface StateDescriptor {
 export interface RefDescriptor {
   type: typeof $REF;
   initialValue: unknown;
+}
+
+export interface WeakRefDescriptor {
+  type: typeof $WEAK_REF;
 }
 
 export interface IdDescriptor {
@@ -77,6 +84,7 @@ export interface BatchDescriptor {
 export type HookDescriptor =
   | StateDescriptor
   | RefDescriptor
+  | WeakRefDescriptor
   | IdDescriptor
   | MemoDescriptor
   | StableDescriptor

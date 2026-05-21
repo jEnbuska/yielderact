@@ -43,9 +43,7 @@ describe("smoke: components", () => {
     const container = document.createElement("div");
     render(<Greeting name="world" />, container);
     await flush();
-    expect(container.querySelector('[data-testid="greeting"]')?.textContent).toBe(
-      "Hello, world!",
-    );
+    expect(container.querySelector('[data-testid="greeting"]')?.textContent).toBe("Hello, world!");
   });
 
   it("renders state from $state on initial mount", async () => {

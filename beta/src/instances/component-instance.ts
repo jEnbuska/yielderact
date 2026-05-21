@@ -7,16 +7,14 @@
  * existing slot tree between `startAnchor` and `endAnchor`.
  */
 import { isHookDescriptor, processOneDescriptor } from "../hooks/utils";
-import type { Component, SingleChild } from "../jsx";
+import type { Child, Component, VNodeProps } from "../jsx";
 import { BaseInstance } from "./base-instance";
 import { $$BATCH } from "../hooks/descriptors";
-import type { OptionalDelegationAction } from "../reconciler/delegation";
 import type { Slot } from "../slots/slot";
+import type { DelegationAction } from "../reconciler/delegation";
 
 export class ComponentInstance extends BaseInstance {
-  protected override render(
-    props: Record<string, unknown>,
-  ): Generator<OptionalDelegationAction, Slot, BaseInstance> {
+  protected override render(props: VNodeProps): Generator<DelegationAction, Slot, BaseInstance> {
     const fn = this.vnode.type as Component<Record<string, any>>;
     const child = this.runHooks(fn(props));
     return this.reconcile(child);
@@ -24,7 +22,7 @@ export class ComponentInstance extends BaseInstance {
 
   _handleBatch?: <T>(callback: () => T) => Promise<T>;
 
-  private runHooks(gen: Generator<unknown, SingleChild, unknown>): SingleChild {
+  private runHooks(gen: Generator<unknown, Child, unknown>): Child {
     let hookIndex = 0;
     let step = gen.next();
     if (step.done) return step.value;
@@ -32,7 +30,7 @@ export class ComponentInstance extends BaseInstance {
     while (!step.done) {
       const value = step.value;
       if (!isHookDescriptor(value)) {
-        return value as SingleChild;
+        return value as Child;
       }
       switch (value.type) {
         case $$BATCH: {

@@ -1,4 +1,4 @@
-import type { Child } from "../jsx";
+import type { Children } from "../jsx";
 import type { HookDescriptor } from "./descriptors";
 
 /**
@@ -19,7 +19,7 @@ export type DependencyList = readonly unknown[];
  * Defaults to `HookDescriptor | Child` — the full union a component body
  * can produce via `yield*` delegation.
  */
-export type ComponentGenerator<TReturn, TYield = HookDescriptor | Child> = Generator<
+export type ComponentGenerator<TReturn, TYield = HookDescriptor | Children> = Generator<
   TYield,
   TReturn,
   unknown

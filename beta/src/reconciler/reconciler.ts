@@ -1,4 +1,4 @@
-import type { Child, SingleChild } from "../jsx";
+import type { Child, Children } from "../jsx";
 import type { BaseInstance } from "../instances/base-instance";
 import type { Slot } from "../slots/slot";
 import type { TagNamespace } from "../render/elements/namespaces";
@@ -12,7 +12,7 @@ import {
   inheritSlot,
 } from "./slot-intent";
 import { moveSlot } from "./dom-updates";
-import { getValuesReversed, stage } from "../general";
+import { getMapValues, getMapValuesReversed, stage } from "../general";
 import { deriveStableIndexes } from "./derive-stable-indexes";
 import { getChildType } from "../child";
 import { buildIntentToSlot } from "./build-intent-to-slot";
@@ -21,20 +21,20 @@ import { mountIntent } from "./mount-intent";
 import { removeSlotNodes } from "./dom-remove";
 
 export function* reconcile(
-  children: Child[],
+  children: Children[],
   parentInstance: BaseInstance,
   parentDom: Node,
   path: string,
-  oldSlots: Map<string, Slot>,
+  oldSlots: ReadonlyMap<string, Slot>,
   ns: TagNamespace,
   beforeNode: Node | null,
-): Generator<DelegationAction, Map<string, Slot>, BaseInstance> {
+): Generator<DelegationAction, ReadonlyMap<string, Slot>, BaseInstance> {
   const drafts = draftIntents(children, path);
   const stableIndexes = deriveStableIndexes(drafts, oldSlots);
   fillIntentDrafts(oldSlots, drafts, stableIndexes);
   yield* delegateRemovals(drafts, oldSlots);
-  const slots = drafts as Map<string, Slot>;
-  for (const slot of getValuesReversed(slots)) {
+  const slots = drafts as ReadonlyMap<string, Slot>;
+  for (const slot of getMapValuesReversed(slots)) {
     if (slot.headNode === undefined) {
       yield* buildIntentToSlot(slot, parentInstance, ns, parentDom, beforeNode);
     } else {
@@ -49,7 +49,7 @@ export function* reconcile(
 }
 
 export function* reconcileRoot(
-  child: SingleChild,
+  child: Child,
   parentInstance: BaseInstance,
   parentDom: Node,
   prevSlot: Slot,
@@ -70,22 +70,22 @@ export function* reconcileRoot(
 }
 
 export function* mount(
-  children: Child[],
+  children: Children[],
   parentInstance: BaseInstance,
   parentDom: Node,
   stagingDom: Node,
   parentPath: string,
   ns: TagNamespace,
-): Generator<DelegateMount | DelegateRef, Map<string, Slot>> {
-  const slots = draftIntents(children, parentPath) as any as Map<string, Slot>;
-  for (const draft of slots.values()) {
+): Generator<DelegateMount | DelegateRef, ReadonlyMap<string, Slot>> {
+  const slots = draftIntents(children, parentPath) as any as ReadonlyMap<string, Slot>;
+  for (const draft of getMapValues(slots)) {
     yield* mountIntent(draft, parentInstance, ns, parentDom, stagingDom);
   }
   return slots;
 }
 
 export function* mountRoot(
-  child: SingleChild,
+  child: Child,
   parentInstance: BaseInstance,
   parentDom: Node,
   stagingDom: Node,

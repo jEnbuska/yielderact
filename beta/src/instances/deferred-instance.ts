@@ -1,10 +1,10 @@
 import { BaseInstance } from "./base-instance";
-import type { Child, VNode, VNodeProps } from "../jsx";
+import type { VNode, VNodeProps } from "../jsx";
 import { Fragment } from "../jsx";
 import type { Context, ContextHandle } from "../context";
 import { resolveCtxValue } from "../context";
 import type { ContextMap, RenderContext } from "../render/types";
-import type { OptionalDelegationAction } from "../reconciler/delegation";
+import type { DelegationAction } from "../reconciler/delegation";
 import { Defer } from "./defer-context";
 import type { TagNamespace } from "../render/elements/namespaces";
 import type { ContextSlotType, Slot } from "../slots/slot";
@@ -58,8 +58,8 @@ export class DeferredInstance extends BaseInstance<ContextSlotType> {
     return !this.initialRender || resolveCtxValue(this.parent?.ctx, Defer);
   }
 
-  protected render(props: VNodeProps): Generator<OptionalDelegationAction, Slot, BaseInstance> {
-    const children = (props["children"] as Child[]) ?? [];
+  protected render(props: VNodeProps): Generator<DelegationAction, Slot, BaseInstance> {
+    const { children } = props;
     return this.reconcile({
       type: Fragment,
       props: { children },

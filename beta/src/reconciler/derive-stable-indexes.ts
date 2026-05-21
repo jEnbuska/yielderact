@@ -1,6 +1,6 @@
 export function deriveStableIndexes<Slot extends { index: number }>(
-  drafts: Map<string, any>,
-  oldSlots: Map<string, Slot>,
+  drafts: ReadonlyMap<string, any>,
+  oldSlots: ReadonlyMap<string, Slot>,
 ): Set<number> {
   const tailPos: number[] = []; // tailPos[k] = old slot index of the smallest tail of an LIS of length k+1
   const prev: Array<number | undefined> = new Array(oldSlots.size);

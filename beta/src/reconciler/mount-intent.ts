@@ -53,9 +53,6 @@ function* mountFragmentIntent(
   toFragmentSlot(intent);
   const { path, children, headNode, tailNode } = intent;
   stagingDom.appendChild(headNode);
-  // Children stage alongside the fragment's anchors but their `instance.parentDom`
-  // tracks the real outer parent — when the staging fragment commits, the children's
-  // anchors land as siblings inside the real parent.
   intent.slots = yield* mount(children, parentInstance, parentDom, stagingDom, path, ns);
   stagingDom.appendChild(tailNode);
 }
@@ -69,8 +66,6 @@ function* mountElementIntent(
   toElementSlot(intent, parentInstance.rctx.delegationRoot, ns);
   const { headNode, children, path, props } = intent;
   stagingDom.appendChild(headNode);
-  // Element children live inside the element — both logical parent and staging
-  // target collapse to `slot.node` for the recursion.
   ns = nodeNameSpace(headNode);
   intent.slots = yield* mount(children, parentInstance, headNode, headNode, path, ns);
   if (isRefProps(props)) yield deferRef(headNode, props.ref);

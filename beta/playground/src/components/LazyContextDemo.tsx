@@ -79,9 +79,7 @@ export function* LazyContextDemo() {
       </p>
 
       <AppCtx value={state}>
-        <div
-          style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}
-        >
+        <div style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
           <NoSelectorConsumer />
           <SelectorConsumer />
           <TransformConsumer />

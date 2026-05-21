@@ -11,7 +11,7 @@
 import { Fragment, type VNode } from "../jsx";
 import type { RenderContext } from "../render/types";
 import { BaseInstance } from "./base-instance";
-import type { OptionalDelegationAction } from "../reconciler/delegation";
+import type { DelegationAction } from "../reconciler/delegation";
 import { deferUi } from "../reconciler/delegation";
 import { HTML_NS } from "../render/elements/namespaces";
 import type { ComponentSlotType, ContextSlotType, FragmentSlotType, Slot } from "../slots/slot";
@@ -37,7 +37,7 @@ export class RootInstance extends BaseInstance<ContextSlotType> {
     );
   }
   protected override *render(): Generator<
-    OptionalDelegationAction,
+    DelegationAction,
     Slot,
     Slot<ComponentSlotType | ContextSlotType>
   > {

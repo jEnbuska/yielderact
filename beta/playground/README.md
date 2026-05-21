@@ -86,7 +86,7 @@ yract/
 
 ```ts
 // vite.config.ts
-import { yractPlugin } from '../vite-plugin-yract';
+import { yractPlugin } from "../vite-plugin-yract";
 
 export default defineConfig({
   plugins: [yractPlugin()],
@@ -114,8 +114,8 @@ With these settings in place every `.tsx` file is compiled without needing
 2. Add it to your `vite.config.ts`:
 
    ```ts
-   import { defineConfig } from 'vite';
-   import { yractPlugin } from './vite-plugin-yract';
+   import { defineConfig } from "vite";
+   import { yractPlugin } from "./vite-plugin-yract";
 
    export default defineConfig({
      plugins: [yractPlugin()],

@@ -7,11 +7,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { DelegationRoot, getHandlers } from "../render/delegation";
-import {
-  type ElementPatch,
-  type RefLike,
-  updateElementProps,
-} from "../render/element-props";
+import { type ElementPatch, type RefLike, updateElementProps } from "../render/element-props";
 
 function makeRoot(): { container: Element; delegationRoot: DelegationRoot } {
   const container = document.createElement("div");
@@ -218,11 +214,7 @@ describe("updateElementProps: bucket ordering", () => {
 
     // Contrived: the diff never emits this exact shape, but if a caller ever
     // did, the bucket order matters. We assert the final visible state.
-    updateElementProps(
-      el,
-      { removeAttrs: ["title"], setAttrs: { title: "new" } },
-      delegationRoot,
-    );
+    updateElementProps(el, { removeAttrs: ["title"], setAttrs: { title: "new" } }, delegationRoot);
 
     expect(el.getAttribute("title")).toBe("new");
   });

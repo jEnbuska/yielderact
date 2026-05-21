@@ -1,15 +1,10 @@
-/**
- * JSX automatic runtime — used when `jsxImportSource: "yract-beta"`.
- *
- * Normalizes `props.children` to an array and returns the VNode directly.
- */
-import type { Child, Component, FrameworkProps, PropsWithChildren, VNodeProps } from "./jsx";
+import type { Children, Component, FrameworkProps, PropsWithChildren, VNodeProps } from "./jsx";
 import { Fragment, type VNode } from "./jsx";
 import type { Context, ContextProviderProps } from "./context";
 
 export { Fragment };
 
-const emptyChildren: Child[] = [];
+const emptyChildren: Children[] = [];
 const defaultProps: VNodeProps = Object.freeze({ children: emptyChildren });
 export function jsx<P extends Record<string, any>>(
   type: Component<Omit<P, keyof FrameworkProps>>,

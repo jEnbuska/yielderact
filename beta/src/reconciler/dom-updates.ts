@@ -7,7 +7,7 @@ import {
   textSlotType,
 } from "../slots/slot";
 
-import { getValuesReversed } from "../general";
+import { getMapValuesReversed } from "../general";
 
 type WithMoveBefore = Node & { moveBefore: (node: Node, child: Node | null) => void };
 
@@ -50,7 +50,7 @@ export function moveSlot(slot: Slot, parentDom: Node, beforeNode: Node | null): 
       const node = slot.tailNode;
       moveBefore(parentDom, node, beforeNode);
       beforeNode = node;
-      for (const child of getValuesReversed(slot.slots)) {
+      for (const child of getMapValuesReversed(slot.slots)) {
         moveSlot(child, parentDom, beforeNode);
         beforeNode = child.headNode;
       }
