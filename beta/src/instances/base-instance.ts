@@ -23,7 +23,7 @@ import { intentToSlot } from "../slots/slot";
 import type { RefLike } from "../render/element-props";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
 
-type FulFillCreateInstance = (
+type CreateInstance = (
   headNode: Comment,
   tailNode: Comment,
   intent: SlotIntent<ComponentSlotType | ContextSlotType>,
@@ -34,10 +34,10 @@ type FulFillCreateInstance = (
   ns: TagNamespace,
 ) => BaseInstance;
 
-let fulFillCreateInstance: FulFillCreateInstance;
+let createInstance: CreateInstance;
 
-export function registerFulFillCreateInstance(callback: FulFillCreateInstance): void {
-  fulFillCreateInstance = callback;
+export function registerCreateInstance(callback: CreateInstance): void {
+  createInstance = callback;
 }
 
 type InstanceReconcileResult = {
@@ -45,43 +45,26 @@ type InstanceReconcileResult = {
   reverseDomUpdates: Array<() => void>;
   unmountedInstances: Set<BaseInstance> | undefined;
   instances: Map<string, BaseInstance> | undefined;
-  nextRefs: Map<SlotElement, RefLike> | undefined;
-  nextSlot: Slot;
+  refs: Map<SlotElement, RefLike> | undefined;
+  slots: Slot;
 };
 type RenderGenerator = Generator<void, InstanceReconcileResult>;
 
 export abstract class BaseInstance<
   T extends ComponentSlotType | ContextSlotType = ComponentSlotType | ContextSlotType,
 > {
-  /** Time-slice deadline set by the scheduler. invokeUpdates yields when exceeded. */
-
   public readonly ns: TagNamespace;
   protected unmounted?: boolean;
   readonly contextKey?: Context = undefined;
   readonly vnode: SlotChild<T>;
   readonly depth: number;
   readonly parent: BaseInstance | null;
-
-  /**
-   * Live DOM container the instance's anchors sit in. Updated by
-   * `buildComponent` / `buildContext` when an existing instance is reused
-   * under a different element (e.g., the surrounding `<tr>` got rebuilt) —
-   * its anchors physically migrate via `appendChildren`, and this field
-   * has to follow so subsequent reconciles read the right parent.
-   */
   parentDom: Node;
-  protected pendingDomUpdates: Array<() => void> = [];
+  protected domUpdates: Array<() => void> = [];
   protected pendingReverseDomUpdates: Array<() => void> = [];
-  /**
-   * ContextMap this instance exposes to its children and reads for its own
-   * `context` hooks. ComponentInstance keeps the parent map unchanged;
-   * ContextInstance extends it with its own handle before calling `super`.
-   */
+
   readonly ctx: ContextMap;
   readonly rctx: RenderContext;
-
-  // Lazy collections — null until first write. Saves allocations on leaf
-  // instances that never accumulate children, scheduling reasons, or hooks.
 
   private instances?: Map<string, BaseInstance> = undefined;
   private unmountedInstances?: Set<BaseInstance> = undefined;
@@ -93,21 +76,13 @@ export abstract class BaseInstance<
   private nextRefs?: Map<SlotElement, RefLike> = undefined;
 
   slot?: Slot = undefined;
-  nextSlot?: Slot = undefined;
+  pendingSlots?: Slot = undefined;
 
   private props: VNodeProps;
-
-  /** Saved generator from an interrupted deferred render. */
   private pendingRender?: RenderGenerator = undefined;
-
   readonly headNode: Comment;
   readonly tailNode: Comment;
 
-  /**
-   * Dependency array for reconciliation memoization, set from the `deps`
-   * framework prop. When present, replaces the default `shallowEqual` props
-   * check in `setProps` with a `depsChanged()` comparison.
-   */
   deps?: DependencyList;
   protected mounted = false;
 
@@ -143,13 +118,6 @@ export abstract class BaseInstance<
   }
 
   scheduleRender(reason: symbol, deferred?: boolean): void {
-    // Always discard any in-flight saved generator so the next `apply()`
-    // re-reads `this.props`. The scheduler dedupes queue entries via its
-    // `members` set, so calling `scheduler.scheduleRender` repeatedly is
-    // safe — but skipping the call here when `renderReasons.has(reason)`
-    // would lose late prop updates: a setProps that fires while an apply
-    // is mid-flight would update `this.props` but nothing would re-queue
-    // the instance for a fresh render with the new props.
     this.pendingRender = undefined;
     (this.renderReasons ??= new Set()).add(reason);
     this.rctx.scheduler.scheduleRender(this, deferred);
@@ -179,12 +147,6 @@ export abstract class BaseInstance<
     this.rctx.scheduler.scheduleEffect(this);
   }
 
-  /**
-   * Template method: the scheduler calls this; the implementation in
-   * `doRender()` is where concrete instances invoke their generator or
-   * update their context handle. Reasons are cleared once `doRender()`
-   * returns so a subsequent scheduling round starts from a clean slate.
-   */
   *apply(): Generator<void, void, void> {
     if (this.isUnmounted()) return;
     const gen = this.pendingRender ?? this.invokeUpdates(this.instances);
@@ -192,10 +154,10 @@ export abstract class BaseInstance<
     const result = yield* gen;
     this.pendingRender = undefined;
     this.renderReasons?.clear();
-    this.nextSlot = result.nextSlot;
-    this.pendingDomUpdates = result.domUpdates;
+    this.pendingSlots = result.slots;
+    this.domUpdates = result.domUpdates;
     this.pendingReverseDomUpdates = result.reverseDomUpdates;
-    this.nextRefs = result.nextRefs;
+    this.nextRefs = result.refs;
     this.instances = result.instances;
     this.unmountedInstances = result.unmountedInstances;
     if (!this.mounted) this.scheduleEffect(MOUNT_REASON);
@@ -216,7 +178,7 @@ export abstract class BaseInstance<
       ? new Map()
       : undefined;
     let result = generator.next();
-    let nextRefs: undefined | Map<SlotElement, RefLike> = undefined;
+    let refs: undefined | Map<SlotElement, RefLike> = undefined;
 
     function handleSetProps(instance: BaseInstance, props: VNodeProps) {
       unmountedInstances ??= new Set(instances?.values());
@@ -242,8 +204,8 @@ export abstract class BaseInstance<
           break;
         }
         case "REF": {
-          nextRefs ??= new Map();
-          nextRefs!.set(next.element, next.ref);
+          refs ??= new Map();
+          refs!.set(next.element, next.ref);
           result = generator.next();
           break;
         }
@@ -267,7 +229,7 @@ export abstract class BaseInstance<
               const { name } = intent.child.type;
               const headNode = document.createComment(`<${name}>`);
               const tailNode = document.createComment(`</${name}>`);
-              instance = fulFillCreateInstance(
+              instance = createInstance(
                 headNode,
                 tailNode,
                 intent,
@@ -314,14 +276,13 @@ export abstract class BaseInstance<
       for (const [instance, props] of updatedInstances) instance.setProps(props);
     }
 
-    const slot = result.value;
     this.preparedInstances = undefined;
     return {
       domUpdates,
       unmountedInstances,
       instances: nextInstances ?? instances,
-      nextRefs,
-      nextSlot: slot,
+      refs,
+      slots: result.value,
       reverseDomUpdates,
     };
   }
@@ -342,9 +303,9 @@ export abstract class BaseInstance<
 
   updateDOM(): void {
     if (this.isUnmounted()) return;
-    for (const domUpdate of this.pendingDomUpdates) domUpdate();
-    this.pendingDomUpdates.length = 0;
-    this.slot = this.nextSlot;
+    for (const domUpdate of this.domUpdates) domUpdate();
+    this.domUpdates.length = 0;
+    this.slot = this.pendingSlots;
     this.updateRefs();
   }
 
@@ -352,7 +313,7 @@ export abstract class BaseInstance<
     if (this.isUnmounted()) return;
     for (const domUpdate of this.pendingReverseDomUpdates) domUpdate();
     this.pendingReverseDomUpdates.length = 0;
-    this.slot = this.nextSlot;
+    this.slot = this.pendingSlots;
     this.updateRefs();
   }
 
@@ -443,7 +404,7 @@ export abstract class BaseInstance<
     if (this.unmounted) return;
     this.unmounted = true;
     this.pendingRender = undefined;
-    this.pendingDomUpdates.length = 0;
+    this.domUpdates.length = 0;
     const { scheduler } = this.rctx;
     if (this.renderReasons?.size) scheduler.unscheduleRender(this);
   }

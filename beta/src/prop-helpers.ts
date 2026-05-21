@@ -21,7 +21,11 @@ export function propsWithChildren(props: VNodeProps): VNodeProps {
   let children = props.children;
   if (Array.isArray(children)) {
     if (children.length === 1) {
-      children = children[0];
+      let only = children[0];
+      if (only == null || typeof only === "boolean") {
+        only = undefined;
+      }
+      children = only;
     } else if (children.length === 0) {
       children = undefined;
     }

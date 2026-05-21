@@ -1,47 +1,23 @@
 import type { Context } from "../context";
 import type { ContextHookState } from "../hooks/context";
-import {
-  $$BATCH,
-  $EFFECT,
-  $ID,
-  $MEMO,
-  $REF,
-  $STABLE,
-  $STATE,
-  $WEAK_REF,
-} from "../hooks/descriptors";
+import { $$BATCH, $EFFECT, $ID, $MEMO, $REF, $STABLE, $STATE, $WEAK_REF, } from "../hooks/descriptors";
 import type { DependencyList } from "../hooks/types";
 import type { DelegationRoot } from "./delegation";
 import type { Scheduler } from "./scheduler";
 
-// ---------------------------------------------------------------------------
-// Context map — immutable map threaded through the instance tree
-// ---------------------------------------------------------------------------
-
 export type ContextMap = ReadonlyMap<Context, unknown>;
-
-// ---------------------------------------------------------------------------
-// Per-root render context — one per createRoot(), not stored in ContextMap.
-// Each BaseInstance holds a direct reference via `rctx`.
-// ---------------------------------------------------------------------------
 
 export interface RenderContext {
   container: Element;
   scheduler: Scheduler;
   delegationRoot: DelegationRoot;
 }
-
-// ---------------------------------------------------------------------------
-// Hook state discriminated union (`type` as discriminant)
-// ---------------------------------------------------------------------------
-
 export interface StateHookState {
   type: typeof $STATE;
   value: unknown;
   deps: DependencyList;
   pendingValue: unknown;
   identifier: symbol;
-  /** Resolve function for the latest setState promise. No-op when no setState is pending. */
   pendingResolve?: () => void;
 }
 
