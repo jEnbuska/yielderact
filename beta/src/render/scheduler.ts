@@ -304,7 +304,6 @@ export class Scheduler {
   static setUnmountedChildrenUnmounted(parents: Iterable<BaseInstance>) {
     for (const instance of parents) {
       const { instances, unmountInstances } = instance;
-      instance.unmounted = true;
       if (unmountInstances) {
         for (const child of unmountInstances) {
           instances?.delete(child.path);
@@ -326,7 +325,7 @@ export class Scheduler {
 
   private static unmountParentsUnmountedChildren(parents: Set<BaseInstance>) {
     for (const next of parents) {
-      if (!next.unmountInstances?.size) return;
+      if (!next.unmountInstances?.size) continue;
       const children = next.instances;
       for (const child of next.unmountInstances) {
         Scheduler.unmountLeafsFirst(child);
@@ -345,7 +344,7 @@ export class Scheduler {
     }
     if (refs) {
       for (const [element, ref] of refs) {
-        if (element !== ref.current) return;
+        if (element !== ref.current) continue;
         ref.current = undefined;
       }
     }
