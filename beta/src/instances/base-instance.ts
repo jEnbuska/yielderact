@@ -5,12 +5,18 @@ import { depsChanged } from "../hooks/utils";
 import type { Child, VNodeProps } from "../jsx";
 import { propsWithChildren, shallowEqual } from "../prop-helpers";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
-import type { DelegationAction } from "../reconciler/delegation";
-import { deferUi } from "../reconciler/delegation";
+import type { DelegationAction, UIAction } from "../reconciler/delegation";
+import { deferInsert } from "../reconciler/delegation";
 import { mountRoot, reconcileRoot, resolveComponentRender } from "../reconciler/reconciler";
 import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
 import { Defer } from "./defer-context";
-import type { ComponentSlotType, ContextSlotType, InstanceSlotNodes, Slot, SlotChild, } from "../slots/slot";
+import type {
+  ComponentSlotType,
+  ContextSlotType,
+  InstanceSlotNodes,
+  Slot,
+  SlotChild,
+} from "../slots/slot";
 import type { RefLike } from "../render/element-props";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
 
@@ -24,13 +30,14 @@ export abstract class BaseInstance<
   readonly depth: number;
   readonly parent: BaseInstance | null;
   parentDom: Node;
-  domUpdates: Array<() => void> | undefined;
+  domActions: Array<Exclude<UIAction, { type: "REMOVE" }>> | undefined;
 
   readonly ctx: ContextMap;
   readonly rctx: RenderContext;
 
   instances?: Map<string, BaseInstance> = undefined;
   unmountInstances?: Set<BaseInstance> = undefined;
+  removedSlots: Array<Slot> | undefined;
   hookStates?: HookState[] = undefined;
   renderReasons?: Set<symbol> = undefined;
   resolveReasons?: Set<symbol> = undefined;
@@ -126,15 +133,18 @@ export abstract class BaseInstance<
     } else {
       scheduler.unscheduleUnmountChildren(this);
     }
-    const { instances, domUpdates, refs } = result;
-    if (domUpdates.length) {
+    const { instances, domActions, refs, removedSlots } = result;
+
+    if (domActions || refs || removedSlots) {
       scheduler.scheduleDOMUpdate(this);
     } else {
       scheduler.unscheduleDOMUpdate(this);
     }
+
     this.renderReasons?.clear();
     this.pendingSlots = result.slots;
-    this.domUpdates = domUpdates;
+    this.domActions = domActions;
+    this.removedSlots = removedSlots;
     this.nextRefs = refs;
     this.instances = instances;
     this.unmountInstances = unmountInstances;
@@ -149,7 +159,7 @@ export abstract class BaseInstance<
     if (!this.slot) {
       const stagingDom = document.createDocumentFragment();
       const result = yield* mountRoot(child, this, this.parentDom, stagingDom, this.ns);
-      yield deferUi(() => this.parentDom.insertBefore(stagingDom, this.tailNode));
+      yield deferInsert(this.parentDom, stagingDom, this.tailNode);
       return result;
     }
     return yield* reconcileRoot(child, this, this.parentDom, this.slot, this.ns, this.tailNode);

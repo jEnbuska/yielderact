@@ -14,7 +14,7 @@ import {
 import type { BaseInstance } from "../instances/base-instance";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { nodeNameSpace } from "../render/elements/namespaces";
-import type { DelegateMount, DelegateRef } from "./delegation";
+import type { MountAction, RefAction } from "./delegation";
 import { deferRef, delegateMount, isRefProps } from "./delegation";
 import { toElementSlot, toFragmentSlot, toTextSlot } from "../slots/utils";
 
@@ -27,7 +27,7 @@ export function mountIntent(
   ns: TagNamespace,
   parentDom: Node,
   stagingDom: Node,
-): Generator<DelegateMount | DelegateRef, void> {
+): Generator<MountAction | RefAction, void> {
   switch (intent.type) {
     case componentSlotType:
     case contextSlotType:
@@ -49,7 +49,7 @@ function* mountFragmentIntent(
   stagingDom: Node,
   parentInstance: BaseInstance,
   ns: TagNamespace,
-): Generator<DelegateMount | DelegateRef, void> {
+): Generator<MountAction | RefAction, void> {
   toFragmentSlot(intent);
   const { path, children, headNode, tailNode } = intent;
   stagingDom.appendChild(headNode);
@@ -62,7 +62,7 @@ function* mountElementIntent(
   stagingDom: Node,
   parentInstance: BaseInstance,
   ns: TagNamespace,
-): Generator<DelegateMount | DelegateRef, void> {
+): Generator<MountAction | RefAction, void> {
   toElementSlot(intent, parentInstance.rctx.delegationRoot, ns);
   const { headNode, children, path, props } = intent;
   stagingDom.appendChild(headNode);
@@ -76,7 +76,7 @@ function* mountInstanceIntent<T extends ContextSlotType | ComponentSlotType>(
   parentDom: Node,
   stagingDom: Node,
   ns: TagNamespace,
-): Generator<DelegateMount, void, InstanceSlotNodes> {
+): Generator<MountAction, void, InstanceSlotNodes> {
   const { headNode, tailNode } = yield delegateMount(intent, parentDom, ns);
   stagingDom.appendChild(headNode);
   stagingDom.appendChild(tailNode);

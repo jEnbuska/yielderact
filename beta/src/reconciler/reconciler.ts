@@ -3,23 +3,15 @@ import type { BaseInstance } from "../instances/base-instance";
 import type { InstanceSlotNodes, Slot, SlotIntent } from "../slots/slot";
 import { type ComponentSlotType, type ContextSlotType, intentToSlot } from "../slots/slot";
 import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
-import type { DelegateMount, DelegateRef, DelegationAction } from "./delegation";
-import { deferUi } from "./delegation";
-import {
-  createDraftIntent,
-  delegateRemovals,
-  draftIntents,
-  fillIntentDrafts,
-  inheritSlot,
-} from "./slot-intent";
-import { moveSlot } from "./dom-updates";
-import { getMapValues, getMapValuesReversed, stage } from "../general";
+import type { DelegationAction, MountAction, RefAction, UIAction } from "./delegation";
+import { deferMove, deferRemove } from "./delegation";
+import { createDraftIntent, draftIntents, fillIntentDrafts, inheritSlot } from "./slot-intent";
+import { getMapValues, getMapValuesReversed } from "../general";
 import { deriveStableIndexes } from "./derive-stable-indexes";
 import { getChildType } from "../child";
 import { buildIntentToSlot } from "./build-intent-to-slot";
 import { updateSlot } from "./update-slot";
 import { mountIntent } from "./mount-intent";
-import { removeSlotNodes } from "./dom-remove";
 import type { RefLike } from "../render/element-props";
 import type { ContextMap, RenderContext } from "../render/types";
 
@@ -35,7 +27,10 @@ export function* reconcile(
   const drafts = draftIntents(children, path);
   const stableIndexes = deriveStableIndexes(drafts, oldSlots);
   fillIntentDrafts(oldSlots, drafts, stableIndexes);
-  yield* delegateRemovals(drafts, oldSlots);
+  for (const slot of getMapValuesReversed(oldSlots)) {
+    if (drafts.has(slot.key)) continue;
+    yield deferRemove(slot);
+  }
   const slots = drafts as ReadonlyMap<string, Slot>;
   for (const slot of getMapValuesReversed(slots)) {
     if (slot.headNode === undefined) {
@@ -43,7 +38,7 @@ export function* reconcile(
     } else {
       yield* updateSlot(slot, parentInstance, ns);
       if (slot.move) {
-        yield deferUi(stage(moveSlot, slot, parentDom, beforeNode));
+        yield deferMove(parentDom, slot, beforeNode);
       }
     }
     beforeNode = slot.headNode;
@@ -62,7 +57,7 @@ export function* reconcileRoot(
   const type = getChildType(child);
   const intent = createDraftIntent(type, child, 0, "");
   if (intent.key !== prevSlot.key) {
-    yield deferUi(stage(removeSlotNodes, prevSlot));
+    yield deferRemove(prevSlot);
     yield* buildIntentToSlot(intent, parentInstance, ns, parentDom, beforeNode);
     return intent as Slot;
   } else {
@@ -79,7 +74,7 @@ export function* mount(
   stagingDom: Node,
   parentPath: string,
   ns: TagNamespace,
-): Generator<DelegateMount | DelegateRef, ReadonlyMap<string, Slot>> {
+): Generator<MountAction | RefAction, ReadonlyMap<string, Slot>> {
   const slots = draftIntents(children, parentPath) as any as ReadonlyMap<string, Slot>;
   for (const draft of getMapValues(slots)) {
     yield* mountIntent(draft, parentInstance, ns, parentDom, stagingDom);
@@ -93,7 +88,7 @@ export function* mountRoot(
   parentDom: Node,
   stagingDom: Node,
   ns: TagNamespace,
-): Generator<DelegateMount | DelegateRef, Slot> {
+): Generator<MountAction | RefAction, Slot> {
   const type = getChildType(child);
   const draft = createDraftIntent(type, child, 0, "");
   yield* mountIntent(draft, parentInstance, ns, parentDom, stagingDom);
@@ -117,7 +112,8 @@ export function registerCreateInstance(callback: CreateInstance): void {
 }
 
 export type ResolveComponentRender = {
-  domUpdates: Array<() => void>;
+  domActions: Array<Exclude<UIAction, { type: "REMOVE" }>> | undefined;
+  removedSlots: Array<Slot> | undefined;
   unmountInstances: Set<BaseInstance> | undefined;
   instances: Map<string, BaseInstance> | undefined;
   refs: Map<SlotElement, RefLike> | undefined;
@@ -130,7 +126,8 @@ export function resolveComponentRender(
   parent: BaseInstance,
 ): ResolveComponentRender {
   const prevInstances = parent.instances;
-  const domUpdates: Array<() => void> = [];
+  let removedSlots: Array<Slot> | undefined;
+  let domActions: Array<Exclude<UIAction, { type: "REMOVE" }>> = [];
   const unmountInstances: Set<BaseInstance> | undefined = prevInstances?.size
     ? new Set(prevInstances.values())
     : undefined;
@@ -159,8 +156,17 @@ export function resolveComponentRender(
   while (!result.done) {
     const next = result.value;
     switch (next.type) {
-      case "UI":
-        domUpdates.push(next.callback);
+      case "REMOVE":
+        removedSlots ??= [];
+        removedSlots.push(next.slot);
+        result = generator.next();
+        break;
+      case "MOVE":
+      case "INSERT":
+      case "UPDATE":
+      case "TEXT":
+        domActions = [];
+        domActions.push(next);
         result = generator.next();
         break;
       case "PROPS": {
@@ -212,7 +218,8 @@ export function resolveComponentRender(
   }
 
   return {
-    domUpdates,
+    domActions,
+    removedSlots,
     renderInstances,
     unmountInstances,
     updateInstances,

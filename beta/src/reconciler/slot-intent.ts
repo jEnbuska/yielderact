@@ -26,11 +26,9 @@ import {
 import type { Children } from "../jsx";
 import { Fragment } from "../jsx";
 import { getChildType, getCustomChildKey, getElementChildKey, getLeafChildKey } from "../child";
-import type { DelegateUI } from "./delegation";
-import { deferUi } from "./delegation";
-import { emptyMap, getMapValuesReversed, stage } from "../general";
-
-import { removeSlotNodes } from "./dom-remove";
+import type { RemoveChange } from "./delegation";
+import { deferRemove } from "./delegation";
+import { emptyMap, getMapValuesReversed } from "../general";
 
 export function draftIntents(
   children: Children[],
@@ -182,10 +180,10 @@ function getIntentChildren(children: Children): Children[] {
 export function* delegateRemovals(
   drafts: ReadonlyMap<string, any>,
   oldSlots: ReadonlyMap<string, Slot> | undefined,
-): Generator<DelegateUI, void, unknown> {
+): Generator<RemoveChange, void, unknown> {
   if (!oldSlots) return;
   for (const slot of getMapValuesReversed(oldSlots)) {
     if (drafts.has(slot.key)) continue;
-    yield deferUi(stage(removeSlotNodes, slot));
+    yield deferRemove(slot);
   }
 }

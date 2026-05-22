@@ -11,11 +11,9 @@ import {
 import type { BaseInstance } from "../instances/base-instance";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { nodeNameSpace } from "../render/elements/namespaces";
-import type { DelegateProps, DelegateUI, DelegationAction } from "./delegation";
-import { deferRef, deferUi, delegateProps, isRefProps } from "./delegation";
-import { stage } from "../general";
-import { setText } from "./dom-updates";
-import { diffElementProps, updateElementProps } from "../render/element-props";
+import type { DelegationAction, PropsAction, TextAction } from "./delegation";
+import { deferRef, deferText, deferUpdate, delegateProps, isRefProps } from "./delegation";
+import { diffElementProps } from "../render/element-props";
 import { reconcile } from "./reconciler";
 
 export function updateSlot<T extends SlotType>(
@@ -63,16 +61,16 @@ function* updateElement(
     yield deferRef(headNode, slot.props.ref);
   }
   if (patch) {
-    yield deferUi(stage(updateElementProps, headNode, patch, parentInstance.rctx.delegationRoot));
+    yield deferUpdate(headNode, patch);
   }
 }
 
-function* updateText(slot: TextSlot): Generator<DelegateUI, void> {
+function* updateText(slot: TextSlot): Generator<TextAction, void> {
   const { text } = slot;
   if (text === slot.prevText) return;
-  yield deferUi(stage(setText, slot.headNode, text));
+  yield deferText(slot.headNode, text);
 }
 
-function* updateInstance(slot: ContextSlot | ComponentSlot): Generator<DelegateProps, void> {
+function* updateInstance(slot: ContextSlot | ComponentSlot): Generator<PropsAction, void> {
   yield delegateProps(slot.instance, slot.props);
 }

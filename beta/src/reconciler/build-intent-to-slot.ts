@@ -16,11 +16,9 @@ import {
 } from "../slots/slot";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { nodeNameSpace } from "../render/elements/namespaces";
-import type { DelegateMount, DelegateUI, DelegationAction } from "./delegation";
-import { deferRef, deferUi, delegateMount, isRefProps } from "./delegation";
+import type { DelegationAction, InsertAction, MountAction } from "./delegation";
+import { deferInsert, deferRef, delegateMount, isRefProps } from "./delegation";
 import { toElementSlot, toFragmentSlot, toTextSlot } from "../slots/utils";
-import { stage } from "../general";
-import { insertBefore } from "./dom-updates";
 import type { BaseInstance } from "../instances/base-instance";
 import { mount } from "./reconciler";
 
@@ -54,13 +52,13 @@ function* buildInstanceIntentToSlot<T extends ComponentSlotType | ContextSlotTyp
   parentDom: Node,
   beforeNode: Node | null,
   ns: TagNamespace,
-): Generator<DelegateMount | DelegateUI, void, InstanceSlotNodes> {
+): Generator<MountAction | InsertAction, void, InstanceSlotNodes> {
   const res = yield delegateMount(intent, parentDom, ns);
   const { headNode, tailNode } = res;
   const stagingDom = document.createDocumentFragment();
   stagingDom.appendChild(headNode);
   stagingDom.appendChild(tailNode);
-  yield deferUi(stage(insertBefore, parentDom, stagingDom, beforeNode));
+  yield deferInsert(parentDom, stagingDom, beforeNode);
 }
 
 function* buildIntentToElementSlot(
@@ -76,7 +74,7 @@ function* buildIntentToElementSlot(
   intent.slots = yield* mount(children, parentInstance, headNode, headNode, path, ns);
   const { props } = intent;
   if (isRefProps(props)) yield deferRef(headNode, props.ref);
-  yield deferUi(stage(insertBefore, parentDom, headNode, beforeNode));
+  yield deferInsert(parentDom, headNode, beforeNode);
 }
 
 function* buildIntentToFragmentSlot(
@@ -93,15 +91,15 @@ function* buildIntentToFragmentSlot(
   stagingDom.appendChild(tailNode);
   // Recursively reconcile children between the anchors.
   intent.slots = yield* mount(children, parentInstance, parentDom, stagingDom, path, ns);
-  yield deferUi(stage(insertBefore, parentDom, stagingDom, beforeNode));
+  yield deferInsert(parentDom, stagingDom, beforeNode);
 }
 
 function* buildIntentToTextSlot(
   intent: SlotIntent<TextSlotType>,
   parentDom: Node,
   beforeNode: Node | null,
-): Generator<DelegateUI, void> {
+): Generator<InsertAction, void> {
   toTextSlot(intent);
   const { headNode } = intent;
-  return yield deferUi(stage(insertBefore, parentDom, headNode, beforeNode));
+  yield deferInsert(parentDom, headNode, beforeNode);
 }

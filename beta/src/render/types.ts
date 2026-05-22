@@ -1,6 +1,6 @@
 import type { Context } from "../context";
 import type { ContextHookState } from "../hooks/context";
-import { $$BATCH, $EFFECT, $ID, $MEMO, $REF, $STABLE, $STATE, $WEAK_REF, } from "../hooks/descriptors";
+import type { $$BATCH, $EFFECT, $ID, $MEMO, $REF, $STABLE, $STATE, $WEAK_REF, } from "../hooks/descriptors";
 import type { DependencyList } from "../hooks/types";
 import type { DelegationRoot } from "./delegation";
 import type { Scheduler } from "./scheduler";

@@ -17,21 +17,9 @@ import { createResolvable } from "../create-resolvable";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import { effectResolver } from "../hooks/effect";
 import { stateResolver } from "../hooks/state";
-
-/** Apply pending DOM ops parent-first */
-function updateDOM(groups: QueueGroup[], members: Set<BaseInstance>) {
-  for (let i = groups.length - 1; i >= 0; i--) {
-    const { instances } = groups[i]!;
-    for (const instance of instances) {
-      if (members.has(instance)) {
-        if (instance.unmounted) continue;
-        instance.updateDOM();
-      }
-    }
-  }
-  members.clear();
-  groups.length = 0;
-}
+import { removeSlotNodes } from "../reconciler/dom-remove";
+import { insertBefore, moveSlot, setText } from "../reconciler/dom-updates";
+import { updateElementProps } from "./element-props";
 
 /**
  * Insert `instance` into a depth-ordered queue: deepest at index 0,
@@ -187,22 +175,26 @@ export class Scheduler {
         this.tertiaryRenderMembers.size
       ) {
         this.processSyncRenderGroups();
-        Scheduler.applyDomUpdates(this.domPrimaryGroups, this.domPrimaryMembers);
+        Scheduler.applydomActions(this.domPrimaryGroups);
+        this.domPrimaryMembers.clear();
         Scheduler.unmountParentsUnmountedChildren(this.primaryParentsWithUnmounted);
-        Scheduler.precessEffects(this.effectPrimaryGroups, this.effectPrimaryMembers);
+        Scheduler.precessEffects(this.effectPrimaryGroups);
+        this.effectPrimaryMembers.clear();
         await this.processAsyncRenderGroups();
         if (this.syncRenderMembers.size) continue;
         await this.processAsyncRenderGroups2();
       }
 
       Scheduler.setUnmountedChildrenUnmounted(this.secondaryParentsWithUnmounted);
-      Scheduler.applyDomUpdates(this.domSecondaryGroups, this.domSecondaryMembers);
-      const { resolveGroups, resolveMembers } = this;
+      Scheduler.applydomActions(this.domSecondaryGroups);
+      this.domSecondaryMembers.clear();
+      const { resolveGroups } = this;
       this.resolveMembers = new Set();
       this.resolveGroups = [];
       Scheduler.unmountParentsUnmountedChildren(this.secondaryParentsWithUnmounted);
-      Scheduler.precessEffects(this.effectSecondaryGroups, this.effectSecondaryMembers);
-      Scheduler.processStates(resolveGroups, resolveMembers);
+      Scheduler.precessEffects(this.effectSecondaryGroups);
+      this.effectSecondaryMembers.clear();
+      Scheduler.processStates(resolveGroups);
       if (
         !this.syncRenderMembers.size &&
         !this.secondaryRenderMembers.size &&
@@ -258,9 +250,6 @@ export class Scheduler {
         const instance = instances.pop()!;
         if (!this.secondaryRenderMembers.delete(instance)) continue;
         if (!instance.deferred()) {
-          // Re-route: instance was queued as deferred but its `<Defer>`
-          // ancestor has since unmounted/committed, so it now belongs in
-          // primary. Symmetric to the primary queue's re-route above.
           this.scheduleRender(instance);
           return;
         }
@@ -289,9 +278,6 @@ export class Scheduler {
           continue;
         }
         if (!instance.deferred()) {
-          // Re-route: instance was queued as deferred but its `<Defer>`
-          // ancestor has since unmounted/committed, so it now belongs in
-          // primary. Symmetric to the primary queue's re-route above.
           this.scheduleRender(instance);
           return;
         }
@@ -362,31 +348,62 @@ export class Scheduler {
     }
   }
 
-  private static precessEffects(group: QueueGroup[], members: Set<BaseInstance>) {
+  private static precessEffects(group: QueueGroup[]) {
     for (let i = 0; i < group.length; i++) {
       const { instances } = group[i]!;
       for (const instance of instances) {
         if (instance.unmounted) continue;
-        if (!members.has(instance)) continue;
+        //if (!members.has(instance)) continue;
         instance.mounted = true;
         instance.effectReasons?.clear();
         instance.hookStates?.forEach(effectResolver);
       }
     }
     group.length = 0;
-    members.clear();
   }
 
-  private static applyDomUpdates(groups: QueueGroup[], members: Set<BaseInstance>) {
+  private static applydomActions(groups: QueueGroup[]) {
+    // Remove all unmounted slots
+    for (let i = 0; i < groups.length; i++) {
+      const { instances } = groups[i]!;
+      for (const instance of instances) {
+        if (instance.unmounted) continue;
+        instance.removedSlots?.forEach(removeSlotNodes);
+        instance.removedSlots = undefined;
+      }
+    }
     for (let i = groups.length - 1; i >= 0; i--) {
       const { instances } = groups[i]!;
       for (const instance of instances) {
         if (instance.unmounted) continue;
-        if (!members.has(instance)) continue;
-        const { domUpdates, refs, nextRefs } = instance;
-        if (!domUpdates) continue;
-        for (const domUpdate of domUpdates) domUpdate();
-        instance.domUpdates = undefined;
+        const { domActions, refs, nextRefs } = instance;
+        if (domActions) {
+          for (const change of domActions) {
+            switch (change.type) {
+              case "INSERT": {
+                const { before, parentDom, node } = change;
+                insertBefore(parentDom, node, before);
+                break;
+              }
+              case "MOVE": {
+                const { slot, parentDom, before } = change;
+                moveSlot(slot, parentDom, before);
+                break;
+              }
+              case "TEXT": {
+                const { node, text } = change;
+                setText(node, text);
+                break;
+              }
+              case "UPDATE": {
+                const { node, patch } = change;
+                updateElementProps(node, patch, instance.rctx.delegationRoot);
+                break;
+              }
+            }
+          }
+        }
+        instance.domActions = undefined;
         instance.slot = instance.pendingSlots;
         if (refs) {
           for (const [element, ref] of refs) {
@@ -404,15 +421,13 @@ export class Scheduler {
         instance.nextRefs = undefined;
       }
     }
-    members.clear();
     groups.length = 0;
   }
 
-  private static processStates(resolveGroups: QueueGroup[], resolveMembers: Set<BaseInstance>) {
+  private static processStates(resolveGroups: QueueGroup[]) {
     for (const { instances } of resolveGroups) {
       for (const instance of instances) {
         if (instance.unmounted) continue;
-        if (!resolveMembers.has(instance)) continue;
         instance.resolveReasons?.clear();
         instance.hookStates?.forEach(stateResolver);
       }
