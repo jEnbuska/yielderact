@@ -4,8 +4,8 @@ import type { RenderContext } from "./types";
 import { RootInstance } from "../instances/root-instance";
 import { dispatchDelegatedEvent } from "./dispatch";
 import type { VNode } from "../jsx";
-import { registerCreateInstance } from "../instances/base-instance";
 import { createInstance } from "../instances/create-instance";
+import { registerCreateInstance } from "../reconciler/reconciler";
 
 registerCreateInstance(createInstance);
 

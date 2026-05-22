@@ -1,4 +1,4 @@
-import type { EffectHookState } from "../render/types";
+import type { EffectHookState, HookState } from "../render/types";
 import { $EFFECT, type EffectDescriptor } from "./descriptors";
 import type { ComponentGenerator, DependencyList } from "./types";
 import { depsChanged } from "./utils";
@@ -40,4 +40,19 @@ export function processEffect(
     instance.scheduleEffect(state.identifier);
   }
   return state;
+}
+
+export function effectResolver(state: HookState) {
+  if (state.type !== $EFFECT) return;
+  if (!state.controller) {
+    const controller = new AbortController();
+    state.controller = controller;
+    void state.fn(controller.signal);
+  } else if (state.dirty) {
+    state.controller.abort();
+    const controller = new AbortController();
+    state.controller = controller;
+    state.dirty = false;
+    void state.fn(controller.signal);
+  }
 }

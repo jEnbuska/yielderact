@@ -22,6 +22,7 @@ import type { TagNamespace } from "../render/elements/namespaces";
 import type { ContextSlotType, Slot } from "../slots/slot";
 
 export class ContextInstance extends BaseInstance<ContextSlotType> {
+  // TODO remove this and make it non class
   readonly contextKey: Context;
   readonly handle: ContextHandle;
   private readonly subscribers: Set<() => void>;
@@ -67,8 +68,8 @@ export class ContextInstance extends BaseInstance<ContextSlotType> {
 
   private notify = false;
 
-  override *apply() {
-    yield* super.apply();
+  override apply() {
+    super.apply();
     if (this.notify) {
       this.notifySubscribers();
     }

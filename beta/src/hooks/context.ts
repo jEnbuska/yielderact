@@ -113,15 +113,16 @@ export function processContext(
     state.lastTransformResult = state.transform(...initialSelected);
   }
   const deferredHandle = instance.ctx.get(Defer) as ContextHandle<typeof Defer> | undefined;
+
   state.unsubscribe = handle.subscribe(() => {
     const current = state.depsSelector(handle.ref.current);
-    const deferred = handle.depth < (deferredHandle?.depth ?? -1);
+    const deferred = !!deferredHandle?.ref.current || handle.depth < (deferredHandle?.depth ?? -1);
     state.currentSelected = current;
     if (!depsChanged(state.lastRenderedDepsSelected, current)) {
       instance.unscheduleRender(state.reason, deferred);
-      return;
+    } else {
+      instance.scheduleRender(state.reason, deferred);
     }
-    instance.scheduleRender(state.reason, deferred);
   });
   return state;
 }

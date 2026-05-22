@@ -1,6 +1,6 @@
 import { createResolvable } from "../create-resolvable";
 import type { BaseInstance } from "../instances/base-instance";
-import type { StateHookState } from "../render/types";
+import type { HookState, StateHookState } from "../render/types";
 import { $STATE, type StateDescriptor } from "./descriptors";
 import type { ComponentGenerator, DependencyList } from "./types";
 import { depsChanged } from "./utils";
@@ -90,4 +90,10 @@ export function createStateSetter(
 
 export function resolveNextValue<T>(value: T | ((prev: T) => T), currentPendingValue: T): T {
   return typeof value === "function" ? (value as (prev: T) => T)(currentPendingValue) : value;
+}
+
+export function stateResolver(state: HookState) {
+  if (state.type !== $STATE) return;
+  state.pendingResolve?.();
+  state.pendingResolve = undefined;
 }

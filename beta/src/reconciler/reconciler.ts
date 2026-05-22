@@ -1,7 +1,8 @@
-import type { Child, Children } from "../jsx";
+import type { Child, Children, VNodeProps } from "../jsx";
 import type { BaseInstance } from "../instances/base-instance";
-import type { Slot } from "../slots/slot";
-import type { TagNamespace } from "../render/elements/namespaces";
+import type { InstanceSlotNodes, Slot, SlotIntent } from "../slots/slot";
+import { type ComponentSlotType, type ContextSlotType, intentToSlot } from "../slots/slot";
+import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
 import type { DelegateMount, DelegateRef, DelegationAction } from "./delegation";
 import { deferUi } from "./delegation";
 import {
@@ -19,6 +20,8 @@ import { buildIntentToSlot } from "./build-intent-to-slot";
 import { updateSlot } from "./update-slot";
 import { mountIntent } from "./mount-intent";
 import { removeSlotNodes } from "./dom-remove";
+import type { RefLike } from "../render/element-props";
+import type { ContextMap, RenderContext } from "../render/types";
 
 export function* reconcile(
   children: Children[],
@@ -95,4 +98,126 @@ export function* mountRoot(
   const draft = createDraftIntent(type, child, 0, "");
   yield* mountIntent(draft, parentInstance, ns, parentDom, stagingDom);
   return draft as Slot;
+}
+
+type CreateInstance = (
+  headNode: Comment,
+  tailNode: Comment,
+  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
+  parentCtx: ContextMap,
+  parent: BaseInstance | null,
+  rctx: RenderContext,
+  parentDom: Node,
+  ns: TagNamespace,
+) => BaseInstance;
+export let createInstance: CreateInstance;
+
+export function registerCreateInstance(callback: CreateInstance): void {
+  createInstance = callback;
+}
+
+export type ResolveComponentRender = {
+  domUpdates: Array<() => void>;
+  unmountInstances: Set<BaseInstance> | undefined;
+  instances: Map<string, BaseInstance> | undefined;
+  refs: Map<SlotElement, RefLike> | undefined;
+  slots: Slot;
+  renderInstances: BaseInstance[] | undefined;
+  updateInstances: Array<{ instance: BaseInstance; props: VNodeProps }> | undefined;
+};
+export function resolveComponentRender(
+  generator: Generator<DelegationAction, Slot, InstanceSlotNodes>,
+  parent: BaseInstance,
+): ResolveComponentRender {
+  const prevInstances = parent.instances;
+  const domUpdates: Array<() => void> = [];
+  const unmountInstances: Set<BaseInstance> | undefined = prevInstances?.size
+    ? new Set(prevInstances.values())
+    : undefined;
+  let renderInstances: BaseInstance[] | undefined;
+  let updateInstances: Array<{ instance: BaseInstance; props: VNodeProps }> | undefined;
+  let instances: Map<string, BaseInstance> | undefined = prevInstances?.size
+    ? new Map()
+    : undefined;
+  let result = generator.next();
+  let refs: undefined | Map<SlotElement, RefLike> = undefined;
+
+  function handleSetProps(instance: BaseInstance, props: VNodeProps) {
+    unmountInstances?.delete(instance);
+    if (instance.unmounted) {
+      instance.unmounted = false;
+      if (instance.renderReasons?.size) {
+        // Ensure the instance will anyway render even though new props equals current props
+        renderInstances ??= [];
+        renderInstances.push(instance);
+      }
+    }
+    updateInstances ??= [];
+    updateInstances.push({ instance, props });
+  }
+
+  while (!result.done) {
+    const next = result.value;
+    switch (next.type) {
+      case "UI":
+        domUpdates.push(next.callback);
+        result = generator.next();
+        break;
+      case "PROPS": {
+        const { instance, props } = next;
+        handleSetProps(instance, props);
+        result = generator.next();
+        break;
+      }
+      case "REF": {
+        refs ??= new Map();
+        refs!.set(next.element, next.ref);
+        result = generator.next();
+        break;
+      }
+      case "MOUNT": {
+        const { intent, parentDom, ns } = next;
+        const { path, child } = intent;
+        const existingInstance = prevInstances?.get(path);
+        let instance: BaseInstance;
+        if (existingInstance) {
+          handleSetProps(existingInstance, child.props);
+          instance = existingInstance;
+        } else {
+          const { name } = intent.child.type;
+          const headNode = document.createComment(`<${name}>`);
+          const tailNode = document.createComment(`</${name}>`);
+          instance = createInstance(
+            headNode,
+            tailNode,
+            intent,
+            parent.ctx,
+            parent,
+            parent.rctx,
+            parentDom,
+            ns,
+          );
+          renderInstances ??= [];
+          renderInstances.push(instance);
+        }
+        instances ??= new Map<string, BaseInstance>();
+        instances.set(path, instance);
+        intentToSlot(intent, instance.headNode, instance.tailNode, instance);
+        result = generator.next(intent);
+        break;
+      }
+      default:
+        throw new Error(`unknown type`);
+    }
+  }
+
+  return {
+    domUpdates,
+    renderInstances,
+    unmountInstances,
+    updateInstances,
+    instances,
+    refs,
+    slots: result.value,
+  };
 }

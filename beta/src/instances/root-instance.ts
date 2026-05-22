@@ -30,9 +30,9 @@ export class RootInstance extends BaseInstance<ContextSlotType> {
 
   run(vnode: VNode) {
     this.pendingVNode = vnode;
-    const gen = this.apply();
-    let result = gen.next();
-    while (!result.done) result = gen.next();
-    this.updateDOM();
+    this.apply();
+    for (const domUpdate of this.domUpdates) domUpdate();
+    this.domUpdates.length = 0;
+    this.slot = this.pendingSlots;
   }
 }

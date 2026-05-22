@@ -14,7 +14,7 @@ import type { Slot } from "../slots/slot";
 import type { DelegationAction } from "../reconciler/delegation";
 
 export class ComponentInstance extends BaseInstance {
-  protected override render(props: VNodeProps): Generator<DelegationAction, Slot, BaseInstance> {
+  render(props: VNodeProps): Generator<DelegationAction, Slot, BaseInstance> {
     const fn = this.vnode.type as Component<Record<string, any>>;
     const child = this.runHooks(fn(props));
     return this.reconcile(child);

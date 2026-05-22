@@ -157,17 +157,17 @@ export function intentToSlot(
   headNode: SlotElement,
 ): asserts intent is ElementSlot;
 export function intentToSlot(
-  intent: SlotIntent<ComponentSlotType>,
+  intent: SlotIntent<ContextSlotType | ComponentSlotType>,
   headNode: Comment,
   tailNode: Comment,
   instance: BaseInstance,
-): asserts intent is ComponentSlot;
-export function intentToSlot(
-  intent: SlotIntent<ContextSlotType>,
-  headNode: Comment,
-  tailNode: Comment,
-  instance: BaseInstance,
-): asserts intent is ContextSlot;
+): asserts intent is Omit<
+  SlotIntent<ComponentSlotType | ContextSlotType>,
+  "headNode" | "tailNode" | "child"
+> &
+  InstanceSlotNodes & {
+    child: any;
+  };
 export function intentToSlot(
   intent: SlotIntent,
   headNode: Node,

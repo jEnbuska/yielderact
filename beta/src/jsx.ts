@@ -1,13 +1,7 @@
 import type { Context } from "./context";
 import type { ComponentGenerator, DependencyList } from "./hooks/types";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
-import type {
-  ComponentSlotType,
-  ContextSlotType,
-  ElementSlot,
-  ElementSlotType,
-  FragmentSlotType,
-} from "./slots/slot";
+import type { ComponentSlotType, ContextSlotType, ElementSlot, ElementSlotType, FragmentSlotType, } from "./slots/slot";
 
 export const Fragment: unique symbol = Symbol("Fragment");
 

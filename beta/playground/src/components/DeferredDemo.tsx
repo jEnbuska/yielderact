@@ -5,7 +5,7 @@
  * column and search by the first column or a combined text search
  * across all columns (datalist-style filtering).
  */
-import { $effect, $memo, $ref, $stable, $state, Defer } from "yract-beta";
+import { $effect, $memo, $ref, $stable, $state, createContext, Defer } from "yract-beta";
 import { ComponentProps } from "../../../src/jsx";
 
 /* ── Data generation ── */
@@ -117,7 +117,7 @@ function* TableRow({ row }: { row: Row }) {
       <div role={"cell"} style={{ textAlign: "right" }}>
         {row.score}
       </div>
-      <TableData style={{ textAlign: "center" }}>{row.active ? "Yes" : "No"}</TableData>
+      <TableData style={{ textAlign: "center" }}>{"search"}</TableData>
     </div>
   );
 }
@@ -126,7 +126,17 @@ function* TableRow({ row }: { row: Row }) {
 
 type SortDir = "asc" | "desc" | "none";
 
-function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSort: () => void }) {
+function* Table({
+  rows,
+  sortDir,
+  onSort,
+  search,
+}: {
+  rows: Row[];
+  sortDir: SortDir;
+  onSort: () => void;
+  search: string;
+}) {
   const sortLabel = sortDir === "asc" ? " ▲" : sortDir === "desc" ? " ▼" : "";
   const sortedRows = yield* $memo(() => {
     return rows.toSorted((a, b) => {
@@ -153,7 +163,6 @@ function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSo
         role="table"
         style={{
           fontSize: "0.85rem",
-          opacity: false ? "0.5" : "1",
           transition: "opacity 0.15s",
           width: "100%",
         }}
@@ -190,19 +199,22 @@ function* Table({ rows, sortDir, onSort }: { rows: Row[]; sortDir: SortDir; onSo
               Score
             </div>
             <div role={"columnheader"} style={{ padding: "0.5rem", textAlign: "center" }}>
-              Active
+              Search
             </div>
           </div>
         </div>
-        <Defer value={true}>
-          <TableBody rows={sortedRows} />
-        </Defer>
+        <SearchContext value={search}>
+          <Defer value={true}>
+            <TableBody rows={sortedRows} search={search} />
+          </Defer>
+        </SearchContext>
       </div>
     </div>
   );
 }
 
-function* TableBody({ rows }: { rows: Row[] }) {
+let SearchContext = createContext("");
+function* TableBody({ rows, search }: { rows: Row[]; search: string }) {
   return (
     <div role="rowgroup">
       {rows.map((row, index) => (
@@ -281,7 +293,7 @@ export function* DeferredDemo() {
           {filtered.length} / {ALL_ROWS.length} rows
         </span>
       </div>
-      <Table rows={filtered} sortDir={sortDir} onSort={updateSortDir} />
+      <Table rows={filtered} sortDir={sortDir} onSort={updateSortDir} search={search} />
       <TickChart entries={ticks} start={start.current} />
     </section>
   );

@@ -12,7 +12,6 @@ import type { ContextSlotType, Slot } from "../slots/slot";
 export class DeferredInstance extends BaseInstance<ContextSlotType> {
   readonly contextKey: Context = Defer;
   readonly handle: ContextHandle<boolean>;
-  private initialRender = true;
 
   constructor(
     headNode: Comment,
@@ -39,7 +38,7 @@ export class DeferredInstance extends BaseInstance<ContextSlotType> {
   }
 
   runEffects() {
-    this.initialRender = false;
+    this.mounted = true;
     this.handle.ref.current = false;
   }
 
@@ -50,12 +49,12 @@ export class DeferredInstance extends BaseInstance<ContextSlotType> {
     // deferred queue indefinitely, instead of going back to primary once
     // the in-flight deferred batch settles.
     this.rctx.scheduler.scheduleEffect(this);
-    this.handle.ref.current = !(!resolveCtxValue(this.parent?.ctx, Defer) && this.initialRender);
+    this.handle.ref.current = !(!resolveCtxValue(this.parent?.ctx, Defer) && !this.mounted);
     return super.apply();
   }
 
   deferred(): boolean {
-    return !this.initialRender || resolveCtxValue(this.parent?.ctx, Defer);
+    return this.mounted || resolveCtxValue(this.parent?.ctx, Defer);
   }
 
   protected render(props: VNodeProps): Generator<DelegationAction, Slot, BaseInstance> {
