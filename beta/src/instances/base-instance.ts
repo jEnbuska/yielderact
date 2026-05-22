@@ -135,7 +135,7 @@ export abstract class BaseInstance<
     }
     const { instances, domActions, refs, removedSlots } = result;
 
-    if (domActions || refs || removedSlots) {
+    if (domActions.length || refs || removedSlots) {
       scheduler.scheduleDOMUpdate(this);
     } else {
       scheduler.unscheduleDOMUpdate(this);

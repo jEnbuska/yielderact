@@ -112,7 +112,7 @@ export function registerCreateInstance(callback: CreateInstance): void {
 }
 
 export type ResolveComponentRender = {
-  domActions: Array<Exclude<UIAction, { type: "REMOVE" }>> | undefined;
+  domActions: Array<Exclude<UIAction, { type: "REMOVE" }>>;
   removedSlots: Array<Slot> | undefined;
   unmountInstances: Set<BaseInstance> | undefined;
   instances: Map<string, BaseInstance> | undefined;
