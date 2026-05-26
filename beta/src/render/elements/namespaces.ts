@@ -1,6 +1,6 @@
 export const HTML_NS = "http://www.w3.org/1999/xhtml" as const;
 export const SVG_NS = "http://www.w3.org/2000/svg" as const;
-export const MATHML_NS = "http://www.w3.org/1998/Math/MathML" as const;
+const MATHML_NS = "http://www.w3.org/1998/Math/MathML" as const;
 export const XLINK_NS = "http://www.w3.org/1999/xlink" as const;
 
 export type TagNamespace = typeof HTML_NS | typeof SVG_NS | typeof MATHML_NS;

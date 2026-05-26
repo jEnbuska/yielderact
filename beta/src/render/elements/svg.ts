@@ -9,7 +9,7 @@ import { SVG_NS, XLINK_NS } from "./namespaces";
  *
  * Sourced from the SVG 2 spec; see also React's DOMProperty tables.
  */
-export const SVG_CASED_ATTRS: ReadonlySet<string> = new Set([
+const SVG_CASED_ATTRS: ReadonlySet<string> = new Set([
   "attributeName",
   "attributeType",
   "baseFrequency",
@@ -74,7 +74,7 @@ export const SVG_CASED_ATTRS: ReadonlySet<string> = new Set([
  * Most are deprecated in SVG 2 in favour of plain attributes, but `xlinkHref`
  * is still common in older content.
  */
-export const SVG_XLINK_ATTRS: ReadonlySet<string> = new Set([
+const SVG_XLINK_ATTRS: ReadonlySet<string> = new Set([
   "xlinkActuate",
   "xlinkArcrole",
   "xlinkHref",
@@ -96,7 +96,7 @@ export function isSvg(el: Element): el is SVGElement {
  * have their `xlink` prefix stripped because the namespace is supplied
  * separately via setAttributeNS.
  */
-export function svgAttrName(key: string): string {
+function svgAttrName(key: string): string {
   if (SVG_CASED_ATTRS.has(key)) return key;
   if (SVG_XLINK_ATTRS.has(key)) return camelToKebab(key.slice(5)); // "xlinkHref" → "href"
   return camelToKebab(key);

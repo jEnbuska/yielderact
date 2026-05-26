@@ -59,7 +59,7 @@ export type SlotTailNode<T extends SlotType = SlotType> = T extends TextSlotType
     ? undefined
     : Comment;
 
-export type SlotInstance<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
+type SlotInstance<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
   ? ComponentFiber
   : undefined;
 

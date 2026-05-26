@@ -88,7 +88,7 @@ export function createStateSetter(
   };
 }
 
-export function resolveNextValue<T>(value: T | ((prev: T) => T), currentPendingValue: T): T {
+function resolveNextValue<T>(value: T | ((prev: T) => T), currentPendingValue: T): T {
   return typeof value === "function" ? (value as (prev: T) => T)(currentPendingValue) : value;
 }
 

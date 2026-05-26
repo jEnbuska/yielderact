@@ -43,7 +43,7 @@ import type { Child } from "../jsx";
 import type { ComponentGenerator } from "../general-types";
 
 /** True when `value` looks like a yielded hook descriptor. */
-export function isHookDescriptor(value: unknown): value is HookDescriptor {
+function isHookDescriptor(value: unknown): value is HookDescriptor {
   if (value == null || typeof value !== "object") return false;
   const type = (value as { type?: unknown }).type;
   if (typeof type !== "string") return false;
@@ -72,7 +72,7 @@ function getTypedPrev<K extends HookState["type"]>(
  * Dispatch one hook descriptor, store its persistent state on the instance,
  * and return the value to feed back into `gen.next(...)`.
  */
-export function processOneDescriptor(
+function processOneDescriptor(
   descriptor: Exclude<HookDescriptor, { type: `$$${string}` }>,
   hookIndex: number,
   instance: ComponentFiber,
