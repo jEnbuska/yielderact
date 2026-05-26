@@ -1,9 +1,12 @@
-import type { Children, VNode, VNodeProps } from "yract-beta";
-import type { BaseInstance } from "../instances/base-instance";
-import type { SlotElement } from "../render/elements/namespaces";
+import type { ComponentFiber } from "../instances/component-fiber";
+import type { AnyElement } from "../render/elements/namespaces";
+import type { Children, Component } from "../jsx";
+import type { Context } from "../context";
+import type { DependencyList } from "yract-beta";
+import type { SlotIntent } from "./slot-intent";
+import type { RefLike } from "../render/element-props";
+import type { DraftBy } from "../general-types";
 
-export const emptySlotType = "yract-empty" as const;
-export type EmptySlotType = typeof emptySlotType;
 export const textSlotType = "yract-text" as const;
 export type TextSlotType = typeof textSlotType;
 export const elementSlotType = "yract-element" as const;
@@ -21,10 +24,33 @@ export type SlotType =
   | ComponentSlotType
   | ContextSlotType;
 
+type SlotBase<T extends SlotType> = T extends SlotType
+  ? {
+      children: SlotChildren<T>;
+      component: SlotComponent<T>;
+      context: SlotContext<T>;
+      deps: SlotDeps<T>;
+      element: SlotElement<T>;
+      headNode: SlotHeadNode<T>;
+      index: number;
+      instance: SlotInstance<T>;
+      key: string;
+      move: undefined | boolean;
+      path: string;
+      prevProps: SlotProps<T>;
+      prevText: SlotText<T>;
+      props: SlotProps<T>;
+      slots: ReadonlyMap<string, Slot>;
+      tailNode: SlotTailNode<T>;
+      text: SlotText<T>;
+      type: T;
+    }
+  : never;
+
 export type SlotHeadNode<T extends SlotType = SlotType> = T extends TextSlotType
   ? Text
   : T extends ElementSlotType
-    ? SlotElement
+    ? AnyElement
     : Comment;
 
 export type SlotTailNode<T extends SlotType = SlotType> = T extends TextSlotType
@@ -33,148 +59,95 @@ export type SlotTailNode<T extends SlotType = SlotType> = T extends TextSlotType
     ? undefined
     : Comment;
 
-type SlotInstance<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
-  ? BaseInstance
+export type SlotInstance<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
+  ? ComponentFiber
   : undefined;
 
-interface SlotBase<T extends SlotType> {
-  child: SlotIntentChild<T>;
-  children: Children[];
-  headNode: SlotHeadNode<T>;
-  index: number;
-  instance: SlotInstance<T>;
-  key: string;
-  move: undefined | boolean;
-  path: string;
-  props: SlotProps<T>;
-  prevProps: SlotProps<T>;
-  slots: ReadonlyMap<string, Slot>;
-  tailNode: SlotTailNode<T>;
-  text: SlotText<T>;
-  prevText: SlotText<T>;
-  type: T;
-}
+export type SlotDeps<T extends SlotType> = T extends ComponentSlotType
+  ? DependencyList | undefined
+  : undefined;
 
-export interface TextSlot extends SlotBase<TextSlotType> {
-  text: string;
-}
+export type Slot<T extends SlotType = SlotType> = T extends SlotType ? SlotBase<T> : never;
 
-export type TextChild = string | number | bigint;
+export type SlotNodes<T extends SlotType> = Pick<Slot<T>, "headNode" | "tailNode">;
 
-export type ElementSlot = SlotBase<ElementSlotType>;
+export type SlotElement<T extends SlotType> = T extends ElementSlotType ? string : undefined;
 
-export type ElementChild = VNode<ElementSlotType>;
-export type FragmentSlot = SlotBase<FragmentSlotType>;
-export type FragmentChild = VNode<FragmentSlotType>;
+export type SlotText<T extends SlotType> = T extends TextSlotType ? string : undefined;
 
-export type ComponentSlot = SlotBase<ComponentSlotType>;
-
-export type ComponentChild = VNode<ComponentSlotType>;
-export type ContextSlot = SlotBase<ContextSlotType>;
-export type ContextChild = VNode<ContextSlotType>;
-
-export type EmptySlotTypeToTextSlotType<T extends SlotType | EmptySlotType> =
-  T extends EmptySlotType ? TextSlotType : T;
-
-export type Slot<T extends SlotType = SlotType> = T extends TextSlotType
-  ? TextSlot
+export type SlotProps<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
+  ? Record<string, unknown>
   : T extends ElementSlotType
-    ? ElementSlot
-    : T extends FragmentSlotType
-      ? FragmentSlot
-      : T extends ComponentSlotType
-        ? ComponentSlot
-        : T extends ContextSlotType
-          ? ContextSlot
-          : never;
+    ? Record<string, unknown> & { ref?: RefLike }
+    : undefined;
 
-export type InstanceSlotNodes = {
-  headNode: Comment;
-  tailNode: Comment;
-};
-
-export type EmptySlotChild = undefined | null | number | boolean | VNode;
-
-export type SlotChild<T extends SlotType | EmptySlotType = SlotType> = T extends EmptySlotType
-  ? EmptySlotChild
-  : T extends TextSlotType
-    ? TextChild
-    : T extends ElementSlotType
-      ? ElementChild
-      : T extends FragmentSlotType
-        ? FragmentChild
-        : T extends ComponentSlotType
-          ? ComponentChild
-          : T extends ContextSlotType
-            ? ContextChild
-            : never;
-
-export type SlotIntentChild<T extends SlotType | EmptySlotType> = T extends
-  | TextSlotType
-  | EmptySlotType
-  ? undefined
-  : SlotChild<T>;
-
-export type SlotText<T extends SlotType | EmptySlotType> = T extends TextSlotType
-  ? string
+export type SlotComponent<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
+  ? Component
   : undefined;
 
-export type SlotProps<T extends SlotType | EmptySlotType> = T extends TextSlotType | EmptySlotType
-  ? undefined
-  : VNodeProps;
+export type SlotContext<T extends SlotType> = T extends ContextSlotType
+  ? Context
+  : T extends ComponentSlotType
+    ? Context | undefined
+    : undefined;
 
-export type SlotIntent<T extends SlotType = SlotType> = T extends SlotType
-  ? {
-      child: SlotIntentChild<T>;
-      children: Children[];
-      headNode: Node | undefined;
-      index: number;
-      instance: undefined | BaseInstance;
-      key: string;
-      move?: boolean;
-      path: string;
-      props: SlotProps<T>;
-      prevProps: undefined | SlotProps<T>;
-      slots: ReadonlyMap<string, Slot>;
-      tailNode: Node | undefined;
-      text: SlotText<T>;
-      prevText: SlotText<T> | undefined;
-      type: T;
-    }
-  : never;
+export type SlotChildren<T extends SlotType> = T extends
+  | ComponentSlotType
+  | ContextSlotType
+  | ElementSlotType
+  | FragmentSlotType
+  ? Children[]
+  : undefined;
 
 export function intentToSlot(
   intent: SlotIntent<TextSlotType>,
   headNode: Text,
-): asserts intent is TextSlot;
+): asserts intent is Slot<TextSlotType>;
 export function intentToSlot(
   intent: SlotIntent<FragmentSlotType>,
   headNode: Comment,
   tailNode: Comment,
-): asserts intent is FragmentSlot;
+): asserts intent is Slot<FragmentSlotType>;
 export function intentToSlot(
-  intent: SlotIntent<ElementSlotType>,
-  headNode: SlotElement,
-): asserts intent is ElementSlot;
-export function intentToSlot(
-  intent: SlotIntent<ContextSlotType | ComponentSlotType>,
+  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
   headNode: Comment,
   tailNode: Comment,
-  instance: BaseInstance,
-): asserts intent is Omit<
-  SlotIntent<ComponentSlotType | ContextSlotType>,
-  "headNode" | "tailNode" | "child"
-> &
-  InstanceSlotNodes & {
-    child: any;
-  };
+): asserts intent is DraftBy<Slot<ComponentSlotType>, "instance">;
+export function intentToSlot(
+  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
+  headNode: Comment,
+  tailNode: Comment,
+  instance: ComponentFiber,
+): asserts intent is Slot<ComponentSlotType>;
+export function intentToSlot(
+  intent: SlotIntent<ElementSlotType>,
+  headNode: AnyElement,
+): asserts intent is Slot<ElementSlotType>;
 export function intentToSlot(
   intent: SlotIntent,
-  headNode: Node,
-  tailNode?: Node | undefined,
-  instance?: BaseInstance,
+  headNode: any,
+  tailNode?: any,
+  instance?: ComponentFiber,
 ): any {
   intent.headNode = headNode;
   intent.tailNode = tailNode;
   intent.instance = instance;
+}
+
+export function extendIntentWithInstance(
+  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
+  instance: ComponentFiber,
+): asserts intent is Slot<ComponentSlotType> {
+  const { headNode, tailNode } = instance;
+  intent.headNode = headNode;
+  intent.tailNode = tailNode;
+  intent.instance = instance;
+}
+
+export function extendIntentNodes(
+  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
+): asserts intent is DraftBy<Slot<ComponentSlotType>, "instance"> {
+  const { name } = intent.component;
+  intent.headNode = document.createComment(`<${name}>`);
+  intent.tailNode = document.createComment(`</${name}>`);
 }

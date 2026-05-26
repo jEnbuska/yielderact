@@ -15,10 +15,11 @@
  * `BaseInstance.afterRender()` / `BaseInstance.unmount()`, which walk
  * `hookStates` after the render completes.
  */
-import type { BaseInstance } from "../instances/base-instance";
+import type { ComponentFiber } from "../instances/component-fiber";
 import type { HookState } from "../render/types";
 import { getContextValue, processContext } from "./context";
 import {
+  $$BATCH,
   $CONTEXT,
   $EFFECT,
   $ID,
@@ -37,21 +38,9 @@ import { processMemo } from "./memo";
 import { processRef } from "./ref";
 import { processStable } from "./stable";
 import { createStateSetter, processState } from "./state";
-import type { DependencyList } from "./types";
 import { processWeakRef } from "./weakRef";
-
-/** Returns true when the dependency arrays differ (shallow `Object.is` comparison). */
-export function depsChanged(
-  prev: DependencyList | undefined,
-  next: DependencyList | undefined,
-): boolean {
-  if (prev === undefined || next === undefined) return true;
-  if (prev.length !== next.length) return true;
-  for (let i = 0; i < prev.length; i++) {
-    if (!Object.is(prev[i], next[i])) return true;
-  }
-  return false;
-}
+import type { Child } from "../jsx";
+import type { ComponentGenerator } from "../general-types";
 
 /** True when `value` looks like a yielded hook descriptor. */
 export function isHookDescriptor(value: unknown): value is HookDescriptor {
@@ -65,13 +54,13 @@ function getTypedPrev<K extends HookState["type"]>(
   hookStates: HookState[],
   hookIndex: number,
   expectedType: K,
-  instance: BaseInstance,
+  instance: ComponentFiber,
 ): Extract<HookState, { type: K }> | undefined {
   const prev = hookStates[hookIndex];
   if (prev === undefined) return undefined;
   if (prev.type !== expectedType) {
     throw new Error(
-      `yract-beta: hook order mismatch in <${(instance.vnode.type as any).name}> at index ${hookIndex}: ` +
+      `yract-beta: hook order mismatch in <${instance.component.name}> at index ${hookIndex}: ` +
         `expected ${prev.type} (from previous render) but got ${expectedType}. ` +
         `Hooks must be called in the same order on every render.`,
     );
@@ -86,7 +75,7 @@ function getTypedPrev<K extends HookState["type"]>(
 export function processOneDescriptor(
   descriptor: Exclude<HookDescriptor, { type: `$$${string}` }>,
   hookIndex: number,
-  instance: BaseInstance,
+  instance: ComponentFiber,
 ): unknown {
   const hookStates = instance.hookStates!;
   switch (descriptor.type) {
@@ -144,4 +133,37 @@ export function processOneDescriptor(
       );
     }
   }
+}
+export function runHooks(gen: ComponentGenerator<any>, instance: ComponentFiber): Child {
+  let hookIndex = 0;
+  let step = gen.next();
+  if (step.done) return step.value;
+  instance.hookStates ??= [];
+  while (!step.done) {
+    const value = step.value;
+    if (!isHookDescriptor(value)) {
+      return value as Child;
+    }
+    switch (value.type) {
+      case $$BATCH: {
+        const batch = async <T>(callback: () => T): Promise<T> => {
+          try {
+            instance.rctx.scheduler.beginBatch();
+            return await callback();
+          } finally {
+            instance.rctx.scheduler.endBatch();
+          }
+        };
+        step = gen.next(batch);
+        break;
+      }
+      default: {
+        const result = processOneDescriptor(value, hookIndex, instance);
+        hookIndex++;
+        step = gen.next(result);
+        break;
+      }
+    }
+  }
+  return step.value;
 }

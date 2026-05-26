@@ -1,6 +1,7 @@
 import type { BatchHookState } from "../render/types";
 import { $$BATCH } from "./descriptors";
-import type { ComponentGenerator } from "./types";
+
+import type { ComponentGenerator } from "yract-beta";
 
 export function* $$batch(): ComponentGenerator<BatchHookState["value"]> {
   const value = yield { type: $$BATCH };

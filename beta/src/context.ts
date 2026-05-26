@@ -1,90 +1,42 @@
-import type { ComponentGenerator } from "./hooks/types";
-import type { Children, PropsWithChildren } from "./jsx";
+import type { Children, Component, PropsWithChildren } from "./jsx";
+import { Fragment } from "./jsx";
+import { randomId } from "./general";
+import { jsx } from "./jsx-runtime";
+import type { ContextMap } from "./render/types";
 
-export const ContextSymbol: unique symbol = Symbol("Context");
-
-/**
- * Props accepted by a Context provider VNode: `<Ctx value={v}>{kids}</Ctx>`.
- *
- * Extends `PropsWithChildren` so a provider always wraps something — a
- * provider with no children is rejected at the JSX validation level.
- */
-export interface ContextProviderProps<T = unknown> extends PropsWithChildren {
+export interface ContextProps<T = unknown> extends PropsWithChildren {
+  key?: string;
+  shown?: boolean;
   value: T;
+  children: Children;
 }
 
-/**
- * A context object, usable directly as a JSX provider:
- *
- * ```tsx
- * const ThemeCtx = createContext<'light' | 'dark'>('light');
- * <ThemeCtx value="dark">{kids}</ThemeCtx>
- * ```
- */
-export interface Context<T = any> {
-  (props: ContextProviderProps<T>): ComponentGenerator<Children>;
-  readonly defaultValue: T;
-  readonly [ContextSymbol]: true;
-}
+export type Context<T = any> = ContextProperties<T> & {
+  (props: ContextProps<T>): never;
+};
 
-export function isContext(value: unknown): value is Context {
-  return (
-    typeof value === "function" && (value as { [ContextSymbol]?: true })[ContextSymbol] === true
-  );
-}
-
-/**
- * Create a new context with a default value.
- *
- * The returned object is callable as a JSX provider (`<Ctx value={v}>{k}</Ctx>`)
- * and doubles as the hook key for `context(Ctx)` consumers. The placeholder
- * function body is never invoked — `ContextInstance` handles providers
- * directly based on the `ContextSymbol` marker.
- */
-export function createContext<T>(defaultValue: T): Context<T> {
-  const Context = function* (_: ContextProviderProps<T>): ComponentGenerator<Children> {
-    return null;
-  };
-  return Object.assign(Context, {
-    defaultValue,
-    [ContextSymbol]: true,
-  }) as unknown as Context<T>;
-}
-
-// ---------------------------------------------------------------------------
-// ContextHandle — installed in the ContextMap by ContextInstance.
-//
-// The handle identity is stable for the provider's entire lifetime:
-//   - `ref.current` holds the latest value, read by consumers on each render
-//   - `subscribe(cb)` registers a push notification fired on value changes
-// Because the handle is stable, the ContextMap entry set at mount time
-// stays valid forever — no mutation, no tree walking, no re-propagation.
-// ---------------------------------------------------------------------------
-
-export interface ContextHandle<T = unknown> {
+export type ContextProperties<T> = {
   ref: { current: T };
   subscribe: (cb: () => void) => () => void;
-  /** Depth of the provider in the instance tree at mount time. */
   depth: number;
+  id: string;
+  Provider: Component;
+};
+
+export function createContext<T>(defaultValue: T): Context<T> {
+  const Provider: Context<T>["Provider"] = function* ContextProvider({ children }) {
+    return jsx(Fragment, { children: children as Children });
+  };
+  return {
+    ref: { current: defaultValue },
+    subscribe: () => () => {},
+    depth: -1,
+    id: randomId(),
+    Provider,
+  } satisfies ContextProperties<T> as any;
 }
 
-/**
- * Look up the live value for `ctx`, falling back to its `defaultValue`.
- */
-export function resolveCtxValue<T>(
-  map: ReadonlyMap<Context, unknown> | undefined,
-  ctx: Context<T>,
-): T {
-  const handle = map?.get(ctx) as ContextHandle<T> | undefined;
-  if (!handle) return ctx.defaultValue;
-  return handle.ref.current;
+export function resolveContext<T>(map: ContextMap | undefined, ctx: Context<T>): T {
+  const handle = map?.get(ctx.id);
+  return (handle?.ref.current as T) ?? ctx.ref.current;
 }
-
-// ---------------------------------------------------------------------------
-// context consumer hook
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
-// context hook state — uses reason-symbol scheduling to coalesce/cancel
-// multiple context subscriptions on the same instance.
-// ---------------------------------------------------------------------------

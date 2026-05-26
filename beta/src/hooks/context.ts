@@ -1,11 +1,11 @@
-import type { Context, ContextHandle } from "../context";
-import type { BaseInstance } from "../instances/base-instance";
+import type { Context } from "../context";
+import type { ComponentFiber } from "../instances/component-fiber";
 import type { ContextDescriptor } from "./descriptors";
 import { $CONTEXT } from "./descriptors";
-import type { ComponentGenerator } from "./index";
-import { depsChanged } from "./utils";
 import { getContextReason } from "../render-reasons";
-import { Defer } from "../instances/defer-context";
+import { depsChanged } from "../general";
+import type { ComponentGenerator } from "../general-types";
+import { Defer } from "../instances/deferred-fiber";
 
 const defaultSelector = (value: unknown): unknown[] => [value];
 
@@ -73,7 +73,7 @@ export interface ContextHookState {
  * refreshes the selector/transform references (they rarely change, but may).
  */
 export function processContext(
-  instance: BaseInstance,
+  instance: ComponentFiber,
   descriptor: ContextDescriptor,
   prev: ContextHookState | undefined,
 ): ContextHookState {
@@ -103,7 +103,7 @@ export function processContext(
     currentSelected: [],
   };
 
-  const handle = instance.ctx.get(descriptor.ctx) as ContextHandle | undefined;
+  const handle = instance.ctx.get(descriptor.ctx.id);
   if (!handle) return state;
 
   const initialSelected = state.depsSelector(handle.ref.current);
@@ -112,7 +112,7 @@ export function processContext(
   if (state.transform) {
     state.lastTransformResult = state.transform(...initialSelected);
   }
-  const deferredHandle = instance.ctx.get(Defer) as ContextHandle<typeof Defer> | undefined;
+  const deferredHandle = instance.ctx.get(Defer.id) as Context<typeof Defer> | undefined;
 
   state.unsubscribe = handle.subscribe(() => {
     const current = state.depsSelector(handle.ref.current);
@@ -132,11 +132,9 @@ export function processContext(
  * cache (`lastTransformResult`) is maintained by `processContext` — by the
  * time we reach here it's already up to date for the current `currentSelected`.
  */
-export function getContextValue(state: ContextHookState, instance: BaseInstance): unknown {
-  const handle = instance.ctx.get(state.ctx) as ContextHandle | undefined;
-  if (!handle) return state.ctx.defaultValue;
-
+export function getContextValue(state: ContextHookState, instance: ComponentFiber): unknown {
+  const handle = instance.ctx.get(state.ctx.id);
+  if (!handle) return state.ctx.ref.current.value;
   if (state.transform) return state.lastTransformResult;
-
   return handle.ref.current;
 }

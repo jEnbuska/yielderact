@@ -390,6 +390,7 @@ export interface AriaAttributes {
   "aria-valuemin"?: number;
   "aria-valuenow"?: number;
   "aria-valuetext"?: string;
+  role?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -434,7 +435,6 @@ export interface HTMLAttributes<T extends HTMLElement = HTMLElement>
   lang?: string;
   nonce?: string;
   popover?: string;
-  role?: string;
   slot?: string;
   spellCheck?: boolean;
   style?: CSSProperties;

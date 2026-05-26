@@ -1,7 +1,14 @@
 import type { Context } from "./context";
-import type { ComponentGenerator, DependencyList } from "./hooks/types";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
-import type { ComponentSlotType, ContextSlotType, ElementSlot, ElementSlotType, FragmentSlotType, } from "./slots/slot";
+import type {
+  ComponentSlotType,
+  ContextSlotType,
+  ElementSlotType,
+  FragmentSlotType,
+  Slot,
+} from "./slots/slot";
+import type { ComponentGenerator, DependencyList } from "./general-types";
+import type { DraftIntent } from "./slots/intent-draft";
 
 export const Fragment: unique symbol = Symbol("Fragment");
 
@@ -17,7 +24,7 @@ export type VNodeType<
     ? Component<any>
     : T extends ContextSlotType
       ? Context
-      : T extends ElementSlot
+      : T extends Slot<ElementSlotType>
         ? keyof JSX.IntrinsicElements
         : never;
 
@@ -33,11 +40,11 @@ export interface VNode<
   props: VNodeProps;
 }
 
-export type Child = VNode | string | number | bigint | boolean | null | undefined;
+export type Child = DraftIntent | string | number | bigint | boolean | null | undefined;
 export type Children = Child | Children[];
 
 export interface FrameworkProps {
-  key?: string | number;
+  key?: string;
   shown?: boolean;
   deps?: DependencyList;
 }
@@ -48,9 +55,9 @@ export interface PropsWithChildren extends FrameworkProps {
 
 export type VNodeProps = FrameworkProps & Record<string, unknown> & { children: Children };
 
-export type Component<P extends Record<string, any> = Record<string, never>> = (
+export type Component<P extends Record<string, any> = Record<string, unknown>> = (
   props: P,
-) => ComponentGenerator<Child>;
+) => ComponentGenerator;
 
 export type ComponentProps<T> = T extends keyof JSX.IntrinsicElements
   ? JSX.IntrinsicElements[T]
@@ -60,6 +67,7 @@ export type ComponentProps<T> = T extends keyof JSX.IntrinsicElements
 
 declare global {
   namespace JSX {
+    type ElementType = string | typeof Fragment | Component<any> | Context;
     interface IntrinsicElements extends IntrinsicElementsDef {}
     interface IntrinsicAttributes extends FrameworkProps {}
     /** Use `children` as the JSX children attribute name. */

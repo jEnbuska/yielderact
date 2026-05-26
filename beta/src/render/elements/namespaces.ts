@@ -31,4 +31,4 @@ export function nodeNameSpace(element: Element) {
   return element.namespaceURI as TagNamespace;
 }
 
-export type SlotElement = HTMLElement | SVGElement | MathMLElement;
+export type AnyElement = HTMLElement | SVGElement | MathMLElement;

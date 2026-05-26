@@ -12,7 +12,7 @@
  * arrives; the bailed work is re-scheduled and resumed in a later
  * iteration.
  */
-import type { BaseInstance } from "../instances/base-instance";
+import type { ComponentFiber } from "../instances/component-fiber";
 import { createResolvable } from "../create-resolvable";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import { effectResolver } from "../hooks/effect";
@@ -29,8 +29,8 @@ import { updateElementProps } from "./element-props";
  */
 function insertSorted(
   groups: QueueGroup[],
-  members: Set<BaseInstance>,
-  instance: BaseInstance,
+  members: Set<ComponentFiber>,
+  instance: ComponentFiber,
 ): void {
   if (members.has(instance)) return;
   members.add(instance);
@@ -54,36 +54,36 @@ function last<T>(array: T[]): T {
 const SLICE_MS = 50;
 type QueueGroup = {
   depth: number;
-  instances: Array<BaseInstance>;
+  instances: Array<ComponentFiber>;
 };
 
 export class Scheduler {
   private readonly syncRenderGroups: QueueGroup[] = [];
-  private readonly syncRenderMembers = new Set<BaseInstance>();
+  private readonly syncRenderMembers = new Set<ComponentFiber>();
 
   private readonly secondaryRenderGroups: QueueGroup[] = [];
-  private readonly secondaryRenderMembers = new Set<BaseInstance>();
+  private readonly secondaryRenderMembers = new Set<ComponentFiber>();
 
   private readonly tertiaryRenderGroups: QueueGroup[] = [];
-  private readonly tertiaryRenderMembers = new Set<BaseInstance>();
+  private readonly tertiaryRenderMembers = new Set<ComponentFiber>();
 
-  private readonly primaryParentsWithUnmounted = new Set<BaseInstance>();
-  private readonly secondaryParentsWithUnmounted = new Set<BaseInstance>();
+  private readonly primaryParentsWithUnmounted = new Set<ComponentFiber>();
+  private readonly secondaryParentsWithUnmounted = new Set<ComponentFiber>();
 
-  private readonly domPrimaryMembers = new Set<BaseInstance>();
+  private readonly domPrimaryMembers = new Set<ComponentFiber>();
   private readonly domPrimaryGroups: QueueGroup[] = [];
 
-  private readonly domSecondaryMembers = new Set<BaseInstance>();
+  private readonly domSecondaryMembers = new Set<ComponentFiber>();
   private readonly domSecondaryGroups: QueueGroup[] = [];
 
   private readonly effectPrimaryGroups: QueueGroup[] = [];
-  private readonly effectPrimaryMembers = new Set<BaseInstance>();
+  private readonly effectPrimaryMembers = new Set<ComponentFiber>();
 
   private readonly effectSecondaryGroups: QueueGroup[] = [];
-  private readonly effectSecondaryMembers = new Set<BaseInstance>();
+  private readonly effectSecondaryMembers = new Set<ComponentFiber>();
 
   private resolveGroups: QueueGroup[] = [];
-  private resolveMembers = new Set<BaseInstance>();
+  private resolveMembers = new Set<ComponentFiber>();
 
   private batchDepth = 0;
 
@@ -95,7 +95,7 @@ export class Scheduler {
     void this.resolvable.promise.then(this.run);
   }
 
-  scheduleRender(instance: BaseInstance, deferred = instance.deferred()): void {
+  scheduleRender(instance: ComponentFiber, deferred = instance.deferred()): void {
     if (deferred) {
       insertSorted(this.secondaryRenderGroups, this.secondaryRenderMembers, instance);
       this.tertiaryRenderMembers.delete(instance);
@@ -105,43 +105,43 @@ export class Scheduler {
     this.resolvable.resolve();
   }
 
-  scheduleUnmountChildren(instance: BaseInstance, deferred = instance.deferred()): void {
+  scheduleUnmountChildren(instance: ComponentFiber, deferred = instance.deferred()): void {
     if (deferred) this.secondaryParentsWithUnmounted.add(instance);
     else this.primaryParentsWithUnmounted.add(instance);
   }
 
-  unscheduleUnmountChildren(instance: BaseInstance, deferred = instance.deferred()): void {
+  unscheduleUnmountChildren(instance: ComponentFiber, deferred = instance.deferred()): void {
     if (deferred) this.secondaryParentsWithUnmounted.delete(instance);
     else this.primaryParentsWithUnmounted.delete(instance);
   }
 
-  unscheduleRender(instance: BaseInstance, deferred = instance.deferred()): void {
+  unscheduleRender(instance: ComponentFiber, deferred = instance.deferred()): void {
     if (deferred) this.secondaryRenderMembers.delete(instance);
     else this.syncRenderMembers.delete(instance);
   }
 
-  scheduleEffect(instance: BaseInstance, deferred = instance.deferred()): void {
+  scheduleEffect(instance: ComponentFiber, deferred = instance.deferred()): void {
     if (deferred) insertSorted(this.effectSecondaryGroups, this.effectSecondaryMembers, instance);
     else insertSorted(this.effectPrimaryGroups, this.effectPrimaryMembers, instance);
     this.resolvable.resolve();
   }
 
-  scheduleResolve(instance: BaseInstance): void {
+  scheduleResolve(instance: ComponentFiber): void {
     insertSorted(this.resolveGroups, this.resolveMembers, instance);
     this.resolvable.resolve();
   }
 
-  scheduleDOMUpdate(instance: BaseInstance, deferred = instance.deferred()): void {
+  scheduleDOMUpdate(instance: ComponentFiber, deferred = instance.deferred()): void {
     if (deferred) insertSorted(this.domSecondaryGroups, this.domSecondaryMembers, instance);
     else insertSorted(this.domPrimaryGroups, this.domPrimaryMembers, instance);
   }
 
-  unscheduleDOMUpdate(instance: BaseInstance, deferred = instance.deferred()): void {
+  unscheduleDOMUpdate(instance: ComponentFiber, deferred = instance.deferred()): void {
     if (deferred) this.domSecondaryMembers.delete(instance);
     else this.domPrimaryMembers.delete(instance);
   }
 
-  unscheduleResolve(instance: BaseInstance): void {
+  unscheduleResolve(instance: ComponentFiber): void {
     this.resolveMembers.delete(instance);
   }
 
@@ -175,7 +175,7 @@ export class Scheduler {
         this.tertiaryRenderMembers.size
       ) {
         this.processSyncRenderGroups();
-        Scheduler.applydomActions(this.domPrimaryGroups);
+        Scheduler.applyDomActions(this.domPrimaryGroups);
         this.domPrimaryMembers.clear();
         Scheduler.unmountParentsUnmountedChildren(this.primaryParentsWithUnmounted);
         Scheduler.precessEffects(this.effectPrimaryGroups);
@@ -186,7 +186,7 @@ export class Scheduler {
       }
 
       Scheduler.setUnmountedChildrenUnmounted(this.secondaryParentsWithUnmounted);
-      Scheduler.applydomActions(this.domSecondaryGroups);
+      Scheduler.applyDomActions(this.domSecondaryGroups);
       this.domSecondaryMembers.clear();
       const { resolveGroups } = this;
       this.resolveMembers = new Set();
@@ -209,7 +209,7 @@ export class Scheduler {
     }
   };
 
-  cleanupInstancesSchedules(instance: BaseInstance, deferred = instance.deferred()): void {
+  cleanupInstancesSchedules(instance: ComponentFiber, deferred = instance.deferred()): void {
     if (deferred) {
       this.effectSecondaryMembers.delete(instance);
       this.domSecondaryMembers.delete(instance);
@@ -234,7 +234,7 @@ export class Scheduler {
           this.scheduleRender(instance);
           continue;
         }
-        instance.apply();
+        instance.render();
       }
       this.syncRenderGroups.pop();
     }
@@ -257,7 +257,7 @@ export class Scheduler {
           insertSorted(this.tertiaryRenderGroups, this.tertiaryRenderMembers, instance);
           continue;
         }
-        instance.apply();
+        instance.render();
       }
       this.secondaryRenderGroups.pop();
     }
@@ -281,13 +281,13 @@ export class Scheduler {
           this.scheduleRender(instance);
           return;
         }
-        instance.apply();
+        instance.render();
       }
       this.tertiaryRenderGroups.pop();
     }
   }
 
-  static setUnmountedChildrenUnmounted(parents: Iterable<BaseInstance>) {
+  static setUnmountedChildrenUnmounted(parents: Iterable<ComponentFiber>) {
     for (const instance of parents) {
       const { instances, unmountInstances } = instance;
       if (unmountInstances) {
@@ -299,7 +299,7 @@ export class Scheduler {
     }
   }
 
-  static setUnmountedRecursively(instance: BaseInstance) {
+  static setUnmountedRecursively(instance: ComponentFiber) {
     instance.unmounted = true;
     const { instances } = instance;
     if (instances) {
@@ -309,19 +309,16 @@ export class Scheduler {
     }
   }
 
-  private static unmountParentsUnmountedChildren(parents: Set<BaseInstance>) {
+  private static unmountParentsUnmountedChildren(parents: Set<ComponentFiber>) {
     for (const next of parents) {
-      if (!next.unmountInstances?.size) continue;
-      const children = next.instances;
-      for (const child of next.unmountInstances) {
-        Scheduler.unmountLeafsFirst(child);
-        children?.delete(child.path);
+      if (next.unmountInstances) {
+        for (const child of next.unmountInstances) Scheduler.unmountLeafsFirst(child);
+        next.unmountInstances.clear();
       }
-      next.unmountInstances.clear();
     }
     parents.clear();
   }
-  private static unmountLeafsFirst(instance: BaseInstance): void {
+  private static unmountLeafsFirst(instance: ComponentFiber): void {
     const { instances, hookStates, refs } = instance;
     if (instances) {
       for (const instance of instances.values()) {
@@ -362,24 +359,20 @@ export class Scheduler {
     group.length = 0;
   }
 
-  private static applydomActions(groups: QueueGroup[]) {
-    // Remove all unmounted slots
-    for (let i = 0; i < groups.length; i++) {
-      const { instances } = groups[i]!;
-      for (const instance of instances) {
-        if (instance.unmounted) continue;
-        instance.removedSlots?.forEach(removeSlotNodes);
-        instance.removedSlots = undefined;
-      }
-    }
+  private static applyDomActions(groups: QueueGroup[]) {
     for (let i = groups.length - 1; i >= 0; i--) {
       const { instances } = groups[i]!;
       for (const instance of instances) {
         if (instance.unmounted) continue;
+        instance.preparedSlots?.clear();
         const { domActions, refs, nextRefs } = instance;
-        if (domActions) {
+        if (domActions?.length) {
           for (const change of domActions) {
             switch (change.type) {
+              case "REMOVE": {
+                removeSlotNodes(change.slot);
+                break;
+              }
               case "INSERT": {
                 const { before, parentDom, node } = change;
                 insertBefore(parentDom, node, before);
@@ -391,20 +384,21 @@ export class Scheduler {
                 break;
               }
               case "TEXT": {
-                const { node, text } = change;
-                setText(node, text);
+                const { slot } = change;
+                setText(slot.headNode, slot.text);
                 break;
               }
               case "UPDATE": {
-                const { node, patch } = change;
-                updateElementProps(node, patch, instance.rctx.delegationRoot);
+                const { slot, patch } = change;
+                updateElementProps(slot.headNode, patch, instance.rctx.delegationRoot);
                 break;
               }
             }
           }
+          instance.slot = instance.pendingSlots;
+          instance.domActions!.length = 0;
         }
-        instance.domActions = undefined;
-        instance.slot = instance.pendingSlots;
+
         if (refs) {
           for (const [element, ref] of refs) {
             if (nextRefs?.get(element) === ref) continue; // unchanged binding
@@ -421,6 +415,7 @@ export class Scheduler {
         instance.nextRefs = undefined;
       }
     }
+
     groups.length = 0;
   }
 

@@ -1,13 +1,19 @@
 import { Scheduler } from "./scheduler";
 import { DelegationRoot } from "./delegation";
 import type { RenderContext } from "./types";
-import { RootInstance } from "../instances/root-instance";
 import { dispatchDelegatedEvent } from "./dispatch";
-import type { VNode } from "../jsx";
-import { createInstance } from "../instances/create-instance";
-import { registerCreateInstance } from "../reconciler/reconciler";
+import { createFiber } from "../instances/create-fiber";
+import type { Child } from "../jsx";
+import { ComponentFiber } from "../instances/component-fiber";
+import { nodeNameSpace } from "./elements/namespaces";
+import type { DraftBy } from "../general-types";
+import type { ComponentSlotType, Slot } from "../slots/slot";
+import { componentSlotType } from "../slots/slot";
+import { emptyChildren } from "../slots/slot-intent";
+import { emptyMap } from "../general";
+import { registerCreateInstance } from "../instances/register-create";
 
-registerCreateInstance(createInstance);
+registerCreateInstance(createFiber);
 
 export class Root {
   readonly container: Element;
@@ -30,9 +36,8 @@ export class Root {
     this.rootInstance = new RootInstance(this.rctx);
   }
 
-  /** Mount (or update) `vnode` into the root container. */
-  render(vnode: VNode): void {
-    this.rootInstance.run(vnode);
+  render(child: Child) {
+    this.rootInstance.run(child);
   }
 
   /** Tear down the root and clean up event listeners. */
@@ -40,5 +45,45 @@ export class Root {
     this.rootInstance.unmount();
     this.container.textContent = "";
     this.delegationRoot.dispose();
+  }
+}
+
+class RootInstance extends ComponentFiber {
+  child: Child = null;
+  constructor(rctx: RenderContext) {
+    const headNode = document.createComment("<Root>");
+    const tailNode = document.createComment("</Root>");
+    const ns = nodeNameSpace(rctx.container);
+    const intent: DraftBy<Slot<ComponentSlotType>, "instance" | "prevProps"> = {
+      children: emptyChildren,
+      component: function* Root() {
+        return getChild();
+      },
+      context: undefined,
+      deps: undefined,
+      element: undefined,
+      headNode,
+      index: 0,
+      instance: undefined,
+      key: "root",
+      move: undefined,
+      path: "",
+      prevProps: undefined,
+      prevText: undefined,
+      props: {},
+      slots: emptyMap,
+      tailNode: tailNode,
+      text: undefined,
+      type: componentSlotType,
+    };
+    super(intent, new Map(), null, rctx, rctx.container, ns);
+    const getChild = () => this.child;
+  }
+
+  run(child: Child) {
+    this.child = child;
+    this.parentDom.appendChild(this.headNode);
+    this.parentDom.appendChild(this.tailNode);
+    this.render();
   }
 }

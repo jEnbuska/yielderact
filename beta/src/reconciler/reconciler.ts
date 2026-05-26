@@ -1,44 +1,58 @@
-import type { Child, Children, VNodeProps } from "../jsx";
-import type { BaseInstance } from "../instances/base-instance";
-import type { InstanceSlotNodes, Slot, SlotIntent } from "../slots/slot";
-import { type ComponentSlotType, type ContextSlotType, intentToSlot } from "../slots/slot";
-import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
-import type { DelegationAction, MountAction, RefAction, UIAction } from "./delegation";
-import { deferMove, deferRemove } from "./delegation";
-import { createDraftIntent, draftIntents, fillIntentDrafts, inheritSlot } from "./slot-intent";
+import type { Child, Children } from "../jsx";
+import type { ComponentFiber } from "../instances/component-fiber";
+import type {
+  ContextSlotType,
+  ElementSlotType,
+  FragmentSlotType,
+  Slot,
+  TextSlotType,
+} from "../slots/slot";
+import { type ComponentSlotType, extendIntentNodes, extendIntentWithInstance } from "../slots/slot";
+import type { AnyElement, TagNamespace } from "../render/elements/namespaces";
+import type { DelegationAction, DelegationResponse, UIAction } from "./delegation";
+import { $moveSlot, $removeSlot } from "./delegation";
+import { childrenToIntents, childToIntent, fillIntentDrafts, inheritSlot } from "./prepare";
 import { getMapValues, getMapValuesReversed } from "../general";
 import { deriveStableIndexes } from "./derive-stable-indexes";
-import { getChildType } from "../child";
 import { buildIntentToSlot } from "./build-intent-to-slot";
 import { updateSlot } from "./update-slot";
 import { mountIntent } from "./mount-intent";
 import type { RefLike } from "../render/element-props";
-import type { ContextMap, RenderContext } from "../render/types";
+import type { ContextMap } from "../render/types";
+import { PROPS_REASON } from "../render-reasons";
+import type { DraftBy } from "../general-types";
+import { toElementSlot, toFragmentSlot, toTextSlot } from "../slots/utils";
+import type { SlotIntent } from "../slots/slot-intent";
+import { emptyChildren } from "../slots/slot-intent";
+import { createInstance } from "../instances/register-create";
 
 export function* reconcile(
-  children: Children[],
-  parentInstance: BaseInstance,
+  children: Children[] = emptyChildren,
+  parentFiber: ComponentFiber,
   parentDom: Node,
   path: string,
   oldSlots: ReadonlyMap<string, Slot>,
   ns: TagNamespace,
   beforeNode: Node | null,
-): Generator<DelegationAction, ReadonlyMap<string, Slot>, BaseInstance> {
-  const drafts = draftIntents(children, path);
+  ctx: ContextMap,
+): Generator<DelegationAction, ReadonlyMap<string, Slot>, DelegationResponse> {
+  const drafts = childrenToIntents(children, path);
   const stableIndexes = deriveStableIndexes(drafts, oldSlots);
   fillIntentDrafts(oldSlots, drafts, stableIndexes);
   for (const slot of getMapValuesReversed(oldSlots)) {
     if (drafts.has(slot.key)) continue;
-    yield deferRemove(slot);
+    yield $removeSlot(slot);
   }
   const slots = drafts as ReadonlyMap<string, Slot>;
   for (const slot of getMapValuesReversed(slots)) {
     if (slot.headNode === undefined) {
-      yield* buildIntentToSlot(slot, parentInstance, ns, parentDom, beforeNode);
+      // ... new SlotIntent
+      yield* buildIntentToSlot(slot, parentFiber, ns, parentDom, beforeNode, ctx);
     } else {
-      yield* updateSlot(slot, parentInstance, ns);
+      // ... Slot
+      yield* updateSlot(slot, parentFiber, ns, ctx);
       if (slot.move) {
-        yield deferMove(parentDom, slot, beforeNode);
+        yield $moveSlot(parentDom, slot, beforeNode);
       }
     }
     beforeNode = slot.headNode;
@@ -48,168 +62,173 @@ export function* reconcile(
 
 export function* reconcileRoot(
   child: Child,
-  parentInstance: BaseInstance,
+  parentFiber: ComponentFiber,
   parentDom: Node,
   prevSlot: Slot,
   ns: TagNamespace,
   beforeNode: Node | null,
-): Generator<DelegationAction, Slot, BaseInstance> {
-  const type = getChildType(child);
-  const intent = createDraftIntent(type, child, 0, "");
+  ctx: ContextMap,
+): Generator<DelegationAction, Slot> {
+  const intent = childToIntent(child ?? "");
   if (intent.key !== prevSlot.key) {
-    yield deferRemove(prevSlot);
-    yield* buildIntentToSlot(intent, parentInstance, ns, parentDom, beforeNode);
+    yield $removeSlot(prevSlot);
+    yield* buildIntentToSlot(intent, parentFiber, ns, parentDom, beforeNode, ctx);
     return intent as Slot;
   } else {
     inheritSlot(intent, prevSlot);
-    yield* updateSlot(intent, parentInstance, ns);
+    yield* updateSlot(intent, parentFiber, ns, ctx);
     return intent;
   }
 }
 
 export function* mount(
   children: Children[],
-  parentInstance: BaseInstance,
+  parentFiber: ComponentFiber,
   parentDom: Node,
   stagingDom: Node,
   parentPath: string,
   ns: TagNamespace,
-): Generator<MountAction | RefAction, ReadonlyMap<string, Slot>> {
-  const slots = draftIntents(children, parentPath) as any as ReadonlyMap<string, Slot>;
+  ctx: ContextMap,
+): Generator<DelegationAction, ReadonlyMap<string, Slot>> {
+  const slots = childrenToIntents(children, parentPath) as any as ReadonlyMap<string, Slot>;
   for (const draft of getMapValues(slots)) {
-    yield* mountIntent(draft, parentInstance, ns, parentDom, stagingDom);
+    yield* mountIntent(draft, parentFiber, ns, parentDom, stagingDom, ctx);
   }
   return slots;
 }
 
 export function* mountRoot(
   child: Child,
-  parentInstance: BaseInstance,
+  parentFiber: ComponentFiber,
   parentDom: Node,
   stagingDom: Node,
   ns: TagNamespace,
-): Generator<MountAction | RefAction, Slot> {
-  const type = getChildType(child);
-  const draft = createDraftIntent(type, child, 0, "");
-  yield* mountIntent(draft, parentInstance, ns, parentDom, stagingDom);
-  return draft as Slot;
-}
-
-type CreateInstance = (
-  headNode: Comment,
-  tailNode: Comment,
-  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
-  parentCtx: ContextMap,
-  parent: BaseInstance | null,
-  rctx: RenderContext,
-  parentDom: Node,
-  ns: TagNamespace,
-) => BaseInstance;
-export let createInstance: CreateInstance;
-
-export function registerCreateInstance(callback: CreateInstance): void {
-  createInstance = callback;
+  ctx: ContextMap,
+): Generator<DelegationAction, Slot> {
+  const intent = childToIntent(child ?? "");
+  yield* mountIntent(intent, parentFiber, ns, parentDom, stagingDom, ctx);
+  return intent as Slot;
 }
 
 export type ResolveComponentRender = {
-  domActions: Array<Exclude<UIAction, { type: "REMOVE" }>>;
-  removedSlots: Array<Slot> | undefined;
-  unmountInstances: Set<BaseInstance> | undefined;
-  instances: Map<string, BaseInstance> | undefined;
-  refs: Map<SlotElement, RefLike> | undefined;
+  domActions: Array<UIAction> | undefined;
+  unmountInstances: undefined | Set<ComponentFiber>;
+  instances: undefined | Map<string, ComponentFiber>;
+  refs: undefined | Map<AnyElement, RefLike>;
   slots: Slot;
-  renderInstances: BaseInstance[] | undefined;
-  updateInstances: Array<{ instance: BaseInstance; props: VNodeProps }> | undefined;
+  renderInstances: undefined | ComponentFiber[];
+  updateInstances:
+    | undefined
+    | Array<Omit<DraftBy<Slot<ComponentSlotType | ContextSlotType>, "prevProps">, "type">>;
 };
-export function resolveComponentRender(
-  generator: Generator<DelegationAction, Slot, InstanceSlotNodes>,
-  parent: BaseInstance,
+
+export function reconcileFiber(
+  generator: Generator<DelegationAction, Slot, DelegationResponse>,
+  fiber: ComponentFiber,
 ): ResolveComponentRender {
-  const prevInstances = parent.instances;
-  let removedSlots: Array<Slot> | undefined;
-  let domActions: Array<Exclude<UIAction, { type: "REMOVE" }>> = [];
-  const unmountInstances: Set<BaseInstance> | undefined = prevInstances?.size
+  const prevInstances = fiber.instances;
+  let domActions: Array<UIAction> | undefined;
+  const unmountInstances: Set<ComponentFiber> | undefined = prevInstances?.size
     ? new Set(prevInstances.values())
     : undefined;
-  let renderInstances: BaseInstance[] | undefined;
-  let updateInstances: Array<{ instance: BaseInstance; props: VNodeProps }> | undefined;
-  let instances: Map<string, BaseInstance> | undefined = prevInstances?.size
+  let renderInstances: ComponentFiber[] | undefined;
+  let updateInstances:
+    | Array<Omit<DraftBy<Slot<ComponentSlotType | ContextSlotType>, "prevProps">, "type">>
+    | undefined;
+  let instances: Map<string, ComponentFiber> | undefined = prevInstances?.size
     ? new Map()
     : undefined;
   let result = generator.next();
-  let refs: undefined | Map<SlotElement, RefLike> = undefined;
+  let refs: undefined | Map<AnyElement, RefLike> = undefined;
+  const preparedSlots = (fiber.preparedSlots ??= new Map<string, Omit<Slot, "stagingDom">>());
+  const { delegationRoot } = fiber.rctx;
 
-  function handleSetProps(instance: BaseInstance, props: VNodeProps) {
+  function handleSetProps(
+    slot: Omit<DraftBy<Slot<ComponentSlotType | ContextSlotType>, "prevProps">, "type">,
+  ) {
+    const { instance } = slot;
     unmountInstances?.delete(instance);
     if (instance.unmounted) {
       instance.unmounted = false;
-      if (instance.renderReasons?.size) {
-        // Ensure the instance will anyway render even though new props equals current props
+      if (instance.renderReasons?.has(PROPS_REASON)) {
+        // TODO this needs to be re-checked
         renderInstances ??= [];
         renderInstances.push(instance);
       }
     }
     updateInstances ??= [];
-    updateInstances.push({ instance, props });
+    updateInstances.push(slot);
   }
 
   while (!result.done) {
     const next = result.value;
     switch (next.type) {
-      case "REMOVE":
-        removedSlots ??= [];
-        removedSlots.push(next.slot);
-        result = generator.next();
+      case "CREATE": {
+        const { slot, ns } = next;
+        const { path } = slot;
+        const preparedSlot = preparedSlots.get(path);
+        if (preparedSlot) {
+          result = generator.next(preparedSlot);
+          break;
+        }
+        switch (next.kind) {
+          case "element":
+            toElementSlot(slot as SlotIntent<ElementSlotType>, delegationRoot, ns!);
+            break;
+          case "text":
+            toTextSlot(slot as SlotIntent<TextSlotType>);
+            break;
+          case "fragment":
+            toFragmentSlot(slot as SlotIntent<FragmentSlotType>);
+            break;
+          default:
+            throw new Error(`Invalid CREATE kind ${JSON.stringify(next satisfies never)}`);
+        }
+        preparedSlots.set(path, slot as Slot);
+        result = generator.next(slot as Slot);
         break;
-      case "MOVE":
+      }
+      case "REMOVE":
       case "INSERT":
+      case "MOVE":
       case "UPDATE":
       case "TEXT":
-        domActions = [];
+        domActions ??= [];
         domActions.push(next);
         result = generator.next();
         break;
       case "PROPS": {
-        const { instance, props } = next;
-        handleSetProps(instance, props);
+        handleSetProps(next.slot);
         result = generator.next();
         break;
       }
       case "REF": {
         refs ??= new Map();
-        refs!.set(next.element, next.ref);
+        const { headNode, props } = next.slot;
+        refs!.set(headNode!, props.ref!);
         result = generator.next();
         break;
       }
       case "MOUNT": {
-        const { intent, parentDom, ns } = next;
-        const { path, child } = intent;
+        const { slot, parentDom, ns, ctx } = next;
+        const { path } = slot;
         const existingInstance = prevInstances?.get(path);
-        let instance: BaseInstance;
+        let instance: ComponentFiber;
         if (existingInstance) {
-          handleSetProps(existingInstance, child.props);
           instance = existingInstance;
+          instance.ctx = ctx;
+          instance.parentDom = parentDom;
+          extendIntentWithInstance(slot, instance);
+          handleSetProps(slot);
         } else {
-          const { name } = intent.child.type;
-          const headNode = document.createComment(`<${name}>`);
-          const tailNode = document.createComment(`</${name}>`);
-          instance = createInstance(
-            headNode,
-            tailNode,
-            intent,
-            parent.ctx,
-            parent,
-            parent.rctx,
-            parentDom,
-            ns,
-          );
+          extendIntentNodes(slot);
+          instance = createInstance(slot, ctx, fiber, fiber.rctx, parentDom, ns);
           renderInstances ??= [];
           renderInstances.push(instance);
         }
-        instances ??= new Map<string, BaseInstance>();
+        instances ??= new Map<string, ComponentFiber>();
         instances.set(path, instance);
-        intentToSlot(intent, instance.headNode, instance.tailNode, instance);
-        result = generator.next(intent);
+        result = generator.next(slot);
         break;
       }
       default:
@@ -219,7 +238,6 @@ export function resolveComponentRender(
 
   return {
     domActions,
-    removedSlots,
     renderInstances,
     unmountInstances,
     updateInstances,

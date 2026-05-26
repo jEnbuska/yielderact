@@ -10,11 +10,3 @@ export function getStateReason() {
 export function getContextReason() {
   return Symbol($CONTEXT);
 }
-
-export function isStateReason(reason: symbol) {
-  return reason.description === $STATE;
-}
-
-export function isContextReason(reason: symbol) {
-  return reason.description === $CONTEXT;
-}

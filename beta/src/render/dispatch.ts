@@ -1,13 +1,3 @@
-/**
- * Delegated event dispatch — capture → bubble path walk.
- *
- * Invoked by a DelegationRoot when a native event fires on the root. We
- * build the DOM path from the event target up to (but not including) the
- * root, create a SyntheticEvent, then walk the path once in capture order
- * and once in bubble order, calling registered handlers at each element.
- * The whole dispatch is wrapped in a scheduler batch so multiple setState
- * calls coalesce into a single flush.
- */
 import { createSyntheticEvent } from "../events";
 import { getHandlers } from "./delegation";
 import type { Scheduler } from "./scheduler";

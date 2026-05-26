@@ -1,6 +1,7 @@
 import type { RefHookState } from "../render/types";
 import { $REF, type RefDescriptor } from "./descriptors";
-import type { ComponentGenerator } from "./types";
+
+import type { ComponentGenerator } from "../general-types";
 
 /**
  * A mutable ref object whose `.current` persists across re-renders.

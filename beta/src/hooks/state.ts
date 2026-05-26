@@ -1,10 +1,10 @@
 import { createResolvable } from "../create-resolvable";
-import type { BaseInstance } from "../instances/base-instance";
+import type { ComponentFiber } from "../instances/component-fiber";
 import type { HookState, StateHookState } from "../render/types";
 import { $STATE, type StateDescriptor } from "./descriptors";
-import type { ComponentGenerator, DependencyList } from "./types";
-import { depsChanged } from "./utils";
 import { getStateReason } from "../render-reasons";
+import { depsChanged } from "../general";
+import type { ComponentGenerator, DependencyList } from "../general-types";
 
 /**
  * Persistent state hook.
@@ -54,7 +54,7 @@ function resolveValue<T>(initialValue: T | (() => T)): T {
 
 /** @internal */
 export function createStateSetter(
-  instance: BaseInstance,
+  instance: ComponentFiber,
   state: StateHookState,
 ): (newValue: unknown) => Promise<void> {
   return (newValue: unknown): Promise<void> => {

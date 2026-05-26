@@ -5,4 +5,3 @@ export { $memo } from "./memo";
 export { $ref, type RefObject } from "./ref";
 export { $stable } from "./stable";
 export { $state } from "./state";
-export type { ComponentGenerator, DependencyList } from "./types";

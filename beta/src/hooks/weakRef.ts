@@ -1,7 +1,8 @@
 import type { WeakRefHookState } from "../render/types";
 import type { WeakRefDescriptor } from "./descriptors";
 import { $WEAK_REF } from "./descriptors";
-import type { ComponentGenerator } from "./types";
+
+import type { ComponentGenerator } from "yract-beta";
 
 /**
  * A mutable ref object whose `.current` persists across re-renders.

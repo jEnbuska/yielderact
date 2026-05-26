@@ -1,11 +1,20 @@
-import type { Context } from "../context";
+import type { ContextProperties } from "../context";
 import type { ContextHookState } from "../hooks/context";
-import type { $$BATCH, $EFFECT, $ID, $MEMO, $REF, $STABLE, $STATE, $WEAK_REF, } from "../hooks/descriptors";
-import type { DependencyList } from "../hooks/types";
+import type {
+  $$BATCH,
+  $EFFECT,
+  $ID,
+  $MEMO,
+  $REF,
+  $STABLE,
+  $STATE,
+  $WEAK_REF,
+} from "../hooks/descriptors";
 import type { DelegationRoot } from "./delegation";
 import type { Scheduler } from "./scheduler";
+import type { DependencyList } from "yract-beta";
 
-export type ContextMap = ReadonlyMap<Context, unknown>;
+export type ContextMap = Map<string, ContextProperties<unknown>>;
 
 export interface RenderContext {
   container: Element;

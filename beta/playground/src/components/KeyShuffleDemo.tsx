@@ -14,7 +14,6 @@ function* CounterItem({ id, color }: { id: string; color: string }) {
   const renders = yield* $ref(1);
   yield* $effect(() => {
     renders.current++;
-    console.log("renders", renders.current);
   }, [renders.current]);
 
   return (

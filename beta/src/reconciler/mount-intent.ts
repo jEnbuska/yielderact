@@ -1,8 +1,7 @@
-import type { InstanceSlotNodes, SlotIntent } from "../slots/slot";
+import type { ContextSlotType } from "../slots/slot";
 import {
   type ComponentSlotType,
   componentSlotType,
-  type ContextSlotType,
   contextSlotType,
   type ElementSlotType,
   elementSlotType,
@@ -11,35 +10,43 @@ import {
   type TextSlotType,
   textSlotType,
 } from "../slots/slot";
-import type { BaseInstance } from "../instances/base-instance";
+import type { ComponentFiber } from "../instances/component-fiber";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { nodeNameSpace } from "../render/elements/namespaces";
-import type { MountAction, RefAction } from "./delegation";
-import { deferRef, delegateMount, isRefProps } from "./delegation";
-import { toElementSlot, toFragmentSlot, toTextSlot } from "../slots/utils";
+import {
+  $createComponentSlot,
+  $createElementSlot,
+  $createFragmentSlot,
+  $createTextSlot,
+  $updateRef,
+  isRefProps,
+} from "./delegation";
 
 import { mount } from "./reconciler";
+import type { ContextMap } from "../render/types";
+import type { SlotIntent } from "../slots/slot-intent";
 
 /** Converts SlotIntent<T> to Slot<T>*/
 export function mountIntent(
   intent: SlotIntent,
-  parentInstance: BaseInstance,
+  parentFiber: ComponentFiber,
   ns: TagNamespace,
   parentDom: Node,
   stagingDom: Node,
-): Generator<MountAction | RefAction, void> {
+  ctx: ContextMap,
+) {
   switch (intent.type) {
-    case componentSlotType:
     case contextSlotType:
-      return mountInstanceIntent(intent, parentDom, stagingDom, ns);
+    case componentSlotType:
+      return mountInstanceIntent(intent, parentDom, stagingDom, ns, ctx);
     case textSlotType:
       return mountTextIntent(intent, stagingDom);
     case elementSlotType:
-      return mountElementIntent(intent, stagingDom, parentInstance, ns);
+      return mountElementIntent(intent, stagingDom, parentFiber, ns, ctx);
     case fragmentSlotType:
-      return mountFragmentIntent(intent, parentDom, stagingDom, parentInstance, ns);
+      return mountFragmentIntent(intent, parentDom, stagingDom, parentFiber, ns, ctx);
     default:
-      throw new Error(`yract-beta: unknown SlotType: ${intent satisfies never}`);
+      throw new Error(`yract-beta: unknown SlotIntent: ${JSON.stringify(intent satisfies never)}`);
   }
 }
 
@@ -47,70 +54,45 @@ function* mountFragmentIntent(
   intent: SlotIntent<FragmentSlotType>,
   parentDom: Node,
   stagingDom: Node,
-  parentInstance: BaseInstance,
+  parentFiber: ComponentFiber,
   ns: TagNamespace,
-): Generator<MountAction | RefAction, void> {
-  toFragmentSlot(intent);
-  const { path, children, headNode, tailNode } = intent;
+  ctx: ContextMap,
+) {
+  const { headNode, tailNode } = yield* $createFragmentSlot(intent, ns);
+  const { path, children } = intent;
   stagingDom.appendChild(headNode);
-  intent.slots = yield* mount(children, parentInstance, parentDom, stagingDom, path, ns);
+  intent.slots = yield* mount(children, parentFiber, parentDom, stagingDom, path, ns, ctx);
   stagingDom.appendChild(tailNode);
 }
 
 function* mountElementIntent(
   intent: SlotIntent<ElementSlotType>,
   stagingDom: Node,
-  parentInstance: BaseInstance,
+  parentFiber: ComponentFiber,
   ns: TagNamespace,
-): Generator<MountAction | RefAction, void> {
-  toElementSlot(intent, parentInstance.rctx.delegationRoot, ns);
-  const { headNode, children, path, props } = intent;
+  ctx: ContextMap,
+) {
+  const { headNode } = yield* $createElementSlot(intent, ns);
+  const { children, path, props } = intent;
   stagingDom.appendChild(headNode);
   ns = nodeNameSpace(headNode);
-  intent.slots = yield* mount(children, parentInstance, headNode, headNode, path, ns);
-  if (isRefProps(props)) yield deferRef(headNode, props.ref);
+  intent.slots = yield* mount(children, parentFiber, headNode, headNode, path, ns, ctx);
+  if (isRefProps(props)) yield $updateRef(intent);
 }
 
-function* mountInstanceIntent<T extends ContextSlotType | ComponentSlotType>(
-  intent: SlotIntent<T>,
+function* mountInstanceIntent(
+  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
   parentDom: Node,
   stagingDom: Node,
   ns: TagNamespace,
-): Generator<MountAction, void, InstanceSlotNodes> {
-  const { headNode, tailNode } = yield delegateMount(intent, parentDom, ns);
+  ctx: ContextMap,
+) {
+  const { headNode, tailNode } = yield* $createComponentSlot(intent, parentDom, ns, ctx);
   stagingDom.appendChild(headNode);
   stagingDom.appendChild(tailNode);
 }
 
 function* mountTextIntent(intent: SlotIntent<TextSlotType>, stagingDom: Node) {
-  toTextSlot(intent);
-  stagingDom.appendChild(intent.headNode);
+  const { headNode } = yield* $createTextSlot(intent);
+  stagingDom.appendChild(headNode);
 }
-
-/*
-function* mountInstance<T extends Component | Context>(
-  vnode: VNode<T>,
-  parentDom: Node,
-  path: string,
-  beforeNode: Node | null,
-  ns: TagNamespace,
-): Generator<DelegationAction, BaseInstance<T>, BaseInstance<T>> {
-  const instance = yield delegateMount(vnode, path, parentDom, ns);*/
-/*if (instance.parentDom !== parentDom) {
-    throw new Error("THIS SHOULD NEVER HAPPEN");
-    // Reused instance migrating to a new DOM container — physically relocate
-    // the whole subtree (anchors + everything between) so DOM and hook state
-    // stay paired. `moveRange` walks `startAnchor.nextSibling` in the old
-    // parent up to `endAnchor` and `insertBefore`s the lot into the new one.
-    instance.parentDom = parentDom;
-    yield $delegateUi(
-      stage(moveRange, instance.startAnchor!, instance.endAnchor, parentDom, beforeNode),
-    );
-  } else {*/
-// Fresh instance — anchors were just created, not yet attached anywhere.
-// const fragment = document.createDocumentFragment();
-// fragment.append(instance.startAnchor, instance.endAnchor);
-// yield delegateUi(stage(insertBefore, parentDom, fragment, beforeNode));
-//}
-/*return instance;
-}*/

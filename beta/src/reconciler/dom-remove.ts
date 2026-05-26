@@ -1,12 +1,5 @@
-import type { Slot } from "../slots/slot";
-import {
-  type ComponentSlot,
-  type ContextSlot,
-  elementSlotType,
-  type FragmentSlot,
-  fragmentSlotType,
-  textSlotType,
-} from "../slots/slot";
+import type { ComponentSlotType, ContextSlotType, FragmentSlotType, Slot } from "../slots/slot";
+import { elementSlotType, fragmentSlotType, textSlotType } from "../slots/slot";
 import { getMapValuesReversed } from "../general";
 
 export function removeSlotNodes(slot: Slot) {
@@ -23,20 +16,14 @@ export function removeSlotNodes(slot: Slot) {
   }
 }
 
-function removeInstanceNodes(slot: ComponentSlot | ContextSlot) {
-  try {
-    const { headNode, tailNode, instance } = slot;
-    headNode.remove();
-    if (instance.slot) removeSlotNodes(instance.slot);
-    else console.log("NO NODES for", slot);
-    tailNode.remove();
-  } catch (e) {
-    console.log("slot", slot);
-    throw e;
-  }
+function removeInstanceNodes(slot: Slot<ContextSlotType | ComponentSlotType>) {
+  const { headNode, tailNode, instance } = slot;
+  headNode.remove();
+  if (instance.slot) removeSlotNodes(instance.slot);
+  tailNode.remove();
 }
 
-function removeFragmentNodes({ tailNode, slots, headNode }: FragmentSlot) {
+function removeFragmentNodes({ tailNode, slots, headNode }: Slot<FragmentSlotType>) {
   tailNode.remove();
   for (const next of getMapValuesReversed(slots)) {
     switch (next.type) {

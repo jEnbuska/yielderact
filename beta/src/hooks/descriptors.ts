@@ -1,5 +1,6 @@
 import type { Context } from "../context";
-import type { DependencyList } from "./types";
+
+import type { DependencyList } from "yract-beta";
 
 export const $STATE = "$STATE" as const;
 export const $REF = "$REF" as const;

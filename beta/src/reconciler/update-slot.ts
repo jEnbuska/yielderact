@@ -1,36 +1,51 @@
-import type { ComponentSlot, ContextSlot, Slot, SlotType, TextSlot } from "../slots/slot";
+import type {
+  ComponentSlotType,
+  ContextSlotType,
+  ElementSlotType,
+  Slot,
+  SlotType,
+  TextSlotType,
+} from "../slots/slot";
 import {
   componentSlotType,
   contextSlotType,
-  type ElementSlot,
   elementSlotType,
   type FragmentSlotType,
   fragmentSlotType,
   textSlotType,
 } from "../slots/slot";
-import type { BaseInstance } from "../instances/base-instance";
+import type { ComponentFiber } from "../instances/component-fiber";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { nodeNameSpace } from "../render/elements/namespaces";
-import type { DelegationAction, PropsAction, TextAction } from "./delegation";
-import { deferRef, deferText, deferUpdate, delegateProps, isRefProps } from "./delegation";
+import {
+  $setProps,
+  $updateElement,
+  $updateRef,
+  $updateText,
+  type DelegationAction,
+  DelegationResponse,
+  isRefProps,
+} from "./delegation";
 import { diffElementProps } from "../render/element-props";
 import { reconcile } from "./reconciler";
+import type { ContextMap } from "../render/types";
 
-export function updateSlot<T extends SlotType>(
+export function* updateSlot<T extends SlotType>(
   slot: Slot<T>,
-  parentInstance: BaseInstance,
+  parentFiber: ComponentFiber,
   ns: TagNamespace,
-): Generator<DelegationAction, void> {
+  ctx: ContextMap,
+): Generator<DelegationAction, void, DelegationResponse> {
   switch (slot.type) {
-    case componentSlotType:
     case contextSlotType:
-      return updateInstance(slot);
+    case componentSlotType:
+      return yield* updateFiber(slot);
     case textSlotType:
-      return updateText(slot);
+      return yield* updateText(slot);
     case elementSlotType:
-      return updateElement(slot, parentInstance);
+      return yield* updateElement(slot, parentFiber, ctx);
     case fragmentSlotType:
-      return updateFragment(slot, parentInstance, ns);
+      return yield* updateFragment(slot, parentFiber, ctx, ns);
     default:
       throw new Error(`Unhandled update slot ${slot satisfies never}`);
   }
@@ -38,39 +53,37 @@ export function updateSlot<T extends SlotType>(
 
 function* updateFragment(
   slot: Slot<FragmentSlotType>,
-  parentInstance: BaseInstance,
+  parentFiber: ComponentFiber,
+  ctx: ContextMap,
   ns: TagNamespace,
-): Generator<DelegationAction, void> {
+): Generator<DelegationAction, void, DelegationResponse> {
   const { tailNode, children, path, slots } = slot;
   const parentDom = tailNode.parentNode;
   if (!parentDom) {
     throw new Error("yract-beta: fragment slot reconciled with detached start anchor");
   }
-  slot.slots = yield* reconcile(children, parentInstance, parentDom, path, slots, ns, tailNode);
+  slot.slots = yield* reconcile(children, parentFiber, parentDom, path, slots, ns, tailNode, ctx);
 }
 
 function* updateElement(
-  slot: ElementSlot,
-  parentInstance: BaseInstance,
-): Generator<DelegationAction, void> {
+  slot: Slot<ElementSlotType>,
+  parentFiber: ComponentFiber,
+  ctx: ContextMap,
+): Generator<DelegationAction, void, DelegationResponse> {
   const { headNode, children, path, slots, prevProps, props } = slot;
   const ns = nodeNameSpace(headNode);
-  slot.slots = yield* reconcile(children, parentInstance, headNode, path, slots, ns, null);
+  slot.slots = yield* reconcile(children, parentFiber, headNode, path, slots, ns, null, ctx);
   const patch = diffElementProps(prevProps, props);
-  if (isRefProps(slot.props)) {
-    yield deferRef(headNode, slot.props.ref);
-  }
-  if (patch) {
-    yield deferUpdate(headNode, patch);
-  }
+  if (isRefProps(slot.props)) yield $updateRef(slot);
+  if (patch) yield $updateElement(slot, patch);
 }
 
-function* updateText(slot: TextSlot): Generator<TextAction, void> {
+function* updateText(slot: Slot<TextSlotType>) {
   const { text } = slot;
   if (text === slot.prevText) return;
-  yield deferText(slot.headNode, text);
+  yield $updateText(slot);
 }
 
-function* updateInstance(slot: ContextSlot | ComponentSlot): Generator<PropsAction, void> {
-  yield delegateProps(slot.instance, slot.props);
+function* updateFiber(slot: Slot<ComponentSlotType | ContextSlotType>) {
+  yield $setProps(slot);
 }

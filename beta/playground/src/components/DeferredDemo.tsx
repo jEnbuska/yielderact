@@ -89,7 +89,7 @@ function generateRows(count: number): Row[] {
   return rows;
 }
 
-const TOTAL_ROWS = 100_000;
+const TOTAL_ROWS = 50_000;
 const ALL_ROWS = generateRows(TOTAL_ROWS);
 
 function* TableData({ children }: ComponentProps<"td">) {
@@ -214,7 +214,7 @@ function* Table({
 }
 
 let SearchContext = createContext("");
-function* TableBody({ rows, search }: { rows: Row[]; search: string }) {
+function* TableBody({ rows }: { rows: Row[]; search: string }) {
   return (
     <div role="rowgroup">
       {rows.map((row, index) => (
@@ -362,8 +362,8 @@ export function* TickChart({ entries, width = 1080, height = 300, start }: TickC
   const rawYMax = Math.max(...points.map((p) => p.delta));
   const yMax = rawYMax === 0 ? 1 : rawYMax * 1.1; // 10% headroom
 
-  const xScale = (t) => padding.left + ((t - xMin) / xRange) * innerW;
-  const yScale = (d) => padding.top + innerH - (d / yMax) * innerH;
+  const xScale = (t: number) => padding.left + ((t - xMin) / xRange) * innerW;
+  const yScale = (d: number) => padding.top + innerH - (d / yMax) * innerH;
 
   const path = points
     .map((p, i) => `${i === 0 ? "M" : "L"} ${xScale(p.tick)} ${yScale(p.delta)}`)

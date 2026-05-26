@@ -1,137 +1,249 @@
-import type { VNodeProps } from "yract-beta";
 import type { ElementPatch, RefLike } from "../render/element-props";
 import { assertIsRefLike } from "../render/element-props";
-import type { SlotElement, TagNamespace } from "../render/elements/namespaces";
-import type { BaseInstance } from "../instances/base-instance";
-import type { ComponentSlotType, ContextSlotType, Slot, SlotIntent } from "../slots/slot";
+import type { TagNamespace } from "../render/elements/namespaces";
+import type {
+  ComponentSlotType,
+  ContextSlotType,
+  ElementSlotType,
+  FragmentSlotType,
+  Slot,
+  SlotNodes,
+  TextSlotType,
+} from "../slots/slot";
+import type { ContextMap } from "../render/types";
+import type { SlotIntent } from "../slots/slot-intent";
 
-export type MountAction = {
-  type: "MOUNT";
-  intent: SlotIntent<ComponentSlotType | ContextSlotType>;
-  parentDom: Node;
+export type DelegationResponse = Pick<Slot, "headNode" | "tailNode">;
+
+type DelegatedShape = {
+  before: Node | null;
+  ctx: ContextMap | undefined;
+  kind: string | undefined;
+  node: Node | undefined;
+  ns: TagNamespace | undefined;
+  parentDom: Node | undefined;
+  patch: undefined | ElementPatch;
+  slot: SlotIntent | undefined;
+  type: string;
+};
+type Delegated<T extends DelegatedShape> = Pick<T, keyof DelegatedShape>;
+
+export type MountAction = Delegated<{
+  before: null;
+  ctx: ContextMap;
+  kind: undefined;
+  node: undefined;
   ns: TagNamespace;
-};
-export type RefAction = { type: "REF"; ref: RefLike; element: SlotElement };
-export type DelegationAction = MountAction | UIAction | PropsAction | RefAction;
-export type PropsAction = {
-  type: "PROPS";
-  instance: BaseInstance;
-  props: VNodeProps;
-};
+  parentDom: Node;
+  patch: undefined;
+  slot: SlotIntent<ComponentSlotType | ContextSlotType>;
+  type: "MOUNT";
+}>;
 
-export type MoveAction = {
+export type CreateElementAction = Delegated<{
+  before: null;
+  ctx: undefined;
+  kind: "element";
+  node: undefined;
+  ns: TagNamespace;
+  parentDom: undefined;
+  patch: undefined;
+  slot: SlotIntent<ElementSlotType>;
+  type: "CREATE";
+}>;
+
+export type CreateFragmentAction = Delegated<{
+  before: null;
+  ctx: undefined;
+  kind: "fragment";
+  node: undefined;
+  ns: TagNamespace;
+  parentDom: undefined;
+  patch: undefined;
+  slot: SlotIntent<FragmentSlotType>;
+  type: "CREATE";
+}>;
+
+export type CreateTextAction = Delegated<{
+  before: null;
+  ctx: undefined;
+  kind: "text";
+  node: undefined;
+  ns: undefined;
+  parentDom: undefined;
+  patch: undefined;
+  slot: SlotIntent<TextSlotType>;
+  type: "CREATE";
+}>;
+
+export type RefAction = Delegated<{
+  before: null;
+  ctx: undefined;
+  kind: undefined;
+  node: undefined;
+  ns: undefined;
+  parentDom: undefined;
+  patch: undefined;
+  slot: SlotIntent<ElementSlotType>;
+  type: "REF";
+}>;
+
+export type DelegationAction =
+  | MountAction
+  | UIAction
+  | PropsAction
+  | RefAction
+  | CreateElementAction
+  | CreateTextAction
+  | CreateFragmentAction;
+
+export type PropsAction = Delegated<{
+  type: "PROPS";
+  slot: Slot<ComponentSlotType | ContextSlotType>;
+  kind: undefined;
+  parentDom: undefined;
+  ctx: undefined;
+  ns: undefined;
+  before: null;
+  patch: undefined;
+  node: undefined;
+}>;
+
+export type MoveAction = Delegated<{
   type: "MOVE";
   parentDom: Node;
-  node: undefined;
+  kind: undefined;
   slot: Slot;
   before: Node | null;
-  text: undefined;
   patch: undefined;
-};
+  ctx: undefined;
+  ns: undefined;
+  node: undefined;
+}>;
 
-export function deferMove(parentDom: Node, slot: Slot, before: Node | null): MoveAction {
+export function $moveSlot(parentDom: Node, slot: Slot, before: Node | null): MoveAction {
   return {
-    type: "MOVE",
-    parentDom,
-    node: undefined,
-    slot,
     before,
-    text: undefined,
+    ctx: undefined,
+    kind: undefined,
+    node: undefined,
+    ns: undefined,
+    parentDom,
     patch: undefined,
+    slot,
+    type: "MOVE",
   };
 }
 
-export type InsertAction = {
+export type InsertAction = Delegated<{
   type: "INSERT";
   parentDom: Node;
   node: Node;
   slot: undefined;
   before: Node | null;
-  text: undefined;
   patch: undefined;
-};
+  ctx: undefined;
+  kind: undefined;
+  ns: undefined;
+}>;
 
-export function deferInsert(parentDom: Node, node: Node, before: Node | null): InsertAction {
+export function $insertNode(parentDom: Node, node: Node, before: Node | null): InsertAction {
   return {
-    type: "INSERT",
-    parentDom,
-    node,
-    slot: undefined,
     before,
-    text: undefined,
+    ctx: undefined,
+    kind: undefined,
+    node,
+    ns: undefined,
+    parentDom,
     patch: undefined,
+    slot: undefined,
+    type: "INSERT",
   };
 }
 
-export type UpdateAction = {
+export type UpdateAction = Delegated<{
   type: "UPDATE";
   parentDom: undefined;
-  node: SlotElement;
-  slot: undefined;
+  node: undefined;
+  slot: Slot<ElementSlotType>;
   before: null;
-  text: undefined;
   patch: ElementPatch;
-};
+  ctx: undefined;
+  kind: undefined;
+  ns: undefined;
+}>;
 
-export function deferUpdate(node: SlotElement, patch: ElementPatch): UpdateAction {
+export function $updateElement(slot: Slot<ElementSlotType>, patch: ElementPatch): UpdateAction {
   return {
-    type: "UPDATE",
+    before: null,
+    ctx: undefined,
+    kind: undefined,
+    node: undefined,
+    ns: undefined,
     parentDom: undefined,
-    node,
-    slot: undefined,
-    before: null,
-    text: undefined,
     patch,
+    slot,
+    type: "UPDATE",
   };
 }
 
-export type TextAction = {
+export type TextChange = Delegated<{
   type: "TEXT";
-  parent: undefined;
-  node: Text;
-  slot: undefined;
+  node: undefined;
+  slot: Slot<TextSlotType>;
   before: null;
-  text: string;
   patch: undefined;
-};
+  parentDom: undefined;
+  ctx: undefined;
+  kind: undefined;
+  ns: undefined;
+}>;
 
-export function deferText(node: Text, text: string): TextAction {
+export function $updateText(slot: Slot<TextSlotType>): TextChange {
   return {
-    type: "TEXT",
-    parent: undefined,
-    node,
-    slot: undefined,
     before: null,
-    text,
+    ctx: undefined,
+    kind: undefined,
+    ns: undefined,
+    parentDom: undefined,
     patch: undefined,
+    node: undefined,
+    slot,
+    type: "TEXT",
   };
 }
 
-export type RemoveChange = {
+export type RemoveChange = Delegated<{
   type: "REMOVE";
-  parent: undefined;
   node: undefined;
   slot: Slot;
   before: null;
-  text: undefined;
   patch: undefined;
-};
+  parentDom: undefined;
+  ctx: undefined;
+  kind: undefined;
+  ns: undefined;
+}>;
 
-export function deferRemove(slot: Slot): RemoveChange {
+export function $removeSlot(slot: Slot): RemoveChange {
   return {
-    type: "REMOVE",
-    parent: undefined,
-    node: undefined,
-    slot,
     before: null,
-    text: undefined,
+    ctx: undefined,
+    kind: undefined,
+    node: undefined,
+    ns: undefined,
+    parentDom: undefined,
     patch: undefined,
+    slot,
+    type: "REMOVE",
   };
 }
 
-export type UIAction = InsertAction | MoveAction | TextAction | UpdateAction | RemoveChange;
+export type UIAction = InsertAction | MoveAction | TextChange | UpdateAction | RemoveChange;
 
-export function isRefProps<T extends VNodeProps>(props: T): props is T & { ref: RefLike } {
+export function isRefProps<T extends Record<string, unknown>>(
+  props: T,
+): props is T & { ref: RefLike } {
   if ("ref" in props) {
     const ref = props["ref"];
     assertIsRefLike(ref);
@@ -140,31 +252,103 @@ export function isRefProps<T extends VNodeProps>(props: T): props is T & { ref: 
   return false;
 }
 
-export function deferRef(element: SlotElement, ref: RefLike): RefAction {
+export function $updateRef(slot: SlotIntent<ElementSlotType>): RefAction {
   return {
+    before: null,
+    ctx: undefined,
+    kind: undefined,
+    node: undefined,
+    ns: undefined,
+    parentDom: undefined,
+    patch: undefined,
+    slot,
     type: "REF",
-    ref,
-    element,
   };
 }
 
-export function delegateMount(
-  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
+export function* $createComponentSlot(
+  slot: SlotIntent<ComponentSlotType | ContextSlotType>,
   parentDom: Node,
   ns: TagNamespace,
-): MountAction {
-  return {
-    type: "MOUNT",
-    intent,
-    parentDom,
+  ctx: ContextMap,
+): Generator<
+  MountAction,
+  SlotNodes<ComponentSlotType | ContextSlotType>,
+  SlotNodes<ComponentSlotType | ContextSlotType>
+> {
+  return yield {
+    before: null,
+    ctx,
+    kind: undefined,
+    node: undefined,
     ns,
+    parentDom,
+    patch: undefined,
+    slot,
+    type: "MOUNT",
   };
 }
 
-export function delegateProps(instance: BaseInstance, props: VNodeProps): PropsAction {
+export function $setProps(slot: Slot<ComponentSlotType | ContextSlotType>): PropsAction {
   return {
+    before: null,
+    ctx: undefined,
+    kind: undefined,
+    node: undefined,
+    ns: undefined,
+    parentDom: undefined,
+    patch: undefined,
+    slot: slot,
     type: "PROPS",
-    instance,
-    props,
+  };
+}
+
+export function* $createElementSlot(
+  slot: SlotIntent<ElementSlotType>,
+  ns: TagNamespace,
+): Generator<CreateElementAction, SlotNodes<ElementSlotType>, SlotNodes<ElementSlotType>> {
+  return yield {
+    before: null,
+    ctx: undefined,
+    kind: "element",
+    node: undefined,
+    ns,
+    parentDom: undefined,
+    patch: undefined,
+    slot,
+    type: "CREATE",
+  };
+}
+
+export function* $createFragmentSlot(
+  slot: SlotIntent<FragmentSlotType>,
+  ns: TagNamespace,
+): Generator<CreateFragmentAction, SlotNodes<FragmentSlotType>, SlotNodes<FragmentSlotType>> {
+  return yield {
+    before: null,
+    ctx: undefined,
+    kind: "fragment",
+    node: undefined,
+    ns,
+    parentDom: undefined,
+    patch: undefined,
+    slot,
+    type: "CREATE",
+  };
+}
+
+export function* $createTextSlot(
+  slot: SlotIntent<TextSlotType>,
+): Generator<CreateTextAction, SlotNodes<TextSlotType>, SlotNodes<TextSlotType>> {
+  return yield {
+    before: null,
+    ctx: undefined,
+    kind: "text",
+    node: undefined,
+    ns: undefined,
+    parentDom: undefined,
+    patch: undefined,
+    slot,
+    type: "CREATE",
   };
 }

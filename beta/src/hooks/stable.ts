@@ -1,6 +1,7 @@
 import type { StableHookState } from "../render/types";
 import { $STABLE, type StableDescriptor } from "./descriptors";
-import type { ComponentGenerator } from "./types";
+
+import type { ComponentGenerator } from "../general-types";
 
 /**
  * Stable-identity function hook.

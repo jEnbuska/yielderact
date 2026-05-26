@@ -1,8 +1,8 @@
 import type { EffectHookState, HookState } from "../render/types";
 import { $EFFECT, type EffectDescriptor } from "./descriptors";
-import type { ComponentGenerator, DependencyList } from "./types";
-import { depsChanged } from "./utils";
-import type { BaseInstance } from "../instances/base-instance";
+import type { ComponentFiber } from "../instances/component-fiber";
+import { depsChanged } from "../general";
+import type { ComponentGenerator, DependencyList } from "../general-types";
 
 /**
  * Side-effect hook. Runs `fn` after DOM updates, re-runs when deps change.
@@ -18,7 +18,7 @@ export function* $effect(
 
 /** @internal */
 export function processEffect(
-  instance: BaseInstance,
+  instance: ComponentFiber,
   descriptor: EffectDescriptor,
   state: EffectHookState | undefined,
 ): EffectHookState {

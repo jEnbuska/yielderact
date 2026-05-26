@@ -7,15 +7,15 @@
  * wrapper that creates a Root, mounts `vnode`, and returns the Root.
  */
 
-import type { VNode } from "../jsx";
+import type { Child } from "../jsx";
 import { Root } from "./root";
 
 export function createRoot(container: Element): Root {
   return new Root(container);
 }
 
-export function render(vnode: VNode, container: Element): Root {
+export function render(child: Child, container: Element): Root {
   const root = new Root(container);
-  root.render(vnode);
+  root.render(child);
   return root;
 }

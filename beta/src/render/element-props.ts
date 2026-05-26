@@ -23,7 +23,6 @@
  * from the initial-mount writer) so programming mistakes surface loudly.
  */
 import type { SyntheticEvent } from "../events";
-import type { VNodeProps } from "../jsx";
 import {
   type DelegationRoot,
   NON_DELEGATED_EVENTS,
@@ -33,7 +32,7 @@ import {
 } from "./delegation";
 import { addNonDelegatedListener, removeNonDelegatedListener } from "./events";
 import { clearSvgElementAttr, isSvg, writeSvgAttr } from "./elements/svg";
-import type { SlotElement } from "./elements/namespaces";
+import type { AnyElement } from "./elements/namespaces";
 
 // ── Key classification ─────────────────────────────────────────────────────
 
@@ -96,7 +95,7 @@ function assertPropValue(key: string, value: unknown): void {
 // ── Event registration helpers ─────────────────────────────────────────────
 
 function registerElementEvent(
-  el: SlotElement,
+  el: AnyElement,
   propKey: string,
   handler: (e: SyntheticEvent) => void,
   delegationRoot: DelegationRoot,
@@ -110,7 +109,7 @@ function registerElementEvent(
   }
 }
 
-function unRegisterElementEvent(el: SlotElement, propKey: string): void {
+function unRegisterElementEvent(el: AnyElement, propKey: string): void {
   const { domEvent, isCapture } = resolveEventProp(propKey);
   if (NON_DELEGATED_EVENTS.has(domEvent)) {
     removeNonDelegatedListener(el, domEvent);
@@ -131,7 +130,7 @@ export function assertIsRefLike(value: unknown): asserts value is RefLike {
 // ── Attribute writes ───────────────────────────────────────────────────────
 
 function writeElementAttr(
-  el: SlotElement,
+  el: AnyElement,
   key: string,
   value: unknown,
   delegationRoot: DelegationRoot,
@@ -183,7 +182,7 @@ function writeElementAttr(
   }
 }
 
-function clearElementAttr(el: SlotElement, key: string): void {
+function clearElementAttr(el: AnyElement, key: string): void {
   if (key === "className") el.removeAttribute("class");
   else if (isSvg(el)) return clearSvgElementAttr(el, key);
   else if (key === "htmlFor") el.removeAttribute("for");
@@ -193,8 +192,8 @@ function clearElementAttr(el: SlotElement, key: string): void {
 // ── Initial mount ───────────────────────────────────────────────────────────
 
 export function applyElementProps(
-  element: SlotElement,
-  props: VNodeProps,
+  element: AnyElement,
+  props: Record<string, unknown>,
   delegationRoot: DelegationRoot,
 ): void {
   for (const key in props) {
@@ -285,8 +284,8 @@ function diffStyle(
  * when nothing observable changed. No DOM access.
  */
 export function diffElementProps(
-  prevProps: VNodeProps,
-  nextProps: VNodeProps,
+  prevProps: Record<string, unknown>,
+  nextProps: Record<string, unknown>,
 ): ElementPatch | null {
   if (prevProps === nextProps) return null;
 
@@ -365,7 +364,7 @@ export function diffElementProps(
  * needs to happen.
  */
 export function updateElementProps(
-  el: SlotElement,
+  el: AnyElement,
   patch: ElementPatch,
   delegationRoot: DelegationRoot,
 ) {

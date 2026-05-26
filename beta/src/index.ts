@@ -1,27 +1,9 @@
 // Public API for yract-beta.
 
-export {
-  type Context,
-  type ContextHandle,
-  type ContextProviderProps,
-  createContext,
-  resolveCtxValue,
-} from "./context";
+export { type Context, type ContextProps, createContext, resolveContext } from "./context";
 
 export type { SEvent, SyntheticEvent } from "./events";
-export {
-  $context,
-  $effect,
-  $id,
-  $memo,
-  $ref,
-  $stable,
-  $state,
-  type ComponentGenerator,
-  type DependencyList,
-  type RefObject,
-} from "./hooks";
-export { Defer } from "./instances/defer-context";
+export { $context, $effect, $id, $memo, $ref, $stable, $state, type RefObject } from "./hooks";
 export {
   type Children,
   type Component,
@@ -36,3 +18,7 @@ export {
 
 export { createRoot, render } from "./render";
 export { Root } from "./render/root";
+
+export type { ComponentGenerator } from "./general-types";
+export type { DependencyList } from "./general-types";
+export { Defer } from "./instances/deferred-fiber";
