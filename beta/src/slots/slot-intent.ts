@@ -1,15 +1,15 @@
-import type { ComponentFiber } from "../instances/component-fiber";
 import type { Children } from "../jsx";
 import type {
   FragmentSlotType,
-  Slot,
   SlotChildren,
   SlotComponent,
   SlotContext,
   SlotDeps,
   SlotElement,
   SlotHeadNode,
+  SlotInstance,
   SlotProps,
+  SlotSlots,
   SlotTailNode,
   SlotText,
   SlotType,
@@ -25,14 +25,14 @@ export type SlotIntent<T extends SlotType = SlotType> = T extends SlotType
       element: SlotElement<T>;
       headNode: SlotHeadNode<T> | undefined;
       index: number;
-      instance: undefined | ComponentFiber;
+      instance: SlotInstance<T>;
       key: string;
       move: boolean | undefined;
       path: string;
       prevProps: undefined | SlotProps<T>;
       prevText: SlotText<T> | undefined;
       props: SlotProps<T>;
-      slots: ReadonlyMap<string, Slot> | undefined;
+      slots: SlotSlots<T> | undefined;
       tailNode: SlotTailNode<T> | undefined;
       text: SlotText<T>;
       type: T;

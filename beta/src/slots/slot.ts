@@ -40,12 +40,16 @@ type SlotBase<T extends SlotType> = T extends SlotType
       prevProps: SlotProps<T>;
       prevText: SlotText<T>;
       props: SlotProps<T>;
-      slots: ReadonlyMap<string, Slot>;
+      slots: SlotSlots<T>;
       tailNode: SlotTailNode<T>;
       text: SlotText<T>;
       type: T;
     }
   : never;
+
+export type SlotSlots<T extends SlotType> = T extends TextSlotType
+  ? undefined
+  : ReadonlyMap<string, Slot>;
 
 export type SlotHeadNode<T extends SlotType = SlotType> = T extends TextSlotType
   ? Text
@@ -59,7 +63,7 @@ export type SlotTailNode<T extends SlotType = SlotType> = T extends TextSlotType
     ? undefined
     : Comment;
 
-type SlotInstance<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
+export type SlotInstance<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
   ? ComponentFiber
   : undefined;
 
@@ -76,7 +80,7 @@ export type SlotElement<T extends SlotType> = T extends ElementSlotType ? string
 export type SlotText<T extends SlotType> = T extends TextSlotType ? string : undefined;
 
 export type SlotProps<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
-  ? Record<string, unknown>
+  ? Omit<DraftBy<Slot<"yract-component" | "yract-context">, "instance" | "prevProps">, "type">
   : T extends ElementSlotType
     ? Record<string, unknown> & { ref?: RefLike }
     : undefined;
@@ -146,8 +150,9 @@ export function extendIntentWithInstance(
 
 export function extendIntentNodes(
   intent: SlotIntent<ComponentSlotType | ContextSlotType>,
-): asserts intent is DraftBy<Slot<ComponentSlotType>, "instance"> {
+): DraftBy<Slot<ComponentSlotType>, "instance"> {
   const { name } = intent.component;
   intent.headNode = document.createComment(`<${name}>`);
   intent.tailNode = document.createComment(`</${name}>`);
+  return intent as DraftBy<Slot<ComponentSlotType>, "instance">;
 }
