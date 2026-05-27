@@ -18,7 +18,7 @@ import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import { effectResolver } from "../hooks/effect";
 import { stateResolver } from "../hooks/state";
 import { removeSlotNodes } from "../reconciler/dom-remove";
-import { insertBefore, moveSlot, setText } from "../reconciler/dom-updates";
+import { insertBefore, moveSlot } from "../reconciler/dom-updates";
 import { updateElementProps } from "./element-props";
 
 /**
@@ -385,7 +385,7 @@ export class Scheduler {
               }
               case "TEXT": {
                 const { slot } = change;
-                setText(slot.headNode, slot.text);
+                slot.headNode.textContent = slot.text;
                 break;
               }
               case "UPDATE": {
