@@ -1,13 +1,7 @@
 import type { Child, Children } from "../jsx";
 import type { ComponentFiber } from "../instances/component-fiber";
-import type {
-  ContextSlotType,
-  ElementSlotType,
-  FragmentSlotType,
-  Slot,
-  TextSlotType,
-} from "../slots/slot";
-import { type ComponentSlotType, extendIntentNodes, extendIntentWithInstance } from "../slots/slot";
+import type { ElementSlotType, FragmentSlotType, Slot, TextSlotType } from "../slots/slot";
+import { extendIntentNodes, extendIntentWithInstance } from "../slots/slot";
 import type { AnyElement, TagNamespace } from "../render/elements/namespaces";
 import type { DelegationAction, DelegationResponse, UIAction } from "./delegation";
 import { $moveSlot, $removeSlot } from "./delegation";
@@ -19,10 +13,8 @@ import { updateSlot } from "./update-slot";
 import { mountIntent } from "./mount-intent";
 import type { RefLike } from "../render/element-props";
 import type { ContextMap } from "../render/types";
-import { PROPS_REASON } from "../render-reasons";
-import type { DraftBy } from "../general-types";
-import { toElementSlot, toFragmentSlot, toTextSlot } from "../slots/utils";
-import type { SlotIntent } from "../slots/slot-intent";
+import { MOUNT_REASON } from "../render-reasons";
+import { prepareSlotNodes, updateWithPreparedSlot } from "../slots/utils";
 import { emptyChildren } from "../slots/slot-intent";
 import { createInstance } from "../instances/register-create";
 
@@ -116,10 +108,6 @@ export type ResolveComponentRender = {
   instances: undefined | Map<string, ComponentFiber>;
   refs: undefined | Map<AnyElement, RefLike>;
   slots: Slot;
-  renderInstances: undefined | ComponentFiber[];
-  updateInstances:
-    | undefined
-    | Array<Omit<DraftBy<Slot<ComponentSlotType | ContextSlotType>, "prevProps">, "type">>;
 };
 
 export function reconcileFiber(
@@ -131,34 +119,13 @@ export function reconcileFiber(
   const unmountInstances: Set<ComponentFiber> | undefined = prevInstances?.size
     ? new Set(prevInstances.values())
     : undefined;
-  let renderInstances: ComponentFiber[] | undefined;
-  let updateInstances:
-    | Array<Omit<DraftBy<Slot<ComponentSlotType | ContextSlotType>, "prevProps">, "type">>
-    | undefined;
-  let instances: Map<string, ComponentFiber> | undefined = prevInstances?.size
+  let nextInstances: Map<string, ComponentFiber> | undefined = prevInstances?.size
     ? new Map()
     : undefined;
   let result = generator.next();
   let refs: undefined | Map<AnyElement, RefLike> = undefined;
-  const preparedSlots = (fiber.preparedSlots ??= new Map<string, Omit<Slot, "stagingDom">>());
+  const preparedSlots = (fiber.preparedSlots ??= new Map<string, Slot>());
   const { delegationRoot } = fiber.rctx;
-
-  function handleSetProps(
-    slot: Omit<DraftBy<Slot<ComponentSlotType | ContextSlotType>, "prevProps">, "type">,
-  ) {
-    const { instance } = slot;
-    unmountInstances?.delete(instance);
-    if (instance.unmounted) {
-      instance.unmounted = false;
-      if (instance.renderReasons?.has(PROPS_REASON)) {
-        // TODO this needs to be re-checked
-        renderInstances ??= [];
-        renderInstances.push(instance);
-      }
-    }
-    updateInstances ??= [];
-    updateInstances.push(slot);
-  }
 
   while (!result.done) {
     const next = result.value;
@@ -166,26 +133,17 @@ export function reconcileFiber(
       case "CREATE": {
         const { slot, ns } = next;
         const { path } = slot;
-        const preparedSlot = preparedSlots.get(path);
-        if (preparedSlot) {
-          result = generator.next(preparedSlot);
+        const prepared = preparedSlots.get(path);
+        let resultSlot: Slot<ElementSlotType | TextSlotType | FragmentSlotType>;
+        if (prepared) {
+          resultSlot = updateWithPreparedSlot(slot, prepared, delegationRoot);
+          preparedSlots.set(path, resultSlot);
           break;
+        } else {
+          resultSlot = prepareSlotNodes(slot, delegationRoot, ns);
         }
-        switch (next.kind) {
-          case "element":
-            toElementSlot(slot as SlotIntent<ElementSlotType>, delegationRoot, ns!);
-            break;
-          case "text":
-            toTextSlot(slot as SlotIntent<TextSlotType>);
-            break;
-          case "fragment":
-            toFragmentSlot(slot as SlotIntent<FragmentSlotType>);
-            break;
-          default:
-            throw new Error(`Invalid CREATE kind ${JSON.stringify(next satisfies never)}`);
-        }
-        preparedSlots.set(path, slot as Slot);
-        result = generator.next(slot as Slot);
+        preparedSlots.set(path, resultSlot);
+        result = generator.next(resultSlot);
         break;
       }
       case "REMOVE":
@@ -198,7 +156,10 @@ export function reconcileFiber(
         result = generator.next();
         break;
       case "PROPS": {
-        handleSetProps(next.slot);
+        const { slot } = next;
+        const { instance } = slot;
+        if (unmountInstances?.delete(instance)) instance.unmounted = false;
+        instance.setProps(slot);
         result = generator.next();
         break;
       }
@@ -219,29 +180,25 @@ export function reconcileFiber(
           instance.ctx = ctx;
           instance.parentDom = parentDom;
           extendIntentWithInstance(slot, instance);
-          handleSetProps(slot);
+          if (unmountInstances?.delete(instance)) instance.unmounted = false;
+          instance.setProps(slot);
         } else {
-          extendIntentNodes(slot);
-          instance = createInstance(slot, ctx, fiber, fiber.rctx, parentDom, ns);
-          renderInstances ??= [];
-          renderInstances.push(instance);
+          instance = createInstance(extendIntentNodes(slot), ctx, fiber, fiber.rctx, parentDom, ns);
+          slot.instance = instance;
+          instance.scheduleRender(MOUNT_REASON);
         }
-        instances ??= new Map<string, ComponentFiber>();
-        instances.set(path, instance);
-        result = generator.next(slot);
+        (nextInstances ??= new Map<string, ComponentFiber>()).set(path, instance);
+        result = generator.next(slot as Slot);
         break;
       }
       default:
         throw new Error(`unknown type`);
     }
   }
-
   return {
     domActions,
-    renderInstances,
     unmountInstances,
-    updateInstances,
-    instances,
+    instances: nextInstances,
     refs,
     slots: result.value,
   };

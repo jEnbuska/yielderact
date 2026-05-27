@@ -15,10 +15,6 @@ export function insertBefore(parentDom: Node, node: Node, beforeNode: Node | nul
   parentDom.insertBefore(node, beforeNode);
 }
 
-export function setText(node: Text, text: string) {
-  node.nodeValue = text;
-}
-
 function moveBefore(parent: Node, node: Node, beforeNode: Node | null) {
   try {
     (parent as WithMoveBefore).moveBefore(node, beforeNode);

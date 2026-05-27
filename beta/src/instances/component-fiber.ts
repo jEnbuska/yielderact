@@ -15,7 +15,7 @@ import { Defer } from "./deferred-fiber";
 
 export class ComponentFiber<TProps extends Record<string, unknown> = Record<string, unknown>> {
   public readonly ns: TagNamespace;
-  public preparedSlots: Map<string, Omit<Slot, "stagingDom">> | undefined;
+  public preparedSlots: Map<string, Slot> | undefined;
   unmounted: boolean | undefined = undefined;
   readonly component: Component;
   readonly depth: number;
@@ -55,7 +55,6 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     parentDom: Node,
     ns: TagNamespace,
   ) {
-    intent.instance = this;
     this.headNode = intent.headNode;
     this.tailNode = intent.tailNode;
     this.path = intent.path;
@@ -128,13 +127,7 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
   render() {
     const result = reconcileFiber(this.apply(), this);
     const { scheduler } = this.rctx;
-    const { renderInstances, unmountInstances, updateInstances } = result;
-    if (renderInstances) {
-      for (const instance of renderInstances) instance.scheduleRender(MOUNT_REASON);
-    }
-    if (updateInstances) {
-      for (const slot of updateInstances) slot.instance.setProps(slot);
-    }
+    const { unmountInstances, slots } = result;
     if (unmountInstances?.size) {
       scheduler.scheduleUnmountChildren(this);
       for (const instance of unmountInstances) instance.unmount();
@@ -142,7 +135,6 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
       scheduler.unscheduleUnmountChildren(this);
     }
     const { instances, domActions, refs } = result;
-
     if (domActions?.length || refs) {
       scheduler.scheduleDOMUpdate(this);
     } else {
@@ -151,7 +143,7 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     }
 
     this.renderReasons?.clear();
-    this.pendingSlots = result.slots;
+    this.pendingSlots = slots;
     this.domActions = domActions;
     this.nextRefs = refs;
     this.instances = instances;

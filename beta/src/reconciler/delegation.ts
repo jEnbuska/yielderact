@@ -18,7 +18,6 @@ export type DelegationResponse = Pick<Slot, "headNode" | "tailNode">;
 type DelegatedShape = {
   before: Node | null;
   ctx: ContextMap | undefined;
-  kind: string | undefined;
   node: Node | undefined;
   ns: TagNamespace | undefined;
   parentDom: Node | undefined;
@@ -31,7 +30,6 @@ type Delegated<T extends DelegatedShape> = Pick<T, keyof DelegatedShape>;
 export type MountAction = Delegated<{
   before: null;
   ctx: ContextMap;
-  kind: undefined;
   node: undefined;
   ns: TagNamespace;
   parentDom: Node;
@@ -43,7 +41,6 @@ export type MountAction = Delegated<{
 export type CreateElementAction = Delegated<{
   before: null;
   ctx: undefined;
-  kind: "element";
   node: undefined;
   ns: TagNamespace;
   parentDom: undefined;
@@ -55,7 +52,6 @@ export type CreateElementAction = Delegated<{
 export type CreateFragmentAction = Delegated<{
   before: null;
   ctx: undefined;
-  kind: "fragment";
   node: undefined;
   ns: TagNamespace;
   parentDom: undefined;
@@ -67,7 +63,6 @@ export type CreateFragmentAction = Delegated<{
 export type CreateTextAction = Delegated<{
   before: null;
   ctx: undefined;
-  kind: "text";
   node: undefined;
   ns: undefined;
   parentDom: undefined;
@@ -79,7 +74,6 @@ export type CreateTextAction = Delegated<{
 export type RefAction = Delegated<{
   before: null;
   ctx: undefined;
-  kind: undefined;
   node: undefined;
   ns: undefined;
   parentDom: undefined;
@@ -100,7 +94,7 @@ export type DelegationAction =
 export type PropsAction = Delegated<{
   type: "PROPS";
   slot: Slot<ComponentSlotType | ContextSlotType>;
-  kind: undefined;
+
   parentDom: undefined;
   ctx: undefined;
   ns: undefined;
@@ -112,7 +106,7 @@ export type PropsAction = Delegated<{
 export type MoveAction = Delegated<{
   type: "MOVE";
   parentDom: Node;
-  kind: undefined;
+
   slot: Slot;
   before: Node | null;
   patch: undefined;
@@ -125,7 +119,6 @@ export function $moveSlot(parentDom: Node, slot: Slot, before: Node | null): Mov
   return {
     before,
     ctx: undefined,
-    kind: undefined,
     node: undefined,
     ns: undefined,
     parentDom,
@@ -143,7 +136,6 @@ export type InsertAction = Delegated<{
   before: Node | null;
   patch: undefined;
   ctx: undefined;
-  kind: undefined;
   ns: undefined;
 }>;
 
@@ -151,7 +143,6 @@ export function $insertNode(parentDom: Node, node: Node, before: Node | null): I
   return {
     before,
     ctx: undefined,
-    kind: undefined,
     node,
     ns: undefined,
     parentDom,
@@ -169,7 +160,6 @@ export type UpdateAction = Delegated<{
   before: null;
   patch: ElementPatch;
   ctx: undefined;
-  kind: undefined;
   ns: undefined;
 }>;
 
@@ -177,7 +167,6 @@ export function $updateElement(slot: Slot<ElementSlotType>, patch: ElementPatch)
   return {
     before: null,
     ctx: undefined,
-    kind: undefined,
     node: undefined,
     ns: undefined,
     parentDom: undefined,
@@ -195,7 +184,6 @@ export type TextChange = Delegated<{
   patch: undefined;
   parentDom: undefined;
   ctx: undefined;
-  kind: undefined;
   ns: undefined;
 }>;
 
@@ -203,7 +191,6 @@ export function $updateText(slot: Slot<TextSlotType>): TextChange {
   return {
     before: null,
     ctx: undefined,
-    kind: undefined,
     ns: undefined,
     parentDom: undefined,
     patch: undefined,
@@ -221,7 +208,6 @@ export type RemoveChange = Delegated<{
   patch: undefined;
   parentDom: undefined;
   ctx: undefined;
-  kind: undefined;
   ns: undefined;
 }>;
 
@@ -229,7 +215,6 @@ export function $removeSlot(slot: Slot): RemoveChange {
   return {
     before: null,
     ctx: undefined,
-    kind: undefined,
     node: undefined,
     ns: undefined,
     parentDom: undefined,
@@ -256,7 +241,6 @@ export function $updateRef(slot: SlotIntent<ElementSlotType>): RefAction {
   return {
     before: null,
     ctx: undefined,
-    kind: undefined,
     node: undefined,
     ns: undefined,
     parentDom: undefined,
@@ -279,7 +263,6 @@ export function* $createComponentSlot(
   return yield {
     before: null,
     ctx,
-    kind: undefined,
     node: undefined,
     ns,
     parentDom,
@@ -293,7 +276,6 @@ export function $setProps(slot: Slot<ComponentSlotType | ContextSlotType>): Prop
   return {
     before: null,
     ctx: undefined,
-    kind: undefined,
     node: undefined,
     ns: undefined,
     parentDom: undefined,
@@ -310,7 +292,6 @@ export function* $createElementSlot(
   return yield {
     before: null,
     ctx: undefined,
-    kind: "element",
     node: undefined,
     ns,
     parentDom: undefined,
@@ -327,7 +308,6 @@ export function* $createFragmentSlot(
   return yield {
     before: null,
     ctx: undefined,
-    kind: "fragment",
     node: undefined,
     ns,
     parentDom: undefined,
@@ -343,7 +323,6 @@ export function* $createTextSlot(
   return yield {
     before: null,
     ctx: undefined,
-    kind: "text",
     node: undefined,
     ns: undefined,
     parentDom: undefined,
