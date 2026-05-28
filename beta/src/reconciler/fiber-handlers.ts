@@ -10,7 +10,6 @@ import type {
 import { extendIntentNodes, extendIntentWithInstance, type Slot } from "../slots/slot";
 import type { TagNamespace } from "../render/elements/namespaces";
 import type { ContextMap } from "../render/types";
-import { createInstance } from "../instances/register-create";
 import { MOUNT_REASON } from "../render-reasons";
 import type {
   CreateElementAction,
@@ -19,6 +18,7 @@ import type {
   CreateTextAction,
 } from "./actions";
 import { prepareSlotNodes, updateWithPreparedSlot } from "../slots/utils";
+import { createFiber } from "../instances/register-create";
 
 export function handleMountSlot(
   fiber: ComponentFiber,
@@ -38,7 +38,7 @@ export function handleMountSlot(
     if (fiber.unmountInstances?.delete(instance)) instance.unmounted = false;
     instance.setProps(intent);
   } else {
-    instance = createInstance(extendIntentNodes(intent), ctx, fiber, fiber.rctx, parentDom, ns);
+    instance = createFiber(extendIntentNodes(intent), ctx, fiber, fiber.rctx, parentDom, ns);
     intent.instance = instance;
     instance.scheduleRender(MOUNT_REASON);
   }

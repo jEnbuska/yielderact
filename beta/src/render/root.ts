@@ -13,6 +13,7 @@ import { emptyChildren } from "../slots/slot-intent";
 import { emptyMap } from "../general";
 import { registerCreateInstance } from "../instances/register-create";
 
+// Just a hack to fix circular imports
 registerCreateInstance(createFiber);
 
 export class Root {

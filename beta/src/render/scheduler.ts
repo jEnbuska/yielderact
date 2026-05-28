@@ -17,9 +17,8 @@ import { createResolvable } from "../create-resolvable";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import { effectResolver } from "../hooks/effect";
 import { stateResolver } from "../hooks/state";
-import { insertBefore, moveSlot } from "../reconciler/dom-updates";
+import { insertBefore, moveSlot, removeSlotNodes } from "../reconciler/dom-updates";
 import { updateElementProps } from "./element-props";
-import { removeSlotNodes } from "../reconciler/dom-remove";
 
 /**
  * Insert `instance` into a depth-ordered queue: deepest at index 0,

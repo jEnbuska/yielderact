@@ -4,7 +4,7 @@ import type { ContextMap, RenderContext } from "../render/types";
 import type { ComponentFiber } from "./component-fiber";
 import type { TagNamespace } from "../render/elements/namespaces";
 
-type CreateInstance = (
+type CreateFiber = (
   intent: DraftBy<Slot<ComponentSlotType>, "instance" | "prevProps">,
   parentCtx: ContextMap,
   parent: ComponentFiber | null,
@@ -12,8 +12,8 @@ type CreateInstance = (
   parentDom: Node,
   ns: TagNamespace,
 ) => ComponentFiber;
-export let createInstance: CreateInstance;
+export let createFiber: CreateFiber;
 
-export function registerCreateInstance(callback: CreateInstance): void {
-  createInstance = callback;
+export function registerCreateInstance(callback: CreateFiber): void {
+  createFiber = callback;
 }
