@@ -68,7 +68,7 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     this.ns = ns;
   }
 
-  deferred() {
+  isDeferred() {
     return resolveContext(this.ctx, DeferContext);
   }
 
@@ -111,8 +111,8 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     } else {
       this.pendingSlot = reconcileFiberChildren(this, child);
     }
-    const { scheduler } = this.rctx;
-    const { unmountInstances } = this;
+    const { rctx, unmountInstances } = this;
+    const { scheduler } = rctx;
     if (unmountInstances?.size) {
       scheduler.scheduleUnmountChildren(this);
       for (const instance of unmountInstances) instance.unmount();
@@ -121,10 +121,10 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     }
     const { nextRefs, uiActions } = this;
     if (uiActions!.length || nextRefs) {
-      scheduler.scheduleDOMUpdate(this);
+      scheduler.scheduleUiUpdate(this);
     } else {
       this.preparedSlots?.clear();
-      scheduler.unscheduleDOMUpdate(this);
+      scheduler.unscheduleUiUpdate(this);
     }
     this.renderReasons?.clear();
     if (!this.mounted) this.scheduleEffect(MOUNT_REASON);

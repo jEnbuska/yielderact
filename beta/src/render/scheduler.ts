@@ -1,17 +1,3 @@
-/**
- * Scheduler — per-root work queues for render, effect, and resolve.
- *
- * Six render/effect queues (primary + deferred for each) plus a single
- * resolve queue. Render scheduling routes by `instance.deferred()` (the
- * live Deferred-context value), so the same instance can land in primary
- * or deferred depending on when it gets scheduled.
- *
- * Drain order per outer-loop iteration: primary renders → primary effects
- * → deferred renders. The outer loop runs until both render queues are
- * empty. Defer renders may be time-sliced and bail when primary work
- * arrives; the bailed work is re-scheduled and resumed in a later
- * iteration.
- */
 import type { ComponentFiber } from "../instances/component-fiber";
 import { createResolvable } from "../create-resolvable";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
@@ -20,12 +6,6 @@ import { stateResolver } from "../hooks/state";
 import { insertBefore, moveSlot, removeSlotNodes } from "../reconciler/dom-updates";
 import { updateElementProps } from "./element-props";
 
-/**
- * Insert `instance` into a depth-ordered queue: deepest at index 0,
- * shallowest at the tail so `pop()` yields the topmost ancestor first.
- * No-ops if `instance` is already a member; tail fast-path covers the
- * common "incoming is at or shallower than current shallowest" case.
- */
 function insertSorted(groups: Group, instance: ComponentFiber): void {
   const { depth } = instance;
   const { members } = groups;
@@ -75,7 +55,7 @@ export class Scheduler {
     void this.resolvable.promise.then(this.run);
   }
 
-  scheduleRender(instance: ComponentFiber, deferred = instance.deferred()): void {
+  scheduleRender(instance: ComponentFiber, deferred = instance.isDeferred()): void {
     if (deferred) {
       insertSorted(this.secondaryRenderGroup, instance);
       this.tertiaryRenderGroup.members.delete(instance);
@@ -85,22 +65,22 @@ export class Scheduler {
     this.resolvable.resolve();
   }
 
-  scheduleUnmountChildren(instance: ComponentFiber, deferred = instance.deferred()): void {
+  scheduleUnmountChildren(instance: ComponentFiber, deferred = instance.isDeferred()): void {
     if (deferred) this.secondaryParentsWithUnmounted.add(instance);
     else this.primaryParentsWithUnmounted.add(instance);
   }
 
-  unscheduleUnmountChildren(instance: ComponentFiber, deferred = instance.deferred()): void {
+  unscheduleUnmountChildren(instance: ComponentFiber, deferred = instance.isDeferred()): void {
     if (deferred) this.secondaryParentsWithUnmounted.delete(instance);
     else this.primaryParentsWithUnmounted.delete(instance);
   }
 
-  unscheduleRender(instance: ComponentFiber, deferred = instance.deferred()): void {
+  unscheduleRender(instance: ComponentFiber, deferred = instance.isDeferred()): void {
     if (deferred) this.secondaryRenderGroup.members.delete(instance);
     else this.primaryRenderGroup.members.delete(instance);
   }
 
-  scheduleEffect(instance: ComponentFiber, deferred = instance.deferred()): void {
+  scheduleEffect(instance: ComponentFiber, deferred = instance.isDeferred()): void {
     if (deferred) insertSorted(this.effectSecondaryGroup, instance);
     else insertSorted(this.effectPrimaryGroup, instance);
     this.resolvable.resolve();
@@ -111,12 +91,12 @@ export class Scheduler {
     this.resolvable.resolve();
   }
 
-  scheduleDOMUpdate(instance: ComponentFiber, deferred = instance.deferred()): void {
+  scheduleUiUpdate(instance: ComponentFiber, deferred = instance.isDeferred()): void {
     if (deferred) insertSorted(this.uiSecondaryGroup, instance);
     else insertSorted(this.uiPrimaryGroup, instance);
   }
 
-  unscheduleDOMUpdate(instance: ComponentFiber, deferred = instance.deferred()): void {
+  unscheduleUiUpdate(instance: ComponentFiber, deferred = instance.isDeferred()): void {
     if (deferred) this.uiSecondaryGroup.members.delete(instance);
     else this.uiPrimaryGroup.members.delete(instance);
   }
@@ -241,7 +221,7 @@ export class Scheduler {
         if (primaryMembers.size) return;
         const next = group.pop()!;
         if (!members.delete(next)) continue;
-        if (!next.deferred()) {
+        if (!next.isDeferred()) {
           this.scheduleRender(next);
           return;
         }
@@ -274,7 +254,7 @@ export class Scheduler {
           this.cleanupInstancesSchedules(next, true);
           continue;
         }
-        if (!next.deferred()) {
+        if (!next.isDeferred()) {
           this.scheduleRender(next);
           return;
         }

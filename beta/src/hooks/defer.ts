@@ -29,7 +29,7 @@ export function* $defer(): ComponentGenerator<[Component<{ children: Children }>
 const staticId = "defer";
 
 export const DeferContext = createContext<boolean>(false, "Defer");
-DeferContext.id = "defer";
+DeferContext.id = staticId;
 
 type DeferProps = {
   setDeferring: (deferring: boolean) => unknown;
@@ -77,7 +77,7 @@ class DeferFiber extends ComponentFiber<DeferProps> {
   }
 
   override render() {
-    const deferred = (this.context.ref.current = this.deferred());
+    const deferred = (this.context.ref.current = this.isDeferred());
     super.render();
 
     if (deferred) {
@@ -106,7 +106,7 @@ class DeferFiber extends ComponentFiber<DeferProps> {
     ];
   }
 
-  override deferred(): boolean {
+  override isDeferred(): boolean {
     if (this.mounted) return true;
     return resolveContext(this.parent?.ctx, DeferContext);
   }
