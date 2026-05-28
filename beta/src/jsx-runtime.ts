@@ -15,11 +15,13 @@ import {
   asElementDraft,
   asFragmentDraft,
 } from "./slots/intent-draft";
+import { asFragmentIntent } from "./slots/slot-intent";
 
 export { Fragment };
 
 const emptyChildren: Children[] = [];
 const defaultProps: VNodeProps = Object.freeze({ children: emptyChildren });
+
 export function jsx<P extends Record<string, any>>(
   node: Component<Omit<P, keyof FrameworkProps>>,
   props: (P & FrameworkProps) | null,
@@ -29,14 +31,15 @@ export function jsx<T>(
   node: Context<T>,
   props: FrameworkProps & ContextProps<T>,
 ): DraftIntent | null;
-export function jsx<T extends keyof JSX.IntrinsicElements>(
-  node: T,
-  props: (Omit<FrameworkProps, "deps"> & JSX.IntrinsicElements[T] & PropsWithChildren) | null,
-  key?: string,
-): DraftIntent | null;
+
 export function jsx(
   node: typeof Fragment,
   props: (Omit<FrameworkProps, "deps"> & PropsWithChildren) | null,
+  key?: string,
+): DraftIntent | null;
+export function jsx<T extends keyof JSX.IntrinsicElements>(
+  node: T,
+  props: (Omit<FrameworkProps, "deps"> & JSX.IntrinsicElements[T] & PropsWithChildren) | null,
   key?: string,
 ): DraftIntent | null;
 export function jsx(node: any, props: any, key?: string): DraftIntent | null {
@@ -54,7 +57,7 @@ export function jsx(node: any, props: any, key?: string): DraftIntent | null {
       return asFragmentDraft(children, key);
     }
     case "object": {
-      return asContextDraft(children, key, node, props?.value);
+      return asContextDraft(children, key, node, props);
     }
     default: {
       throw new Error(`Invalid JSX node type "${typeof node}"`);
@@ -83,4 +86,8 @@ export function jsxs(node: any, props: any, key?: string): Child {
   return jsx(node, props, key);
 }
 
+export function childrenToJSX(children: Children): Child {
+  if (Array.isArray(children)) return asFragmentIntent(children, "", 0, "");
+  return children as Child;
+}
 export const jsxDEV = jsx;

@@ -1,5 +1,5 @@
 /**
- * delegation.ts — Handler registry, prop-to-event mapping, and DelegationRoot.
+ * actions.ts — Handler registry, prop-to-event mapping, and DelegationRoot.
  *
  * A single native listener per event type is attached on the root container.
  * When an event fires, the dispatch algorithm (dispatch.ts) walks the DOM path

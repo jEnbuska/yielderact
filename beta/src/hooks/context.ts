@@ -5,7 +5,6 @@ import { $CONTEXT } from "./descriptors";
 import { getContextReason } from "../render-reasons";
 import { depsChanged } from "../general";
 import type { ComponentGenerator } from "../general-types";
-import { Defer } from "../instances/deferred-fiber";
 
 const defaultSelector = (value: unknown): unknown[] => [value];
 
@@ -111,17 +110,15 @@ export function processContext(
   state.currentSelected = initialSelected;
   if (state.transform) {
     state.lastTransformResult = state.transform(...initialSelected);
+  } else {
+    state.lastTransformResult = handle.ref.current;
   }
-  const deferredHandle = instance.ctx.get(Defer.id) as Context<typeof Defer> | undefined;
-
   state.unsubscribe = handle.subscribe(() => {
     const current = state.depsSelector(handle.ref.current);
-    const deferred = !!deferredHandle?.ref.current || handle.depth < (deferredHandle?.depth ?? -1);
-    state.currentSelected = current;
     if (!depsChanged(state.lastRenderedDepsSelected, current)) {
-      instance.unscheduleRender(state.reason, deferred);
+      instance.unscheduleRender(state.reason);
     } else {
-      instance.scheduleRender(state.reason, deferred);
+      instance.scheduleRender(state.reason);
     }
   });
   return state;
@@ -133,8 +130,9 @@ export function processContext(
  * time we reach here it's already up to date for the current `currentSelected`.
  */
 export function getContextValue(state: ContextHookState, instance: ComponentFiber): unknown {
-  const handle = instance.ctx.get(state.ctx.id);
-  if (!handle) return state.ctx.ref.current.value;
+  const { ctx } = state;
+  const handle = instance.ctx.get(ctx.id);
+  if (!handle) return ctx.ref.current;
   if (state.transform) return state.lastTransformResult;
   return handle.ref.current;
 }

@@ -1,5 +1,5 @@
 import type { ElementSlotType, FragmentSlotType, Slot, TextSlotType } from "./slot";
-import { elementSlotType, fragmentSlotType, intentToSlot, textSlotType } from "./slot";
+import { elementSlotType, fragmentSlotType, textSlotType } from "./slot";
 import type { DelegationRoot } from "../render/delegation";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { createElement } from "../render/elements/create";
@@ -24,9 +24,8 @@ export function toElementSlot(
   const { element, props } = intent;
   const node = createElement(ns, element);
   applyElementProps(node, props, delegationRoot);
-  intentToSlot(intent, node);
   intent.headNode = node;
-  return intent;
+  return intent as Slot<ElementSlotType>;
 }
 
 export function toFragmentSlot(intent: SlotIntent<FragmentSlotType>): Slot<FragmentSlotType> {

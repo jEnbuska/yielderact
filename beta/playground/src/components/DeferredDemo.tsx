@@ -5,8 +5,7 @@
  * column and search by the first column or a combined text search
  * across all columns (datalist-style filtering).
  */
-import { $effect, $memo, $ref, $stable, $state, createContext, Defer } from "yract-beta";
-import { ComponentProps } from "../../../src/jsx";
+import { $defer, $effect, $memo, $ref, $stable, $state, ComponentProps } from "yract-beta";
 
 /* ── Data generation ── */
 
@@ -89,7 +88,7 @@ function generateRows(count: number): Row[] {
   return rows;
 }
 
-const TOTAL_ROWS = 50_000;
+const TOTAL_ROWS = 100_000;
 const ALL_ROWS = generateRows(TOTAL_ROWS);
 
 function* TableData({ children }: ComponentProps<"td">) {
@@ -126,7 +125,7 @@ function* TableRow({ row }: { row: Row }) {
 
 type SortDir = "asc" | "desc" | "none";
 
-function* Table({
+function* Example({
   rows,
   sortDir,
   onSort,
@@ -149,6 +148,7 @@ function* Table({
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [sortDir, rows]);
+  const [Defer, deferring] = yield* $defer();
   return (
     <div
       style={{
@@ -203,21 +203,20 @@ function* Table({
             </div>
           </div>
         </div>
-        <SearchContext value={search}>
-          <Defer value={true}>
+        <div style={{ position: "relative", opacity: deferring ? "0.5" : "1" }}>
+          <Defer>
             <TableBody rows={sortedRows} search={search} />
           </Defer>
-        </SearchContext>
+        </div>
       </div>
     </div>
   );
 }
 
-let SearchContext = createContext("");
 function* TableBody({ rows }: { rows: Row[]; search: string }) {
   return (
     <div role="rowgroup">
-      {rows.map((row, index) => (
+      {rows.map((row) => (
         <TableRow key={String(row.id)} row={row} deps={[row]} />
       ))}
     </div>
@@ -293,7 +292,7 @@ export function* DeferredDemo() {
           {filtered.length} / {ALL_ROWS.length} rows
         </span>
       </div>
-      <Table rows={filtered} sortDir={sortDir} onSort={updateSortDir} search={search} />
+      <Example rows={filtered} sortDir={sortDir} onSort={updateSortDir} search={search} />
       <TickChart entries={ticks} start={start.current} />
     </section>
   );

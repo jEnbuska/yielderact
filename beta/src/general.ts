@@ -1,6 +1,13 @@
 import type { ComponentSlotType, ContextSlotType, Slot } from "./slots/slot";
+import {
+  componentSlotType,
+  contextSlotType,
+  elementSlotType,
+  fragmentSlotType,
+} from "./slots/slot";
 import type { Children } from "./jsx";
 import type { DependencyList, DraftBy } from "./general-types";
+import type { DraftIntent } from "./slots/intent-draft";
 
 const _values = new WeakMap<ReadonlyMap<any, any>, any[]>();
 const _valuesReversed = new WeakMap<ReadonlyMap<any, any>, any[]>();
@@ -66,7 +73,7 @@ export function propsWithChildren(
     DraftBy<Slot<ComponentSlotType | ContextSlotType>, "instance" | "prevProps">,
     "type"
   >,
-): Record<string, unknown> & { children?: Children | Children[] } {
+): Record<string, unknown> & { children?: Children | ReadonlyArray<Children> } {
   const { children, props } = intent;
   switch (children.length) {
     case 0:
@@ -80,5 +87,86 @@ export function propsWithChildren(
     }
     default:
       return { children, ...props };
+  }
+}
+
+export function isArrayChildren(children: Children): children is ReadonlyArray<Children> {
+  return Array.isArray(children);
+}
+
+export function childrenEquals(children: Children, another: Children): boolean {
+  children ??= "";
+  another ??= "";
+  if (children === another) return true;
+  if (typeof another !== typeof children) {
+    return false;
+  }
+
+  if (isArrayChildren(children)) {
+    if (!isArrayChildren(another)) {
+      return false;
+    }
+    if (children.length !== another.length) return false;
+    for (let i = 0; i < children.length; i++) {
+      if (childrenEquals(children[i], another[i])) continue;
+      return false;
+    }
+    return true;
+  }
+
+  if (typeof children === "object" && typeof another === "object") {
+    const prevDraft = another as DraftIntent;
+    if (children.type !== prevDraft.type) {
+      console.log("different draft.type children");
+      return false;
+    }
+    if (children.key !== prevDraft.key) {
+      console.log("child.key", children.key, "vs", prevDraft.key);
+      console.log("different keys children");
+      return false;
+    }
+    switch (children.type) {
+      case contextSlotType:
+        if (children.context !== prevDraft.context) {
+          console.log("different contexts");
+          return false;
+        }
+        break;
+      case componentSlotType:
+        if (children.component !== prevDraft.component) {
+          console.log("different components");
+          return false;
+        }
+        break;
+      case elementSlotType:
+        if (children.element !== prevDraft.element) {
+          console.log("different elements");
+          return false;
+        }
+
+        break;
+      case fragmentSlotType:
+        return childrenEquals(children.children, prevDraft.children);
+    }
+    if (!shallowEqual(children.props, prevDraft.props)) return false;
+    return childrenEquals(children.children, prevDraft.children);
+  }
+  console.log("another is not object");
+  return false;
+}
+
+export function copyChildren(children: Children): Children {
+  if (children == null) return children;
+  if (Array.isArray(children)) return children.map(copyChildren);
+  switch (typeof children) {
+    case "object": {
+      const copy = { ...children };
+      if ("children" in copy) {
+        copy.children = copy.children.map(copyChildren);
+      }
+      return copy;
+    }
+    default:
+      return children;
   }
 }

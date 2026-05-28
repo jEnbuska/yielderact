@@ -18,10 +18,10 @@ import type {
 import type { DraftIntent } from "./slots/intent-draft";
 import type { SlotIntent } from "./slots/slot-intent";
 
-const otherIdMap = new WeakMap<Component<any>>();
+const componentIdMap = new WeakMap<Component<any>>();
 
 export function getComponentSlotKey(draft: DraftIntent<ComponentSlotType>, index: number): string {
-  const slotId = otherIdMap.getOrInsertComputed(draft.component, randomId);
+  const slotId = componentIdMap.getOrInsertComputed(draft.component, randomId);
   const componentKey = draft.key ?? index;
   return `"${slotId}""${typeof componentKey}"${componentKey}`;
 }

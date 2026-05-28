@@ -80,13 +80,13 @@ export type SlotElement<T extends SlotType> = T extends ElementSlotType ? string
 export type SlotText<T extends SlotType> = T extends TextSlotType ? string : undefined;
 
 export type SlotProps<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
-  ? Omit<DraftBy<Slot<"yract-component" | "yract-context">, "instance" | "prevProps">, "type">
+  ? Record<string, unknown>
   : T extends ElementSlotType
     ? Record<string, unknown> & { ref?: RefLike }
     : undefined;
 
 export type SlotComponent<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
-  ? Component
+  ? Component<any>
   : undefined;
 
 export type SlotContext<T extends SlotType> = T extends ContextSlotType
@@ -100,43 +100,8 @@ export type SlotChildren<T extends SlotType> = T extends
   | ContextSlotType
   | ElementSlotType
   | FragmentSlotType
-  ? Children[]
+  ? ReadonlyArray<Children>
   : undefined;
-
-export function intentToSlot(
-  intent: SlotIntent<TextSlotType>,
-  headNode: Text,
-): asserts intent is Slot<TextSlotType>;
-export function intentToSlot(
-  intent: SlotIntent<FragmentSlotType>,
-  headNode: Comment,
-  tailNode: Comment,
-): asserts intent is Slot<FragmentSlotType>;
-export function intentToSlot(
-  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
-  headNode: Comment,
-  tailNode: Comment,
-): asserts intent is DraftBy<Slot<ComponentSlotType>, "instance">;
-export function intentToSlot(
-  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
-  headNode: Comment,
-  tailNode: Comment,
-  instance: ComponentFiber,
-): asserts intent is Slot<ComponentSlotType>;
-export function intentToSlot(
-  intent: SlotIntent<ElementSlotType>,
-  headNode: AnyElement,
-): asserts intent is Slot<ElementSlotType>;
-export function intentToSlot(
-  intent: SlotIntent,
-  headNode: any,
-  tailNode?: any,
-  instance?: ComponentFiber,
-): any {
-  intent.headNode = headNode;
-  intent.tailNode = tailNode;
-  intent.instance = instance;
-}
 
 export function extendIntentWithInstance(
   intent: SlotIntent<ComponentSlotType | ContextSlotType>,

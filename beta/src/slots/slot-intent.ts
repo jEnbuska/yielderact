@@ -39,13 +39,13 @@ export type SlotIntent<T extends SlotType = SlotType> = T extends SlotType
     }
   : never;
 export function asFragmentIntent(
-  children: Children[],
+  children: ReadonlyArray<Children>,
   key: string,
   index: number,
   parentPath: string,
 ): SlotIntent<FragmentSlotType> {
   return {
-    children: getIntentChildren(children),
+    children,
     component: undefined,
     context: undefined,
     deps: undefined,
@@ -94,9 +94,9 @@ export function asTextIntent(
   };
 }
 
-export const emptyChildren: Children[] = [];
+export const emptyChildren: ReadonlyArray<Children> = [];
 
-export function getIntentChildren(children: Children): Children[] {
+export function getIntentChildren(children: Children): ReadonlyArray<Children> {
   if (Array.isArray(children)) return children;
   if (children === undefined) return emptyChildren;
   return [children];

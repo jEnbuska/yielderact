@@ -30,8 +30,8 @@ export class ContextFiber extends ComponentFiber<{ value: unknown }> {
         this.subscribers.add(cb);
         return () => this.subscribers.delete(cb);
       },
-      id: context.id,
       depth: (parent?.depth ?? -1) + 1,
+      id: context.id,
       Provider: context.Provider,
     };
     const extended = new Map(ctx);

@@ -15,7 +15,7 @@ import {
   getFragmentSlotKey,
   getLeafChildKey,
 } from "../keys";
-import { emptyMap } from "../general";
+import { emptyMap, isArrayChildren } from "../general";
 import type { SlotIntent } from "../slots/slot-intent";
 import { asFragmentIntent, asTextIntent } from "../slots/slot-intent";
 
@@ -42,15 +42,16 @@ export function childToIntent(child: NonNullable<Child>): SlotIntent {
     }
   }
 }
+
 export function childrenToIntents(
-  children: Children[],
+  children: ReadonlyArray<Children>,
   parentPath: string,
 ): ReadonlyMap<string, SlotIntent> {
   if (children.length === 0) return emptyMap;
   const intents = new Map<string, SlotIntent>();
   for (let index = 0; index < children.length; index++) {
     const child = children[index] ?? "";
-    if (Array.isArray(child)) {
+    if (isArrayChildren(child)) {
       const key = getArrayFragmentSlotKey(index);
       intents.set(key, asFragmentIntent(child, key, index, parentPath));
       continue;

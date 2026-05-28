@@ -10,12 +10,10 @@ export interface RefObject<T> {
   current: T;
 }
 
-export function $ref<T>(): ComponentGenerator<RefObject<T | undefined>>;
-export function $ref<T>(initialValue: T): ComponentGenerator<RefObject<T>>;
-export function* $ref<T>(initialValue?: T): ComponentGenerator<RefObject<T | undefined>> {
+export function* $ref<T>(initialValue: T): ComponentGenerator<RefObject<T>> {
   const desc: RefDescriptor = { type: $REF, initialValue };
   const ref = yield desc;
-  return ref as RefObject<T | undefined>;
+  return ref as RefObject<T>;
 }
 
 /** @internal */

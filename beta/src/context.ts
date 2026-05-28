@@ -1,8 +1,8 @@
 import type { Children, Component, PropsWithChildren } from "./jsx";
-import { Fragment } from "./jsx";
 import { randomId } from "./general";
-import { jsx } from "./jsx-runtime";
+import { childrenToJSX } from "./jsx-runtime";
 import type { ContextMap } from "./render/types";
+import type { ComponentGenerator } from "./general-types";
 
 export interface ContextProps<T = unknown> extends PropsWithChildren {
   key?: string;
@@ -12,7 +12,7 @@ export interface ContextProps<T = unknown> extends PropsWithChildren {
 }
 
 export type Context<T = any> = ContextProperties<T> & {
-  (props: ContextProps<T>): never;
+  (props: ContextProps<T>): ComponentGenerator;
 };
 
 export type ContextProperties<T> = {
@@ -20,20 +20,33 @@ export type ContextProperties<T> = {
   subscribe: (cb: () => void) => () => void;
   depth: number;
   id: string;
-  Provider: Component;
+  Provider: Component<ContextProps<T>>;
 };
 
-export function createContext<T>(defaultValue: T): Context<T> {
-  const Provider: Context<T>["Provider"] = function* ContextProvider({ children }) {
-    return jsx(Fragment, { children: children as Children });
+function getDefaultValue<T>(defaultValue: (() => T) | T): T {
+  if (defaultValue === "function") {
+    return (defaultValue as any)() as T;
+  }
+  return defaultValue as T;
+}
+
+export function createContext<T>(defaultValue: (() => T) | T): Context<T>;
+export function createContext<T>(defaultValue: (() => T) | T, name: Capitalize<string>): Context<T>;
+export function createContext(...args: any[]): any {
+  const [defaultValue, name = ""] = args;
+  const providerName = `${name}Provider`;
+  const withProvider = {
+    *[providerName]({ children }: ContextProps) {
+      return childrenToJSX(children);
+    },
   };
   return {
-    ref: { current: defaultValue },
+    ref: { current: getDefaultValue(defaultValue) },
     subscribe: () => () => {},
     depth: -1,
     id: randomId(),
-    Provider,
-  } satisfies ContextProperties<T> as any;
+    Provider: withProvider[providerName],
+  } as any;
 }
 
 export function resolveContext<T>(map: ContextMap | undefined, ctx: Context<T>): T {

@@ -6,7 +6,7 @@
  * This module tracks the wrapper functions so they can be removed when
  * props change or the element is unmounted.
  *
- * For delegated events, see `delegation.ts` and `dispatch.ts`.
+ * For delegated events, see `actions.ts` and `dispatch.ts`.
  */
 
 import { createSyntheticEvent, type SyntheticEvent } from "../events";

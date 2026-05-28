@@ -1,50 +1,109 @@
 import type { Child, Children } from "../jsx";
 import type { ComponentFiber } from "../instances/component-fiber";
-import type { ElementSlotType, FragmentSlotType, Slot, TextSlotType } from "../slots/slot";
-import { extendIntentNodes, extendIntentWithInstance } from "../slots/slot";
-import type { AnyElement, TagNamespace } from "../render/elements/namespaces";
-import type { DelegationAction, DelegationResponse, UIAction } from "./delegation";
-import { $moveSlot, $removeSlot } from "./delegation";
+import type { Slot, SlotType } from "../slots/slot";
+import {
+  componentSlotType,
+  contextSlotType,
+  elementSlotType,
+  fragmentSlotType,
+  textSlotType,
+} from "../slots/slot";
+import type { TagNamespace } from "../render/elements/namespaces";
+import { type AnyElement, nodeNameSpace } from "../render/elements/namespaces";
+import type { UIAction } from "./actions";
+import {
+  isRefProps,
+  prepareCreate,
+  prepareInsert,
+  prepareMove,
+  prepareRemove,
+  prepareText,
+  prepareUpdate,
+} from "./actions";
 import { childrenToIntents, childToIntent, fillIntentDrafts, inheritSlot } from "./prepare";
 import { getMapValues, getMapValuesReversed } from "../general";
 import { deriveStableIndexes } from "./derive-stable-indexes";
-import { buildIntentToSlot } from "./build-intent-to-slot";
-import { updateSlot } from "./update-slot";
-import { mountIntent } from "./mount-intent";
-import type { RefLike } from "../render/element-props";
 import type { ContextMap } from "../render/types";
-import { MOUNT_REASON } from "../render-reasons";
-import { prepareSlotNodes, updateWithPreparedSlot } from "../slots/utils";
-import { emptyChildren } from "../slots/slot-intent";
-import { createInstance } from "../instances/register-create";
+import { emptyChildren, type SlotIntent } from "../slots/slot-intent";
+import { diffElementProps } from "../render/element-props";
 
-export function* reconcile(
-  children: Children[] = emptyChildren,
-  parentFiber: ComponentFiber,
+function prepareFiber(fiber: ComponentFiber) {
+  const { instances } = fiber;
+  fiber.instances = instances?.size ? new Map() : undefined;
+  fiber.unmountInstances = instances?.size ? new Set(instances.values()) : undefined;
+  fiber.nextRefs = undefined;
+  fiber.preparedSlots ??= new Map<string, Slot>();
+  return fiber;
+}
+export function mountFiberChildren(fiber: ComponentFiber, child: Child): Slot {
+  const stagingDom = document.createDocumentFragment();
+  const { parentDom, ns, ctx } = prepareFiber(fiber);
+  const intent = childToIntent(child ?? "");
+  mountIntent(fiber, intent, ns, parentDom, stagingDom, ctx);
+  fiber.domActions = [prepareInsert(fiber.parentDom, stagingDom, fiber.tailNode)];
+  return intent as Slot;
+}
+
+export function reconcileFiberChildren(fiber: ComponentFiber, child: Child): Slot {
+  const { parentDom, slot, ns, tailNode, ctx } = prepareFiber(fiber);
+  const prevSlot = slot!;
+  const intent = childToIntent(child ?? "");
+  const uiActions: UIAction[] = (fiber.domActions = []);
+  if (intent.key !== prevSlot!.key) {
+    uiActions.push(prepareRemove(prevSlot!));
+    buildIntentToSlot(uiActions, fiber, intent, ns, parentDom, tailNode, ctx);
+    return intent as Slot;
+  } else {
+    inheritSlot(intent, prevSlot!);
+    updateSlot(uiActions, fiber, intent, ns, ctx);
+    return intent;
+  }
+}
+
+export function mount(
+  children: ReadonlyArray<Children>,
+  fiber: ComponentFiber,
+  parentDom: Node,
+  stagingDom: Node,
+  parentPath: string,
+  ns: TagNamespace,
+  ctx: ContextMap,
+): ReadonlyMap<string, Slot> {
+  const slots = childrenToIntents(children, parentPath) as any as ReadonlyMap<string, Slot>;
+  for (const draft of getMapValues(slots)) {
+    mountIntent(fiber, draft, ns, parentDom, stagingDom, ctx);
+  }
+  return slots;
+}
+
+export function reconcile(
+  uiActions: UIAction[],
+  fiber: ComponentFiber,
+  children: ReadonlyArray<Children> = emptyChildren,
   parentDom: Node,
   path: string,
   oldSlots: ReadonlyMap<string, Slot>,
   ns: TagNamespace,
   beforeNode: Node | null,
   ctx: ContextMap,
-): Generator<DelegationAction, ReadonlyMap<string, Slot>, DelegationResponse> {
+): ReadonlyMap<string, Slot> {
   const drafts = childrenToIntents(children, path);
   const stableIndexes = deriveStableIndexes(drafts, oldSlots);
   fillIntentDrafts(oldSlots, drafts, stableIndexes);
   for (const slot of getMapValuesReversed(oldSlots)) {
     if (drafts.has(slot.key)) continue;
-    yield $removeSlot(slot);
+    uiActions.push(prepareRemove(slot));
   }
   const slots = drafts as ReadonlyMap<string, Slot>;
   for (const slot of getMapValuesReversed(slots)) {
     if (slot.headNode === undefined) {
       // ... new SlotIntent
-      yield* buildIntentToSlot(slot, parentFiber, ns, parentDom, beforeNode, ctx);
+      buildIntentToSlot(uiActions, fiber, slot, ns, parentDom, beforeNode, ctx);
     } else {
       // ... Slot
-      yield* updateSlot(slot, parentFiber, ns, ctx);
+      updateSlot(uiActions, fiber, slot, ns, ctx);
       if (slot.move) {
-        yield $moveSlot(parentDom, slot, beforeNode);
+        uiActions.push(prepareMove(parentDom, slot, beforeNode));
       }
     }
     beforeNode = slot.headNode;
@@ -52,154 +111,132 @@ export function* reconcile(
   return slots;
 }
 
-export function* reconcileRoot(
-  child: Child,
-  parentFiber: ComponentFiber,
-  parentDom: Node,
-  prevSlot: Slot,
-  ns: TagNamespace,
-  beforeNode: Node | null,
-  ctx: ContextMap,
-): Generator<DelegationAction, Slot> {
-  const intent = childToIntent(child ?? "");
-  if (intent.key !== prevSlot.key) {
-    yield $removeSlot(prevSlot);
-    yield* buildIntentToSlot(intent, parentFiber, ns, parentDom, beforeNode, ctx);
-    return intent as Slot;
-  } else {
-    inheritSlot(intent, prevSlot);
-    yield* updateSlot(intent, parentFiber, ns, ctx);
-    return intent;
-  }
-}
-
-export function* mount(
-  children: Children[],
-  parentFiber: ComponentFiber,
-  parentDom: Node,
-  stagingDom: Node,
-  parentPath: string,
-  ns: TagNamespace,
-  ctx: ContextMap,
-): Generator<DelegationAction, ReadonlyMap<string, Slot>> {
-  const slots = childrenToIntents(children, parentPath) as any as ReadonlyMap<string, Slot>;
-  for (const draft of getMapValues(slots)) {
-    yield* mountIntent(draft, parentFiber, ns, parentDom, stagingDom, ctx);
-  }
-  return slots;
-}
-
-export function* mountRoot(
-  child: Child,
-  parentFiber: ComponentFiber,
-  parentDom: Node,
-  stagingDom: Node,
-  ns: TagNamespace,
-  ctx: ContextMap,
-): Generator<DelegationAction, Slot> {
-  const intent = childToIntent(child ?? "");
-  yield* mountIntent(intent, parentFiber, ns, parentDom, stagingDom, ctx);
-  return intent as Slot;
-}
-
-export type ResolveComponentRender = {
-  domActions: Array<UIAction> | undefined;
-  unmountInstances: undefined | Set<ComponentFiber>;
-  instances: undefined | Map<string, ComponentFiber>;
-  refs: undefined | Map<AnyElement, RefLike>;
-  slots: Slot;
-};
-
-export function reconcileFiber(
-  generator: Generator<DelegationAction, Slot, DelegationResponse>,
+export function mountIntent(
   fiber: ComponentFiber,
-): ResolveComponentRender {
-  const prevInstances = fiber.instances;
-  let domActions: Array<UIAction> | undefined;
-  const unmountInstances: Set<ComponentFiber> | undefined = prevInstances?.size
-    ? new Set(prevInstances.values())
-    : undefined;
-  let nextInstances: Map<string, ComponentFiber> | undefined = prevInstances?.size
-    ? new Map()
-    : undefined;
-  let result = generator.next();
-  let refs: undefined | Map<AnyElement, RefLike> = undefined;
-  const preparedSlots = (fiber.preparedSlots ??= new Map<string, Slot>());
-  const { delegationRoot } = fiber.rctx;
+  intent: SlotIntent,
+  ns: TagNamespace,
+  parentDom: Node,
+  stagingDom: Node,
+  ctx: ContextMap,
+) {
+  switch (intent.type) {
+    case contextSlotType:
+    case componentSlotType: {
+      const { headNode, tailNode } = fiber.mountSlot(intent, parentDom, ns, ctx);
+      stagingDom.appendChild(headNode);
+      stagingDom.appendChild(tailNode);
+      return;
+    }
+    case textSlotType: {
+      const { headNode } = fiber.createNode(prepareCreate(intent));
+      stagingDom.appendChild(headNode);
+      return;
+    }
+    case elementSlotType: {
+      const { headNode } = fiber.createNode(prepareCreate(intent, ns));
+      const { children, path, props } = intent;
+      stagingDom.appendChild(headNode);
+      ns = nodeNameSpace(headNode as any);
+      intent.slots = mount(children, fiber, headNode, headNode, path, ns, ctx);
+      if (isRefProps(props)) fiber.updateRef(intent);
+      return;
+    }
+    case fragmentSlotType: {
+      const { headNode, tailNode } = fiber.createNode(prepareCreate(intent, ns));
+      const { path, children } = intent;
+      stagingDom.appendChild(headNode);
+      intent.slots = mount(children, fiber, parentDom, stagingDom, path, ns, ctx);
+      stagingDom.appendChild(tailNode!);
+      return;
+    }
+    default:
+      throw new Error(`yract-beta: unknown SlotIntent: ${JSON.stringify(intent satisfies never)}`);
+  }
+}
 
-  while (!result.done) {
-    const next = result.value;
-    switch (next.type) {
-      case "CREATE": {
-        const { slot, ns } = next;
-        const { path } = slot;
-        const prepared = preparedSlots.get(path);
-        let resultSlot: Slot<ElementSlotType | TextSlotType | FragmentSlotType>;
-        if (prepared) {
-          resultSlot = updateWithPreparedSlot(slot, prepared, delegationRoot);
-          preparedSlots.set(path, resultSlot);
-          break;
-        } else {
-          resultSlot = prepareSlotNodes(slot, delegationRoot, ns);
-        }
-        preparedSlots.set(path, resultSlot);
-        result = generator.next(resultSlot);
-        break;
-      }
-      case "REMOVE":
-      case "INSERT":
-      case "MOVE":
-      case "UPDATE":
-      case "TEXT":
-        domActions ??= [];
-        domActions.push(next);
-        result = generator.next();
-        break;
-      case "PROPS": {
-        const { slot } = next;
-        const { instance } = slot;
-        if (unmountInstances?.delete(instance)) instance.unmounted = false;
-        instance.setProps(slot);
-        result = generator.next();
-        break;
-      }
-      case "REF": {
-        refs ??= new Map();
-        const { headNode, props } = next.slot;
-        refs!.set(headNode!, props.ref!);
-        result = generator.next();
-        break;
-      }
-      case "MOUNT": {
-        const { slot, parentDom, ns, ctx } = next;
-        const { path } = slot;
-        const existingInstance = prevInstances?.get(path);
-        let instance: ComponentFiber;
-        if (existingInstance) {
-          instance = existingInstance;
-          instance.ctx = ctx;
-          instance.parentDom = parentDom;
-          extendIntentWithInstance(slot, instance);
-          if (unmountInstances?.delete(instance)) instance.unmounted = false;
-          instance.setProps(slot);
-        } else {
-          instance = createInstance(extendIntentNodes(slot), ctx, fiber, fiber.rctx, parentDom, ns);
-          slot.instance = instance;
-          instance.scheduleRender(MOUNT_REASON);
-        }
-        (nextInstances ??= new Map<string, ComponentFiber>()).set(path, instance);
-        result = generator.next(slot as Slot);
-        break;
-      }
-      default:
-        throw new Error(`unknown type`);
+function buildIntentToSlot(
+  uiActions: UIAction[],
+  fiber: ComponentFiber,
+  intent: SlotIntent,
+  ns: TagNamespace,
+  parentDom: Node,
+  beforeNode: null | Node,
+  ctx: ContextMap,
+) {
+  switch (intent.type) {
+    case componentSlotType:
+    case contextSlotType: {
+      const { headNode, tailNode } = fiber.mountSlot(intent, parentDom, ns, ctx);
+      const stagingDom = document.createDocumentFragment();
+      stagingDom.appendChild(headNode);
+      stagingDom.appendChild(tailNode);
+      uiActions.push(prepareInsert(parentDom, stagingDom, beforeNode));
+      return;
+    }
+    case textSlotType: {
+      const { headNode } = fiber.createNode(prepareCreate(intent));
+      uiActions.push(prepareInsert(parentDom, headNode, beforeNode));
+      return;
+    }
+    case elementSlotType: {
+      const { headNode } = fiber.createNode(prepareCreate(intent, ns));
+      const { children, path } = intent;
+      ns = nodeNameSpace(headNode as AnyElement);
+      intent.slots = mount(children, fiber, headNode, headNode, path, ns, ctx);
+      const { props } = intent;
+      if (isRefProps(props)) fiber.updateRef(intent);
+      uiActions.push(prepareInsert(parentDom, headNode, beforeNode));
+      return;
+    }
+    case fragmentSlotType: {
+      const { headNode, tailNode } = fiber.createNode(prepareCreate(intent, ns));
+      const { children, path } = intent;
+      const stagingDom = document.createDocumentFragment();
+      stagingDom.appendChild(headNode);
+      intent.slots = mount(children, fiber, parentDom, stagingDom, path, ns, ctx);
+      stagingDom.appendChild(tailNode!);
+      uiActions.push(prepareInsert(parentDom, stagingDom, beforeNode));
     }
   }
-  return {
-    domActions,
-    unmountInstances,
-    instances: nextInstances,
-    refs,
-    slots: result.value,
-  };
+}
+
+export function updateSlot<T extends SlotType>(
+  uiActions: UIAction[],
+  fiber: ComponentFiber,
+  slot: Slot<T>,
+  ns: TagNamespace,
+  ctx: ContextMap,
+) {
+  switch (slot.type) {
+    case contextSlotType:
+    case componentSlotType:
+      fiber.updateSlotProps(slot);
+      return;
+    case textSlotType: {
+      const { text } = slot;
+      if (text === slot.prevText) return;
+      uiActions.push(prepareText(slot));
+      return;
+    }
+    case elementSlotType: {
+      const { headNode, children, path, slots, prevProps, props } = slot;
+      const ns = nodeNameSpace(headNode);
+      slot.slots = reconcile(uiActions, fiber, children, headNode, path, slots, ns, null, ctx);
+      const patch = diffElementProps(prevProps, props);
+      if (isRefProps(slot.props)) fiber.updateRef(slot);
+      if (patch) uiActions.push(prepareUpdate(slot, patch));
+      return;
+    }
+    case fragmentSlotType: {
+      const { tailNode, children, path, slots } = slot;
+      const parentDom = tailNode.parentNode;
+      if (!parentDom) {
+        throw new Error("yract-beta: fragment slot reconciled with detached start anchor");
+      }
+      slot.slots = reconcile(uiActions, fiber, children, parentDom, path, slots, ns, tailNode, ctx);
+      return;
+    }
+    default:
+      throw new Error(`Unhandled update slot ${slot satisfies never}`);
+  }
 }

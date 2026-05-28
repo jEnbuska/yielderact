@@ -41,7 +41,7 @@ export interface VNode<
 }
 
 export type Child = DraftIntent | string | number | bigint | boolean | null | undefined;
-export type Children = Child | Children[];
+export type Children = Child | ReadonlyArray<Children>;
 
 export interface FrameworkProps {
   key?: string;

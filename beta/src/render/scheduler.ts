@@ -27,24 +27,16 @@ import { updateElementProps } from "./element-props";
  * No-ops if `instance` is already a member; tail fast-path covers the
  * common "incoming is at or shallower than current shallowest" case.
  */
-function insertSorted(
-  groups: QueueGroup[],
-  members: Set<ComponentFiber>,
-  instance: ComponentFiber,
-): void {
+function insertSorted(groups: Group, instance: ComponentFiber): void {
+  const { depth } = instance;
+  const { members } = groups;
   if (members.has(instance)) return;
   members.add(instance);
-  let i = 0;
-  while (i < groups.length) {
-    const group = groups[i]!;
-    if (group.depth! === instance.depth) {
-      group.instances.push(instance);
-      return;
-    }
-    if (group.depth < instance.depth) break;
-    i++;
+  const { queues } = groups;
+  while (queues.length <= depth) {
+    queues.push([]);
   }
-  groups.splice(i, 0, { depth: instance.depth, instances: [instance] });
+  queues[depth]!.push(instance);
 }
 
 function last<T>(array: T[]): T {
@@ -52,38 +44,27 @@ function last<T>(array: T[]): T {
 }
 
 const SLICE_MS = 50;
-type QueueGroup = {
-  depth: number;
-  instances: Array<ComponentFiber>;
+
+type Group = {
+  queues: Array<Array<ComponentFiber>>;
+  members: Set<ComponentFiber>;
 };
 
 export class Scheduler {
-  private readonly syncRenderGroups: QueueGroup[] = [];
-  private readonly syncRenderMembers = new Set<ComponentFiber>();
-
-  private readonly secondaryRenderGroups: QueueGroup[] = [];
-  private readonly secondaryRenderMembers = new Set<ComponentFiber>();
-
-  private readonly tertiaryRenderGroups: QueueGroup[] = [];
-  private readonly tertiaryRenderMembers = new Set<ComponentFiber>();
+  private readonly primaryRenderGroup: Group = { queues: [], members: new Set() };
+  private readonly secondaryRenderGroup: Group = { queues: [], members: new Set() };
+  private readonly tertiaryRenderGroup: Group = { queues: [], members: new Set() };
 
   private readonly primaryParentsWithUnmounted = new Set<ComponentFiber>();
   private readonly secondaryParentsWithUnmounted = new Set<ComponentFiber>();
 
-  private readonly domPrimaryMembers = new Set<ComponentFiber>();
-  private readonly domPrimaryGroups: QueueGroup[] = [];
+  private readonly domPrimaryGroup: Group = { queues: [], members: new Set() };
+  private readonly domSecondaryGroup: Group = { queues: [], members: new Set() };
 
-  private readonly domSecondaryMembers = new Set<ComponentFiber>();
-  private readonly domSecondaryGroups: QueueGroup[] = [];
+  private readonly effectPrimaryGroup: Group = { queues: [], members: new Set() };
+  private readonly effectSecondaryGroup: Group = { queues: [], members: new Set() };
 
-  private readonly effectPrimaryGroups: QueueGroup[] = [];
-  private readonly effectPrimaryMembers = new Set<ComponentFiber>();
-
-  private readonly effectSecondaryGroups: QueueGroup[] = [];
-  private readonly effectSecondaryMembers = new Set<ComponentFiber>();
-
-  private resolveGroups: QueueGroup[] = [];
-  private resolveMembers = new Set<ComponentFiber>();
+  private resolveGroup: Group = { queues: [], members: new Set() };
 
   private batchDepth = 0;
 
@@ -97,10 +78,10 @@ export class Scheduler {
 
   scheduleRender(instance: ComponentFiber, deferred = instance.deferred()): void {
     if (deferred) {
-      insertSorted(this.secondaryRenderGroups, this.secondaryRenderMembers, instance);
-      this.tertiaryRenderMembers.delete(instance);
+      insertSorted(this.secondaryRenderGroup, instance);
+      this.tertiaryRenderGroup.members.delete(instance);
     } else {
-      insertSorted(this.syncRenderGroups, this.syncRenderMembers, instance);
+      insertSorted(this.primaryRenderGroup, instance);
     }
     this.resolvable.resolve();
   }
@@ -116,43 +97,43 @@ export class Scheduler {
   }
 
   unscheduleRender(instance: ComponentFiber, deferred = instance.deferred()): void {
-    if (deferred) this.secondaryRenderMembers.delete(instance);
-    else this.syncRenderMembers.delete(instance);
+    if (deferred) this.secondaryRenderGroup.members.delete(instance);
+    else this.primaryRenderGroup.members.delete(instance);
   }
 
   scheduleEffect(instance: ComponentFiber, deferred = instance.deferred()): void {
-    if (deferred) insertSorted(this.effectSecondaryGroups, this.effectSecondaryMembers, instance);
-    else insertSorted(this.effectPrimaryGroups, this.effectPrimaryMembers, instance);
+    if (deferred) insertSorted(this.effectSecondaryGroup, instance);
+    else insertSorted(this.effectPrimaryGroup, instance);
     this.resolvable.resolve();
   }
 
   scheduleResolve(instance: ComponentFiber): void {
-    insertSorted(this.resolveGroups, this.resolveMembers, instance);
+    insertSorted(this.resolveGroup, instance);
     this.resolvable.resolve();
   }
 
   scheduleDOMUpdate(instance: ComponentFiber, deferred = instance.deferred()): void {
-    if (deferred) insertSorted(this.domSecondaryGroups, this.domSecondaryMembers, instance);
-    else insertSorted(this.domPrimaryGroups, this.domPrimaryMembers, instance);
+    if (deferred) insertSorted(this.domSecondaryGroup, instance);
+    else insertSorted(this.domPrimaryGroup, instance);
   }
 
   unscheduleDOMUpdate(instance: ComponentFiber, deferred = instance.deferred()): void {
-    if (deferred) this.domSecondaryMembers.delete(instance);
-    else this.domPrimaryMembers.delete(instance);
+    if (deferred) this.domSecondaryGroup.members.delete(instance);
+    else this.domPrimaryGroup.members.delete(instance);
   }
 
   unscheduleResolve(instance: ComponentFiber): void {
-    this.resolveMembers.delete(instance);
+    this.resolveGroup.members.delete(instance);
   }
 
-  beginBatch(): void {
+  beginBatch = () => {
     this.batchDepth++;
-  }
+  };
 
-  endBatch(): void {
+  endBatch = () => {
     this.batchDepth--;
     if (this.batchDepth === 0) void this.resolvable.resolve();
-  }
+  };
 
   awaitChannel = new MessageChannel();
   private async checkAwait(): Promise<void> {
@@ -169,39 +150,50 @@ export class Scheduler {
   private run = async (): Promise<void> => {
     while (true) {
       this.workYieldDeadline = Date.now() + SLICE_MS;
-      while (
-        this.syncRenderMembers.size ||
-        this.secondaryRenderMembers.size ||
-        this.tertiaryRenderMembers.size
-      ) {
-        this.processSyncRenderGroups();
-        Scheduler.applyDomActions(this.domPrimaryGroups);
-        this.domPrimaryMembers.clear();
-        Scheduler.unmountParentsUnmountedChildren(this.primaryParentsWithUnmounted);
-        Scheduler.precessEffects(this.effectPrimaryGroups);
-        this.effectPrimaryMembers.clear();
-        await this.processAsyncRenderGroups();
-        if (this.syncRenderMembers.size) continue;
-        await this.processAsyncRenderGroups2();
-      }
+      const {
+        domPrimaryGroup,
+        domSecondaryGroup,
+        primaryRenderGroup,
+        secondaryRenderGroup,
+        tertiaryRenderGroup,
+        effectPrimaryGroup,
+        effectSecondaryGroup,
+        primaryParentsWithUnmounted,
+        secondaryParentsWithUnmounted,
+      } = this;
 
-      Scheduler.setUnmountedChildrenUnmounted(this.secondaryParentsWithUnmounted);
-      Scheduler.applyDomActions(this.domSecondaryGroups);
-      this.domSecondaryMembers.clear();
-      const { resolveGroups } = this;
-      this.resolveMembers = new Set();
-      this.resolveGroups = [];
-      Scheduler.unmountParentsUnmountedChildren(this.secondaryParentsWithUnmounted);
-      Scheduler.precessEffects(this.effectSecondaryGroups);
-      this.effectSecondaryMembers.clear();
-      Scheduler.processStates(resolveGroups);
+      while (
+        primaryRenderGroup.members.size ||
+        secondaryRenderGroup.members.size ||
+        tertiaryRenderGroup.members.size
+      ) {
+        this.processPrimaryRenderGroups();
+        Scheduler.applyDomActions(domPrimaryGroup);
+        Scheduler.unmountParentsUnmountedChildren(primaryParentsWithUnmounted);
+        Scheduler.precessEffects(effectPrimaryGroup);
+        await this.processSecondaryRenderGroups();
+        if (primaryRenderGroup.members.size) continue;
+        await this.processTertiaryRenderGroups();
+      }
+      Scheduler.setUnmountedChildrenUnmounted(secondaryParentsWithUnmounted);
+      const start = Date.now();
+      const show = domSecondaryGroup.members.size;
+
+      Scheduler.applyDomActions(domSecondaryGroup);
+      secondaryRenderGroup.members.clear();
+      const { resolveGroup } = this;
+      this.resolveGroup = { members: new Set(), queues: [] };
+      Scheduler.unmountParentsUnmountedChildren(secondaryParentsWithUnmounted);
+      Scheduler.precessEffects(effectSecondaryGroup);
+      Scheduler.processStates(resolveGroup);
+      if (show) console.log(Date.now() - start);
       if (
-        !this.syncRenderMembers.size &&
-        !this.secondaryRenderMembers.size &&
-        !this.tertiaryRenderMembers.size &&
-        !this.effectPrimaryMembers.size &&
-        !this.effectSecondaryMembers.size &&
-        !this.resolveMembers.size
+        !primaryRenderGroup.members.size &&
+        !secondaryRenderGroup.members.size &&
+        !tertiaryRenderGroup.members.size &&
+        !effectPrimaryGroup.members.size &&
+        !effectSecondaryGroup.members.size &&
+        !this.resolveGroup.members.size
       ) {
         this.resolvable = createResolvable();
       }
@@ -211,85 +203,92 @@ export class Scheduler {
 
   cleanupInstancesSchedules(instance: ComponentFiber, deferred = instance.deferred()): void {
     if (deferred) {
-      this.effectSecondaryMembers.delete(instance);
-      this.domSecondaryMembers.delete(instance);
+      this.effectSecondaryGroup.members.delete(instance);
+      this.domSecondaryGroup.members.delete(instance);
     } else {
-      this.effectPrimaryMembers.delete(instance);
-      this.domPrimaryMembers.delete(instance);
+      this.effectPrimaryGroup.members.delete(instance);
+      this.domPrimaryGroup.members.delete(instance);
     }
   }
 
-  private processSyncRenderGroups() {
-    while (this.syncRenderMembers.size) {
-      const { instances } = last(this.syncRenderGroups);
-      while (instances.length > 0) {
-        const instance = instances.pop()!;
-
-        if (!this.syncRenderMembers.delete(instance)) continue;
-        if (instance.isUnmounted()) {
-          this.cleanupInstancesSchedules(instance);
+  private processPrimaryRenderGroups() {
+    const { members, queues } = this.primaryRenderGroup;
+    while (members.size) {
+      const group = last(queues);
+      if (!group.length) queues.pop();
+      while (group.length) {
+        const next = group.pop()!;
+        if (!members.delete(next)) continue;
+        if (next.isUnmounted()) {
+          this.cleanupInstancesSchedules(next);
           continue;
         }
-        if (instance.deferred()) {
-          this.scheduleRender(instance);
-          continue;
-        }
-        instance.render();
+        next.render();
       }
-      this.syncRenderGroups.pop();
     }
+    queues.length = 0;
   }
 
-  private async processAsyncRenderGroups() {
-    while (this.secondaryRenderMembers.size) {
-      const group = last(this.secondaryRenderGroups);
-      const instances = group.instances;
-      while (instances.length > 0) {
+  private async processSecondaryRenderGroups() {
+    const { members: primaryMembers } = this.primaryRenderGroup;
+    const { members, queues } = this.secondaryRenderGroup;
+    while (members.size) {
+      const group = last(queues);
+      if (!group.length) {
+        queues.pop();
+        continue;
+      }
+      while (group.length) {
         await this.checkAwait();
-        if (this.syncRenderMembers.size) return;
-        const instance = instances.pop()!;
-        if (!this.secondaryRenderMembers.delete(instance)) continue;
-        if (!instance.deferred()) {
-          this.scheduleRender(instance);
+        if (primaryMembers.size) return;
+        const next = group.pop()!;
+        if (!members.delete(next)) continue;
+        if (!next.deferred()) {
+          this.scheduleRender(next);
           return;
         }
-        if (instance.isUnmounted()) {
-          insertSorted(this.tertiaryRenderGroups, this.tertiaryRenderMembers, instance);
+        if (next.isUnmounted()) {
+          insertSorted(this.tertiaryRenderGroup, next);
           continue;
         }
-        instance.render();
+        next.render();
       }
-      this.secondaryRenderGroups.pop();
     }
+    queues.length = 0;
   }
 
-  private async processAsyncRenderGroups2() {
-    while (this.tertiaryRenderMembers.size) {
-      const group = last(this.tertiaryRenderGroups);
-      const instances = group.instances;
-      while (instances.length) {
+  private async processTertiaryRenderGroups() {
+    const { members: primaryMembers } = this.primaryRenderGroup;
+    const { members: secondaryMembers } = this.secondaryRenderGroup;
+    const { members, queues } = this.tertiaryRenderGroup;
+    while (members.size) {
+      const group = last(queues);
+      if (!group.length) {
+        queues.pop();
+        continue;
+      }
+      while (group.length) {
         await this.checkAwait();
-        if (this.syncRenderGroups.length || this.secondaryRenderGroups.length) return;
-        const instance = instances.pop()!;
-
-        if (!this.tertiaryRenderMembers.delete(instance)) continue;
-        if (instance.isUnmounted()) {
-          this.cleanupInstancesSchedules(instance);
+        if (primaryMembers.size || secondaryMembers.size) return;
+        const next = group.pop()!;
+        if (!members.delete(next)) continue;
+        if (next.isUnmounted()) {
+          this.cleanupInstancesSchedules(next);
           continue;
         }
-        if (!instance.deferred()) {
-          this.scheduleRender(instance);
+        if (!next.deferred()) {
+          this.scheduleRender(next);
           return;
         }
-        instance.render();
+        next.render();
       }
-      this.tertiaryRenderGroups.pop();
     }
+    queues.length = 0;
   }
 
   static setUnmountedChildrenUnmounted(parents: Iterable<ComponentFiber>) {
-    for (const instance of parents) {
-      const { instances, unmountInstances } = instance;
+    for (const next of parents) {
+      const { instances, unmountInstances } = next;
       if (unmountInstances) {
         for (const child of unmountInstances) {
           instances?.delete(child.path);
@@ -318,11 +317,11 @@ export class Scheduler {
     }
     parents.clear();
   }
-  private static unmountLeafsFirst(instance: ComponentFiber): void {
-    const { instances, hookStates, refs } = instance;
+  private static unmountLeafsFirst(next: ComponentFiber): void {
+    const { instances, hookStates, refs } = next;
     if (instances) {
-      for (const instance of instances.values()) {
-        this.unmountLeafsFirst(instance);
+      for (const next of instances.values()) {
+        this.unmountLeafsFirst(next);
       }
     }
     if (refs) {
@@ -345,58 +344,60 @@ export class Scheduler {
     }
   }
 
-  private static precessEffects(group: QueueGroup[]) {
-    for (let i = 0; i < group.length; i++) {
-      const { instances } = group[i]!;
-      for (const instance of instances) {
-        if (instance.unmounted) continue;
+  private static precessEffects({ queues, members }: Group) {
+    members.clear();
+    for (let i = queues.length - 1; i >= 0; i--) {
+      const group = queues[i]!;
+      for (const next of group) {
+        if (next.unmounted) continue;
         //if (!members.has(instance)) continue;
-        instance.mounted = true;
-        instance.effectReasons?.clear();
-        instance.hookStates?.forEach(effectResolver);
+        next.mounted = true;
+        next.effectReasons?.clear();
+        next.hookStates?.forEach(effectResolver);
       }
+      group.length = 0;
     }
-    group.length = 0;
   }
 
-  private static applyDomActions(groups: QueueGroup[]) {
-    for (let i = groups.length - 1; i >= 0; i--) {
-      const { instances } = groups[i]!;
-      for (const instance of instances) {
-        if (instance.unmounted) continue;
-        instance.preparedSlots?.clear();
-        const { domActions, refs, nextRefs } = instance;
+  private static applyDomActions({ queues, members }: Group) {
+    members.clear();
+    for (let i = 0; i < queues.length; i++) {
+      const group = queues[i]!;
+      for (const next of group) {
+        if (next.unmounted) continue;
+        next.preparedSlots?.clear();
+        const { domActions, refs, nextRefs } = next;
         if (domActions?.length) {
-          for (const change of domActions) {
-            switch (change.type) {
+          for (const action of domActions) {
+            switch (action.type) {
               case "REMOVE": {
-                removeSlotNodes(change.slot);
+                removeSlotNodes(action.slot);
                 break;
               }
               case "INSERT": {
-                const { before, parentDom, node } = change;
+                const { before, parentDom, node } = action;
                 insertBefore(parentDom, node, before);
                 break;
               }
               case "MOVE": {
-                const { slot, parentDom, before } = change;
+                const { slot, parentDom, before } = action;
                 moveSlot(slot, parentDom, before);
                 break;
               }
               case "TEXT": {
-                const { slot } = change;
+                const { slot } = action;
                 slot.headNode.textContent = slot.text;
                 break;
               }
               case "UPDATE": {
-                const { slot, patch } = change;
-                updateElementProps(slot.headNode, patch, instance.rctx.delegationRoot);
+                const { slot, patch } = action;
+                updateElementProps(slot.headNode, patch, next.rctx.delegationRoot);
                 break;
               }
             }
           }
-          instance.slot = instance.pendingSlots;
-          instance.domActions!.length = 0;
+          next.slot = next.pendingSlot;
+          next.domActions!.length = 0;
         }
 
         if (refs) {
@@ -411,20 +412,19 @@ export class Scheduler {
             ref.current = element;
           }
         }
-        instance.refs = instance.nextRefs;
-        instance.nextRefs = undefined;
+        next.refs = next.nextRefs;
+        next.nextRefs = undefined;
       }
+      group.length = 0;
     }
-
-    groups.length = 0;
   }
 
-  private static processStates(resolveGroups: QueueGroup[]) {
-    for (const { instances } of resolveGroups) {
-      for (const instance of instances) {
-        if (instance.unmounted) continue;
-        instance.resolveReasons?.clear();
-        instance.hookStates?.forEach(stateResolver);
+  private static processStates({ queues }: Group) {
+    for (const group of queues) {
+      for (const next of group) {
+        if (next.unmounted) continue;
+        next.resolveReasons?.clear();
+        next.hookStates?.forEach(stateResolver);
       }
     }
   }
