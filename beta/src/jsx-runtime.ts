@@ -2,13 +2,20 @@ import type { Child, Children, Component, FrameworkProps, PropsWithChildren } fr
 import { Fragment } from "./jsx";
 import type { Context, ContextProps } from "./context";
 import type { DraftIntent } from "./slots/intent-draft";
+import { getIntentChildren } from "./slots/slot-intent";
+import type { DependencyList } from "./general-types";
+import type {
+  ComponentSlotType,
+  ContextSlotType,
+  ElementSlotType,
+  FragmentSlotType,
+} from "./slots/slot";
 import {
-  asComponentDraft,
-  asContextDraft,
-  asElementDraft,
-  asFragmentDraft,
-} from "./slots/intent-draft";
-import { asFragmentIntent } from "./slots/slot-intent";
+  componentSlotType,
+  contextSlotType,
+  elementSlotType,
+  fragmentSlotType,
+} from "./slots/slot";
 
 export { Fragment };
 
@@ -75,8 +82,115 @@ export function jsxs(node: any, props: any, key?: string): Child {
   return jsx(node, props, key);
 }
 
-export function childrenToJSX(children: Children): Child {
-  if (Array.isArray(children)) return asFragmentIntent(children, "", 0, "");
-  return children as Child;
-}
 export const jsxDEV = jsx;
+
+export function asFragmentDraft(
+  children: Children[],
+  key: string | undefined,
+): DraftIntent<FragmentSlotType> {
+  return {
+    children: getIntentChildren(children),
+    component: undefined,
+    context: undefined,
+    deps: undefined,
+    element: undefined,
+    headNode: undefined,
+    index: undefined,
+    instance: undefined,
+    key,
+    move: undefined,
+    path: undefined,
+    prevProps: undefined,
+    prevText: undefined,
+    props: undefined,
+    slots: undefined,
+    tailNode: undefined,
+    text: undefined,
+    type: fragmentSlotType,
+  };
+}
+
+export function asContextDraft(
+  children: Children,
+  key: string | undefined,
+  context: Context,
+  props: Record<string, unknown>,
+): DraftIntent<ContextSlotType> {
+  return {
+    children: getIntentChildren(children),
+    component: context.Provider,
+    context,
+    deps: undefined,
+    element: undefined,
+    headNode: undefined,
+    index: undefined,
+    instance: undefined,
+    key,
+    move: undefined,
+    path: undefined,
+    prevProps: undefined,
+    prevText: undefined,
+    props,
+    slots: undefined,
+    tailNode: undefined,
+    text: undefined,
+    type: contextSlotType,
+  };
+}
+
+export function asElementDraft(
+  children: Children,
+  key: string | undefined,
+  element: string,
+  props: Record<string, unknown>,
+): DraftIntent<ElementSlotType> {
+  return {
+    children: getIntentChildren(children),
+    component: undefined,
+    context: undefined,
+    deps: undefined,
+    element,
+    headNode: undefined,
+    index: undefined,
+    instance: undefined,
+    key,
+    move: undefined,
+    path: undefined,
+    prevProps: undefined,
+    prevText: undefined,
+    props,
+    slots: undefined,
+    tailNode: undefined,
+    text: undefined,
+    type: elementSlotType,
+  };
+}
+
+function asComponentDraft(
+  children: Children,
+  key: string | undefined,
+  component: Component,
+  props: Record<string, unknown>,
+  deps: DependencyList | undefined,
+): DraftIntent<ComponentSlotType> {
+  return {
+    children: getIntentChildren(children),
+    component,
+    context: undefined,
+    deps,
+    element: undefined,
+    headNode: undefined,
+    index: undefined,
+    instance: undefined,
+    key,
+    move: undefined,
+    path: undefined,
+    prevProps: undefined,
+    prevText: undefined,
+    props,
+    slots: undefined,
+    tailNode: undefined,
+    text: undefined,
+    type: componentSlotType,
+  };
+}

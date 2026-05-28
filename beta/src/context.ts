@@ -1,6 +1,7 @@
 import type { Children, Component } from "./jsx";
+import { Fragment } from "./jsx";
 import { randomId } from "./general";
-import { childrenToJSX } from "./jsx-runtime";
+import { jsx } from "./jsx-runtime";
 import type { ContextMap } from "./render/types";
 import type { ComponentGenerator } from "./general-types";
 
@@ -36,8 +37,8 @@ export function createContext(...args: any[]): any {
   const [defaultValue, name = ""] = args;
   const providerName = `${name}Provider`;
   const withProvider = {
-    *[providerName]({ children }: ContextProps) {
-      return childrenToJSX(children);
+    *[providerName]({ children }: { children: Children }) {
+      return jsx(Fragment, { children });
     },
   };
   return {

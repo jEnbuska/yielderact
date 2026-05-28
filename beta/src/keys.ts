@@ -27,9 +27,8 @@ export function getComponentSlotKey(draft: DraftIntent<ComponentSlotType>, index
 }
 
 export function getElementSlotKey(draft: DraftIntent<ElementSlotType>, index: number) {
-  const { element } = draft;
   const elementKey = draft.key ?? index;
-  return `"${element}${typeof elementKey}${elementKey}"`;
+  return `"${draft.element}${typeof elementKey}${elementKey}"`;
 }
 
 const fragmentTypeKey = randomId();
@@ -44,11 +43,10 @@ export function getArrayFragmentSlotKey(index: number): string {
 
 export function getContextSlotKey(draft: DraftIntent<ContextSlotType>, index: number): string {
   const contextKey = draft.key ?? index;
-  const { context } = draft;
-  return `"${context.id}${typeof contextKey}${contextKey}"`;
+  return `"${draft.context.id}${typeof contextKey}${contextKey}"`;
 }
 
-export function getLeafChildKey(index: number): string {
+export function getTextSlotKey(index: number): string {
   return `"leaf${index}"`;
 }
 

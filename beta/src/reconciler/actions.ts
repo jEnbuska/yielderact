@@ -190,6 +190,7 @@ export function prepareUpdate(
     patch,
   };
 }
+
 export function prepareRemove(slot: Slot): RemoveSlotAction {
   return {
     type: "REMOVE",

@@ -38,6 +38,7 @@ export type SlotIntent<T extends SlotType = SlotType> = T extends SlotType
       type: T;
     }
   : never;
+
 export function asFragmentIntent(
   children: ReadonlyArray<Children>,
   key: string,

@@ -13,7 +13,7 @@ import {
   getContextSlotKey,
   getElementSlotKey,
   getFragmentSlotKey,
-  getLeafChildKey,
+  getTextSlotKey,
 } from "../keys";
 import { emptyMap, isArrayChildren } from "../general";
 import type { SlotIntent } from "../slots/slot-intent";
@@ -22,7 +22,7 @@ import { asFragmentIntent, asTextIntent } from "../slots/slot-intent";
 export function childToIntent(child: NonNullable<Child>): SlotIntent {
   child ??= "";
   if (typeof child !== "object") {
-    return asTextIntent(`${child}`, 0, getLeafChildKey(0), "");
+    return asTextIntent(`${child}`, 0, getTextSlotKey(0), "");
   }
   switch (child.type) {
     case componentSlotType: {
@@ -58,7 +58,7 @@ export function childrenToIntents(
     }
     if (typeof child !== "object") {
       const text = `${child}`;
-      const key = getLeafChildKey(index);
+      const key = getTextSlotKey(index);
       intents.set(key, asTextIntent(text, index, key, parentPath));
       continue;
     }

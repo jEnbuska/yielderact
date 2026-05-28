@@ -47,6 +47,7 @@ type SlotBase<T extends SlotType> = T extends SlotType
     }
   : never;
 
+export type SlotJJSXDept<T extends SlotType> = T extends TextSlotType ? undefined : number;
 export type SlotSlots<T extends SlotType> = T extends TextSlotType
   ? undefined
   : ReadonlyMap<string, Slot>;
@@ -72,8 +73,6 @@ export type SlotDeps<T extends SlotType> = T extends ComponentSlotType
   : undefined;
 
 export type Slot<T extends SlotType = SlotType> = T extends SlotType ? SlotBase<T> : never;
-
-export type SlotNodes<T extends SlotType> = Pick<Slot<T>, "headNode" | "tailNode">;
 
 export type SlotElement<T extends SlotType> = T extends ElementSlotType ? string : undefined;
 

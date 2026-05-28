@@ -1,7 +1,13 @@
 import type { Child, Children } from "../jsx";
 import type { ComponentFiber } from "../instances/component-fiber";
 import type { Slot, SlotType } from "../slots/slot";
-import { componentSlotType, contextSlotType, elementSlotType, fragmentSlotType, textSlotType, } from "../slots/slot";
+import {
+  componentSlotType,
+  contextSlotType,
+  elementSlotType,
+  fragmentSlotType,
+  textSlotType,
+} from "../slots/slot";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { type AnyElement, nodeNameSpace } from "../render/elements/namespaces";
 import type { UIAction } from "./actions";
@@ -20,9 +26,16 @@ import { deriveStableIndexes } from "./derive-stable-indexes";
 import type { ContextMap } from "../render/types";
 import { emptyChildren, type SlotIntent } from "../slots/slot-intent";
 import { diffElementProps } from "../render/element-props";
+import {
+  handleCreateNode,
+  handleMountSlot,
+  handleUpdateRef,
+  handleUpdateSlotProps,
+} from "./fiber-handlers";
 
 function prepareFiber(fiber: ComponentFiber) {
   const { instances } = fiber;
+  //JSXGlobals.depth = depth;
   fiber.instances = instances?.size ? new Map() : undefined;
   fiber.unmountInstances = instances?.size ? new Set(instances.values()) : undefined;
   fiber.nextRefs = undefined;
@@ -34,7 +47,7 @@ export function mountFiberChildren(fiber: ComponentFiber, child: Child): Slot {
   const { parentDom, ns, ctx } = prepareFiber(fiber);
   const intent = childToIntent(child ?? "");
   mountIntent(fiber, intent, ns, parentDom, stagingDom, ctx);
-  fiber.domActions = [prepareInsert(fiber.parentDom, stagingDom, fiber.tailNode)];
+  fiber.uiActions = [prepareInsert(fiber.parentDom, stagingDom, fiber.tailNode)];
   return intent as Slot;
 }
 
@@ -42,13 +55,13 @@ export function reconcileFiberChildren(fiber: ComponentFiber, child: Child): Slo
   const { parentDom, slot, ns, tailNode, ctx } = prepareFiber(fiber);
   const prevSlot = slot!;
   const intent = childToIntent(child ?? "");
-  const uiActions: UIAction[] = (fiber.domActions = []);
-  if (intent.key !== prevSlot!.key) {
-    uiActions.push(prepareRemove(prevSlot!));
+  const uiActions: UIAction[] = (fiber.uiActions = []);
+  if (intent.key !== prevSlot.key) {
+    uiActions.push(prepareRemove(prevSlot));
     buildIntentToSlot(uiActions, fiber, intent, ns, parentDom, tailNode, ctx);
     return intent as Slot;
   } else {
-    inheritSlot(intent, prevSlot!);
+    inheritSlot(intent, prevSlot);
     updateSlot(uiActions, fiber, intent, ns, ctx);
     return intent;
   }
@@ -116,27 +129,27 @@ function mountIntent(
   switch (intent.type) {
     case contextSlotType:
     case componentSlotType: {
-      const { headNode, tailNode } = fiber.mountSlot(intent, parentDom, ns, ctx);
+      const { headNode, tailNode } = handleMountSlot(fiber, intent, parentDom, ns, ctx);
       stagingDom.appendChild(headNode);
       stagingDom.appendChild(tailNode);
       return;
     }
     case textSlotType: {
-      const { headNode } = fiber.createNode(prepareCreate(intent));
+      const { headNode } = handleCreateNode(fiber, prepareCreate(intent));
       stagingDom.appendChild(headNode);
       return;
     }
     case elementSlotType: {
-      const { headNode } = fiber.createNode(prepareCreate(intent, ns));
+      const { headNode } = handleCreateNode(fiber, prepareCreate(intent, ns));
       const { children, path, props } = intent;
       stagingDom.appendChild(headNode);
       ns = nodeNameSpace(headNode as any);
       intent.slots = mount(children, fiber, headNode, headNode, path, ns, ctx);
-      if (isRefProps(props)) fiber.updateRef(intent);
+      if (isRefProps(props)) handleUpdateRef(fiber, intent);
       return;
     }
     case fragmentSlotType: {
-      const { headNode, tailNode } = fiber.createNode(prepareCreate(intent, ns));
+      const { headNode, tailNode } = handleCreateNode(fiber, prepareCreate(intent, ns));
       const { path, children } = intent;
       stagingDom.appendChild(headNode);
       intent.slots = mount(children, fiber, parentDom, stagingDom, path, ns, ctx);
@@ -160,7 +173,7 @@ function buildIntentToSlot(
   switch (intent.type) {
     case componentSlotType:
     case contextSlotType: {
-      const { headNode, tailNode } = fiber.mountSlot(intent, parentDom, ns, ctx);
+      const { headNode, tailNode } = handleMountSlot(fiber, intent, parentDom, ns, ctx);
       const stagingDom = document.createDocumentFragment();
       stagingDom.appendChild(headNode);
       stagingDom.appendChild(tailNode);
@@ -168,22 +181,22 @@ function buildIntentToSlot(
       return;
     }
     case textSlotType: {
-      const { headNode } = fiber.createNode(prepareCreate(intent));
+      const { headNode } = handleCreateNode(fiber, prepareCreate(intent));
       uiActions.push(prepareInsert(parentDom, headNode, beforeNode));
       return;
     }
     case elementSlotType: {
-      const { headNode } = fiber.createNode(prepareCreate(intent, ns));
+      const { headNode } = handleCreateNode(fiber, prepareCreate(intent, ns));
       const { children, path } = intent;
       ns = nodeNameSpace(headNode as AnyElement);
       intent.slots = mount(children, fiber, headNode, headNode, path, ns, ctx);
       const { props } = intent;
-      if (isRefProps(props)) fiber.updateRef(intent);
+      if (isRefProps(props)) handleUpdateRef(fiber, intent);
       uiActions.push(prepareInsert(parentDom, headNode, beforeNode));
       return;
     }
     case fragmentSlotType: {
-      const { headNode, tailNode } = fiber.createNode(prepareCreate(intent, ns));
+      const { headNode, tailNode } = handleCreateNode(fiber, prepareCreate(intent, ns));
       const { children, path } = intent;
       const stagingDom = document.createDocumentFragment();
       stagingDom.appendChild(headNode);
@@ -204,7 +217,7 @@ function updateSlot<T extends SlotType>(
   switch (slot.type) {
     case contextSlotType:
     case componentSlotType:
-      fiber.updateSlotProps(slot);
+      handleUpdateSlotProps(fiber, slot);
       return;
     case textSlotType: {
       const { text } = slot;
@@ -217,7 +230,7 @@ function updateSlot<T extends SlotType>(
       const ns = nodeNameSpace(headNode);
       slot.slots = reconcile(uiActions, fiber, children, headNode, path, slots, ns, null, ctx);
       const patch = diffElementProps(prevProps, props);
-      if (isRefProps(slot.props)) fiber.updateRef(slot);
+      if (isRefProps(slot.props)) handleUpdateRef(fiber, slot);
       if (patch) uiActions.push(prepareUpdate(slot, patch));
       return;
     }

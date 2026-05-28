@@ -17,9 +17,9 @@ import { createResolvable } from "../create-resolvable";
 import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
 import { effectResolver } from "../hooks/effect";
 import { stateResolver } from "../hooks/state";
-import { removeSlotNodes } from "../reconciler/dom-remove";
 import { insertBefore, moveSlot } from "../reconciler/dom-updates";
 import { updateElementProps } from "./element-props";
+import { removeSlotNodes } from "../reconciler/dom-remove";
 
 /**
  * Insert `instance` into a depth-ordered queue: deepest at index 0,
@@ -43,7 +43,7 @@ function last<T>(array: T[]): T {
   return array[array.length - 1]!;
 }
 
-const SLICE_MS = 50;
+const SLICE_MS = 20;
 
 type Group = {
   queues: Array<Array<ComponentFiber>>;
@@ -58,8 +58,8 @@ export class Scheduler {
   private readonly primaryParentsWithUnmounted = new Set<ComponentFiber>();
   private readonly secondaryParentsWithUnmounted = new Set<ComponentFiber>();
 
-  private readonly domPrimaryGroup: Group = { queues: [], members: new Set() };
-  private readonly domSecondaryGroup: Group = { queues: [], members: new Set() };
+  private readonly uiPrimaryGroup: Group = { queues: [], members: new Set() };
+  private readonly uiSecondaryGroup: Group = { queues: [], members: new Set() };
 
   private readonly effectPrimaryGroup: Group = { queues: [], members: new Set() };
   private readonly effectSecondaryGroup: Group = { queues: [], members: new Set() };
@@ -113,13 +113,13 @@ export class Scheduler {
   }
 
   scheduleDOMUpdate(instance: ComponentFiber, deferred = instance.deferred()): void {
-    if (deferred) insertSorted(this.domSecondaryGroup, instance);
-    else insertSorted(this.domPrimaryGroup, instance);
+    if (deferred) insertSorted(this.uiSecondaryGroup, instance);
+    else insertSorted(this.uiPrimaryGroup, instance);
   }
 
   unscheduleDOMUpdate(instance: ComponentFiber, deferred = instance.deferred()): void {
-    if (deferred) this.domSecondaryGroup.members.delete(instance);
-    else this.domPrimaryGroup.members.delete(instance);
+    if (deferred) this.uiSecondaryGroup.members.delete(instance);
+    else this.uiPrimaryGroup.members.delete(instance);
   }
 
   unscheduleResolve(instance: ComponentFiber): void {
@@ -151,8 +151,8 @@ export class Scheduler {
     while (true) {
       this.workYieldDeadline = Date.now() + SLICE_MS;
       const {
-        domPrimaryGroup,
-        domSecondaryGroup,
+        uiPrimaryGroup,
+        uiSecondaryGroup,
         primaryRenderGroup,
         secondaryRenderGroup,
         tertiaryRenderGroup,
@@ -168,7 +168,7 @@ export class Scheduler {
         tertiaryRenderGroup.members.size
       ) {
         this.processPrimaryRenderGroups();
-        Scheduler.applyDomActions(domPrimaryGroup);
+        Scheduler.applyUiActions(uiPrimaryGroup);
         Scheduler.unmountParentsUnmountedChildren(primaryParentsWithUnmounted);
         Scheduler.precessEffects(effectPrimaryGroup);
         await this.processSecondaryRenderGroups();
@@ -177,9 +177,8 @@ export class Scheduler {
       }
       Scheduler.setUnmountedChildrenUnmounted(secondaryParentsWithUnmounted);
       const start = Date.now();
-      const show = domSecondaryGroup.members.size;
-
-      Scheduler.applyDomActions(domSecondaryGroup);
+      const show = uiSecondaryGroup.members.size;
+      Scheduler.applyUiActions(uiSecondaryGroup);
       secondaryRenderGroup.members.clear();
       const { resolveGroup } = this;
       this.resolveGroup = { members: new Set(), queues: [] };
@@ -201,13 +200,13 @@ export class Scheduler {
     }
   };
 
-  cleanupInstancesSchedules(instance: ComponentFiber, deferred = instance.deferred()): void {
+  cleanupInstancesSchedules(instance: ComponentFiber, deferred: boolean): void {
     if (deferred) {
       this.effectSecondaryGroup.members.delete(instance);
-      this.domSecondaryGroup.members.delete(instance);
+      this.uiSecondaryGroup.members.delete(instance);
     } else {
       this.effectPrimaryGroup.members.delete(instance);
-      this.domPrimaryGroup.members.delete(instance);
+      this.uiPrimaryGroup.members.delete(instance);
     }
   }
 
@@ -220,7 +219,7 @@ export class Scheduler {
         const next = group.pop()!;
         if (!members.delete(next)) continue;
         if (next.isUnmounted()) {
-          this.cleanupInstancesSchedules(next);
+          this.cleanupInstancesSchedules(next, false);
           continue;
         }
         next.render();
@@ -273,7 +272,7 @@ export class Scheduler {
         const next = group.pop()!;
         if (!members.delete(next)) continue;
         if (next.isUnmounted()) {
-          this.cleanupInstancesSchedules(next);
+          this.cleanupInstancesSchedules(next, true);
           continue;
         }
         if (!next.deferred()) {
@@ -359,31 +358,27 @@ export class Scheduler {
     }
   }
 
-  private static applyDomActions({ queues, members }: Group) {
+  private static applyUiActions({ queues, members }: Group) {
     members.clear();
     for (let i = 0; i < queues.length; i++) {
       const group = queues[i]!;
       for (const next of group) {
         if (next.unmounted) continue;
         next.preparedSlots?.clear();
-        const { domActions, refs, nextRefs } = next;
-        if (domActions?.length) {
-          for (const action of domActions) {
+        const { uiActions, refs, nextRefs } = next;
+        if (uiActions?.length) {
+          for (const action of uiActions) {
             switch (action.type) {
-              case "REMOVE": {
+              case "MOVE": {
+                moveSlot(action.slot, action.parentDom, action.before);
+                break;
+              }
+              case "REMOVE":
                 removeSlotNodes(action.slot);
                 break;
-              }
-              case "INSERT": {
-                const { before, parentDom, node } = action;
-                insertBefore(parentDom, node, before);
+              case "INSERT":
+                insertBefore(action.parentDom, action.node, action.before);
                 break;
-              }
-              case "MOVE": {
-                const { slot, parentDom, before } = action;
-                moveSlot(slot, parentDom, before);
-                break;
-              }
               case "TEXT": {
                 const { slot } = action;
                 slot.headNode.textContent = slot.text;
@@ -397,7 +392,7 @@ export class Scheduler {
             }
           }
           next.slot = next.pendingSlot;
-          next.domActions!.length = 0;
+          next.uiActions = undefined;
         }
 
         if (refs) {
