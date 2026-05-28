@@ -7,77 +7,6 @@ import { applyElementProps, diffElementProps, updateElementProps } from "../rend
 import type { SlotIntent } from "./slot-intent";
 import type { DraftBy } from "../general-types";
 
-export function toTextSlot(intent: SlotIntent<TextSlotType>): Slot<TextSlotType> {
-  const text = intent.text;
-  intent.headNode = document.createTextNode(text);
-  return intent satisfies DraftBy<
-    Slot<TextSlotType>,
-    "headNode" | "prevText"
-  > as Slot<TextSlotType>;
-}
-
-export function toElementSlot(
-  intent: SlotIntent<ElementSlotType>,
-  delegationRoot: DelegationRoot,
-  ns: TagNamespace,
-): Slot<ElementSlotType> {
-  const { element, props } = intent;
-  const node = createElement(ns, element);
-  applyElementProps(node, props, delegationRoot);
-  intent.headNode = node;
-  return intent as Slot<ElementSlotType>;
-}
-
-export function toFragmentSlot(intent: SlotIntent<FragmentSlotType>): Slot<FragmentSlotType> {
-  intent.headNode = document.createComment("<Fragment>");
-  intent.tailNode = document.createComment("</Fragment>");
-  return intent satisfies DraftBy<
-    SlotIntent<FragmentSlotType>,
-    "headNode" | "tailNode"
-  > as Slot<FragmentSlotType>;
-}
-
-export function inheritElementSlot(
-  intent: SlotIntent<ElementSlotType>,
-  prev: Slot<ElementSlotType>,
-  delegationRoot: DelegationRoot,
-): Slot<ElementSlotType> {
-  const { headNode } = prev;
-  intent.headNode = headNode;
-  const patch = diffElementProps(prev, intent.props);
-  if (patch) {
-    updateElementProps(headNode, patch, delegationRoot);
-  }
-  return intent satisfies DraftBy<
-    Slot<ElementSlotType>,
-    "headNode" | "tailNode" | "slots" | "prevProps"
-  > as Slot<ElementSlotType>;
-}
-export function inheritFragmentSlot(
-  intent: SlotIntent<FragmentSlotType>,
-  prev: Slot<FragmentSlotType>,
-): Slot<FragmentSlotType> {
-  intent.headNode = prev.headNode;
-  intent.tailNode = prev.tailNode;
-  return intent as Slot<FragmentSlotType>;
-}
-
-export function inheritTextSlot(
-  intent: SlotIntent<TextSlotType>,
-  prev: Slot<TextSlotType>,
-): Slot<TextSlotType> {
-  const { headNode } = prev;
-  intent.headNode = prev.headNode;
-  const { text } = intent;
-  if (prev.text !== text) {
-    headNode.nodeValue = text;
-  }
-  return intent satisfies DraftBy<
-    Slot<TextSlotType>,
-    "headNode" | "prevText"
-  > as Slot<TextSlotType>;
-}
-
 export function updateWithPreparedSlot(
   intent: SlotIntent<ElementSlotType | TextSlotType | FragmentSlotType>,
   prev: Slot,
@@ -95,6 +24,47 @@ export function updateWithPreparedSlot(
   }
 }
 
+function inheritElementSlot(
+  intent: SlotIntent<ElementSlotType>,
+  prev: Slot<ElementSlotType>,
+  delegationRoot: DelegationRoot,
+): Slot<ElementSlotType> {
+  const { headNode } = prev;
+  intent.headNode = headNode;
+  const patch = diffElementProps(prev, intent.props);
+  if (patch) {
+    updateElementProps(headNode, patch, delegationRoot);
+  }
+  return intent satisfies DraftBy<
+    Slot<ElementSlotType>,
+    "headNode" | "tailNode" | "slots" | "prevProps"
+  > as Slot<ElementSlotType>;
+}
+function inheritFragmentSlot(
+  intent: SlotIntent<FragmentSlotType>,
+  prev: Slot<FragmentSlotType>,
+): Slot<FragmentSlotType> {
+  intent.headNode = prev.headNode;
+  intent.tailNode = prev.tailNode;
+  return intent as Slot<FragmentSlotType>;
+}
+
+function inheritTextSlot(
+  intent: SlotIntent<TextSlotType>,
+  prev: Slot<TextSlotType>,
+): Slot<TextSlotType> {
+  const { headNode } = prev;
+  intent.headNode = prev.headNode;
+  const { text } = intent;
+  if (prev.text !== text) {
+    headNode.nodeValue = text;
+  }
+  return intent satisfies DraftBy<
+    Slot<TextSlotType>,
+    "headNode" | "prevText"
+  > as Slot<TextSlotType>;
+}
+
 export function prepareSlotNodes(
   intent: SlotIntent<ElementSlotType | TextSlotType | FragmentSlotType>,
   delegationRoot: DelegationRoot,
@@ -110,4 +80,34 @@ export function prepareSlotNodes(
     default:
       throw new Error(`Invalid CREATE kind ${JSON.stringify(intent satisfies never)}`);
   }
+}
+
+function toTextSlot(intent: SlotIntent<TextSlotType>): Slot<TextSlotType> {
+  const text = intent.text;
+  intent.headNode = document.createTextNode(text);
+  return intent satisfies DraftBy<
+    Slot<TextSlotType>,
+    "headNode" | "prevText"
+  > as Slot<TextSlotType>;
+}
+
+function toElementSlot(
+  intent: SlotIntent<ElementSlotType>,
+  delegationRoot: DelegationRoot,
+  ns: TagNamespace,
+): Slot<ElementSlotType> {
+  const { element, props } = intent;
+  const node = createElement(ns, element);
+  applyElementProps(node, props, delegationRoot);
+  intent.headNode = node;
+  return intent as Slot<ElementSlotType>;
+}
+
+function toFragmentSlot(intent: SlotIntent<FragmentSlotType>): Slot<FragmentSlotType> {
+  intent.headNode = document.createComment("<Fragment>");
+  intent.tailNode = document.createComment("</Fragment>");
+  return intent satisfies DraftBy<
+    SlotIntent<FragmentSlotType>,
+    "headNode" | "tailNode"
+  > as Slot<FragmentSlotType>;
 }

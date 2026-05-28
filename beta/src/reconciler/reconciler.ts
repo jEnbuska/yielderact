@@ -1,13 +1,7 @@
 import type { Child, Children } from "../jsx";
 import type { ComponentFiber } from "../instances/component-fiber";
 import type { Slot, SlotType } from "../slots/slot";
-import {
-  componentSlotType,
-  contextSlotType,
-  elementSlotType,
-  fragmentSlotType,
-  textSlotType,
-} from "../slots/slot";
+import { componentSlotType, contextSlotType, elementSlotType, fragmentSlotType, textSlotType, } from "../slots/slot";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { type AnyElement, nodeNameSpace } from "../render/elements/namespaces";
 import type { UIAction } from "./actions";
@@ -60,7 +54,7 @@ export function reconcileFiberChildren(fiber: ComponentFiber, child: Child): Slo
   }
 }
 
-export function mount(
+function mount(
   children: ReadonlyArray<Children>,
   fiber: ComponentFiber,
   parentDom: Node,
@@ -76,7 +70,7 @@ export function mount(
   return slots;
 }
 
-export function reconcile(
+function reconcile(
   uiActions: UIAction[],
   fiber: ComponentFiber,
   children: ReadonlyArray<Children> = emptyChildren,
@@ -111,7 +105,7 @@ export function reconcile(
   return slots;
 }
 
-export function mountIntent(
+function mountIntent(
   fiber: ComponentFiber,
   intent: SlotIntent,
   ns: TagNamespace,
@@ -200,7 +194,7 @@ function buildIntentToSlot(
   }
 }
 
-export function updateSlot<T extends SlotType>(
+function updateSlot<T extends SlotType>(
   uiActions: UIAction[],
   fiber: ComponentFiber,
   slot: Slot<T>,

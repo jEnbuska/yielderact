@@ -1,11 +1,4 @@
-import type {
-  Child,
-  Children,
-  Component,
-  FrameworkProps,
-  PropsWithChildren,
-  VNodeProps,
-} from "./jsx";
+import type { Child, Children, Component, FrameworkProps, PropsWithChildren } from "./jsx";
 import { Fragment } from "./jsx";
 import type { Context, ContextProps } from "./context";
 import type { DraftIntent } from "./slots/intent-draft";
@@ -19,9 +12,6 @@ import { asFragmentIntent } from "./slots/slot-intent";
 
 export { Fragment };
 
-const emptyChildren: Children[] = [];
-const defaultProps: VNodeProps = Object.freeze({ children: emptyChildren });
-
 export function jsx<P extends Record<string, any>>(
   node: Component<Omit<P, keyof FrameworkProps>>,
   props: (P & FrameworkProps) | null,
@@ -34,17 +24,16 @@ export function jsx<T>(
 
 export function jsx(
   node: typeof Fragment,
-  props: (Omit<FrameworkProps, "deps"> & PropsWithChildren) | null,
+  props: (Omit<FrameworkProps, "deps"> & { children?: Children }) | null,
   key?: string,
 ): DraftIntent | null;
 export function jsx<T extends keyof JSX.IntrinsicElements>(
   node: T,
-  props: (Omit<FrameworkProps, "deps"> & JSX.IntrinsicElements[T] & PropsWithChildren) | null,
+  props: (Omit<FrameworkProps, "deps"> & JSX.IntrinsicElements[T] & { children?: Children }) | null,
   key?: string,
 ): DraftIntent | null;
-export function jsx(node: any, props: any, key?: string): DraftIntent | null {
-  const { key: propsKey, shown, deps, children, ...rest } = props ?? defaultProps;
-  key ??= propsKey;
+export function jsx(node: any, props: any, _key?: string): DraftIntent | null {
+  const { key = _key, shown, deps, children, ...rest } = props;
   if (shown === false) return null;
   switch (typeof node) {
     case "function": {

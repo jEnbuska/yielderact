@@ -1,10 +1,10 @@
-import type { Children, Component, PropsWithChildren } from "./jsx";
+import type { Children, Component } from "./jsx";
 import { randomId } from "./general";
 import { childrenToJSX } from "./jsx-runtime";
 import type { ContextMap } from "./render/types";
 import type { ComponentGenerator } from "./general-types";
 
-export interface ContextProps<T = unknown> extends PropsWithChildren {
+export interface ContextProps<T = unknown> {
   key?: string;
   shown?: boolean;
   value: T;

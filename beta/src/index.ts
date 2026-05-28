@@ -21,9 +21,6 @@ export {
   Fragment,
   type FrameworkProps,
   type PropsWithChildren,
-  type VNode,
-  type VNodeProps,
-  type VNodeType,
 } from "./jsx";
 
 export { createRoot, render } from "./render";
