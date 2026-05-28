@@ -103,23 +103,14 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     this.rctx.scheduler.scheduleEffect(this);
   }
 
-  protected apply(): Slot {
-    const gen = this.component(this.props);
-    const child = runHooks(gen, this);
-    const start = Date.now();
-    let slot: Slot;
-    if (!this.slot) {
-      slot = mountFiberChildren(this, child);
-    } else {
-      slot = reconcileFiberChildren(this, child);
-    }
-    const dur = Date.now() - start;
-    if (dur > 40) console.log("dur", dur, this.component.name);
-    return slot;
-  }
-
   render() {
-    const slot = this.apply();
+    const generator = this.component(this.props);
+    const child = runHooks(generator, this);
+    if (!this.slot) {
+      this.pendingSlot = mountFiberChildren(this, child);
+    } else {
+      this.pendingSlot = reconcileFiberChildren(this, child);
+    }
     const { scheduler } = this.rctx;
     const { unmountInstances } = this;
     if (unmountInstances?.size) {
@@ -136,7 +127,6 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
       scheduler.unscheduleDOMUpdate(this);
     }
     this.renderReasons?.clear();
-    this.pendingSlot = slot;
     if (!this.mounted) this.scheduleEffect(MOUNT_REASON);
   }
 
