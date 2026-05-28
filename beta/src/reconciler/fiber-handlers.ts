@@ -11,12 +11,7 @@ import { extendIntentNodes, extendIntentWithInstance, type Slot } from "../slots
 import type { TagNamespace } from "../render/elements/namespaces";
 import type { ContextMap } from "../render/types";
 import { MOUNT_REASON } from "../render-reasons";
-import type {
-  CreateElementAction,
-  CreateFragmentAction,
-  CreateSlotResponse,
-  CreateTextAction,
-} from "./actions";
+import type { CreateElementAction, CreateFragmentAction, CreateSlotResponse, CreateTextAction, } from "./actions";
 import { prepareSlotNodes, updateWithPreparedSlot } from "../slots/utils";
 import { createFiber } from "../instances/register-create";
 

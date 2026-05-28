@@ -141,7 +141,6 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
   }
 
   unmount(): void {
-    if (this.unmounted) return;
     this.unmounted = true;
     const { scheduler } = this.rctx;
     if (this.renderReasons?.size) scheduler.unscheduleRender(this);

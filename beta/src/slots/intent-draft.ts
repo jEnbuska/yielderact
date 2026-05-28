@@ -6,5 +6,5 @@ import type { SlotIntent } from "./slot-intent";
 type DraftSlotType = ComponentSlotType | ContextSlotType | FragmentSlotType | ElementSlotType;
 
 export type DraftIntent<T extends DraftSlotType = DraftSlotType> = T extends DraftSlotType
-  ? DraftBy<SlotIntent<T>, "index" | "key" | "path" | "instance">
+  ? DraftBy<SlotIntent<T>, "index" | "path" | "instance" | "key">
   : never;

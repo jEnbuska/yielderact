@@ -56,11 +56,7 @@ export function shallowEqual(a: Record<string, unknown>, b: Record<string, unkno
   return true;
 }
 
-/**
- * Merge a VNode's positional children into its props as `children`,
- * stripping framework directives (`key`, `shown`) that are consumed
- * by the reconciler and should never reach component/context instances.
- */
+// TODO handle keying children
 export function propsWithChildren(
   intent: Omit<
     DraftBy<Slot<ComponentSlotType | ContextSlotType>, "instance" | "prevProps">,
@@ -73,9 +69,6 @@ export function propsWithChildren(
       return props;
     case 1: {
       const only = children[0];
-      if (only == null || typeof only === "boolean") {
-        return props;
-      }
       return { children: only, ...props };
     }
     default:

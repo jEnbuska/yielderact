@@ -20,7 +20,7 @@ import {
   prepareText,
   prepareUpdate,
 } from "./actions";
-import { childrenToIntents, childToIntent, fillIntentDrafts, inheritSlot } from "./prepare";
+import { childrenToIntents, childToIntent, inheritSlot } from "./prepare";
 import { getMapValues, getMapValuesReversed } from "../general";
 import { deriveStableIndexes } from "./derive-stable-indexes";
 import type { ContextMap } from "../render/types";
@@ -35,13 +35,13 @@ import {
 
 function prepareFiber(fiber: ComponentFiber) {
   const { instances } = fiber;
-  //JSXGlobals.depth = depth;
   fiber.instances = instances?.size ? new Map() : undefined;
   fiber.unmountInstances = instances?.size ? new Set(instances.values()) : undefined;
   fiber.nextRefs = undefined;
   fiber.preparedSlots ??= new Map<string, Slot>();
   return fiber;
 }
+
 export function mountFiberChildren(fiber: ComponentFiber, child: Child): Slot {
   const stagingDom = document.createDocumentFragment();
   const { parentDom, ns, ctx } = prepareFiber(fiber);
@@ -61,9 +61,9 @@ export function reconcileFiberChildren(fiber: ComponentFiber, child: Child): Slo
     buildIntentToSlot(uiActions, fiber, intent, ns, parentDom, tailNode, ctx);
     return intent as Slot;
   } else {
-    inheritSlot(intent, prevSlot);
-    updateSlot(uiActions, fiber, intent, ns, ctx);
-    return intent;
+    const slot = inheritSlot(intent, prevSlot);
+    updateSlot(uiActions, fiber, slot, ns, ctx);
+    return slot;
   }
 }
 
@@ -96,7 +96,12 @@ function reconcile(
 ): ReadonlyMap<string, Slot> {
   const drafts = childrenToIntents(children, path);
   const stableIndexes = deriveStableIndexes(drafts, oldSlots);
-  fillIntentDrafts(oldSlots, drafts, stableIndexes);
+  for (const [key, draft] of drafts) {
+    const prev = oldSlots.get(key);
+    if (prev === undefined) continue;
+    const slot = inheritSlot(draft, prev);
+    slot.stable = stableIndexes.has(prev.index);
+  }
   for (const slot of getMapValuesReversed(oldSlots)) {
     if (drafts.has(slot.key)) continue;
     uiActions.push(prepareRemove(slot));
@@ -104,14 +109,12 @@ function reconcile(
   const slots = drafts as ReadonlyMap<string, Slot>;
   for (const slot of getMapValuesReversed(slots)) {
     if (slot.headNode === undefined) {
-      // ... new SlotIntent
+      // ... SlotIntent
       buildIntentToSlot(uiActions, fiber, slot, ns, parentDom, beforeNode, ctx);
     } else {
       // ... Slot
       updateSlot(uiActions, fiber, slot, ns, ctx);
-      if (slot.move) {
-        uiActions.push(prepareMove(parentDom, slot, beforeNode));
-      }
+      if (!slot.stable) uiActions.push(prepareMove(parentDom, slot, beforeNode));
     }
     beforeNode = slot.headNode;
   }
@@ -169,7 +172,7 @@ function buildIntentToSlot(
   parentDom: Node,
   beforeNode: null | Node,
   ctx: ContextMap,
-) {
+): asserts intent is Slot {
   switch (intent.type) {
     case componentSlotType:
     case contextSlotType: {

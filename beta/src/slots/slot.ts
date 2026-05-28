@@ -26,6 +26,8 @@ export type SlotType =
 
 type SlotBase<T extends SlotType> = T extends SlotType
   ? {
+      /* original key from _jsx*/
+      _key: string | undefined;
       children: SlotChildren<T>;
       component: SlotComponent<T>;
       context: SlotContext<T>;
@@ -35,7 +37,7 @@ type SlotBase<T extends SlotType> = T extends SlotType
       index: number;
       instance: SlotInstance<T>;
       key: string;
-      move: undefined | boolean;
+      stable: undefined | boolean;
       path: string;
       prevProps: SlotProps<T>;
       prevText: SlotText<T>;
@@ -47,7 +49,6 @@ type SlotBase<T extends SlotType> = T extends SlotType
     }
   : never;
 
-export type SlotJJSXDept<T extends SlotType> = T extends TextSlotType ? undefined : number;
 export type SlotSlots<T extends SlotType> = T extends TextSlotType
   ? undefined
   : ReadonlyMap<string, Slot>;
@@ -119,4 +120,7 @@ export function extendIntentNodes(
   intent.headNode = document.createComment(`<${name}>`);
   intent.tailNode = document.createComment(`</${name}>`);
   return intent as DraftBy<Slot<ComponentSlotType>, "instance">;
+}
+export function createSlotPath(key: string, parentPath: string) {
+  return `${parentPath}/${key}`;
 }

@@ -14,10 +14,20 @@ import type {
   SlotText,
   SlotType,
 } from "./slot";
-import { fragmentSlotType, textSlotType, type TextSlotType } from "./slot";
+import {
+  type ComponentSlotType,
+  type ContextSlotType,
+  createSlotPath,
+  type ElementSlotType,
+  fragmentSlotType,
+  textSlotType,
+  type TextSlotType,
+} from "./slot";
+import type { DraftIntent } from "./intent-draft";
 
 export type SlotIntent<T extends SlotType = SlotType> = T extends SlotType
   ? {
+      _key: string | undefined;
       children: SlotChildren<T>;
       component: SlotComponent<T>;
       context: SlotContext<T>;
@@ -27,7 +37,7 @@ export type SlotIntent<T extends SlotType = SlotType> = T extends SlotType
       index: number;
       instance: SlotInstance<T>;
       key: string;
-      move: boolean | undefined;
+      stable: boolean | undefined;
       path: string;
       prevProps: undefined | SlotProps<T>;
       prevText: SlotText<T> | undefined;
@@ -39,13 +49,14 @@ export type SlotIntent<T extends SlotType = SlotType> = T extends SlotType
     }
   : never;
 
-export function asFragmentIntent(
+export function arrayAsFragmentIntent(
   children: ReadonlyArray<Children>,
   key: string,
   index: number,
   parentPath: string,
 ): SlotIntent<FragmentSlotType> {
   return {
+    _key: undefined,
     children,
     component: undefined,
     context: undefined,
@@ -55,7 +66,7 @@ export function asFragmentIntent(
     index,
     instance: undefined,
     key,
-    move: undefined,
+    stable: undefined,
     path: createSlotPath(key, parentPath),
     prevProps: undefined,
     prevText: undefined,
@@ -74,6 +85,7 @@ export function asTextIntent(
   parentPath: string,
 ): SlotIntent<TextSlotType> {
   return {
+    _key: undefined,
     children: undefined,
     component: undefined,
     context: undefined,
@@ -83,7 +95,7 @@ export function asTextIntent(
     index,
     instance: undefined,
     key,
-    move: undefined,
+    stable: undefined,
     path: createSlotPath(key, parentPath),
     prevProps: undefined,
     prevText: undefined,
@@ -102,7 +114,34 @@ export function getIntentChildren(children: Children): ReadonlyArray<Children> {
   if (children === undefined) return emptyChildren;
   return [children];
 }
-
-function createSlotPath(key: string, parentPath: string) {
-  return `${parentPath}/${key}`;
+export function draftToIntent(
+  draft: DraftIntent<ComponentSlotType>,
+  key: string,
+  index: number,
+  parentPath: string,
+): SlotIntent<ComponentSlotType>;
+export function draftToIntent(
+  draft: DraftIntent<ContextSlotType>,
+  key: string,
+  index: number,
+  parentPath: string,
+): SlotIntent<ContextSlotType>;
+export function draftToIntent(
+  draft: DraftIntent<ElementSlotType>,
+  key: string,
+  index: number,
+  parentPath: string,
+): SlotIntent<ElementSlotType>;
+export function draftToIntent(
+  draft: DraftIntent<FragmentSlotType>,
+  key: string,
+  index: number,
+  parentPath: string,
+): SlotIntent<FragmentSlotType>;
+export function draftToIntent(draft: DraftIntent, key: string, index: number, parentPath: string) {
+  const same = draft as any as SlotIntent;
+  same.key = key;
+  same.path = `${parentPath}/${key}`;
+  same.index = index;
+  return same;
 }

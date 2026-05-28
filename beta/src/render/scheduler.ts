@@ -32,6 +32,7 @@ type Group = {
 export class Scheduler {
   private readonly primaryRenderGroup: Group = { queues: [], members: new Set() };
   private readonly secondaryRenderGroup: Group = { queues: [], members: new Set() };
+
   private readonly tertiaryRenderGroup: Group = { queues: [], members: new Set() };
 
   private readonly primaryParentsWithUnmounted = new Set<ComponentFiber>();

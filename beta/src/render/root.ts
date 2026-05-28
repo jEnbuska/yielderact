@@ -56,6 +56,7 @@ class RootInstance extends ComponentFiber {
     const tailNode = document.createComment("</Root>");
     const ns = nodeNameSpace(rctx.container);
     const intent: DraftBy<Slot<ComponentSlotType>, "instance" | "prevProps"> = {
+      _key: undefined,
       children: emptyChildren,
       component: function* Root() {
         return getChild();
@@ -67,7 +68,7 @@ class RootInstance extends ComponentFiber {
       index: 0,
       instance: undefined,
       key: "root",
-      move: undefined,
+      stable: undefined,
       path: "",
       prevProps: undefined,
       prevText: undefined,
