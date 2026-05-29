@@ -1,5 +1,5 @@
 import type { ComponentFiber } from "../instances/component-fiber";
-import type { SlotIntent } from "../slots/slot-intent";
+import type { Intent } from "../slots/intent";
 import type {
   ComponentSlotType,
   ContextSlotType,
@@ -11,13 +11,18 @@ import { extendIntentNodes, extendIntentWithInstance, type Slot } from "../slots
 import type { TagNamespace } from "../render/elements/namespaces";
 import type { ContextMap } from "../render/types";
 import { MOUNT_REASON } from "../render-reasons";
-import type { CreateElementAction, CreateFragmentAction, CreateSlotResponse, CreateTextAction, } from "./actions";
+import type {
+  CreateElementAction,
+  CreateFragmentAction,
+  CreateSlotResponse,
+  CreateTextAction,
+} from "./actions";
 import { prepareSlotNodes, updateWithPreparedSlot } from "../slots/utils";
 import { createFiber } from "../instances/register-create";
 
 export function handleMountSlot(
   fiber: ComponentFiber,
-  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
+  intent: Intent<ComponentSlotType | ContextSlotType>,
   parentDom: Node,
   ns: TagNamespace,
   ctx: ContextMap,
@@ -81,7 +86,7 @@ export function handleUpdateSlotProps(
   (fiber.instances ??= new Map<string, ComponentFiber>()).set(path, instance);
 }
 
-export function handleUpdateRef(fiber: ComponentFiber, slot: SlotIntent<ElementSlotType>) {
+export function handleUpdateRef(fiber: ComponentFiber, slot: Intent<ElementSlotType>) {
   const { headNode, props } = slot;
   (fiber.nextRefs ??= new Map()).set(headNode!, props.ref!);
 }

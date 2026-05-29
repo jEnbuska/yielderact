@@ -1,5 +1,5 @@
 import { resolveContext } from "../context";
-import type { Children, Component } from "../jsx";
+import type { Component } from "../jsx";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
 import type { UIAction } from "../reconciler/actions";
 import { mountFiberChildren, reconcileFiberChildren } from "../reconciler/reconciler";
@@ -8,13 +8,14 @@ import type { ComponentSlotType, ContextSlotType, Slot } from "../slots/slot";
 import type { RefLike } from "../render/element-props";
 import type { AnyElement, TagNamespace } from "../render/elements/namespaces";
 import type { DependencyList, DraftBy } from "../general-types";
-import { depsChanged, propsWithChildren, shallowEqual } from "../general";
+import { depsChanged, shallowEqual, stripFrameworkProps } from "../general";
 import { runHooks } from "../hooks/utils";
 import { DeferContext } from "../hooks/defer";
 
-export class ComponentFiber<TProps extends Record<string, unknown> = Record<string, unknown>> {
+export class ComponentFiber<TProps extends Record<string, unknown> = Record<string, any>> {
   public readonly ns: TagNamespace;
   public preparedSlots: Map<string, Slot> | undefined;
+  protected rawProps = true;
   unmounted: boolean | undefined = undefined;
   readonly component: Component;
   readonly depth: number;
@@ -37,7 +38,7 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
   slot?: Slot = undefined;
   pendingSlot?: Slot = undefined;
 
-  protected props: TProps & { children: Children };
+  protected props: TProps;
   readonly headNode: Comment;
   readonly tailNode: Comment;
 
@@ -62,8 +63,8 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     this.ctx = ctx;
     this.parentDom = parentDom;
     this.rctx = rctx;
-    this.props = propsWithChildren(intent) as TProps & { children: Children };
-    this.deps = intent.deps;
+    this.props = intent.props as TProps;
+    this.deps = intent.props.deps;
     this.depth = (parent?.depth ?? -1) + 1;
     this.ns = ns;
   }
@@ -104,6 +105,10 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
   }
 
   render() {
+    if (this.rawProps) {
+      this.props = stripFrameworkProps<any>(this.props);
+      this.rawProps = false;
+    }
     const generator = this.component(this.props);
     const child = runHooks(generator, this);
     if (!this.slot) {
@@ -152,12 +157,13 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
       "type"
     >,
   ): void {
-    const { deps } = intent;
+    const { deps } = intent.props;
     if (!depsChanged(this.deps, deps)) return;
     this.deps = deps;
-    const props = propsWithChildren(intent);
+    const { props } = intent;
     if (shallowEqual(this.props, props)) return;
-    this.props = props as TProps & { children: Children };
+    this.props = props as TProps;
+    this.rawProps = true;
     this.scheduleRender(PROPS_REASON);
   }
 }

@@ -1,11 +1,11 @@
 import type { Context } from "./context";
 import type { IntrinsicElements as IntrinsicElementsDef } from "./jsx-types";
 import type { ComponentGenerator, DependencyList } from "./general-types";
-import type { DraftIntent } from "./slots/intent-draft";
+import type { Draft } from "./slots/draft";
 
 export const Fragment: unique symbol = Symbol("Fragment");
 
-export type Child = DraftIntent | string | number | bigint | boolean | null | undefined;
+export type Child = Draft | string | number | bigint | boolean | null | undefined;
 export type Children = Child | ReadonlyArray<Children>;
 
 export interface FrameworkProps {

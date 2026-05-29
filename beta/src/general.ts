@@ -1,6 +1,6 @@
-import type { ComponentSlotType, ContextSlotType, Slot } from "./slots/slot";
-import type { Children } from "./jsx";
-import type { DependencyList, DraftBy } from "./general-types";
+import type { Children, FrameworkProps } from "./jsx";
+import type { DependencyList } from "./general-types";
+import type { ComponentSlotType, ContextSlotType, SlotProps } from "./slots/slot";
 
 const _values = new WeakMap<ReadonlyMap<any, any>, any[]>();
 const _valuesReversed = new WeakMap<ReadonlyMap<any, any>, any[]>();
@@ -56,24 +56,39 @@ export function shallowEqual(a: Record<string, unknown>, b: Record<string, unkno
   return true;
 }
 
-// TODO handle keying children
-export function propsWithChildren(
-  intent: Omit<
-    DraftBy<Slot<ComponentSlotType | ContextSlotType>, "instance" | "prevProps">,
-    "type"
-  >,
-): Record<string, unknown> & { children?: Children | ReadonlyArray<Children> } {
-  const { children, props } = intent;
-  switch (children.length) {
-    case 0:
-      return props;
-    case 1: {
-      const only = children[0];
-      return { children: only, ...props };
-    }
-    default:
-      return { children, ...props };
+export const frameworkProps: Set<string> = new Set(["shown", "key", "deps"] satisfies Array<
+  keyof FrameworkProps
+>);
+export function propsEquals(
+  a: SlotProps<ComponentSlotType | ContextSlotType>,
+  b: SlotProps<ComponentSlotType | ContextSlotType>,
+): boolean {
+  if (a === b) return true;
+  for (const k in a) {
+    if (frameworkProps.has(k)) continue;
+    const key = k as keyof SlotProps<ComponentSlotType | ContextSlotType>;
+    if (!Object.is(a[key], b[key])) return false;
   }
+  for (const k in b) {
+    if (frameworkProps.has(k)) continue;
+    const key = k as keyof SlotProps<ComponentSlotType | ContextSlotType>;
+    if (!Object.is(a[key], b[key])) return false;
+  }
+  return true;
+}
+
+export function stripFrameworkProps<T extends Record<string, any>>(props: T): T {
+  const copy: T = {} as any;
+  let hasFrameworkProps = false;
+  for (const k in props) {
+    const isFrameworkProps = frameworkProps.has(k);
+    if (isFrameworkProps) {
+      hasFrameworkProps ||= true;
+      continue;
+    }
+    copy[k] = props[k];
+  }
+  return hasFrameworkProps ? copy : props;
 }
 
 export function isArrayChildren(children: Children): children is ReadonlyArray<Children> {

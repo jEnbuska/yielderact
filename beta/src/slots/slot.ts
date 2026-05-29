@@ -2,10 +2,9 @@ import type { ComponentFiber } from "../instances/component-fiber";
 import type { AnyElement } from "../render/elements/namespaces";
 import type { Children, Component } from "../jsx";
 import type { Context } from "../context";
-import type { DependencyList } from "yract-beta";
-import type { SlotIntent } from "./slot-intent";
+import type { Intent } from "./intent";
 import type { RefLike } from "../render/element-props";
-import type { DraftBy } from "../general-types";
+import type { DependencyList, DraftBy } from "../general-types";
 
 export const textSlotType = "yract-text" as const;
 export type TextSlotType = typeof textSlotType;
@@ -31,7 +30,6 @@ type SlotBase<T extends SlotType> = T extends SlotType
       children: SlotChildren<T>;
       component: SlotComponent<T>;
       context: SlotContext<T>;
-      deps: SlotDeps<T>;
       element: SlotElement<T>;
       headNode: SlotHeadNode<T>;
       index: number;
@@ -69,21 +67,19 @@ export type SlotInstance<T extends SlotType> = T extends ComponentSlotType | Con
   ? ComponentFiber
   : undefined;
 
-export type SlotDeps<T extends SlotType> = T extends ComponentSlotType
-  ? DependencyList | undefined
-  : undefined;
-
 export type Slot<T extends SlotType = SlotType> = T extends SlotType ? SlotBase<T> : never;
 
 export type SlotElement<T extends SlotType> = T extends ElementSlotType ? string : undefined;
 
 export type SlotText<T extends SlotType> = T extends TextSlotType ? string : undefined;
 
-export type SlotProps<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
-  ? Record<string, unknown>
-  : T extends ElementSlotType
-    ? Record<string, unknown> & { ref?: RefLike }
-    : undefined;
+export type SlotProps<T extends SlotType> = T extends ComponentSlotType
+  ? Record<string, unknown> & { deps?: DependencyList; shown?: boolean; key?: string }
+  : T extends ContextSlotType
+    ? { deps?: DependencyList; shown?: boolean; key?: string; value: unknown }
+    : T extends ElementSlotType
+      ? Record<string, unknown> & { ref?: RefLike; children?: SlotChildren<T> }
+      : undefined;
 
 export type SlotComponent<T extends SlotType> = T extends ComponentSlotType | ContextSlotType
   ? Component<any>
@@ -95,16 +91,12 @@ export type SlotContext<T extends SlotType> = T extends ContextSlotType
     ? Context | undefined
     : undefined;
 
-export type SlotChildren<T extends SlotType> = T extends
-  | ComponentSlotType
-  | ContextSlotType
-  | ElementSlotType
-  | FragmentSlotType
+export type SlotChildren<T extends SlotType> = T extends ElementSlotType | FragmentSlotType
   ? ReadonlyArray<Children>
   : undefined;
 
 export function extendIntentWithInstance(
-  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
+  intent: Intent<ComponentSlotType | ContextSlotType>,
   instance: ComponentFiber,
 ): asserts intent is Slot<ComponentSlotType> {
   const { headNode, tailNode } = instance;
@@ -114,7 +106,7 @@ export function extendIntentWithInstance(
 }
 
 export function extendIntentNodes(
-  intent: SlotIntent<ComponentSlotType | ContextSlotType>,
+  intent: Intent<ComponentSlotType | ContextSlotType>,
 ): DraftBy<Slot<ComponentSlotType>, "instance"> {
   const { name } = intent.component;
   intent.headNode = document.createComment(`<${name}>`);

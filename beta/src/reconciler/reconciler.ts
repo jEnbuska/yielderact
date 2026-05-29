@@ -20,11 +20,16 @@ import {
   prepareText,
   prepareUpdate,
 } from "./actions";
-import { childrenToIntents, childToIntent, inheritSlot } from "./prepare";
 import { getMapValues, getMapValuesReversed } from "../general";
 import { deriveStableIndexes } from "./derive-stable-indexes";
 import type { ContextMap } from "../render/types";
-import { emptyChildren, type SlotIntent } from "../slots/slot-intent";
+import {
+  childrenToIntents,
+  childToIntent,
+  emptyChildren,
+  inheritSlot,
+  type Intent,
+} from "../slots/intent";
 import { diffElementProps } from "../render/element-props";
 import {
   handleCreateNode,
@@ -109,7 +114,7 @@ function reconcile(
   const slots = drafts as ReadonlyMap<string, Slot>;
   for (const slot of getMapValuesReversed(slots)) {
     if (slot.headNode === undefined) {
-      // ... SlotIntent
+      // ... Intent
       buildIntentToSlot(uiActions, fiber, slot, ns, parentDom, beforeNode, ctx);
     } else {
       // ... Slot
@@ -123,7 +128,7 @@ function reconcile(
 
 function mountIntent(
   fiber: ComponentFiber,
-  intent: SlotIntent,
+  intent: Intent,
   ns: TagNamespace,
   parentDom: Node,
   stagingDom: Node,
@@ -167,7 +172,7 @@ function mountIntent(
 function buildIntentToSlot(
   uiActions: UIAction[],
   fiber: ComponentFiber,
-  intent: SlotIntent,
+  intent: Intent,
   ns: TagNamespace,
   parentDom: Node,
   beforeNode: null | Node,

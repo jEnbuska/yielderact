@@ -8,7 +8,7 @@ import type {
   SlotType,
   TextSlotType,
 } from "../slots/slot";
-import type { SlotIntent } from "../slots/slot-intent";
+import type { Intent } from "../slots/intent";
 
 export type CreateSlotResponse<T extends SlotType> = Pick<Slot<T>, "headNode" | "tailNode">;
 
@@ -18,7 +18,7 @@ type UIActionShape = {
   ns: TagNamespace | undefined;
   parentDom: Node | undefined;
   patch: undefined | ElementPatch;
-  slot: SlotIntent | undefined;
+  slot: Intent | undefined;
   type: string;
 };
 type Delegated<T extends UIActionShape> = Pick<T, keyof UIActionShape>;
@@ -29,7 +29,7 @@ export type CreateElementAction = Delegated<{
   ns: TagNamespace;
   parentDom: undefined;
   patch: undefined;
-  slot: SlotIntent<ElementSlotType>;
+  slot: Intent<ElementSlotType>;
   type: "CREATE";
 }>;
 
@@ -39,7 +39,7 @@ export type CreateFragmentAction = Delegated<{
   ns: TagNamespace;
   parentDom: undefined;
   patch: undefined;
-  slot: SlotIntent<FragmentSlotType>;
+  slot: Intent<FragmentSlotType>;
   type: "CREATE";
 }>;
 
@@ -49,7 +49,7 @@ export type CreateTextAction = Delegated<{
   ns: undefined;
   parentDom: undefined;
   patch: undefined;
-  slot: SlotIntent<TextSlotType>;
+  slot: Intent<TextSlotType>;
   type: "CREATE";
 }>;
 
@@ -121,15 +121,12 @@ export function isRefProps<T extends Record<string, unknown>>(
   return false;
 }
 
+export function prepareCreate(slot: Intent<ElementSlotType>, ns: TagNamespace): CreateElementAction;
 export function prepareCreate(
-  slot: SlotIntent<ElementSlotType>,
-  ns: TagNamespace,
-): CreateElementAction;
-export function prepareCreate(
-  slot: SlotIntent<FragmentSlotType>,
+  slot: Intent<FragmentSlotType>,
   ns: TagNamespace,
 ): CreateFragmentAction;
-export function prepareCreate(slot: SlotIntent<TextSlotType>): CreateTextAction;
+export function prepareCreate(slot: Intent<TextSlotType>): CreateTextAction;
 export function prepareCreate(slot: any, ns?: TagNamespace) {
   return {
     type: "CREATE",

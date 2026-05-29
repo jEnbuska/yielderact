@@ -31,18 +31,19 @@ type Group = {
 
 export class Scheduler {
   private readonly primaryRenderGroup: Group = { queues: [], members: new Set() };
+  // TODO Create and other queue for primary context updates
   private readonly secondaryRenderGroup: Group = { queues: [], members: new Set() };
 
   private readonly tertiaryRenderGroup: Group = { queues: [], members: new Set() };
 
-  private readonly primaryParentsWithUnmounted = new Set<ComponentFiber>();
-  private readonly secondaryParentsWithUnmounted = new Set<ComponentFiber>();
+  private readonly syncParentsWithUnmounted = new Set<ComponentFiber>();
+  private readonly deferredParentsWithUnmounted = new Set<ComponentFiber>();
 
-  private readonly uiPrimaryGroup: Group = { queues: [], members: new Set() };
-  private readonly uiSecondaryGroup: Group = { queues: [], members: new Set() };
+  private readonly uiSyncGroup: Group = { queues: [], members: new Set() };
+  private readonly uiDeferredGroup: Group = { queues: [], members: new Set() };
 
-  private readonly effectPrimaryGroup: Group = { queues: [], members: new Set() };
-  private readonly effectSecondaryGroup: Group = { queues: [], members: new Set() };
+  private readonly effectSyncGroup: Group = { queues: [], members: new Set() };
+  private readonly effectDeferredGroup: Group = { queues: [], members: new Set() };
 
   private resolveGroup: Group = { queues: [], members: new Set() };
 
@@ -67,13 +68,13 @@ export class Scheduler {
   }
 
   scheduleUnmountChildren(instance: ComponentFiber, deferred = instance.isDeferred()): void {
-    if (deferred) this.secondaryParentsWithUnmounted.add(instance);
-    else this.primaryParentsWithUnmounted.add(instance);
+    if (deferred) this.deferredParentsWithUnmounted.add(instance);
+    else this.syncParentsWithUnmounted.add(instance);
   }
 
   unscheduleUnmountChildren(instance: ComponentFiber, deferred = instance.isDeferred()): void {
-    if (deferred) this.secondaryParentsWithUnmounted.delete(instance);
-    else this.primaryParentsWithUnmounted.delete(instance);
+    if (deferred) this.deferredParentsWithUnmounted.delete(instance);
+    else this.syncParentsWithUnmounted.delete(instance);
   }
 
   unscheduleRender(instance: ComponentFiber, deferred = instance.isDeferred()): void {
@@ -82,8 +83,8 @@ export class Scheduler {
   }
 
   scheduleEffect(instance: ComponentFiber, deferred = instance.isDeferred()): void {
-    if (deferred) insertSorted(this.effectSecondaryGroup, instance);
-    else insertSorted(this.effectPrimaryGroup, instance);
+    if (deferred) insertSorted(this.effectDeferredGroup, instance);
+    else insertSorted(this.effectSyncGroup, instance);
     this.resolvable.resolve();
   }
 
@@ -93,13 +94,13 @@ export class Scheduler {
   }
 
   scheduleUiUpdate(instance: ComponentFiber, deferred = instance.isDeferred()): void {
-    if (deferred) insertSorted(this.uiSecondaryGroup, instance);
-    else insertSorted(this.uiPrimaryGroup, instance);
+    if (deferred) insertSorted(this.uiDeferredGroup, instance);
+    else insertSorted(this.uiSyncGroup, instance);
   }
 
   unscheduleUiUpdate(instance: ComponentFiber, deferred = instance.isDeferred()): void {
-    if (deferred) this.uiSecondaryGroup.members.delete(instance);
-    else this.uiPrimaryGroup.members.delete(instance);
+    if (deferred) this.uiDeferredGroup.members.delete(instance);
+    else this.uiSyncGroup.members.delete(instance);
   }
 
   unscheduleResolve(instance: ComponentFiber): void {
@@ -131,15 +132,15 @@ export class Scheduler {
     while (true) {
       this.workYieldDeadline = Date.now() + SLICE_MS;
       const {
-        uiPrimaryGroup,
-        uiSecondaryGroup,
+        uiSyncGroup,
+        uiDeferredGroup,
         primaryRenderGroup,
         secondaryRenderGroup,
         tertiaryRenderGroup,
-        effectPrimaryGroup,
-        effectSecondaryGroup,
-        primaryParentsWithUnmounted,
-        secondaryParentsWithUnmounted,
+        effectSyncGroup,
+        effectDeferredGroup,
+        syncParentsWithUnmounted,
+        deferredParentsWithUnmounted,
       } = this;
 
       while (
@@ -148,30 +149,30 @@ export class Scheduler {
         tertiaryRenderGroup.members.size
       ) {
         this.processPrimaryRenderGroups();
-        Scheduler.applyUiActions(uiPrimaryGroup);
-        Scheduler.unmountParentsUnmountedChildren(primaryParentsWithUnmounted);
-        Scheduler.precessEffects(effectPrimaryGroup);
+        Scheduler.applyUiActions(uiSyncGroup);
+        Scheduler.unmountParentsUnmountedChildren(syncParentsWithUnmounted);
+        Scheduler.precessEffects(effectSyncGroup);
         await this.processSecondaryRenderGroups();
         if (primaryRenderGroup.members.size) continue;
         await this.processTertiaryRenderGroups();
       }
-      Scheduler.setUnmountedChildrenUnmounted(secondaryParentsWithUnmounted);
+      Scheduler.setUnmountedChildrenUnmounted(deferredParentsWithUnmounted);
       const start = Date.now();
-      const show = uiSecondaryGroup.members.size;
-      Scheduler.applyUiActions(uiSecondaryGroup);
+      const show = uiDeferredGroup.members.size;
+      Scheduler.applyUiActions(uiDeferredGroup);
       secondaryRenderGroup.members.clear();
       const { resolveGroup } = this;
       this.resolveGroup = { members: new Set(), queues: [] };
-      Scheduler.unmountParentsUnmountedChildren(secondaryParentsWithUnmounted);
-      Scheduler.precessEffects(effectSecondaryGroup);
+      Scheduler.unmountParentsUnmountedChildren(deferredParentsWithUnmounted);
+      Scheduler.precessEffects(effectDeferredGroup);
       Scheduler.processStates(resolveGroup);
       if (show) console.log(Date.now() - start);
       if (
         !primaryRenderGroup.members.size &&
         !secondaryRenderGroup.members.size &&
         !tertiaryRenderGroup.members.size &&
-        !effectPrimaryGroup.members.size &&
-        !effectSecondaryGroup.members.size &&
+        !effectSyncGroup.members.size &&
+        !effectDeferredGroup.members.size &&
         !this.resolveGroup.members.size
       ) {
         this.resolvable = createResolvable();
@@ -182,11 +183,11 @@ export class Scheduler {
 
   cleanupInstancesSchedules(instance: ComponentFiber, deferred: boolean): void {
     if (deferred) {
-      this.effectSecondaryGroup.members.delete(instance);
-      this.uiSecondaryGroup.members.delete(instance);
+      this.effectDeferredGroup.members.delete(instance);
+      this.uiDeferredGroup.members.delete(instance);
     } else {
-      this.effectPrimaryGroup.members.delete(instance);
-      this.uiPrimaryGroup.members.delete(instance);
+      this.effectSyncGroup.members.delete(instance);
+      this.uiSyncGroup.members.delete(instance);
     }
   }
 

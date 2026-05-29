@@ -9,7 +9,6 @@ import { nodeNameSpace } from "./elements/namespaces";
 import type { DraftBy } from "../general-types";
 import type { ComponentSlotType, Slot } from "../slots/slot";
 import { componentSlotType } from "../slots/slot";
-import { emptyChildren } from "../slots/slot-intent";
 import { emptyMap } from "../general";
 import { registerCreateInstance } from "../instances/register-create";
 
@@ -57,12 +56,11 @@ class RootInstance extends ComponentFiber {
     const ns = nodeNameSpace(rctx.container);
     const intent: DraftBy<Slot<ComponentSlotType>, "instance" | "prevProps"> = {
       _key: undefined,
-      children: emptyChildren,
+      children: undefined,
       component: function* Root() {
         return getChild();
       },
       context: undefined,
-      deps: undefined,
       element: undefined,
       headNode,
       index: 0,

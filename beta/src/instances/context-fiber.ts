@@ -4,6 +4,8 @@ import type { ContextSlotType, Slot } from "../slots/slot";
 import type { ContextMap, RenderContext } from "../render/types";
 import type { TagNamespace } from "../render/elements/namespaces";
 import type { ContextProperties } from "../context";
+import { depsChanged } from "../general";
+import { PROPS_REASON } from "../render-reasons";
 
 function invoke(cb: () => void) {
   cb();
@@ -37,13 +39,26 @@ export class ContextFiber extends ComponentFiber<{ value: unknown }> {
     const extended = new Map(ctx);
     extended.set(context.id, this.context);
     this.ctx = extended;
+    this.rawProps = false;
   }
 
   override render() {
-    super.render();
     const { value } = this.props;
+    this.context.ref.current = value; // Should this be after Object.is(...) ?
+    super.render();
     if (Object.is(value, this.context.ref.current)) return;
-    this.context.ref.current = value;
     this.subscribers.forEach(invoke);
+  }
+
+  override setProps(
+    intent: Omit<DraftBy<Slot<ContextSlotType>, "instance" | "prevProps">, "type">,
+  ): void {
+    const { deps } = intent.props;
+    if (!depsChanged(this.deps, deps)) return;
+    this.deps = deps;
+    const { props } = intent;
+    if (this.props.value !== props.value) return;
+    this.props = props;
+    this.scheduleRender(PROPS_REASON);
   }
 }

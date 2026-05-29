@@ -3,7 +3,11 @@ import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   oxc: {
-    jsxImportSource: "yract-beta",
+    jsx: {
+      runtime: "automatic",
+      importSource: "yract-beta",
+      development: false, // jsxDEV → jsx / jsxs
+    },
   },
   resolve: {
     alias: {

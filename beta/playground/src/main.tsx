@@ -17,21 +17,9 @@ import { ShownDemo } from "./components/ShownDemo";
 import { ThemeDemo } from "./components/ThemeDemo";
 import { TodoList } from "./components/TodoList";
 import { DeferredDemo } from "./components/DeferredDemo";
+import { SlotsDemo } from "./components/SlotsDemo";
 
-type Tab =
-  | "counter"
-  | "todos"
-  | "theme"
-  | "hooks"
-  | "shown"
-  | "effect"
-  | "context"
-  | "lazy-ctx"
-  | "abort-signal"
-  | "key-shuffle"
-  | "deferred";
-
-const tabs: { id: Tab; label: string }[] = [
+const tabs = [
   { id: "counter", label: "Counter" },
   { id: "todos", label: "Todo List" },
   { id: "theme", label: "Context / Theme" },
@@ -43,7 +31,10 @@ const tabs: { id: Tab; label: string }[] = [
   { id: "abort-signal", label: "AbortSignal Effect" },
   { id: "key-shuffle", label: "Key Shuffle" },
   { id: "deferred", label: "Defer Table" },
-];
+  { id: "slots", label: "Slots" },
+] as const;
+
+type Tab = (typeof tabs)[number]["id"];
 
 function getInitialTab(): Tab {
   const tab = localStorage.getItem("tab");
@@ -108,6 +99,7 @@ function* App() {
         <AbortSignalEffectDemo shown={activeTab === "abort-signal"} />
         <KeyShuffleDemo shown={activeTab === "key-shuffle"} />
         <DeferredDemo shown={activeTab === "deferred"} />
+        <SlotsDemo shown={activeTab === "slots"} />
       </div>
     </div>
   );

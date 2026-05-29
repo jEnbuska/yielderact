@@ -1,21 +1,9 @@
 import type { Child, Children, Component, FrameworkProps, PropsWithChildren } from "./jsx";
 import { Fragment } from "./jsx";
 import type { Context, ContextProps } from "./context";
-import type { DraftIntent } from "./slots/intent-draft";
-import { getIntentChildren } from "./slots/slot-intent";
-import type { DependencyList } from "./general-types";
-import type {
-  ComponentSlotType,
-  ContextSlotType,
-  ElementSlotType,
-  FragmentSlotType,
-} from "./slots/slot";
-import {
-  componentSlotType,
-  contextSlotType,
-  elementSlotType,
-  fragmentSlotType,
-} from "./slots/slot";
+import type { Draft } from "./slots/draft";
+import { asComponentDraft, asContextDraft, asElementDraft, asFragmentDraft } from "./slots/draft";
+import { getIntentChildren } from "./slots/intent";
 
 export { Fragment };
 
@@ -23,37 +11,33 @@ export function jsx<P extends Record<string, any>>(
   node: Component<Omit<P, keyof FrameworkProps>>,
   props: (P & FrameworkProps) | null,
   key?: string,
-): DraftIntent | null;
-export function jsx<T>(
-  node: Context<T>,
-  props: FrameworkProps & ContextProps<T>,
-): DraftIntent | null;
+): Draft | null;
+export function jsx<T>(node: Context<T>, props: FrameworkProps & ContextProps<T>): Draft | null;
 
 export function jsx(
   node: typeof Fragment,
   props: (Omit<FrameworkProps, "deps"> & { children?: Children }) | null,
   key?: string,
-): DraftIntent | null;
+): Draft | null;
 export function jsx<T extends keyof JSX.IntrinsicElements>(
   node: T,
   props: (Omit<FrameworkProps, "deps"> & JSX.IntrinsicElements[T] & { children?: Children }) | null,
   key?: string,
-): DraftIntent | null;
-export function jsx(node: any, props: any, _key?: string): DraftIntent | null {
-  const { key = _key, shown, deps, children, ...rest } = props;
-  if (shown === false) return null;
+): Draft | null;
+export function jsx(node: any, props: any, key?: string): Draft | null {
+  if (props.shown === false) return null;
   switch (typeof node) {
     case "function": {
-      return asComponentDraft(children, key, node, rest, deps);
+      return asComponentDraft(props.key ?? key, node, props);
     }
     case "string": {
-      return asElementDraft(children, key, node, rest);
+      return asElementDraft(props.key ?? key, node, props, getIntentChildren(props.children));
     }
     case "symbol": {
-      return asFragmentDraft(children, key);
+      return asFragmentDraft(props.key ?? key, getIntentChildren(props.children));
     }
     case "object": {
-      return asContextDraft(children, key, node, props);
+      return asContextDraft(props.key ?? key, node, props);
     }
     default: {
       throw new Error(`Invalid JSX node type "${typeof node}"`);
@@ -65,136 +49,41 @@ export function jsxs<P extends Record<string, any>>(
   type: Component<Omit<P, keyof FrameworkProps>>,
   props: P & FrameworkProps,
   key?: string,
-): DraftIntent | null;
-export function jsxs<T>(type: Context<T>, props: FrameworkProps & ContextProps<T>): DraftIntent;
+): Draft | null;
+export function jsxs<T>(type: Context<T>, props: FrameworkProps & ContextProps<T>): Draft;
 export function jsxs<T extends keyof JSX.IntrinsicElements>(
   type: T,
   props: Omit<FrameworkProps, "deps"> & JSX.IntrinsicElements[T] & PropsWithChildren,
   key?: string,
-): DraftIntent | null;
+): Draft | null;
 export function jsxs(
   type: typeof Fragment,
   props: Omit<FrameworkProps, "deps"> & PropsWithChildren,
   key?: string,
-): DraftIntent | null;
+): Draft | null;
 export function jsxs(node: any, props: any, key?: string): Child {
-  // TODO
+  key = props.key ?? key;
+  if (props.shown === false) return null;
+  switch (typeof node) {
+    case "function": {
+      return asComponentDraft(key, node, props);
+    }
+    case "string": {
+      return asElementDraft(key, node, props, props.children);
+    }
+    case "symbol": {
+      return asFragmentDraft(key, props.children);
+    }
+    case "object": {
+      return asContextDraft(key, node, props);
+    }
+    default: {
+      throw new Error(`Invalid JSX node type "${typeof node}"`);
+    }
+  }
+}
+
+export const jsxDEV = (node: any, props: any, key: string | undefined, staticChildren: boolean) => {
+  if (staticChildren) return jsxs(node, props, key);
   return jsx(node, props, key);
-}
-
-export const jsxDEV = jsx;
-
-export function asFragmentDraft(
-  children: Children[] | readonly Children[],
-  _key: string | undefined,
-): DraftIntent<FragmentSlotType> {
-  return {
-    _key,
-    children: getIntentChildren(children),
-    component: undefined,
-    context: undefined,
-    deps: undefined,
-    element: undefined,
-    headNode: undefined,
-    index: undefined,
-    instance: undefined,
-    key: undefined,
-    stable: undefined,
-    path: undefined,
-    prevProps: undefined,
-    prevText: undefined,
-    props: undefined,
-    slots: undefined,
-    tailNode: undefined,
-    text: undefined,
-    type: fragmentSlotType,
-  };
-}
-
-export function asContextDraft(
-  children: Children,
-  _key: string | undefined,
-  context: Context,
-  props: Record<string, unknown>,
-): DraftIntent<ContextSlotType> {
-  return {
-    _key,
-    children: getIntentChildren(children),
-    component: context.Provider,
-    context,
-    deps: undefined,
-    element: undefined,
-    headNode: undefined,
-    index: undefined,
-    instance: undefined,
-    key: undefined,
-    stable: undefined,
-    path: undefined,
-    prevProps: undefined,
-    prevText: undefined,
-    props,
-    slots: undefined,
-    tailNode: undefined,
-    text: undefined,
-    type: contextSlotType,
-  };
-}
-
-export function asElementDraft(
-  children: Children,
-  _key: string | undefined,
-  element: string,
-  props: Record<string, unknown>,
-): DraftIntent<ElementSlotType> {
-  return {
-    _key,
-    children: getIntentChildren(children),
-    component: undefined,
-    context: undefined,
-    deps: undefined,
-    element,
-    headNode: undefined,
-    index: undefined,
-    instance: undefined,
-    key: undefined,
-    stable: undefined,
-    path: undefined,
-    prevProps: undefined,
-    prevText: undefined,
-    props,
-    slots: undefined,
-    tailNode: undefined,
-    text: undefined,
-    type: elementSlotType,
-  };
-}
-
-export function asComponentDraft(
-  children: Children,
-  _key: string | undefined,
-  component: Component,
-  props: Record<string, unknown>,
-  deps: DependencyList | undefined,
-): DraftIntent<ComponentSlotType> {
-  return {
-    _key,
-    children: getIntentChildren(children),
-    component,
-    context: undefined,
-    deps,
-    element: undefined,
-    headNode: undefined,
-    index: undefined,
-    instance: undefined,
-    key: undefined,
-    stable: undefined,
-    path: undefined,
-    prevProps: undefined,
-    prevText: undefined,
-    props,
-    slots: undefined,
-    tailNode: undefined,
-    text: undefined,
-    type: componentSlotType,
-  };
-}
+};
