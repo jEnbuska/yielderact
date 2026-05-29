@@ -15,6 +15,7 @@ import { $EFFECT } from "./descriptors";
 
 export function* $defer(): ComponentGenerator<[Component<{ children: Children }>, boolean]> {
   const [isDeferring, setDeferring] = yield* $state(false);
+
   return [
     yield* $stable(function* Deferred({ children }) {
       return jsx(Defer, {
