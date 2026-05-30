@@ -39,7 +39,7 @@ export class ContextFiber extends ComponentFiber<{ value: unknown }> {
     const extended = new Map(ctx);
     extended.set(context.id, this.context);
     this.ctx = extended;
-    this.rawProps = false;
+    this.propsPrepared = false;
   }
 
   override render() {
@@ -56,9 +56,7 @@ export class ContextFiber extends ComponentFiber<{ value: unknown }> {
     const { deps } = intent.props;
     if (!depsChanged(this.deps, deps)) return;
     this.deps = deps;
-    const { props } = intent;
-    if (this.props.value !== props.value) return;
-    this.props = props;
+    this.props = intent.props;
     this.scheduleRender(PROPS_REASON);
   }
 }

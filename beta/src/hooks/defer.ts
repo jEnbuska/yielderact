@@ -12,14 +12,20 @@ import type { ContextMap, RenderContext } from "../render/types";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { MOUNT_REASON } from "../render-reasons";
 import { $EFFECT } from "./descriptors";
+import { $effect } from "./effect";
+import { $ref } from "./ref";
 
 export function* $defer(): ComponentGenerator<[Component<{ children: Children }>, boolean]> {
   const [isDeferring, setDeferring] = yield* $state(false);
-
   return [
     yield* $stable(function* Deferred({ children }) {
+      const mounted = yield* $ref(false);
+      yield* $effect(() => {
+        mounted.current = true;
+      });
       return jsx(Defer, {
         children,
+        mounted: mounted.current,
         setDeferring,
       });
     }),
@@ -30,10 +36,13 @@ export function* $defer(): ComponentGenerator<[Component<{ children: Children }>
 const staticId = "defer";
 
 export const DeferContext = createContext<boolean>(false, "Defer");
+
+export const DeferredDebounce = createContext<[Component<any>, number][]>([], "DeferredDebounce");
 DeferContext.id = staticId;
 
 type DeferProps = {
   setDeferring: (deferring: boolean) => unknown;
+  mounted: boolean;
 };
 
 class DeferFiber extends ComponentFiber<DeferProps> {
@@ -62,7 +71,9 @@ class DeferFiber extends ComponentFiber<DeferProps> {
     ns: TagNamespace,
   ) {
     const context: ContextProperties<boolean> = {
-      ref: { current: resolveContext(parentCtx, DeferContext) },
+      ref: {
+        current: false,
+      },
       subscribe: () => {
         return () => {};
       },
@@ -80,15 +91,11 @@ class DeferFiber extends ComponentFiber<DeferProps> {
   override render() {
     const deferred = (this.context.ref.current = this.isDeferred());
     super.render();
-
-    if (deferred) {
-      // Set not-deferred to children state update's after render
-      this.prepareAfterMountedRender();
-      void this.notifyDeferring(deferred);
-    }
+    this.prepareAfterDeferredRender();
+    void this.notifyDeferring(deferred);
   }
 
-  prepareAfterMountedRender() {
+  private prepareAfterDeferredRender() {
     if (this.hookStates) return;
     this.scheduleEffect(MOUNT_REASON);
     this.hookStates = [
@@ -96,7 +103,6 @@ class DeferFiber extends ComponentFiber<DeferProps> {
         type: $EFFECT,
         deps: [],
         fn: () => {
-          this.mounted = true;
           this.context.ref.current = false;
           void this.notifyDeferring(false);
           this.hookStates = undefined;
@@ -108,7 +114,7 @@ class DeferFiber extends ComponentFiber<DeferProps> {
   }
 
   override isDeferred(): boolean {
-    if (this.mounted) return true;
+    if (this.props.mounted) return true;
     return resolveContext(this.parent?.ctx, DeferContext);
   }
 }

@@ -5,6 +5,7 @@ import { $STATE, type StateDescriptor } from "./descriptors";
 import { getStateReason } from "../render-reasons";
 import { depsChanged } from "../general";
 import type { ComponentGenerator, DependencyList } from "../general-types";
+import { HookRuleError } from "./HookRuleError";
 
 /**
  * Persistent state hook.
@@ -58,6 +59,12 @@ export function createStateSetter(
   state: StateHookState,
 ): (newValue: unknown) => Promise<void> {
   return (newValue: unknown): Promise<void> => {
+    if (instance.rctx.scheduler.rendering) {
+      throw new HookRuleError(
+        instance,
+        'Was calling "setState" during component render!\n"setState" should only be called from events and by $effects\'s',
+      );
+    }
     const nextValue = resolveNextValue(newValue, state.pendingValue);
     // No change — cancel any pending rerender and resolve immediately.
     if (nextValue === state.value) {

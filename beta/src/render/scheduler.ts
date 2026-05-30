@@ -5,6 +5,7 @@ import { effectResolver } from "../hooks/effect";
 import { stateResolver } from "../hooks/state";
 import { insertBefore, moveSlot, removeSlotNodes } from "../reconciler/dom-updates";
 import { updateElementProps } from "./element-props";
+import type { Component } from "yract-beta";
 
 function insertSorted(groups: Group, instance: ComponentFiber): void {
   const { depth } = instance;
@@ -29,7 +30,19 @@ type Group = {
   members: Set<ComponentFiber>;
 };
 
+function createPrimaryRenderResolvable(): PromiseWithResolvers<void> & { subscribed: boolean } {
+  return Object.assign(createResolvable(), { subscribed: false });
+}
+
+function copyRuleset<K, V>(map: [K, V][]): Map<K, V> {
+  return new Map<K, V>(map);
+}
 export class Scheduler {
+  private _rendering = false;
+  get rendering() {
+    return this._rendering;
+  }
+
   private readonly primaryRenderGroup: Group = { queues: [], members: new Set() };
   // TODO Create and other queue for primary context updates
   private readonly secondaryRenderGroup: Group = { queues: [], members: new Set() };
@@ -50,6 +63,7 @@ export class Scheduler {
   private batchDepth = 0;
 
   private resolvable = createResolvable();
+  private primaryRenderResolvable = createPrimaryRenderResolvable();
 
   private workYieldDeadline = Infinity;
 
@@ -58,11 +72,17 @@ export class Scheduler {
   }
 
   scheduleRender(instance: ComponentFiber, deferred = instance.isDeferred()): void {
+    //console.log("SCHEDULING", instance.component.name, deferred);
     if (deferred) {
+      throw new Error(`DEFERRED SCHEDULE ${instance.component.name}`);
       insertSorted(this.secondaryRenderGroup, instance);
       this.tertiaryRenderGroup.members.delete(instance);
     } else {
       insertSorted(this.primaryRenderGroup, instance);
+      if (this.primaryRenderResolvable.subscribed) {
+        this.primaryRenderResolvable.resolve();
+        this.primaryRenderResolvable = createPrimaryRenderResolvable();
+      }
     }
     this.resolvable.resolve();
   }
@@ -191,27 +211,37 @@ export class Scheduler {
     }
   }
 
+  private renderFiber(next: ComponentFiber) {
+    this._rendering = true;
+    next.render();
+    this._rendering = false;
+  }
+
   private processPrimaryRenderGroups() {
+    console.log("process primary");
     const { members, queues } = this.primaryRenderGroup;
     while (members.size) {
       const group = last(queues);
       if (!group.length) queues.pop();
       while (group.length) {
         const next = group.pop()!;
+        //console.log("PROCESS", next.component.name);
         if (!members.delete(next)) continue;
         if (next.isUnmounted()) {
           this.cleanupInstancesSchedules(next, false);
           continue;
         }
-        next.render();
+        this.renderFiber(next);
       }
     }
     queues.length = 0;
   }
 
   private async processSecondaryRenderGroups() {
+    console.log("process second");
     const { members: primaryMembers } = this.primaryRenderGroup;
     const { members, queues } = this.secondaryRenderGroup;
+    const debounceRuleSets: Map<[Component, number][], Map<Component, number>> = new Map();
     while (members.size) {
       const group = last(queues);
       if (!group.length) {
@@ -219,28 +249,46 @@ export class Scheduler {
         continue;
       }
       while (group.length) {
-        await this.checkAwait();
         if (primaryMembers.size) return;
         const next = group.pop()!;
         if (!members.delete(next)) continue;
-        if (!next.isDeferred()) {
-          this.scheduleRender(next);
-          return;
-        }
         if (next.isUnmounted()) {
           insertSorted(this.tertiaryRenderGroup, next);
           continue;
         }
-        next.render();
+        if (!next.isDeferred()) return this.scheduleRender(next);
+        const ruleset = debounceRuleSets.getOrInsertComputed(
+          next.getDebounceRuleSet(),
+          copyRuleset,
+        );
+        const debounce = ruleset.get(next.component);
+        if (debounce !== undefined) {
+          ruleset.delete(next.component);
+          const { promise, resolve } = createResolvable<void>();
+          setTimeout(resolve, debounce);
+          this.primaryRenderResolvable.subscribed = true;
+          await Promise.race([promise, this.primaryRenderResolvable.promise]);
+          this.primaryRenderResolvable.subscribed = false;
+          if (primaryMembers.size) {
+            group.push(next);
+            members.add(next);
+            return;
+          }
+          this.workYieldDeadline = Date.now() + SLICE_MS;
+        }
+        this.renderFiber(next);
+        await this.checkAwait();
       }
     }
     queues.length = 0;
   }
 
   private async processTertiaryRenderGroups() {
+    console.log("process tertiary");
     const { members: primaryMembers } = this.primaryRenderGroup;
     const { members: secondaryMembers } = this.secondaryRenderGroup;
     const { members, queues } = this.tertiaryRenderGroup;
+    const debounceRuleSets: Map<[Component, number][], Map<Component, number>> = new Map();
     while (members.size) {
       const group = last(queues);
       if (!group.length) {
@@ -248,7 +296,6 @@ export class Scheduler {
         continue;
       }
       while (group.length) {
-        await this.checkAwait();
         if (primaryMembers.size || secondaryMembers.size) return;
         const next = group.pop()!;
         if (!members.delete(next)) continue;
@@ -256,11 +303,29 @@ export class Scheduler {
           this.cleanupInstancesSchedules(next, true);
           continue;
         }
-        if (!next.isDeferred()) {
-          this.scheduleRender(next);
-          return;
+        if (!next.isDeferred()) return this.scheduleRender(next);
+        const ruleset = debounceRuleSets.getOrInsertComputed(
+          next.getDebounceRuleSet(),
+          copyRuleset,
+        );
+        const debounce = ruleset.get(next.component);
+        if (debounce !== undefined) {
+          ruleset.delete(next.component);
+          const { promise, resolve } = createResolvable<void>();
+          setTimeout(resolve, debounce);
+          this.primaryRenderResolvable.subscribed = true;
+          await Promise.race([promise, this.primaryRenderResolvable.promise]);
+          console.log("debounced", debounce);
+          this.primaryRenderResolvable.subscribed = false;
+          if (primaryMembers.size || secondaryMembers.size) {
+            group.push(next);
+            members.add(next);
+            return;
+          }
+          this.workYieldDeadline = Date.now() + SLICE_MS;
         }
-        next.render();
+        this.renderFiber(next);
+        await this.checkAwait();
       }
     }
     queues.length = 0;
@@ -270,7 +335,7 @@ export class Scheduler {
     for (const next of parents) {
       const { instances, unmountInstances } = next;
       if (unmountInstances) {
-        for (const child of unmountInstances) {
+        for (const child of unmountInstances.values()) {
           instances?.delete(child.path);
           Scheduler.setUnmountedRecursively(child);
         }
@@ -291,7 +356,7 @@ export class Scheduler {
   private static unmountParentsUnmountedChildren(parents: Set<ComponentFiber>) {
     for (const next of parents) {
       if (next.unmountInstances) {
-        for (const child of next.unmountInstances) Scheduler.unmountLeafsFirst(child);
+        for (const child of next.unmountInstances.values()) Scheduler.unmountLeafsFirst(child);
         next.unmountInstances.clear();
       }
     }

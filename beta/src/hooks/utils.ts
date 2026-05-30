@@ -41,6 +41,7 @@ import { createStateSetter, processState } from "./state";
 import { processWeakRef } from "./weakRef";
 import type { Child } from "../jsx";
 import type { ComponentGenerator } from "../general-types";
+import { HookRuleError } from "./HookRuleError";
 
 /** True when `value` looks like a yielded hook descriptor. */
 function isHookDescriptor(value: unknown): value is HookDescriptor {
@@ -59,8 +60,9 @@ function getTypedPrev<K extends HookState["type"]>(
   const prev = hookStates[hookIndex];
   if (prev === undefined) return undefined;
   if (prev.type !== expectedType) {
-    throw new Error(
-      `yract-beta: hook order mismatch in <${instance.component.name}> at index ${hookIndex}: ` +
+    throw new HookRuleError(
+      instance,
+      `Hook order mismatch at index ${hookIndex}: ` +
         `expected ${prev.type} (from previous render) but got ${expectedType}. ` +
         `Hooks must be called in the same order on every render.`,
     );

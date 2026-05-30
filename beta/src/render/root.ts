@@ -84,6 +84,6 @@ class RootInstance extends ComponentFiber {
     this.child = child;
     this.parentDom.appendChild(this.headNode);
     this.parentDom.appendChild(this.tailNode);
-    this.render();
+    this.scheduleRender(Symbol("MOUNT"));
   }
 }

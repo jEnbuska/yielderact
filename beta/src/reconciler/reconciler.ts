@@ -41,9 +41,11 @@ import {
 function prepareFiber(fiber: ComponentFiber) {
   const { instances } = fiber;
   fiber.instances = instances?.size ? new Map() : undefined;
-  fiber.unmountInstances = instances?.size ? new Set(instances.values()) : undefined;
+  // TODO I think this might go wrong
+  fiber.unmountInstances = instances?.size ? new Map(instances) : undefined;
   fiber.nextRefs = undefined;
   fiber.preparedSlots ??= new Map<string, Slot>();
+  fiber.nextInstances = undefined;
   return fiber;
 }
 
@@ -52,22 +54,27 @@ export function mountFiberChildren(fiber: ComponentFiber, child: Child): Slot {
   const { parentDom, ns, ctx } = prepareFiber(fiber);
   const intent = childToIntent(child ?? "");
   mountIntent(fiber, intent, ns, parentDom, stagingDom, ctx);
+  fiber.instances = fiber.nextInstances;
   fiber.uiActions = [prepareInsert(fiber.parentDom, stagingDom, fiber.tailNode)];
+
   return intent as Slot;
 }
 
 export function reconcileFiberChildren(fiber: ComponentFiber, child: Child): Slot {
   const { parentDom, slot, ns, tailNode, ctx } = prepareFiber(fiber);
+  //console.log("reconcile", fiber.component.name);
   const prevSlot = slot!;
   const intent = childToIntent(child ?? "");
   const uiActions: UIAction[] = (fiber.uiActions = []);
   if (intent.key !== prevSlot.key) {
     uiActions.push(prepareRemove(prevSlot));
     buildIntentToSlot(uiActions, fiber, intent, ns, parentDom, tailNode, ctx);
+    fiber.instances = fiber.nextInstances;
     return intent as Slot;
   } else {
     const slot = inheritSlot(intent, prevSlot);
     updateSlot(uiActions, fiber, slot, ns, ctx);
+    fiber.instances = fiber.nextInstances;
     return slot;
   }
 }

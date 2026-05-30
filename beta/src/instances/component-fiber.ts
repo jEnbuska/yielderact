@@ -3,47 +3,45 @@ import type { Component } from "../jsx";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
 import type { UIAction } from "../reconciler/actions";
 import { mountFiberChildren, reconcileFiberChildren } from "../reconciler/reconciler";
-import { MOUNT_REASON, PROPS_REASON } from "../render-reasons";
+import { PROPS_REASON } from "../render-reasons";
 import type { ComponentSlotType, ContextSlotType, Slot } from "../slots/slot";
 import type { RefLike } from "../render/element-props";
 import type { AnyElement, TagNamespace } from "../render/elements/namespaces";
 import type { DependencyList, DraftBy } from "../general-types";
 import { depsChanged, shallowEqual, stripFrameworkProps } from "../general";
 import { runHooks } from "../hooks/utils";
-import { DeferContext } from "../hooks/defer";
+import { DeferContext, DeferredDebounce } from "../hooks/defer";
 
 export class ComponentFiber<TProps extends Record<string, unknown> = Record<string, any>> {
+  public rendered: boolean | undefined = undefined;
   public readonly ns: TagNamespace;
   public preparedSlots: Map<string, Slot> | undefined;
-  protected rawProps = true;
+
   unmounted: boolean | undefined = undefined;
   readonly component: Component;
   readonly depth: number;
   readonly parent: ComponentFiber | null;
   parentDom: Node;
-  uiActions: Array<UIAction> | undefined;
-
+  uiActions: Array<UIAction> | undefined = undefined;
   ctx: ContextMap;
   readonly rctx: RenderContext;
-
   instances?: Map<string, ComponentFiber> = undefined;
-  unmountInstances?: Set<ComponentFiber> = undefined;
+  nextInstances?: Map<string, ComponentFiber> = undefined;
+  unmountInstances?: Map<string, ComponentFiber> = undefined;
   hookStates?: HookState[] = undefined;
-  renderReasons?: Set<symbol> = undefined;
+  renderReasons = new Set<symbol>();
   resolveReasons?: Set<symbol> = undefined;
   effectReasons?: Set<symbol> = undefined;
   refs?: Map<AnyElement, RefLike> = undefined;
   nextRefs?: Map<AnyElement, RefLike> = undefined;
-
   slot?: Slot = undefined;
   pendingSlot?: Slot = undefined;
-
   protected props: TProps;
+  protected propsPrepared = false;
   readonly headNode: Comment;
   readonly tailNode: Comment;
 
   deps?: DependencyList;
-  mounted = false;
 
   readonly path: string;
 
@@ -73,14 +71,18 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     return resolveContext(this.ctx, DeferContext);
   }
 
+  getDebounceRuleSet() {
+    return resolveContext(this.ctx, DeferredDebounce);
+  }
+
   scheduleRender(reason: symbol, deferred?: boolean): void {
-    (this.renderReasons ??= new Set()).add(reason);
+    this.renderReasons.add(reason);
     this.rctx.scheduler.scheduleRender(this, deferred);
   }
 
   unscheduleRender(reason: symbol, deferred?: boolean): void {
-    this.renderReasons?.delete(reason);
-    if (this.renderReasons?.size === 0) {
+    this.renderReasons.delete(reason);
+    if (this.renderReasons.size) {
       this.rctx.scheduler.unscheduleRender(this, deferred);
     }
   }
@@ -105,22 +107,34 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
   }
 
   render() {
-    if (this.rawProps) {
+    this.rendered = true;
+    if (!this.propsPrepared) {
       this.props = stripFrameworkProps<any>(this.props);
-      this.rawProps = false;
+      this.propsPrepared = true;
     }
     const generator = this.component(this.props);
     const child = runHooks(generator, this);
+
     if (!this.slot) {
       this.pendingSlot = mountFiberChildren(this, child);
     } else {
       this.pendingSlot = reconcileFiberChildren(this, child);
     }
-    const { rctx, unmountInstances } = this;
+    const { unmountInstances, rctx } = this;
     const { scheduler } = rctx;
     if (unmountInstances?.size) {
-      scheduler.scheduleUnmountChildren(this);
-      for (const instance of unmountInstances) instance.unmount();
+      let scheduleUnmount = false;
+      for (const instance of unmountInstances.values()) {
+        if (instance.unmount()) {
+          scheduleUnmount = true;
+        } else {
+          console.log("not rendered");
+          unmountInstances.delete(instance.path);
+        }
+      }
+      if (scheduleUnmount) {
+        scheduler.scheduleUnmountChildren(this);
+      }
     } else {
       scheduler.unscheduleUnmountChildren(this);
     }
@@ -131,8 +145,14 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
       this.preparedSlots?.clear();
       scheduler.unscheduleUiUpdate(this);
     }
-    this.renderReasons?.clear();
-    if (!this.mounted) this.scheduleEffect(MOUNT_REASON);
+    this.renderReasons.clear();
+  }
+
+  unmount(): boolean | undefined {
+    this.unmounted = true;
+    const { scheduler } = this.rctx;
+    if (this.renderReasons.size) scheduler.unscheduleRender(this);
+    return this.rendered;
   }
 
   // Rename and flip to isMounted
@@ -143,12 +163,6 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
       parent = parent.parent;
     }
     return false;
-  }
-
-  unmount(): void {
-    this.unmounted = true;
-    const { scheduler } = this.rctx;
-    if (this.renderReasons?.size) scheduler.unscheduleRender(this);
   }
 
   setProps(
@@ -163,7 +177,7 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     const { props } = intent;
     if (shallowEqual(this.props, props)) return;
     this.props = props as TProps;
-    this.rawProps = true;
+    this.propsPrepared = false;
     this.scheduleRender(PROPS_REASON);
   }
 }

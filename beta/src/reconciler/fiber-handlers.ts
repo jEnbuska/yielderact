@@ -28,21 +28,22 @@ export function handleMountSlot(
   ctx: ContextMap,
 ) {
   const { path } = intent;
-  const existingInstance = fiber.instances?.get(path);
-  let instance: ComponentFiber;
-  if (existingInstance) {
-    instance = existingInstance;
+  let instance = fiber.instances?.get(path) ?? fiber.unmountInstances?.get(path);
+  if (instance) {
     instance.ctx = ctx;
     instance.parentDom = parentDom;
     extendIntentWithInstance(intent, instance);
-    if (fiber.unmountInstances?.delete(instance)) instance.unmounted = false;
+    fiber.unmountInstances?.delete(path);
+    if (instance.unmounted) {
+      instance.unmounted = false;
+    }
     instance.setProps(intent);
   } else {
     instance = createFiber(extendIntentNodes(intent), ctx, fiber, fiber.rctx, parentDom, ns);
     intent.instance = instance;
     instance.scheduleRender(MOUNT_REASON);
   }
-  (fiber.instances ??= new Map<string, ComponentFiber>()).set(path, instance);
+  (fiber.nextInstances ??= new Map<string, ComponentFiber>()).set(path, instance);
   return intent as Slot<ComponentSlotType>;
 }
 
@@ -72,7 +73,7 @@ export function handleCreateNode(
   } else {
     resultSlot = prepareSlotNodes(slot, rctx.delegationRoot, ns);
   }
-  preparedSlots!.set(path, resultSlot);
+  // preparedSlots!.set(path, resultSlot);
   return resultSlot;
 }
 
@@ -81,9 +82,11 @@ export function handleUpdateSlotProps(
   slot: Slot<ComponentSlotType | ContextSlotType>,
 ) {
   const { instance, path } = slot;
-  if (fiber.unmountInstances?.delete(instance)) instance.unmounted = false;
+  fiber.unmountInstances?.delete(path);
+  instance.unmounted = false;
+
   instance.setProps(slot);
-  (fiber.instances ??= new Map<string, ComponentFiber>()).set(path, instance);
+  (fiber.nextInstances ??= new Map<string, ComponentFiber>()).set(path, instance);
 }
 
 export function handleUpdateRef(fiber: ComponentFiber, slot: Intent<ElementSlotType>) {

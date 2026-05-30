@@ -6,6 +6,7 @@
  * across all columns (datalist-style filtering).
  */
 import { $defer, $effect, $memo, $ref, $stable, $state, ComponentProps } from "yract-beta";
+import { DeferredDebounce } from "../../../src/hooks/defer";
 
 /* ── Data generation ── */
 
@@ -69,8 +70,6 @@ interface Row {
   name: string;
   department: string;
   city: string;
-  score: number;
-  active: boolean;
 }
 
 function generateRows(count: number): Row[] {
@@ -81,8 +80,6 @@ function generateRows(count: number): Row[] {
       name: FIRST_NAMES[i % FIRST_NAMES.length]!,
       department: DEPARTMENTS[i % DEPARTMENTS.length]!,
       city: CITIES[i % CITIES.length]!,
-      score: Math.round(((i * 7 + 13) % 100) * 10) / 10,
-      active: i % 3 !== 0,
     });
   }
   return rows;
@@ -97,7 +94,27 @@ function* TableData({ children }: ComponentProps<"td">) {
 
 /* ── Table row ── */
 
+const formatter = new Intl.DateTimeFormat("fi", {
+  hour: "2-digit",
+  minute: "2-digit",
+  second: "2-digit",
+});
 function* TableRow({ row }: { row: Row }) {
+  const mounted = yield* $ref(new Date());
+  const renders = yield* $ref(0);
+  const effects = yield* $ref(0);
+  const [effected, setEffected] = yield* $state(false);
+  yield* $effect(() => {
+    effects.current++;
+    if (effects.current > 1) {
+      throw new Error("dsadsa");
+    }
+    setEffected(true);
+  });
+  renders.current++;
+  if (renders.current > 2) {
+    throw new Error("DSADSASDSAD");
+  }
   return (
     <div
       style={{
@@ -111,12 +128,14 @@ function* TableRow({ row }: { row: Row }) {
       <TableData>
         {row.name} - {row.id}
       </TableData>
-      <div role={"cell"}>{row.department}</div>
-      <TableData>{row.city}</TableData>
-      <div role={"cell"} style={{ textAlign: "right" }}>
-        {row.score}
+      <div role={"cell"} style={effected ? { color: "green" } : undefined}>
+        {row.department}
       </div>
-      <TableData style={{ textAlign: "center" }}>{"search"}</TableData>
+      <TableData>{row.city}</TableData>
+      <TableData style={{ textAlign: "center" }}>
+        {formatter.format(mounted.current)},<i>{mounted.current.getMilliseconds()}</i>
+      </TableData>
+      <TableData style={{ textAlign: "center" }}>{renders.current}</TableData>
     </div>
   );
 }
@@ -129,7 +148,7 @@ function* Example({
   rows,
   sortDir,
   onSort,
-  search,
+  search: _,
 }: {
   rows: Row[];
   sortDir: SortDir;
@@ -195,17 +214,24 @@ function* Example({
             <div role={"columnheader"} style={{ padding: "0.5rem", textAlign: "left" }}>
               City
             </div>
-            <div role={"columnheader"} style={{ padding: "0.5rem", textAlign: "right" }}>
-              Score
+            <div role={"columnheader"} style={{ padding: "0.5rem", textAlign: "center" }}>
+              Mounted
             </div>
             <div role={"columnheader"} style={{ padding: "0.5rem", textAlign: "center" }}>
-              Search
+              Renders
             </div>
           </div>
         </div>
         <div style={{ position: "relative", opacity: deferring ? "0.5" : "1" }}>
           <Defer>
-            <TableBody rows={sortedRows} search={search} />
+            <DeferredDebounce
+              value={[
+                [TableBody, 150],
+                [TableRow, 100],
+              ]}
+            >
+              <TableBody rows={sortedRows} />
+            </DeferredDebounce>
           </Defer>
         </div>
       </div>
@@ -213,9 +239,32 @@ function* Example({
   );
 }
 
-function* TableBody({ rows }: { rows: Row[]; search: string }) {
+function* TableBody({ rows }: { rows: Row[] }) {
+  const mounted = yield* $ref(new Date());
+  const renders = yield* $ref(0);
+  renders.current++;
+
   return (
     <div role="rowgroup">
+      <div
+        style={{
+          display: "grid",
+          contentVisibility: "auto",
+          containIntrinsicSize: "auto 18.5px",
+          gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr",
+          borderBottomColor: "black",
+          borderBottomWidth: "2px",
+        }}
+        role="row"
+      >
+        <TableData>{"Details"}</TableData>
+        <div role={"cell"}>{"-"}</div>
+        <TableData>{"-"}</TableData>
+        <TableData style={{ textAlign: "center" }}>
+          {formatter.format(mounted.current)},<i>{mounted.current.getMilliseconds()}</i>
+        </TableData>
+        <TableData style={{ textAlign: "center" }}>{renders.current}</TableData>
+      </div>
       {rows.map((row) => (
         <TableRow key={String(row.id)} row={row} deps={[row]} />
       ))}
@@ -237,7 +286,7 @@ export function* DeferredDemo() {
       }
       const lower = query.toLowerCase();
       return result.filter((row) => {
-        const combined = `${row.name} ${row.id} ${row.department} ${row.city} ${row.score} ${row.active ? "yes" : "no"}`;
+        const combined = `${row.name} ${row.id} ${row.department} ${row.city}`;
         return combined.toLowerCase().includes(lower);
       });
     },
