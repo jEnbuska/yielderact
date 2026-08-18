@@ -6,13 +6,11 @@ import type { TagNamespace } from "../render/elements/namespaces";
 import type { ContextProperties } from "../context";
 import { depsChanged } from "../general";
 import { PROPS_REASON } from "../render-reasons";
+import type { ContextHookState } from "../hooks/context";
 
-function invoke(cb: () => void) {
-  cb();
-}
 export class ContextFiber extends ComponentFiber<{ value: unknown }> {
   context: ContextProperties<unknown>;
-  subscribers: Set<() => void> = new Set();
+  subscribers: Set<ContextHookState> = new Set();
 
   constructor(
     intent: DraftBy<Slot<ContextSlotType>, "instance" | "prevProps">,
@@ -25,6 +23,7 @@ export class ContextFiber extends ComponentFiber<{ value: unknown }> {
     super(intent, ctx, parent, rctx, parentDom, ns);
     const { context, props } = intent;
     this.context = {
+      version: 0,
       ref: {
         current: props["value"],
       },
@@ -47,7 +46,8 @@ export class ContextFiber extends ComponentFiber<{ value: unknown }> {
     this.context.ref.current = value; // Should this be after Object.is(...) ?
     super.render();
     if (Object.is(value, this.context.ref.current)) return;
-    this.subscribers.forEach(invoke);
+    this.context.version++;
+    this.subscribers.forEach((sub) => sub.callback?.());
   }
 
   override setProps(
@@ -58,5 +58,13 @@ export class ContextFiber extends ComponentFiber<{ value: unknown }> {
     this.deps = deps;
     this.props = intent.props;
     this.scheduleRender(PROPS_REASON);
+  }
+
+  notifyContextProviders() {
+    const { version } = this.context;
+    for (const sub of this.subscribers) {
+      if (sub.version === version) continue;
+      sub.callback?.();
+    }
   }
 }

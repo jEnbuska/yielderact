@@ -23,7 +23,7 @@ export function $context<T>(
   ctx: Context<T>,
   depsSelector?: (ctx: T) => unknown[],
 ): ComponentGenerator<T>;
-export function $context<T, D extends unknown[], R>(
+export function $context<T, const D extends unknown[], R>(
   ctx: Context<T>,
   depsSelector: (ctx: T) => D,
   transform: (...args: D) => R,
@@ -56,6 +56,8 @@ export interface ContextHookState {
   currentSelected: unknown[];
   lastTransformResult?: unknown;
   unsubscribe?: () => void;
+  version: number;
+  callback?: () => void;
 }
 
 /**
@@ -91,18 +93,26 @@ export function processContext(
     prev.transform = descriptor.transform;
     return prev;
   }
-
+  const handle = instance.ctx.get(descriptor.ctx.id);
   const state: ContextHookState = {
     type: $CONTEXT,
+    version: handle?.version ?? -1,
     reason: getContextReason(),
     ctx: descriptor.ctx,
     depsSelector: selector,
     transform: descriptor.transform,
     lastRenderedDepsSelected: [],
     currentSelected: [],
+    callback: () => {
+      const current = state.depsSelector(handle!.ref.current);
+      if (!depsChanged(state.lastRenderedDepsSelected, current)) {
+        instance.unscheduleRender(state.reason);
+      } else {
+        instance.scheduleRender(state.reason);
+      }
+    },
   };
 
-  const handle = instance.ctx.get(descriptor.ctx.id);
   if (!handle) return state;
 
   const initialSelected = state.depsSelector(handle.ref.current);
@@ -113,14 +123,7 @@ export function processContext(
   } else {
     state.lastTransformResult = handle.ref.current;
   }
-  state.unsubscribe = handle.subscribe(() => {
-    const current = state.depsSelector(handle.ref.current);
-    if (!depsChanged(state.lastRenderedDepsSelected, current)) {
-      instance.unscheduleRender(state.reason);
-    } else {
-      instance.scheduleRender(state.reason);
-    }
-  });
+  state.unsubscribe = handle.subscribe(state);
   return state;
 }
 

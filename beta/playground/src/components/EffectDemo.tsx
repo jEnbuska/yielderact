@@ -17,9 +17,9 @@ import { $effect, $state } from "yract-beta";
 function* Timer() {
   const [tick, setTick] = yield* $state(0);
 
-  yield* $effect((signal) => {
+  yield* $effect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
-    signal.addEventListener("abort", () => clearInterval(id));
+    return () => clearInterval(id);
   }, []);
 
   return (
@@ -32,13 +32,10 @@ function* Timer() {
 function* LifecycleLog({ id }: { id: number }) {
   const [log, setLog] = yield* $state<string[]>([]);
 
-  yield* $effect(
-    (signal) => {
-      setLog((prev) => [...prev, `▶ effect for id=${id}`]);
-      signal.addEventListener("abort", () => setLog((prev) => [...prev, `■ aborted for id=${id}`]));
-    },
-    [id],
-  );
+  yield* $effect(() => {
+    setLog((prev) => [...prev, `▶ effect for id=${id}`]);
+    return () => setLog((prev) => [...prev, `■ aborted for id=${id}`]);
+  }, [id]);
 
   return (
     <ul data-testid="lifecycle-log" style={{ fontFamily: "monospace", fontSize: "0.85rem" }}>

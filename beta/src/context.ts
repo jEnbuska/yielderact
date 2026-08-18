@@ -4,6 +4,7 @@ import { randomId } from "./general";
 import { jsx } from "./jsx-runtime";
 import type { ContextMap } from "./render/types";
 import type { ComponentGenerator } from "./general-types";
+import type { ContextHookState } from "./hooks/context";
 
 export interface ContextProps<T = unknown> {
   key?: string;
@@ -18,7 +19,8 @@ export type Context<T = any> = ContextProperties<T> & {
 
 export type ContextProperties<T> = {
   ref: { current: T };
-  subscribe: (cb: () => void) => () => void;
+  version: number;
+  subscribe: (state: ContextHookState) => () => void;
   depth: number;
   id: string;
   Provider: Component<ContextProps<T>>;

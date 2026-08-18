@@ -62,7 +62,8 @@ export function createStateSetter(
     if (instance.rctx.scheduler.rendering) {
       throw new HookRuleError(
         instance,
-        'Was calling "setState" during component render!\n"setState" should only be called from events and by $effects\'s',
+        `Was calling "setState" during <${instance.rctx.scheduler.rendering}> component render!
+"setState" should only be called from events and by $effects's`,
       );
     }
     const nextValue = resolveNextValue(newValue, state.pendingValue);

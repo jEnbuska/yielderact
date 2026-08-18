@@ -1,6 +1,6 @@
 import type { ComponentGenerator, DraftBy } from "../general-types";
 import { $state } from "./state";
-import type { Children, Component } from "../jsx";
+import type { Child, Children, Component } from "../jsx";
 import { Fragment, jsx } from "../jsx-runtime";
 import { $stable } from "./stable";
 import type { ContextProperties } from "../context";
@@ -15,7 +15,9 @@ import { $EFFECT } from "./descriptors";
 import { $effect } from "./effect";
 import { $ref } from "./ref";
 
-export function* $defer(): ComponentGenerator<[Component<{ children: Children }>, boolean]> {
+export function* $defer(): ComponentGenerator<
+  [Component<{ children: Children; initial?: Child }>, boolean]
+> {
   const [isDeferring, setDeferring] = yield* $state(false);
   return [
     yield* $stable(function* Deferred({ children }) {
@@ -36,8 +38,6 @@ export function* $defer(): ComponentGenerator<[Component<{ children: Children }>
 const staticId = "defer";
 
 export const DeferContext = createContext<boolean>(false, "Defer");
-
-export const DeferredDebounce = createContext<[Component<any>, number][]>([], "DeferredDebounce");
 DeferContext.id = staticId;
 
 type DeferProps = {
@@ -71,6 +71,7 @@ class DeferFiber extends ComponentFiber<DeferProps> {
     ns: TagNamespace,
   ) {
     const context: ContextProperties<boolean> = {
+      version: 0,
       ref: {
         current: false,
       },

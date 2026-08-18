@@ -10,7 +10,7 @@ import type { ComponentGenerator, DependencyList } from "../general-types";
  * If `fn` returns a function, it is called on next run or on unmount.
  */
 export function* $effect(
-  fn: (signal: AbortSignal) => void | Promise<void>,
+  fn: () => void | (() => void),
   deps: DependencyList = [],
 ): ComponentGenerator<void> {
   yield { type: $EFFECT, fn, deps } satisfies EffectDescriptor;
@@ -47,12 +47,14 @@ export function effectResolver(state: HookState) {
   if (!state.controller) {
     const controller = new AbortController();
     state.controller = controller;
-    void state.fn(controller.signal);
+    const cleanup = state.fn();
+    if (cleanup) controller.signal.onabort = () => cleanup();
   } else if (state.dirty) {
     state.controller.abort();
     const controller = new AbortController();
     state.controller = controller;
     state.dirty = false;
-    void state.fn(controller.signal);
+    const cleanup = state.fn();
+    if (cleanup) controller.signal.onabort = () => cleanup();
   }
 }

@@ -6,7 +6,6 @@
  * across all columns (datalist-style filtering).
  */
 import { $defer, $effect, $memo, $ref, $stable, $state, ComponentProps } from "yract-beta";
-import { DeferredDebounce } from "../../../src/hooks/defer";
 
 /* ── Data generation ── */
 
@@ -85,7 +84,7 @@ function generateRows(count: number): Row[] {
   return rows;
 }
 
-const TOTAL_ROWS = 100_000;
+const TOTAL_ROWS = 10_000;
 const ALL_ROWS = generateRows(TOTAL_ROWS);
 
 function* TableData({ children }: ComponentProps<"td">) {
@@ -99,6 +98,7 @@ const formatter = new Intl.DateTimeFormat("fi", {
   minute: "2-digit",
   second: "2-digit",
 });
+
 function* TableRow({ row }: { row: Row }) {
   const mounted = yield* $ref(new Date());
   const renders = yield* $ref(0);
@@ -111,6 +111,7 @@ function* TableRow({ row }: { row: Row }) {
     }
     setEffected(true);
   });
+
   renders.current++;
   if (renders.current > 2) {
     throw new Error("DSADSASDSAD");
@@ -215,23 +216,16 @@ function* Example({
               City
             </div>
             <div role={"columnheader"} style={{ padding: "0.5rem", textAlign: "center" }}>
-              Mounted
+              Mounted at
             </div>
             <div role={"columnheader"} style={{ padding: "0.5rem", textAlign: "center" }}>
-              Renders
+              Total renders
             </div>
           </div>
         </div>
         <div style={{ position: "relative", opacity: deferring ? "0.5" : "1" }}>
           <Defer>
-            <DeferredDebounce
-              value={[
-                [TableBody, 150],
-                [TableRow, 100],
-              ]}
-            >
-              <TableBody rows={sortedRows} />
-            </DeferredDebounce>
+            <TableBody rows={sortedRows} />
           </Defer>
         </div>
       </div>
@@ -254,10 +248,11 @@ function* TableBody({ rows }: { rows: Row[] }) {
           gridTemplateColumns: "1fr 1fr 1fr 1fr 1fr",
           borderBottomColor: "black",
           borderBottomWidth: "2px",
+          fontWeight: "bold",
         }}
         role="row"
       >
-        <TableData>{"Details"}</TableData>
+        <TableData>{"Table body"}</TableData>
         <div role={"cell"}>{"-"}</div>
         <TableData>{"-"}</TableData>
         <TableData style={{ textAlign: "center" }}>
@@ -284,10 +279,15 @@ export function* DeferredDemo() {
       if (!query) {
         return result;
       }
-      const lower = query.toLowerCase();
-      return result.filter((row) => {
-        const combined = `${row.name} ${row.id} ${row.department} ${row.city}`;
-        return combined.toLowerCase().includes(lower);
+      const lower = query
+        .toLowerCase()
+        .split(" ")
+        .map((word) => word.trim())
+        .filter(Boolean);
+
+      return result.filter(({ name, id, department, city }) => {
+        const combined = `${name} ${id} ${department} ${city}`.toLowerCase();
+        return lower.every((word) => combined.includes(word));
       });
     },
     [search],
@@ -301,14 +301,14 @@ export function* DeferredDemo() {
   });
 
   const [ticks, setTicks] = yield* $state([{ id: "a", tick: Date.now() }]);
-  yield* $effect((signal) => {
+  yield* $effect(() => {
     const handle = setInterval(() => {
       setTicks((prev) => [
         ...prev.slice(Math.max(0, prev.length - 100)),
         { id: `${Math.random()}`, tick: Date.now() },
       ]);
     }, 100);
-    signal.onabort = () => clearInterval(handle);
+    return () => clearInterval(handle);
   });
   const start = yield* $ref(Date.now());
 

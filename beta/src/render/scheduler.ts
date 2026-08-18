@@ -1,17 +1,18 @@
 import type { ComponentFiber } from "../instances/component-fiber";
 import { createResolvable } from "../create-resolvable";
-import { $CONTEXT, $EFFECT, $STATE } from "../hooks/descriptors";
+import { $EFFECT, $STATE } from "../hooks/descriptors";
 import { effectResolver } from "../hooks/effect";
 import { stateResolver } from "../hooks/state";
 import { insertBefore, moveSlot, removeSlotNodes } from "../reconciler/dom-updates";
 import { updateElementProps } from "./element-props";
-import type { Component } from "yract-beta";
 
 function insertSorted(groups: Group, instance: ComponentFiber): void {
   const { depth } = instance;
   const { members } = groups;
-  if (members.has(instance)) return;
-  members.add(instance);
+  const scheduled = members.get(instance);
+  if (scheduled) return;
+  members.set(instance, true);
+  if (scheduled === false) return;
   const { queues } = groups;
   while (queues.length <= depth) {
     queues.push([]);
@@ -25,40 +26,37 @@ function last<T>(array: T[]): T {
 
 const SLICE_MS = 20;
 
-type Group = {
-  queues: Array<Array<ComponentFiber>>;
-  members: Set<ComponentFiber>;
+type Group<T extends ComponentFiber = ComponentFiber> = {
+  queues: Array<Array<T>>;
+  members: Map<T, boolean>;
 };
 
 function createPrimaryRenderResolvable(): PromiseWithResolvers<void> & { subscribed: boolean } {
   return Object.assign(createResolvable(), { subscribed: false });
 }
 
-function copyRuleset<K, V>(map: [K, V][]): Map<K, V> {
-  return new Map<K, V>(map);
-}
 export class Scheduler {
-  private _rendering = false;
+  private _rendering = "";
   get rendering() {
     return this._rendering;
   }
 
-  private readonly primaryRenderGroup: Group = { queues: [], members: new Set() };
+  private readonly primaryRenderGroup: Group = { queues: [], members: new Map() };
   // TODO Create and other queue for primary context updates
-  private readonly secondaryRenderGroup: Group = { queues: [], members: new Set() };
+  private readonly secondaryRenderGroup: Group = { queues: [], members: new Map() };
 
-  private readonly tertiaryRenderGroup: Group = { queues: [], members: new Set() };
+  private readonly tertiaryRenderGroup: Group = { queues: [], members: new Map() };
 
   private readonly syncParentsWithUnmounted = new Set<ComponentFiber>();
   private readonly deferredParentsWithUnmounted = new Set<ComponentFiber>();
 
-  private readonly uiSyncGroup: Group = { queues: [], members: new Set() };
-  private readonly uiDeferredGroup: Group = { queues: [], members: new Set() };
+  private readonly uiSyncGroup: Group = { queues: [], members: new Map() };
+  private readonly uiDeferredGroup: Group = { queues: [], members: new Map() };
 
-  private readonly effectSyncGroup: Group = { queues: [], members: new Set() };
-  private readonly effectDeferredGroup: Group = { queues: [], members: new Set() };
+  private readonly effectSyncGroup: Group = { queues: [], members: new Map() };
+  private readonly effectDeferredGroup: Group = { queues: [], members: new Map() };
 
-  private resolveGroup: Group = { queues: [], members: new Set() };
+  private resolveGroup: Group = { queues: [], members: new Map() };
 
   private batchDepth = 0;
 
@@ -72,9 +70,7 @@ export class Scheduler {
   }
 
   scheduleRender(instance: ComponentFiber, deferred = instance.isDeferred()): void {
-    //console.log("SCHEDULING", instance.component.name, deferred);
     if (deferred) {
-      throw new Error(`DEFERRED SCHEDULE ${instance.component.name}`);
       insertSorted(this.secondaryRenderGroup, instance);
       this.tertiaryRenderGroup.members.delete(instance);
     } else {
@@ -113,6 +109,10 @@ export class Scheduler {
     this.resolvable.resolve();
   }
 
+  unscheduleResolve(instance: ComponentFiber): void {
+    this.resolveGroup.members.delete(instance);
+  }
+
   scheduleUiUpdate(instance: ComponentFiber, deferred = instance.isDeferred()): void {
     if (deferred) insertSorted(this.uiDeferredGroup, instance);
     else insertSorted(this.uiSyncGroup, instance);
@@ -121,10 +121,6 @@ export class Scheduler {
   unscheduleUiUpdate(instance: ComponentFiber, deferred = instance.isDeferred()): void {
     if (deferred) this.uiDeferredGroup.members.delete(instance);
     else this.uiSyncGroup.members.delete(instance);
-  }
-
-  unscheduleResolve(instance: ComponentFiber): void {
-    this.resolveGroup.members.delete(instance);
   }
 
   beginBatch = () => {
@@ -151,6 +147,7 @@ export class Scheduler {
   private run = async (): Promise<void> => {
     while (true) {
       this.workYieldDeadline = Date.now() + SLICE_MS;
+
       const {
         uiSyncGroup,
         uiDeferredGroup,
@@ -162,7 +159,6 @@ export class Scheduler {
         syncParentsWithUnmounted,
         deferredParentsWithUnmounted,
       } = this;
-
       while (
         primaryRenderGroup.members.size ||
         secondaryRenderGroup.members.size ||
@@ -182,7 +178,8 @@ export class Scheduler {
       Scheduler.applyUiActions(uiDeferredGroup);
       secondaryRenderGroup.members.clear();
       const { resolveGroup } = this;
-      this.resolveGroup = { members: new Set(), queues: [] };
+      this.resolveGroup = { members: new Map(), queues: [] };
+
       Scheduler.unmountParentsUnmountedChildren(deferredParentsWithUnmounted);
       Scheduler.precessEffects(effectDeferredGroup);
       Scheduler.processStates(resolveGroup);
@@ -212,25 +209,25 @@ export class Scheduler {
   }
 
   private renderFiber(next: ComponentFiber) {
-    this._rendering = true;
+    this._rendering = next.component.name;
     next.render();
-    this._rendering = false;
+    this._rendering = "";
   }
 
   private processPrimaryRenderGroups() {
-    console.log("process primary");
     const { members, queues } = this.primaryRenderGroup;
     while (members.size) {
       const group = last(queues);
+
       if (!group.length) queues.pop();
       while (group.length) {
         const next = group.pop()!;
-        //console.log("PROCESS", next.component.name);
         if (!members.delete(next)) continue;
         if (next.isUnmounted()) {
           this.cleanupInstancesSchedules(next, false);
           continue;
         }
+
         this.renderFiber(next);
       }
     }
@@ -238,10 +235,8 @@ export class Scheduler {
   }
 
   private async processSecondaryRenderGroups() {
-    console.log("process second");
     const { members: primaryMembers } = this.primaryRenderGroup;
     const { members, queues } = this.secondaryRenderGroup;
-    const debounceRuleSets: Map<[Component, number][], Map<Component, number>> = new Map();
     while (members.size) {
       const group = last(queues);
       if (!group.length) {
@@ -251,31 +246,15 @@ export class Scheduler {
       while (group.length) {
         if (primaryMembers.size) return;
         const next = group.pop()!;
-        if (!members.delete(next)) continue;
+        const scheduled = members.get(next);
+        if (scheduled === undefined) continue;
+        members.delete(next);
+        if (!scheduled) continue;
         if (next.isUnmounted()) {
           insertSorted(this.tertiaryRenderGroup, next);
           continue;
         }
         if (!next.isDeferred()) return this.scheduleRender(next);
-        const ruleset = debounceRuleSets.getOrInsertComputed(
-          next.getDebounceRuleSet(),
-          copyRuleset,
-        );
-        const debounce = ruleset.get(next.component);
-        if (debounce !== undefined) {
-          ruleset.delete(next.component);
-          const { promise, resolve } = createResolvable<void>();
-          setTimeout(resolve, debounce);
-          this.primaryRenderResolvable.subscribed = true;
-          await Promise.race([promise, this.primaryRenderResolvable.promise]);
-          this.primaryRenderResolvable.subscribed = false;
-          if (primaryMembers.size) {
-            group.push(next);
-            members.add(next);
-            return;
-          }
-          this.workYieldDeadline = Date.now() + SLICE_MS;
-        }
         this.renderFiber(next);
         await this.checkAwait();
       }
@@ -284,11 +263,9 @@ export class Scheduler {
   }
 
   private async processTertiaryRenderGroups() {
-    console.log("process tertiary");
     const { members: primaryMembers } = this.primaryRenderGroup;
     const { members: secondaryMembers } = this.secondaryRenderGroup;
     const { members, queues } = this.tertiaryRenderGroup;
-    const debounceRuleSets: Map<[Component, number][], Map<Component, number>> = new Map();
     while (members.size) {
       const group = last(queues);
       if (!group.length) {
@@ -304,26 +281,6 @@ export class Scheduler {
           continue;
         }
         if (!next.isDeferred()) return this.scheduleRender(next);
-        const ruleset = debounceRuleSets.getOrInsertComputed(
-          next.getDebounceRuleSet(),
-          copyRuleset,
-        );
-        const debounce = ruleset.get(next.component);
-        if (debounce !== undefined) {
-          ruleset.delete(next.component);
-          const { promise, resolve } = createResolvable<void>();
-          setTimeout(resolve, debounce);
-          this.primaryRenderResolvable.subscribed = true;
-          await Promise.race([promise, this.primaryRenderResolvable.promise]);
-          console.log("debounced", debounce);
-          this.primaryRenderResolvable.subscribed = false;
-          if (primaryMembers.size || secondaryMembers.size) {
-            group.push(next);
-            members.add(next);
-            return;
-          }
-          this.workYieldDeadline = Date.now() + SLICE_MS;
-        }
         this.renderFiber(next);
         await this.checkAwait();
       }
@@ -378,30 +335,30 @@ export class Scheduler {
 
     if (hookStates) {
       for (const state of hookStates) {
-        if (state.type === $EFFECT) {
-          state.controller?.abort();
-        } else if (state.type === $CONTEXT) {
-          state.unsubscribe?.();
-        } else if (state.type === $STATE) {
-          state.pendingResolve = undefined;
+        switch (state.type) {
+          case $EFFECT:
+            state.controller?.abort();
+            break;
+          case $STATE:
+            state.pendingResolve = undefined;
+            break;
         }
       }
     }
   }
 
   private static precessEffects({ queues, members }: Group) {
-    members.clear();
     for (let i = queues.length - 1; i >= 0; i--) {
       const group = queues[i]!;
       for (const next of group) {
         if (next.unmounted) continue;
-        //if (!members.has(instance)) continue;
-        next.mounted = true;
+        if (!members.get(next)) continue;
         next.effectReasons?.clear();
         next.hookStates?.forEach(effectResolver);
       }
       group.length = 0;
     }
+    members.clear();
   }
 
   private static applyUiActions({ queues, members }: Group) {

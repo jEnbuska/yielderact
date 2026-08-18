@@ -62,7 +62,7 @@ export interface EffectHookState {
   type: typeof $EFFECT;
   deps: DependencyList;
   identifier: symbol;
-  fn: (signal: AbortSignal) => void | Promise<void>;
+  fn: () => void | (() => void);
   controller?: AbortController;
   dirty?: boolean;
 }

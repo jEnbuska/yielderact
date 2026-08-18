@@ -6,7 +6,6 @@
  * $patch) are intentionally absent.
  */
 import { $effect, $state, createRoot } from "yract-beta";
-import { AbortSignalEffectDemo } from "./components/AbortSignalEffectDemo";
 import { ContextDemo } from "./components/ContextDemo";
 import { Counter } from "./components/Counter";
 import { EffectDemo } from "./components/EffectDemo";
@@ -28,7 +27,6 @@ const tabs = [
   { id: "effect", label: "$effect" },
   { id: "context", label: "Context Scoping" },
   { id: "lazy-ctx", label: "Lazy Context" },
-  { id: "abort-signal", label: "AbortSignal Effect" },
   { id: "key-shuffle", label: "Key Shuffle" },
   { id: "deferred", label: "Defer Table" },
   { id: "slots", label: "Slots" },
@@ -36,9 +34,9 @@ const tabs = [
 
 type Tab = (typeof tabs)[number]["id"];
 
+const tabIds = tabs.map((tab) => tab.id);
 function getInitialTab(): Tab {
   const tab = localStorage.getItem("tab");
-  const tabIds = tabs.map((tab) => tab.id);
   if (tabIds.includes(tab as Tab)) {
     return tab as Tab;
   }
@@ -96,7 +94,6 @@ function* App() {
         <EffectDemo shown={activeTab === "effect"} />
         <ContextDemo shown={activeTab === "context"} />
         <LazyContextDemo shown={activeTab === "lazy-ctx"} />
-        <AbortSignalEffectDemo shown={activeTab === "abort-signal"} />
         <KeyShuffleDemo shown={activeTab === "key-shuffle"} />
         <DeferredDemo shown={activeTab === "deferred"} />
         <SlotsDemo shown={activeTab === "slots"} />

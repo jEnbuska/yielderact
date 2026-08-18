@@ -10,7 +10,7 @@ import type { AnyElement, TagNamespace } from "../render/elements/namespaces";
 import type { DependencyList, DraftBy } from "../general-types";
 import { depsChanged, shallowEqual, stripFrameworkProps } from "../general";
 import { runHooks } from "../hooks/utils";
-import { DeferContext, DeferredDebounce } from "../hooks/defer";
+import { DeferContext } from "../hooks/defer";
 
 export class ComponentFiber<TProps extends Record<string, unknown> = Record<string, any>> {
   public rendered: boolean | undefined = undefined;
@@ -71,10 +71,6 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     return resolveContext(this.ctx, DeferContext);
   }
 
-  getDebounceRuleSet() {
-    return resolveContext(this.ctx, DeferredDebounce);
-  }
-
   scheduleRender(reason: symbol, deferred?: boolean): void {
     this.renderReasons.add(reason);
     this.rctx.scheduler.scheduleRender(this, deferred);
@@ -114,7 +110,6 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     }
     const generator = this.component(this.props);
     const child = runHooks(generator, this);
-
     if (!this.slot) {
       this.pendingSlot = mountFiberChildren(this, child);
     } else {
@@ -128,7 +123,6 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
         if (instance.unmount()) {
           scheduleUnmount = true;
         } else {
-          console.log("not rendered");
           unmountInstances.delete(instance.path);
         }
       }

@@ -163,7 +163,6 @@ export function draftToIntent(draft: Draft, key: string, index: number, parentPa
   return same;
 }
 export function childToIntent(child: NonNullable<Child>): Intent {
-  child ??= "";
   if (typeof child !== "object") {
     return asTextIntent(`${child}`, 0, getTextSlotKey(0), "");
   }
