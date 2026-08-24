@@ -58,8 +58,6 @@ export class Scheduler {
 
   private resolveGroup: Group = { queues: [], members: new Map() };
 
-  private batchDepth = 0;
-
   private resolvable = createResolvable();
   private primaryRenderResolvable = createPrimaryRenderResolvable();
 
@@ -122,15 +120,6 @@ export class Scheduler {
     if (deferred) this.uiDeferredGroup.members.delete(instance);
     else this.uiSyncGroup.members.delete(instance);
   }
-
-  beginBatch = () => {
-    this.batchDepth++;
-  };
-
-  endBatch = () => {
-    this.batchDepth--;
-    if (this.batchDepth === 0) void this.resolvable.resolve();
-  };
 
   awaitChannel = new MessageChannel();
   private async checkAwait(): Promise<void> {

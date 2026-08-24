@@ -1,15 +1,6 @@
 import type { ContextProperties } from "../context";
 import type { ContextHookState } from "../hooks/context";
-import type {
-  $$BATCH,
-  $EFFECT,
-  $ID,
-  $MEMO,
-  $REF,
-  $STABLE,
-  $STATE,
-  $WEAK_REF,
-} from "../hooks/descriptors";
+import type { $EFFECT, $ID, $MEMO, $REF, $STABLE, $STATE, $WEAK_REF } from "../hooks/descriptors";
 import type { DelegationRoot } from "./delegation";
 import type { Scheduler } from "./scheduler";
 import type { DependencyList } from "yract-beta";
@@ -67,11 +58,6 @@ export interface EffectHookState {
   dirty?: boolean;
 }
 
-export interface BatchHookState {
-  type: typeof $$BATCH;
-  value: <T>(callback: () => T) => Awaited<T>;
-}
-
 export type HookState =
   | StateHookState
   | RefHookState
@@ -80,5 +66,4 @@ export type HookState =
   | StableHookState
   | EffectHookState
   | ContextHookState
-  | BatchHookState
   | WeakRefHookState;

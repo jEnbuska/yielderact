@@ -1,5 +1,5 @@
 import { resolveContext } from "../context";
-import type { Component } from "../jsx";
+import type { Child, Component } from "../jsx";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
 import type { UIAction } from "../reconciler/actions";
 import { mountFiberChildren, reconcileFiberChildren } from "../reconciler/reconciler";
@@ -13,6 +13,7 @@ import { runHooks } from "../hooks/utils";
 import { DeferContext } from "../hooks/defer";
 
 export class ComponentFiber<TProps extends Record<string, unknown> = Record<string, any>> {
+  public halted: boolean = false;
   public rendered: boolean | undefined = undefined;
   public readonly ns: TagNamespace;
   public preparedSlots: Map<string, Slot> | undefined;
@@ -40,6 +41,7 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
   protected propsPrepared = false;
   readonly headNode: Comment;
   readonly tailNode: Comment;
+  prevChild?: Child;
 
   deps?: DependencyList;
 
@@ -103,7 +105,6 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
   }
 
   render() {
-    this.rendered = true;
     if (!this.propsPrepared) {
       this.props = stripFrameworkProps<any>(this.props);
       this.propsPrepared = true;
@@ -115,6 +116,7 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     } else {
       this.pendingSlot = reconcileFiberChildren(this, child);
     }
+    this.prevChild = child;
     const { unmountInstances, rctx } = this;
     const { scheduler } = rctx;
     if (unmountInstances?.size) {
@@ -140,6 +142,7 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
       scheduler.unscheduleUiUpdate(this);
     }
     this.renderReasons.clear();
+    this.rendered = true;
   }
 
   unmount(): boolean | undefined {

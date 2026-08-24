@@ -1,6 +1,7 @@
 import type { Context } from "../context";
 
 import type { DependencyList } from "yract-beta";
+import type { Child } from "../jsx";
 
 export const $STATE = "$STATE" as const;
 export const $REF = "$REF" as const;
@@ -10,20 +11,12 @@ export const $MEMO = "$MEMO" as const;
 export const $STABLE = "$STABLE" as const;
 export const $EFFECT = "$EFFECT" as const;
 export const $CONTEXT = "$CONTEXT" as const;
-export const $$BATCH = "$$BATCH" as const;
+export const $$AWAIT = "$$AWAIT" as const;
+export const $$RENDER = "$$RENDER" as const;
+export const $$HALT = "$$HALT" as const;
+export const $$INERT = "$$INERT" as const;
 
-export type HookType =
-  | typeof $STATE
-  | typeof $REF
-  | typeof $ID
-  | typeof $MEMO
-  | typeof $STABLE
-  | typeof $EFFECT
-  | typeof $WEAK_REF
-  | typeof $CONTEXT
-  | typeof $$BATCH;
-
-export const HOOK_TYPES: ReadonlySet<HookType> = new Set<HookType>([
+const hookTypes = [
   $STATE,
   $REF,
   $ID,
@@ -31,9 +24,16 @@ export const HOOK_TYPES: ReadonlySet<HookType> = new Set<HookType>([
   $STABLE,
   $EFFECT,
   $CONTEXT,
-  $$BATCH,
   $WEAK_REF,
-]);
+  $$AWAIT,
+  $$RENDER,
+  $$HALT,
+  $$INERT,
+] as const;
+
+export type HookType = (typeof hookTypes)[number];
+
+export const HOOK_TYPES: ReadonlySet<HookType> = new Set<HookType>(hookTypes);
 
 export interface StateDescriptor {
   type: typeof $STATE;
@@ -78,8 +78,24 @@ export interface ContextDescriptor {
   transform?: (...args: unknown[]) => unknown;
 }
 
-export interface BatchDescriptor {
-  type: typeof $$BATCH;
+export interface AwaitDescriptor {
+  type: typeof $$AWAIT;
+  promise: Promise<any>;
+  initial?: Child;
+}
+
+export interface RenderDescriptor {
+  type: typeof $$RENDER;
+  child: Child;
+}
+
+export interface HaltDescriptor {
+  type: typeof $$HALT;
+  initialFallback?: Child;
+}
+
+export interface InertDescriptor {
+  type: typeof $$INERT;
 }
 
 export type HookDescriptor =
@@ -91,4 +107,7 @@ export type HookDescriptor =
   | StableDescriptor
   | EffectDescriptor
   | ContextDescriptor
-  | BatchDescriptor;
+  | AwaitDescriptor
+  | RenderDescriptor
+  | HaltDescriptor
+  | InertDescriptor;

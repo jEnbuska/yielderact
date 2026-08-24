@@ -26,7 +26,7 @@ export class Root {
     this.container = container;
     this.scheduler = new Scheduler();
     this.delegationRoot = new DelegationRoot(container, (native, name) =>
-      dispatchDelegatedEvent(native, container, name, this.scheduler),
+      dispatchDelegatedEvent(native, container, name),
     );
     this.rctx = {
       container,

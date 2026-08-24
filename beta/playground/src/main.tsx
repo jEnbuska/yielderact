@@ -17,6 +17,7 @@ import { ThemeDemo } from "./components/ThemeDemo";
 import { TodoList } from "./components/TodoList";
 import { DeferredDemo } from "./components/DeferredDemo";
 import { SlotsDemo } from "./components/SlotsDemo";
+import { AwaitDemo } from "./components/AwaitDemo";
 
 const tabs = [
   { id: "counter", label: "Counter" },
@@ -30,6 +31,7 @@ const tabs = [
   { id: "key-shuffle", label: "Key Shuffle" },
   { id: "deferred", label: "Defer Table" },
   { id: "slots", label: "Slots" },
+  { id: "await", label: "Await" },
 ] as const;
 
 type Tab = (typeof tabs)[number]["id"];
@@ -97,6 +99,7 @@ function* App() {
         <KeyShuffleDemo shown={activeTab === "key-shuffle"} />
         <DeferredDemo shown={activeTab === "deferred"} />
         <SlotsDemo shown={activeTab === "slots"} />
+        <AwaitDemo shown={activeTab === "await"} />
       </div>
     </div>
   );

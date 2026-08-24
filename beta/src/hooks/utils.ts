@@ -19,7 +19,10 @@ import type { ComponentFiber } from "../instances/component-fiber";
 import type { HookState } from "../render/types";
 import { getContextValue, processContext } from "./context";
 import {
-  $$BATCH,
+  $$AWAIT,
+  $$HALT,
+  $$INERT,
+  $$RENDER,
   $CONTEXT,
   $EFFECT,
   $ID,
@@ -136,27 +139,74 @@ function processOneDescriptor(
     }
   }
 }
+
+const awaited = new WeakMap<Promise<any>, { data?: any; error?: any; loading: boolean }>();
+const awaiting = new WeakMap<Promise<any>, Set<ComponentFiber>>();
 export function runHooks(gen: ComponentGenerator<any>, instance: ComponentFiber): Child {
   let hookIndex = 0;
   let step = gen.next();
   if (step.done) return step.value;
   instance.hookStates ??= [];
+  instance.halted = false;
   while (!step.done) {
     const value = step.value;
     if (!isHookDescriptor(value)) {
+      setupSkippedHookCleanups(instance, hookIndex);
       return value as Child;
     }
     switch (value.type) {
-      case $$BATCH: {
-        const batch = async <T>(callback: () => T): Promise<T> => {
-          try {
-            instance.rctx.scheduler.beginBatch();
-            return await callback();
-          } finally {
-            instance.rctx.scheduler.endBatch();
+      case $$INERT: {
+        let inert = false;
+        let { parent } = instance;
+        while (parent) {
+          if (parent.halted) {
+            inert = true;
+            break;
           }
-        };
-        step = gen.next(batch);
+          parent = parent.parent;
+        }
+        step = gen.next(inert);
+        break;
+      }
+      case $$HALT: {
+        instance.halted = true;
+        if (!instance.rendered) return value.initialFallback;
+        setupSkippedHookCleanups(instance, hookIndex);
+        return instance.prevChild;
+      }
+      case $$RENDER: {
+        setupSkippedHookCleanups(instance, hookIndex);
+        return value.child;
+      }
+      case $$AWAIT: {
+        const { promise } = value;
+        if (awaited.has(promise)) {
+          step = gen.next(awaited.get(promise));
+          break;
+        }
+        if (!awaiting.has(promise)) {
+          awaited.set(promise, { loading: true });
+          awaiting.set(promise, new Set());
+          promise
+            .then((data) => {
+              awaited.set(promise, { data, error: undefined, loading: false });
+            })
+            .catch((error) => {
+              awaited.set(promise, { data: undefined, error, loading: false });
+            })
+            .finally(() => {
+              const resolveSymbol = Symbol("RESOLVED");
+              [...awaiting.get(promise)!].forEach((inst) => {
+                inst.scheduleRender(resolveSymbol);
+              });
+              awaiting.delete(promise);
+            });
+        }
+        const instances = awaiting.get(promise)!;
+        if (!instances.has(instance)) {
+          instances.add(instance);
+        }
+        step = gen.next({ loading: true });
         break;
       }
       default: {
@@ -167,5 +217,37 @@ export function runHooks(gen: ComponentGenerator<any>, instance: ComponentFiber)
       }
     }
   }
+  setupSkippedHookCleanups(instance, hookIndex);
   return step.value;
+}
+
+function setupSkippedHookCleanups(instance: ComponentFiber, hookIndex: number) {
+  const hookStates = instance.hookStates!;
+  if (hookIndex >= hookStates.length) return;
+  for (let i = hookIndex; i < hookStates.length; i++) {
+    const hook = hookStates[i]!;
+    switch (hook.type) {
+      case $EFFECT:
+        hook.dirty = true;
+        hook.fn = () => {};
+        break;
+      case $CONTEXT:
+        hook.unsubscribe?.();
+    }
+  }
+
+  instance.scheduleEffect(Symbol("BREAK"));
+
+  const controller = new AbortController();
+  hookStates.push({
+    controller,
+    dirty: true,
+    type: $EFFECT,
+    fn: () => {},
+    deps: [],
+    identifier: Symbol("CLEANUP"),
+  });
+  controller.signal.onabort = () => {
+    hookStates.splice(hookIndex);
+  };
 }
