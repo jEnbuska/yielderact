@@ -1,5 +1,6 @@
 import type { WeakRefHookState } from "../render/types";
-import { $WEAK_REF } from "./descriptors";
+
+import { $WEAK_REF } from "./constants";
 
 /** @internal */
 export function processWeakRef(prev?: WeakRefHookState): WeakRefHookState {

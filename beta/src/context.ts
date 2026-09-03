@@ -20,6 +20,7 @@ export type Context<T = any> = ContextProperties<T> & {
 export type ContextProperties<T> = {
   ref: { current: T };
   version: number;
+  name: string;
   subscribe: (state: ContextHookState) => () => void;
   depth: number;
   id: string;
@@ -48,6 +49,7 @@ export function createContext(...args: any[]): any {
     subscribe: () => () => {},
     depth: -1,
     id: randomId(),
+    name: `${name}Context`,
     Provider: withProvider[providerName],
   } as any;
 }

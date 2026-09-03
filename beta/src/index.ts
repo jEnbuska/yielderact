@@ -4,17 +4,22 @@ export { type Context, type ContextProps, createContext, resolveContext } from "
 
 export type { SEvent, SyntheticEvent } from "./events";
 export {
-  $context,
-  $effect,
+  useContext,
+  useEffect,
   $id,
-  $memo,
-  $ref,
-  $stable,
-  $state,
-  $defer,
+  useMemo,
+  useRef,
+  useStable,
+  useState,
+  useDefer,
   type RefObject,
+  $load,
+  $halted,
+  $halt,
+  getForceUpdate,
 } from "./hooks";
 export {
+  type Child,
   type Children,
   type Component,
   type ComponentProps,

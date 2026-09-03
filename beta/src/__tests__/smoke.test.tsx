@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { $context, $state, createContext, render } from "yract-beta";
+import { createContext, render, useContext, useState } from "yract-beta";
 
 /**
  * Wait for the scheduler to drain. Components mount synchronously but their
@@ -48,7 +48,7 @@ describe("smoke: components", () => {
 
   it("renders state from $state on initial mount", async () => {
     function* Counter() {
-      const [count] = yield* $state(7);
+      const [count] = yield* useState(7);
       return <span data-testid="count">{count}</span>;
     }
 
@@ -64,7 +64,7 @@ describe("smoke: context", () => {
     const ThemeCtx = createContext<"light" | "dark">("light");
 
     function* Badge() {
-      const theme = yield* $context(ThemeCtx);
+      const theme = yield* useContext(ThemeCtx);
       return <span data-testid="badge">{theme}</span>;
     }
 
@@ -83,7 +83,7 @@ describe("smoke: context", () => {
     const LocaleCtx = createContext<"en" | "fi">("en");
 
     function* Locale() {
-      const locale = yield* $context(LocaleCtx);
+      const locale = yield* useContext(LocaleCtx);
       return <span data-testid="locale">{locale}</span>;
     }
 
@@ -97,7 +97,7 @@ describe("smoke: context", () => {
     const ThemeCtx = createContext<"light" | "dark">("light");
 
     function* Badge() {
-      const theme = yield* $context(ThemeCtx);
+      const theme = yield* useContext(ThemeCtx);
       return <span data-testid="badge">{theme}</span>;
     }
 

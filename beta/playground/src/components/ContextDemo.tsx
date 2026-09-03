@@ -8,17 +8,24 @@
  *  4. Cross-subtree isolation: two sibling Providers for the same context
  *     must not interfere with each other.
  */
-import { $state } from "yract-beta";
+import { useState } from "yract-beta";
 import { BothBadge } from "./BothBadge";
-import { type Locale, LocaleCtx, type Theme, ThemeCtx, themeStyles } from "./ContextDemo.shared";
+import {
+  type Locale,
+  LocaleContext,
+  type Theme,
+  ThemeContext,
+  themeStyles,
+} from "./ContextDemo.shared";
 import { LocaleBadge } from "./LocaleBadge";
 import { SiblingProvidersDemo } from "./SiblingProvidersDemo";
 import { StatefulConsumer } from "./StatefulConsumer";
 import { ThemeBadge } from "./ThemeBadge";
 
 export function* ContextDemo() {
-  const [theme, setTheme] = yield* $state<Theme>("light");
-  const [locale, setLocale] = yield* $state<Locale>("en");
+  const [theme, setTheme] = yield* useState<Theme>("light");
+  const [locale, setLocale] = yield* useState<Locale>("en");
+  console.log("locale", locale);
 
   return (
     <section aria-label="Context demo">
@@ -44,8 +51,8 @@ export function* ContextDemo() {
       <p style={{ fontSize: "0.9rem", color: "#555", marginBottom: "0.5rem" }}>
         Theme and Locale are separate contexts. Toggling one must not affect the other.
       </p>
-      <ThemeCtx value={theme}>
-        <LocaleCtx value={locale}>
+      <ThemeContext value={theme}>
+        <LocaleContext value={locale}>
           <div
             data-testid="independent-panel"
             style={{
@@ -58,8 +65,8 @@ export function* ContextDemo() {
             Theme: <ThemeBadge data-testid="theme-badge" /> &nbsp; Locale: <LocaleBadge /> &nbsp;
             Both: <BothBadge />
           </div>
-        </LocaleCtx>
-      </ThemeCtx>
+        </LocaleContext>
+      </ThemeContext>
 
       {/* Part 2: inner Provider shadows outer */}
       <h3>2 - Nested Provider override</h3>
@@ -67,11 +74,11 @@ export function* ContextDemo() {
         The outer theme is <em>{theme}</em>. An inner Provider hard-codes the theme to <em>dark</em>
         . The inner card must always display <em>dark</em>.
       </p>
-      <ThemeCtx value={theme}>
+      <ThemeContext value={theme}>
         <div data-testid="outer-card" style={{ padding: "0.5rem", ...themeStyles[theme] }}>
           <span>Outer card -- theme: </span>
           <ThemeBadge data-testid="outer-theme-badge" />
-          <ThemeCtx value="dark">
+          <ThemeContext value="dark">
             <div
               data-testid="inner-card"
               style={{ marginTop: "0.5rem", padding: "0.5rem", ...themeStyles["dark"] }}
@@ -79,18 +86,18 @@ export function* ContextDemo() {
               <span>Inner card (always dark) -- theme: </span>
               <ThemeBadge data-testid="inner-theme-badge" />
             </div>
-          </ThemeCtx>
+          </ThemeContext>
         </div>
-      </ThemeCtx>
+      </ThemeContext>
 
       {/* Part 3: state preserved across context updates */}
       <h3>3 - State preserved across context updates</h3>
       <p style={{ fontSize: "0.9rem", color: "#555", marginBottom: "0.5rem" }}>
         Increment the counter, then toggle the outer theme. The counter must keep its value.
       </p>
-      <ThemeCtx value={theme}>
+      <ThemeContext value={theme}>
         <StatefulConsumer />
-      </ThemeCtx>
+      </ThemeContext>
 
       {/* Part 4: sibling providers are isolated */}
       <SiblingProvidersDemo />

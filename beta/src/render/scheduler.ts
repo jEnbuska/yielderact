@@ -1,10 +1,10 @@
 import type { ComponentFiber } from "../instances/component-fiber";
 import { createResolvable } from "../create-resolvable";
-import { $EFFECT, $STATE } from "../hooks/descriptors";
 import { effectResolver } from "../hooks/effect";
 import { stateResolver } from "../hooks/state";
 import { insertBefore, moveSlot, removeSlotNodes } from "../reconciler/dom-updates";
 import { updateElementProps } from "./element-props";
+import { $EFFECT, $STATE } from "../hooks/constants";
 
 function insertSorted(groups: Group, instance: ComponentFiber): void {
   const { depth } = instance;
@@ -42,7 +42,6 @@ export class Scheduler {
   }
 
   private readonly primaryRenderGroup: Group = { queues: [], members: new Map() };
-  // TODO Create and other queue for primary context updates
   private readonly secondaryRenderGroup: Group = { queues: [], members: new Map() };
 
   private readonly tertiaryRenderGroup: Group = { queues: [], members: new Map() };
@@ -162,8 +161,6 @@ export class Scheduler {
         await this.processTertiaryRenderGroups();
       }
       Scheduler.setUnmountedChildrenUnmounted(deferredParentsWithUnmounted);
-      const start = Date.now();
-      const show = uiDeferredGroup.members.size;
       Scheduler.applyUiActions(uiDeferredGroup);
       secondaryRenderGroup.members.clear();
       const { resolveGroup } = this;
@@ -172,7 +169,6 @@ export class Scheduler {
       Scheduler.unmountParentsUnmountedChildren(deferredParentsWithUnmounted);
       Scheduler.precessEffects(effectDeferredGroup);
       Scheduler.processStates(resolveGroup);
-      if (show) console.log(Date.now() - start);
       if (
         !primaryRenderGroup.members.size &&
         !secondaryRenderGroup.members.size &&

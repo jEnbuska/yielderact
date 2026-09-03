@@ -1,11 +1,11 @@
-import { $state, Children } from "yract-beta";
+import { Children, useState } from "yract-beta";
 
 function* SlotComponent({ children }: { children: Children[] | Children }) {
   return <span>{children}</span>;
 }
 
 export function* SlotsDemo() {
-  const [renders, rerender] = yield* $state(0);
+  const [renders, rerender] = yield* useState(0);
   return (
     <div>
       <button onClick={() => rerender(renders + 1)}>Rerender</button>

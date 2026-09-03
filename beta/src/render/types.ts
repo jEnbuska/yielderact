@@ -1,9 +1,9 @@
 import type { ContextProperties } from "../context";
 import type { ContextHookState } from "../hooks/context";
-import type { $EFFECT, $ID, $MEMO, $REF, $STABLE, $STATE, $WEAK_REF } from "../hooks/descriptors";
 import type { DelegationRoot } from "./delegation";
 import type { Scheduler } from "./scheduler";
 import type { DependencyList } from "yract-beta";
+import { $EFFECT, $ID, $LOAD, $MEMO, $REF, $STABLE, $STATE, $WEAK_REF } from "../hooks/constants";
 
 export type ContextMap = Map<string, ContextProperties<unknown>>;
 
@@ -58,6 +58,15 @@ export interface EffectHookState {
   dirty?: boolean;
 }
 
+export interface LoadState<T, TError = Error> {
+  type: typeof $LOAD;
+  promise?: Promise<T>;
+  error?: TError;
+  identifier: symbol;
+  data?: T;
+  loading: boolean;
+}
+
 export type HookState =
   | StateHookState
   | RefHookState
@@ -66,4 +75,5 @@ export type HookState =
   | StableHookState
   | EffectHookState
   | ContextHookState
-  | WeakRefHookState;
+  | WeakRefHookState
+  | LoadState<any>;

@@ -5,14 +5,14 @@
  * recreating them, and that component state is preserved
  * across reorders.
  */
-import { $effect, $ref, $state } from "yract-beta";
+import { useEffect, useRef, useState } from "yract-beta";
 
 /* ── Stateful counter item ── */
 
 function* CounterItem({ id, color }: { id: string; color: string }) {
-  const [count, setCount] = yield* $state(0);
-  const renders = yield* $ref(1);
-  yield* $effect(() => {
+  const [count, setCount] = yield* useState(0);
+  const renders = yield* useRef(1);
+  yield* useEffect(() => {
     renders.current++;
   }, [renders.current]);
 
@@ -88,9 +88,9 @@ function shuffle<T>(arr: T[]): T[] {
 /* ── Main demo ── */
 
 export function* KeyShuffleDemo() {
-  const [order, setOrder] = yield* $state(["A", "B", "C"]);
-  const [tagOrder, setTagOrder] = yield* $state(["red", "green", "blue"]);
-  const [elemOrder, setElemOrder] = yield* $state(["first", "second", "third"]);
+  const [order, setOrder] = yield* useState(["A", "B", "C"]);
+  const [tagOrder, setTagOrder] = yield* useState(["red", "green", "blue"]);
+  const [elemOrder, setElemOrder] = yield* useState(["first", "second", "third"]);
 
   return (
     <section aria-label="Key shuffle example">

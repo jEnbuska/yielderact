@@ -1,9 +1,9 @@
-import { $context, $state } from "yract-beta";
-import { ThemeCtx } from "./ContextDemo.shared";
+import { useContext, useState } from "yract-beta";
+import { ThemeContext } from "./ContextDemo.shared";
 
 export function* StatefulConsumer() {
-  const theme = yield* $context(ThemeCtx);
-  const [count, setCount] = yield* $state(0);
+  const theme = yield* useContext(ThemeContext);
+  const [count, setCount] = yield* useState(0);
   return (
     <div data-testid="stateful-consumer" style={{ display: "flex", gap: "0.5rem" }}>
       <span data-testid="stateful-theme">{theme}</span>

@@ -20,4 +20,8 @@ export default defineConfig({
       "yract-beta": path.resolve(__dirname, "../src/index.ts"),
     },
   },
+  test: {
+    globals: true,
+    include: ["src/**/*.test.{ts,tsx}"],
+  },
 });

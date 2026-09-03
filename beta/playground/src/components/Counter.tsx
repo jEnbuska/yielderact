@@ -2,7 +2,7 @@
  * Counter – a component demonstrating stateful rendering with
  * `yield* $state` and returning JSX.
  */
-import { $id, $state } from "yract-beta";
+import { $id, useState } from "yract-beta";
 
 export function* Counter() {
   const decrementId = yield* $id();
@@ -10,7 +10,7 @@ export function* Counter() {
   const incrementId = yield* $id();
   const resetId = yield* $id();
 
-  const [count, setCount] = yield* $state(0);
+  const [count, setCount] = yield* useState(0);
 
   return (
     <section aria-label="Counter example">

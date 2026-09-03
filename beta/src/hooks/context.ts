@@ -1,10 +1,10 @@
 import type { Context } from "../context";
 import type { ComponentFiber } from "../instances/component-fiber";
-import type { ContextDescriptor } from "./descriptors";
-import { $CONTEXT } from "./descriptors";
+import type { ContextDescriptor } from "./types";
 import { getContextReason } from "../render-reasons";
 import { depsChanged } from "../general";
 import type { ComponentGenerator } from "../general-types";
+import { $CONTEXT } from "./constants";
 
 const defaultSelector = (value: unknown): unknown[] => [value];
 
@@ -19,16 +19,16 @@ const defaultSelector = (value: unknown): unknown[] => [value];
  * **Overload 3 — selector + transform:** same rerender guard; the returned
  * value is `transform(...deps)` instead of the raw value.
  */
-export function $context<T>(
+export function useContext<T>(
   ctx: Context<T>,
   depsSelector?: (ctx: T) => unknown[],
 ): ComponentGenerator<T>;
-export function $context<T, const D extends unknown[], R>(
+export function useContext<T, const D extends unknown[], R>(
   ctx: Context<T>,
   depsSelector: (ctx: T) => D,
   transform: (...args: D) => R,
 ): ComponentGenerator<R>;
-export function* $context<T, D extends unknown[], R>(
+export function* useContext<T, D extends unknown[], R>(
   ctx: Context<T>,
   depsSelector: (ctx: T) => D = defaultSelector as (ctx: T) => D,
   transform?: (...args: D) => R,
@@ -105,9 +105,11 @@ export function processContext(
     currentSelected: [],
     callback: () => {
       const current = state.depsSelector(handle!.ref.current);
+
       if (!depsChanged(state.lastRenderedDepsSelected, current)) {
         instance.unscheduleRender(state.reason);
       } else {
+        state.currentSelected = current;
         instance.scheduleRender(state.reason);
       }
     },

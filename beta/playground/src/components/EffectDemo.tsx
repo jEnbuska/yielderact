@@ -12,12 +12,12 @@
  *   2. A log of effect / abort calls to make the lifecycle visible.
  *   3. Toggling the component on/off to observe abort on unmount.
  */
-import { $effect, $state } from "yract-beta";
+import { useEffect, useState } from "yract-beta";
 
 function* Timer() {
-  const [tick, setTick] = yield* $state(0);
+  const [tick, setTick] = yield* useState(0);
 
-  yield* $effect(() => {
+  yield* useEffect(() => {
     const id = setInterval(() => setTick((t) => t + 1), 1000);
     return () => clearInterval(id);
   }, []);
@@ -30,9 +30,9 @@ function* Timer() {
 }
 
 function* LifecycleLog({ id }: { id: number }) {
-  const [log, setLog] = yield* $state<string[]>([]);
+  const [log, setLog] = yield* useState<string[]>([]);
 
-  yield* $effect(() => {
+  yield* useEffect(() => {
     setLog((prev) => [...prev, `▶ effect for id=${id}`]);
     return () => setLog((prev) => [...prev, `■ aborted for id=${id}`]);
   }, [id]);
@@ -47,8 +47,8 @@ function* LifecycleLog({ id }: { id: number }) {
 }
 
 export function* EffectDemo() {
-  const [showTimer, setShowTimer] = yield* $state(true);
-  const [logId, setLogId] = yield* $state(1);
+  const [showTimer, setShowTimer] = yield* useState(true);
+  const [logId, setLogId] = yield* useState(1);
 
   return (
     <section aria-label="$effect demo">

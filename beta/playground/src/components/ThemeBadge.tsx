@@ -1,8 +1,8 @@
-import { $context } from "yract-beta";
-import { ThemeCtx, themeStyles } from "./ContextDemo.shared";
+import { useContext } from "yract-beta";
+import { ThemeContext, themeStyles } from "./ContextDemo.shared";
 
 export function* ThemeBadge(props: { "data-testid"?: string }) {
-  const theme = yield* $context(ThemeCtx);
+  const theme = yield* useContext(ThemeContext);
   const s = themeStyles[theme];
   return (
     <span

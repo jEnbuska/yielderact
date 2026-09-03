@@ -2,34 +2,22 @@ import type { Context } from "../context";
 
 import type { DependencyList } from "yract-beta";
 import type { Child } from "../jsx";
-
-export const $STATE = "$STATE" as const;
-export const $REF = "$REF" as const;
-export const $WEAK_REF = "$WEAK_REF" as const;
-export const $ID = "$ID" as const;
-export const $MEMO = "$MEMO" as const;
-export const $STABLE = "$STABLE" as const;
-export const $EFFECT = "$EFFECT" as const;
-export const $CONTEXT = "$CONTEXT" as const;
-export const $$AWAIT = "$$AWAIT" as const;
-export const $$RENDER = "$$RENDER" as const;
-export const $$HALT = "$$HALT" as const;
-export const $$INERT = "$$INERT" as const;
-
-const hookTypes = [
-  $STATE,
-  $REF,
-  $ID,
-  $MEMO,
-  $STABLE,
-  $EFFECT,
-  $CONTEXT,
-  $WEAK_REF,
-  $$AWAIT,
-  $$RENDER,
+import {
+  $$FORCE_UPDATE,
   $$HALT,
-  $$INERT,
-] as const;
+  $$HALTED,
+  $$RENDER,
+  $CONTEXT,
+  $EFFECT,
+  $ID,
+  $LOAD,
+  $MEMO,
+  $REF,
+  $STABLE,
+  $STATE,
+  $WEAK_REF,
+  hookTypes,
+} from "./constants";
 
 export type HookType = (typeof hookTypes)[number];
 
@@ -78,10 +66,9 @@ export interface ContextDescriptor {
   transform?: (...args: unknown[]) => unknown;
 }
 
-export interface AwaitDescriptor {
-  type: typeof $$AWAIT;
-  promise: Promise<any>;
-  initial?: Child;
+export interface LoadDescriptor {
+  type: typeof $LOAD;
+  promise?: Promise<any>;
 }
 
 export interface RenderDescriptor {
@@ -94,8 +81,11 @@ export interface HaltDescriptor {
   initialFallback?: Child;
 }
 
-export interface InertDescriptor {
-  type: typeof $$INERT;
+export interface HaltedDescriptor {
+  type: typeof $$HALTED;
+}
+export interface ForceUpdateDescriptor {
+  type: typeof $$FORCE_UPDATE;
 }
 
 export type HookDescriptor =
@@ -107,7 +97,8 @@ export type HookDescriptor =
   | StableDescriptor
   | EffectDescriptor
   | ContextDescriptor
-  | AwaitDescriptor
+  | LoadDescriptor
   | RenderDescriptor
   | HaltDescriptor
-  | InertDescriptor;
+  | HaltedDescriptor
+  | ForceUpdateDescriptor;

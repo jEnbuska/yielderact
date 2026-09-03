@@ -5,14 +5,14 @@
  *   2. Selector only -- rerenders only when the selected deps change; returns full value.
  *   3. Selector + transform -- same rerender guard; returns the transformed value.
  */
-import { $state } from "yract-beta";
+import { useState } from "yract-beta";
 import { AppCtx, type AppState } from "./LazyContextDemo.shared";
 import { NoSelectorConsumer } from "./NoSelectorConsumer";
 import { SelectorConsumer } from "./SelectorConsumer";
 import { TransformConsumer } from "./TransformConsumer";
 
 export function* LazyContextDemo() {
-  const [state, setState] = yield* $state<AppState>({
+  const [state, setState] = yield* useState<AppState>({
     user: { name: "Alice", role: "admin" },
     count: 0,
   });

@@ -1,5 +1,5 @@
 import type { Child } from "./jsx";
-import type { HookDescriptor } from "./hooks/descriptors";
+import type { HookDescriptor } from "./hooks/types";
 
 export type DraftBy<T extends Record<PropertyKey, any>, K extends keyof T> = Omit<T, K> & {
   [key in K]: undefined | T[key];

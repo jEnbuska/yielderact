@@ -2,7 +2,7 @@
  * TodoList – a component demonstrating array state management
  * with `yield* $state`.
  */
-import { $id, $state } from "yract-beta";
+import { $id, useState } from "yract-beta";
 
 interface Todo {
   id: number;
@@ -22,7 +22,7 @@ export function* TodoList() {
   const listId = yield* $id();
   const emptyMsgId = yield* $id();
 
-  const [state, setState] = yield* $state<TodoState>({
+  const [state, setState] = yield* useState<TodoState>({
     todos: [],
     nextId: 3,
     inputValue: "",

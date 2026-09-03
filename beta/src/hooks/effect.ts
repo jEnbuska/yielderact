@@ -1,15 +1,16 @@
 import type { EffectHookState, HookState } from "../render/types";
-import { $EFFECT, type EffectDescriptor } from "./descriptors";
+import { type EffectDescriptor } from "./types";
 import type { ComponentFiber } from "../instances/component-fiber";
 import { depsChanged } from "../general";
 import type { ComponentGenerator, DependencyList } from "../general-types";
+import { $EFFECT } from "./constants";
 
 /**
  * Side-effect hook. Runs `fn` after DOM updates, re-runs when deps change.
  * The `fn` receives an `AbortSignal` that is aborted on cleanup.
  * If `fn` returns a function, it is called on next run or on unmount.
  */
-export function* $effect(
+export function* useEffect(
   fn: () => void | (() => void),
   deps: DependencyList = [],
 ): ComponentGenerator<void> {

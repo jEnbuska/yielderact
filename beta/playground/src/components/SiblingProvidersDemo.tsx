@@ -1,8 +1,8 @@
-import { $context, $state } from "yract-beta";
-import { type Theme, ThemeCtx, themeStyles } from "./ContextDemo.shared";
+import { useContext, useState } from "yract-beta";
+import { type Theme, ThemeContext, themeStyles } from "./ContextDemo.shared";
 
 function* SiblingConsumerA() {
-  const theme = yield* $context(ThemeCtx);
+  const theme = yield* useContext(ThemeContext);
   return (
     <span data-testid="sibling-a" style={{ ...themeStyles[theme] }}>
       {theme}
@@ -11,7 +11,7 @@ function* SiblingConsumerA() {
 }
 
 function* SiblingConsumerB() {
-  const theme = yield* $context(ThemeCtx);
+  const theme = yield* useContext(ThemeContext);
   return (
     <span data-testid="sibling-b" style={{ ...themeStyles[theme] }}>
       {theme}
@@ -20,8 +20,8 @@ function* SiblingConsumerB() {
 }
 
 export function* SiblingProvidersDemo() {
-  const [valA, setValA] = yield* $state<Theme>("light");
-  const [valB, setValB] = yield* $state<Theme>("dark");
+  const [valA, setValA] = yield* useState<Theme>("light");
+  const [valB, setValB] = yield* useState<Theme>("dark");
 
   return (
     <div>
@@ -44,22 +44,22 @@ export function* SiblingProvidersDemo() {
         </button>
       </div>
       <div style={{ display: "flex", gap: "1rem" }}>
-        <ThemeCtx value={valA}>
+        <ThemeContext value={valA}>
           <div
             data-testid="sibling-panel-a"
             style={{ padding: "0.5rem", border: "1px solid #ccc" }}
           >
             Subtree A: <SiblingConsumerA />
           </div>
-        </ThemeCtx>
-        <ThemeCtx value={valB}>
+        </ThemeContext>
+        <ThemeContext value={valB}>
           <div
             data-testid="sibling-panel-b"
             style={{ padding: "0.5rem", border: "1px solid #ccc" }}
           >
             Subtree B: <SiblingConsumerB />
           </div>
-        </ThemeCtx>
+        </ThemeContext>
       </div>
     </div>
   );

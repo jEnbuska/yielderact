@@ -6,7 +6,7 @@
  *  • $ref  – tracks how many times the component has rendered without
  *            triggering a re-render on mutation.
  */
-import { $id, $memo, $ref, $state } from "yract-beta";
+import { $id, useMemo, useRef, useState } from "yract-beta";
 
 const FRUITS = [
   "Apple",
@@ -27,16 +27,16 @@ export function* HooksShowcase() {
   // $id: stable unique ID used to associate the <label> with the <input>
   const inputId = yield* $id();
 
-  const [query, setQuery] = yield* $state("");
+  const [query, setQuery] = yield* useState("");
 
   // $ref: mutable counter that persists across renders without causing them
-  const renderCount = yield* $ref(0);
+  const renderCount = yield* useRef(0);
   renderCount.current += 1;
 
   // $memo: deps are forwarded as arguments to the factory — `searchQuery`
   // receives the current value of `query` and the list only recomputes when
   // the query changes (yract's unique dep-forwarding behaviour).
-  const filtered = yield* $memo(
+  const filtered = yield* useMemo(
     (searchQuery: string) =>
       FRUITS.filter((fruit) => fruit.toLowerCase().includes(searchQuery.toLowerCase())),
     [query],

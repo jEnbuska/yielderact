@@ -1,20 +1,21 @@
 import type { MemoHookState } from "../render/types";
-import { $MEMO, type MemoDescriptor } from "./descriptors";
+import { type MemoDescriptor } from "./types";
 
 import { depsChanged } from "../general";
 import type { ComponentGenerator, DependencyList } from "../general-types";
+import { $MEMO } from "./constants";
 
 /**
  * Memoized value hook. Re-computes only when deps change.
  * Dependency values are forwarded as arguments to the factory.
  */
 
-export function $memo<T, Deps extends [unknown, ...unknown[]]>(
+export function useMemo<T, Deps extends [unknown, ...unknown[]]>(
   fn: (...args: Deps) => T,
   deps: [...Deps],
 ): ComponentGenerator<T>;
-export function $memo<T>(fn: () => T, deps?: DependencyList): ComponentGenerator<T>;
-export function* $memo<T>(
+export function useMemo<T>(fn: () => T, deps?: DependencyList): ComponentGenerator<T>;
+export function* useMemo<T>(
   fn: (...args: unknown[]) => T,
   deps: DependencyList = [],
 ): ComponentGenerator<T> {

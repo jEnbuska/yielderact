@@ -18,23 +18,7 @@
 import type { ComponentFiber } from "../instances/component-fiber";
 import type { HookState } from "../render/types";
 import { getContextValue, processContext } from "./context";
-import {
-  $$AWAIT,
-  $$HALT,
-  $$INERT,
-  $$RENDER,
-  $CONTEXT,
-  $EFFECT,
-  $ID,
-  $MEMO,
-  $REF,
-  $STABLE,
-  $STATE,
-  $WEAK_REF,
-  HOOK_TYPES,
-  type HookDescriptor,
-  type HookType,
-} from "./descriptors";
+import { HOOK_TYPES, type HookDescriptor, type HookType } from "./types";
 import { processEffect } from "./effect";
 import { processId } from "./id";
 import { processMemo } from "./memo";
@@ -45,6 +29,22 @@ import { processWeakRef } from "./weakRef";
 import type { Child } from "../jsx";
 import type { ComponentGenerator } from "../general-types";
 import { HookRuleError } from "./HookRuleError";
+import { processLoad } from "./load";
+import {
+  $$FORCE_UPDATE,
+  $$HALT,
+  $$HALTED,
+  $$RENDER,
+  $CONTEXT,
+  $EFFECT,
+  $ID,
+  $LOAD,
+  $MEMO,
+  $REF,
+  $STABLE,
+  $STATE,
+  $WEAK_REF,
+} from "./constants";
 
 /** True when `value` looks like a yielded hook descriptor. */
 function isHookDescriptor(value: unknown): value is HookDescriptor {
@@ -131,6 +131,12 @@ function processOneDescriptor(
       hookStates[hookIndex] = state;
       return getContextValue(state, instance);
     }
+    case $LOAD: {
+      const prev = getTypedPrev(hookStates, hookIndex, $LOAD, instance);
+      const state = processLoad(instance, descriptor, prev);
+      hookStates[hookIndex] = state;
+      return state;
+    }
     default: {
       const _exhaustive: never = descriptor;
       throw new Error(
@@ -140,8 +146,6 @@ function processOneDescriptor(
   }
 }
 
-const awaited = new WeakMap<Promise<any>, { data?: any; error?: any; loading: boolean }>();
-const awaiting = new WeakMap<Promise<any>, Set<ComponentFiber>>();
 export function runHooks(gen: ComponentGenerator<any>, instance: ComponentFiber): Child {
   let hookIndex = 0;
   let step = gen.next();
@@ -150,64 +154,37 @@ export function runHooks(gen: ComponentGenerator<any>, instance: ComponentFiber)
   instance.halted = false;
   while (!step.done) {
     const value = step.value;
+
     if (!isHookDescriptor(value)) {
       setupSkippedHookCleanups(instance, hookIndex);
       return value as Child;
     }
     switch (value.type) {
-      case $$INERT: {
-        let inert = false;
-        let { parent } = instance;
-        while (parent) {
-          if (parent.halted) {
-            inert = true;
-            break;
-          }
-          parent = parent.parent;
-        }
-        step = gen.next(inert);
+      case $$FORCE_UPDATE: {
+        step = gen.next(() => instance.scheduleRender(Symbol("FORCE_UPDATE")));
+        break;
+      }
+      case $$HALTED: {
+        step = gen.next({
+          get current(): boolean {
+            let parent: ComponentFiber | null = instance;
+            while (parent) {
+              if (parent.halted) return true;
+              parent = parent.parent;
+            }
+            return false;
+          },
+        });
         break;
       }
       case $$HALT: {
         instance.halted = true;
         if (!instance.rendered) return value.initialFallback;
-        setupSkippedHookCleanups(instance, hookIndex);
         return instance.prevChild;
       }
       case $$RENDER: {
         setupSkippedHookCleanups(instance, hookIndex);
         return value.child;
-      }
-      case $$AWAIT: {
-        const { promise } = value;
-        if (awaited.has(promise)) {
-          step = gen.next(awaited.get(promise));
-          break;
-        }
-        if (!awaiting.has(promise)) {
-          awaited.set(promise, { loading: true });
-          awaiting.set(promise, new Set());
-          promise
-            .then((data) => {
-              awaited.set(promise, { data, error: undefined, loading: false });
-            })
-            .catch((error) => {
-              awaited.set(promise, { data: undefined, error, loading: false });
-            })
-            .finally(() => {
-              const resolveSymbol = Symbol("RESOLVED");
-              [...awaiting.get(promise)!].forEach((inst) => {
-                inst.scheduleRender(resolveSymbol);
-              });
-              awaiting.delete(promise);
-            });
-        }
-        const instances = awaiting.get(promise)!;
-        if (!instances.has(instance)) {
-          instances.add(instance);
-        }
-        step = gen.next({ loading: true });
-        break;
       }
       default: {
         const result = processOneDescriptor(value, hookIndex, instance);

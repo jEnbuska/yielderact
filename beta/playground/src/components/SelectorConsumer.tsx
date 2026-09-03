@@ -1,12 +1,12 @@
-import { $context, $ref } from "yract-beta";
+import { useContext, useRef } from "yract-beta";
 import { AppCtx } from "./LazyContextDemo.shared";
 import { RenderBadge } from "./RenderBadge";
 
 export function* SelectorConsumer() {
-  const renderCount = yield* $ref(0);
+  const renderCount = yield* useRef(0);
   renderCount.current++;
 
-  const ctx = yield* $context(AppCtx, (c) => [c.user.name]);
+  const ctx = yield* useContext(AppCtx, (c) => [c.user.name]);
 
   return (
     <div

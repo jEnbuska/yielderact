@@ -1,8 +1,8 @@
 import type { ComponentGenerator, DraftBy } from "../general-types";
-import { $state } from "./state";
+import { useState } from "./state";
 import type { Child, Children, Component } from "../jsx";
 import { Fragment, jsx } from "../jsx-runtime";
-import { $stable } from "./stable";
+import { useStable } from "./stable";
 import type { ContextProperties } from "../context";
 import { createContext, resolveContext } from "../context";
 import { ComponentFiber } from "../instances/component-fiber";
@@ -11,22 +11,23 @@ import type { ComponentSlotType, Slot } from "../slots/slot";
 import type { ContextMap, RenderContext } from "../render/types";
 import type { TagNamespace } from "../render/elements/namespaces";
 import { MOUNT_REASON } from "../render-reasons";
-import { $EFFECT } from "./descriptors";
-import { $effect } from "./effect";
-import { $ref } from "./ref";
+import { useEffect } from "./effect";
+import { useRef } from "./ref";
+import { $EFFECT } from "./constants";
 
-export function* $defer(): ComponentGenerator<
-  [Component<{ children: Children; initial?: Child }>, boolean]
-> {
-  const [isDeferring, setDeferring] = yield* $state(false);
+export function* useDefer(config?: {
+  disabled?: boolean;
+}): ComponentGenerator<[Component<{ children: Children; initial?: Child }>, boolean]> {
+  const [isDeferring, setDeferring] = yield* useState(false);
   return [
-    yield* $stable(function* Deferred({ children }) {
-      const mounted = yield* $ref(false);
-      yield* $effect(() => {
+    yield* useStable(function* Deferred({ children }) {
+      const mounted = yield* useRef(false);
+      yield* useEffect(() => {
         mounted.current = true;
       });
       return jsx(Defer, {
         children,
+        ...config,
         mounted: mounted.current,
         setDeferring,
       });
@@ -43,6 +44,7 @@ DeferContext.id = staticId;
 type DeferProps = {
   setDeferring: (deferring: boolean) => unknown;
   mounted: boolean;
+  disabled?: boolean;
 };
 
 class DeferFiber extends ComponentFiber<DeferProps> {
@@ -90,7 +92,7 @@ class DeferFiber extends ComponentFiber<DeferProps> {
   }
 
   override render() {
-    const deferred = (this.context.ref.current = this.isDeferred());
+    const deferred = (this.context.ref.current = this.props.disabled ? false : this.isDeferred());
     super.render();
     this.prepareAfterDeferredRender();
     void this.notifyDeferring(deferred);
@@ -115,7 +117,7 @@ class DeferFiber extends ComponentFiber<DeferProps> {
   }
 
   override isDeferred(): boolean {
-    if (this.props.mounted) return true;
+    if (this.props.mounted && !this.props.disabled) return true;
     return resolveContext(this.parent?.ctx, DeferContext);
   }
 }

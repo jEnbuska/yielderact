@@ -5,87 +5,19 @@
  * column and search by the first column or a combined text search
  * across all columns (datalist-style filtering).
  */
-import { $defer, $effect, $memo, $ref, $stable, $state, ComponentProps } from "yract-beta";
+import {
+  ComponentProps,
+  useDefer,
+  useEffect,
+  useMemo,
+  useRef,
+  useStable,
+  useState,
+} from "yract-beta";
+import { getPersonRows } from "../global-state";
+import { PersonRow } from "../types";
 
 /* ── Data generation ── */
-
-const FIRST_NAMES = [
-  "Alice",
-  "Bob",
-  "Carol",
-  "Dave",
-  "Eve",
-  "Frank",
-  "Grace",
-  "Hank",
-  "Iris",
-  "Jack",
-  "Kate",
-  "Leo",
-  "Mona",
-  "Nick",
-  "Olga",
-  "Pete",
-  "Quinn",
-  "Rita",
-  "Sam",
-  "Tina",
-  "Uma",
-  "Vic",
-  "Wendy",
-  "Xena",
-  "Yuri",
-  "Zara",
-];
-
-const DEPARTMENTS = [
-  "Engineering",
-  "Sales",
-  "Marketing",
-  "Support",
-  "Finance",
-  "Legal",
-  "HR",
-  "Design",
-  "Operations",
-  "Research",
-];
-
-const CITIES = [
-  "Helsinki",
-  "Berlin",
-  "London",
-  "Paris",
-  "Tokyo",
-  "New York",
-  "Sydney",
-  "Toronto",
-  "Mumbai",
-  "Seoul",
-];
-
-interface Row {
-  id: string;
-  name: string;
-  department: string;
-  city: string;
-}
-
-function generateRows(count: number): Row[] {
-  const rows: Row[] = [];
-  for (let i = 0; i < count; i++) {
-    rows.push({
-      id: `${i}`,
-      name: FIRST_NAMES[i % FIRST_NAMES.length]!,
-      department: DEPARTMENTS[i % DEPARTMENTS.length]!,
-      city: CITIES[i % CITIES.length]!,
-    });
-  }
-  return rows;
-}
-
-const TOTAL_ROWS = 10_000;
-const ALL_ROWS = generateRows(TOTAL_ROWS);
 
 function* TableData({ children }: ComponentProps<"td">) {
   return <div role={"cell"}>{children}</div>;
@@ -99,12 +31,12 @@ const formatter = new Intl.DateTimeFormat("fi", {
   second: "2-digit",
 });
 
-function* TableRow({ row }: { row: Row }) {
-  const mounted = yield* $ref(new Date());
-  const renders = yield* $ref(0);
-  const effects = yield* $ref(0);
-  const [effected, setEffected] = yield* $state(false);
-  yield* $effect(() => {
+function* TableRow({ row }: { row: PersonRow }) {
+  const mounted = yield* useRef(new Date());
+  const renders = yield* useRef(0);
+  const effects = yield* useRef(0);
+  const [effected, setEffected] = yield* useState(false);
+  yield* useEffect(() => {
     effects.current++;
     if (effects.current > 1) {
       throw new Error("dsadsa");
@@ -151,13 +83,13 @@ function* Example({
   onSort,
   search: _,
 }: {
-  rows: Row[];
+  rows: readonly PersonRow[];
   sortDir: SortDir;
   onSort: () => void;
   search: string;
 }) {
   const sortLabel = sortDir === "asc" ? " ▲" : sortDir === "desc" ? " ▼" : "";
-  const sortedRows = yield* $memo(() => {
+  const sortedRows = yield* useMemo(() => {
     return rows.toSorted((a, b) => {
       let cmp: number;
       if (a.name === b.name) {
@@ -168,7 +100,7 @@ function* Example({
       return sortDir === "asc" ? cmp : -cmp;
     });
   }, [sortDir, rows]);
-  const [Defer, deferring] = yield* $defer();
+  const [Defer, deferring] = yield* useDefer();
   return (
     <div
       style={{
@@ -233,9 +165,9 @@ function* Example({
   );
 }
 
-function* TableBody({ rows }: { rows: Row[] }) {
-  const mounted = yield* $ref(new Date());
-  const renders = yield* $ref(0);
+function* TableBody({ rows }: { rows: readonly PersonRow[] }) {
+  const mounted = yield* useRef(new Date());
+  const renders = yield* useRef(0);
   renders.current++;
 
   return (
@@ -270,12 +202,14 @@ function* TableBody({ rows }: { rows: Row[] }) {
 /* ── Main demo ── */
 
 export function* DeferredDemo() {
-  const [search, setSearch] = yield* $state("");
-  const [sortDir, setSortDir] = yield* $state<SortDir>("asc");
+  const [search, setSearch] = yield* useState("");
+  const [sortDir, setSortDir] = yield* useState<SortDir>("asc");
 
-  const filtered = yield* $memo(
+  const rows = getPersonRows();
+
+  const filtered = yield* useMemo(
     (query: string) => {
-      let result = ALL_ROWS;
+      let result = rows;
       if (!query) {
         return result;
       }
@@ -293,15 +227,15 @@ export function* DeferredDemo() {
     [search],
   );
 
-  const updateSortDir = yield* $stable(() => {
+  const updateSortDir = yield* useStable(() => {
     setSortDir((dir) => {
       if (dir === "desc") return "asc";
       return "desc";
     }).then(() => console.log("SORTED"));
   });
 
-  const [ticks, setTicks] = yield* $state([{ id: "a", tick: Date.now() }]);
-  yield* $effect(() => {
+  const [ticks, setTicks] = yield* useState([{ id: "a", tick: Date.now() }]);
+  yield* useEffect(() => {
     const handle = setInterval(() => {
       setTicks((prev) => [
         ...prev.slice(Math.max(0, prev.length - 100)),
@@ -310,11 +244,11 @@ export function* DeferredDemo() {
     }, 100);
     return () => clearInterval(handle);
   });
-  const start = yield* $ref(Date.now());
+  const start = yield* useRef(Date.now());
 
   return (
     <section aria-label="Deferred table example">
-      <h2>Deferred Table ({TOTAL_ROWS} rows)</h2>
+      <h2>Deferred Table ({rows.length} rows)</h2>
       <p>Tick {ticks[ticks.length - 1].tick}</p>
       <p>
         Wrapping the table in <code>&lt;Deferred&gt;</code> keeps the input responsive while 5 000
@@ -338,7 +272,7 @@ export function* DeferredDemo() {
           }}
         />
         <span data-testid="row-count" style={{ fontSize: "0.85rem", color: "#666" }}>
-          {filtered.length} / {ALL_ROWS.length} rows
+          {filtered.length} / {rows.length} rows
         </span>
       </div>
       <Example rows={filtered} sortDir={sortDir} onSort={updateSortDir} search={search} />
@@ -377,7 +311,7 @@ type TickChartProps = {
   entries: Array<{ tick: number; id: string }>;
 };
 export function* TickChart({ entries, width = 1080, height = 300, start }: TickChartProps) {
-  const points = yield* $memo(() => {
+  const points = yield* useMemo(() => {
     if (entries.length < 2) return [];
     const out = [];
     for (let i = 1; i < entries.length; i++) {

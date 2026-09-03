@@ -1,11 +1,12 @@
 import { createResolvable } from "../create-resolvable";
 import type { ComponentFiber } from "../instances/component-fiber";
 import type { HookState, StateHookState } from "../render/types";
-import { $STATE, type StateDescriptor } from "./descriptors";
+import { type StateDescriptor } from "./types";
 import { getStateReason } from "../render-reasons";
 import { depsChanged } from "../general";
 import type { ComponentGenerator, DependencyList } from "../general-types";
 import { HookRuleError } from "./HookRuleError";
+import { $STATE } from "./constants";
 
 /**
  * Persistent state hook.
@@ -16,7 +17,7 @@ import { HookRuleError } from "./HookRuleError";
  *   return <button onClick={() => setCount((c) => c + 1)}>{count}</button>;
  * }
  */
-export function* $state<T>(
+export function* useState<T>(
   initialValue: T | (() => T),
   deps: DependencyList = [],
 ): ComponentGenerator<[T, (value: T | ((prev: T) => T)) => Promise<void>]> {

@@ -23,6 +23,7 @@ export class ContextFiber extends ComponentFiber<{ value: unknown }> {
     super(intent, ctx, parent, rctx, parentDom, ns);
     const { context, props } = intent;
     this.context = {
+      name: context.name,
       version: 0,
       ref: {
         current: props["value"],
@@ -43,9 +44,11 @@ export class ContextFiber extends ComponentFiber<{ value: unknown }> {
 
   override render() {
     const { value } = this.props;
+    const prevValue = this.context.ref.current;
+
     this.context.ref.current = value; // Should this be after Object.is(...) ?
     super.render();
-    if (Object.is(value, this.context.ref.current)) return;
+    if (Object.is(prevValue, this.context.ref.current)) return;
     this.context.version++;
     this.subscribers.forEach((sub) => sub.callback?.());
   }

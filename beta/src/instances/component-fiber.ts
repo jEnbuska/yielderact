@@ -19,7 +19,7 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
   public preparedSlots: Map<string, Slot> | undefined;
 
   unmounted: boolean | undefined = undefined;
-  readonly component: Component;
+  readonly component: Component<any>;
   readonly depth: number;
   readonly parent: ComponentFiber | null;
   parentDom: Node;

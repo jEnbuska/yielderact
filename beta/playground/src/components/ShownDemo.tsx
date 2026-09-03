@@ -7,14 +7,14 @@
  *  2. Component – a stateful counter toggled via `shown`; the
  *     counter resets to zero each time it is re-mounted.
  */
-import { $state } from "yract-beta";
+import { useState } from "yract-beta";
 
 // ---------------------------------------------------------------------------
 // Sub-components used in the demo
 // ---------------------------------------------------------------------------
 
 function* StatefulCounter() {
-  const [count, setCount] = yield* $state(0);
+  const [count, setCount] = yield* useState(0);
 
   return (
     <div
@@ -46,8 +46,8 @@ function* StatefulCounter() {
 // ---------------------------------------------------------------------------
 
 export function* ShownDemo() {
-  const [showElement, setShowElement] = yield* $state(true);
-  const [showGenerator, setShowGenerator] = yield* $state(true);
+  const [showElement, setShowElement] = yield* useState(true);
+  const [showGenerator, setShowGenerator] = yield* useState(true);
 
   return (
     <section aria-label="shown prop demo">

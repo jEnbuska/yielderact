@@ -18,7 +18,7 @@ export interface PropsWithChildren {
   children: Children;
 }
 
-export type Component<P extends Record<string, any> = Record<string, unknown>> = (
+export type Component<P extends Record<string, any> = Record<string, never>> = (
   props: P,
 ) => ComponentGenerator;
 
@@ -38,7 +38,7 @@ declare global {
       children: Record<string, never>;
     }
     type LibraryManagedAttributes<_C, P> = "children" extends keyof P
-      ? Omit<P, "children"> & { children: P["children"] }
+      ? Omit<P, "children"> & { children?: P["children"] }
       : P;
   }
 }

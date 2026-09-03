@@ -1,7 +1,8 @@
 import type { IdHookState } from "../render/types";
-import { $ID, type IdDescriptor } from "./descriptors";
+import { type IdDescriptor } from "./types";
 
 import type { ComponentGenerator } from "../general-types";
+import { $ID } from "./constants";
 
 let idCounter = 0;
 
