@@ -15,8 +15,9 @@ export {
   type RefObject,
   $load,
   $halted,
-  $halt,
-  getForceUpdate,
+  requireHalt,
+  $render,
+  requireForceUpdate,
 } from "./hooks";
 export {
   type Child,

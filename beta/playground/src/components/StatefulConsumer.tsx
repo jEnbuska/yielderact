@@ -1,5 +1,5 @@
 import { useContext, useState } from "yract-beta";
-import { ThemeContext } from "./ContextDemo.shared";
+import { ThemeContext } from "../contexts";
 
 export function* StatefulConsumer() {
   const theme = yield* useContext(ThemeContext);

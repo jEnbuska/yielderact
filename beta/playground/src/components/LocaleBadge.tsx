@@ -1,5 +1,5 @@
 import { useContext } from "yract-beta";
-import { LocaleContext } from "./ContextDemo.shared";
+import { LocaleContext } from "../contexts";
 
 export function* LocaleBadge() {
   const locale = yield* useContext(LocaleContext);

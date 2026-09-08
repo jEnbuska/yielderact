@@ -1,4 +1,4 @@
-import { IndexRoute, Load, Loader, Route, RouteComponent, RouteParams } from "./types";
+import { IndexRoute, Load, Loader, PathRoute, RouteComponent, RouteParams } from "./types";
 import { getParamEntries, getSegments, shallowEquals } from "./utils";
 
 type OngoingLoad = { controller: AbortController; promise: Promise<unknown> };
@@ -6,9 +6,6 @@ type PendingLoad<TSearch, TArgs> = {
   load: Load<TSearch, TArgs, any, any>;
   controller: AbortController;
   deps: any;
-  params: RouteParams<string>;
-  search: TSearch;
-  hash: string;
 };
 export class PreparedRoute<TSearch = any, TArgs = any> {
   static #resolvedPromises = new WeakMap<Promise<unknown>, any>();
@@ -28,24 +25,32 @@ export class PreparedRoute<TSearch = any, TArgs = any> {
   #lastDeps: Array<Record<string, any> | undefined> = [];
 
   constructor(
-    route: Route<TSearch, TArgs> | IndexRoute<TSearch, TArgs>,
+    route: PathRoute<TSearch, TArgs> | IndexRoute<TSearch, TArgs>,
     args: TArgs,
     segments: string[] = [],
   ) {
     this.index = !!route.index;
     const path = route.index ? "/" : route.path;
     this.segments = [...segments, ...getSegments(path)];
-    this.match = `/${segments.filter(Boolean).join("/")}`;
+    this.match = `/${this.segments.filter(Boolean).join("/")}`;
     const children = route.index ? [] : (route.children ?? []);
     this.children = children.map(
-      (child) => new PreparedRoute<TSearch, TArgs>(child, args, segments),
+      (child) => new PreparedRoute<TSearch, TArgs>(child, args, this.segments),
     );
-    this.#component = route.component;
+    const component = (this.#component = route.component);
     const { loaders = [] } = route;
+
+    if (typeof component === "object") {
+      loaders.push({
+        load: () => {
+          return component.lazy().then((Component) => (this.#component = Component));
+        },
+      });
+    }
     this.#loaders = loaders;
     const paramIndexes: number[] = [];
-    this.#staged = new Array(loaders.length).fill(undefined);
-    this.#lastDeps = new Array(loaders.length).fill(undefined);
+    this.#staged = new Array(loaders.length).fill({ undefined });
+    this.#lastDeps = new Array(loaders.length).fill({ [Symbol("never")]: undefined });
     this.#ongoing = new Array(loaders.length).fill(undefined);
     this.#args = args;
     const paramNames: string[] = [];
@@ -83,30 +88,36 @@ export class PreparedRoute<TSearch = any, TArgs = any> {
   load(args: { pathname: string; hash: string; search: TSearch }) {
     const { pathname, hash, search } = args;
     const params = this.#getParams(pathname);
+    this.#stagePromises(params, search, hash);
+    return this.#resolvePromises(params, search, hash);
+  }
+
+  #stagePromises(
+    params: Readonly<Record<string, string | undefined>>,
+    search: TSearch,
+    hash: string,
+  ) {
     const depsArgs = { params, search, hash, args: this.#args };
     for (let i = 0; i < this.#loaders.length; i++) {
       const loader = this.#loaders[i];
       const deps = loader.loaderDeps?.(depsArgs) ?? depsArgs;
       if (shallowEquals(deps, this.#lastDeps[i])) continue;
       this.#lastDeps[i] = deps;
-      this.#staged[i]?.controller.abort();
+      this.#staged[i]?.controller?.abort();
       this.#staged[i] = {
         load: loader.load,
         deps,
         controller: new AbortController(),
-        hash,
-        search,
-        params,
       };
     }
-    return this.#resolvePromises();
   }
 
-  #resolvePromises() {
+  #resolvePromises(
+    params: Readonly<Record<string, string | undefined>>,
+    search: TSearch,
+    hash: string,
+  ) {
     const promises: Array<Promise<unknown>> = [];
-    if (typeof this.#component === "object") {
-      promises.push(this.#component.lazy().then((Component) => (this.#component = Component)));
-    }
     for (let i = 0; i < this.#staged.length; i++) {
       const pending = this.#staged[i];
       this.#staged[i] = undefined;
@@ -119,7 +130,7 @@ export class PreparedRoute<TSearch = any, TArgs = any> {
       }
       if (ongoing) ongoing.controller.abort();
       this.#ongoing[i] = undefined;
-      const { load, controller, deps, hash, params, search } = pending;
+      const { load, controller, deps } = pending;
       const promise = load({
         deps,
         controller,

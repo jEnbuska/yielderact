@@ -1,6 +1,5 @@
 import { Component } from "yract-beta";
 
-type Cause = "enter" | "stay";
 export type Load<
   TSearch,
   TArgs = undefined,
@@ -26,28 +25,20 @@ export type Loader<
     hash?: string;
     args: TArgs;
   }) => TDeps;
-  shouldReload?: (args: {
-    deps: TDeps;
-    params: RouteParams<TParams>;
-    search: TSearch;
-    hash: string;
-    cause: "enter" | "stay";
-    args: TArgs;
-  }) => boolean;
   load: Load<TSearch, TArgs, TParams, TDeps>;
 };
 export type LazyComponent = { lazy: () => Promise<Component> };
 export type RouteComponent = Component | LazyComponent;
 
-export type Route<TSearch = string, TArgs = unknown> = {
+export type PathRoute<TSearch = string, TArgs = unknown> = {
   path: Path;
-  children?: Array<Route<TSearch, TArgs> | IndexRoute<TSearch, TArgs>>;
+  children?: Array<PathRoute<TSearch, TArgs> | IndexRoute<TSearch, TArgs>>;
   index?: undefined | false;
   loaders?: Loader<TSearch, TArgs, any>[];
   component?: RouteComponent;
 };
 
-export type Path<T extends string> = `/${T}`;
+export type Path<T extends string = string> = `/${T}`;
 
 export type RouteParams<TKeys extends string> = Readonly<Record<TKeys, string | undefined>>;
 

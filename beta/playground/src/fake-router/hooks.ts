@@ -1,14 +1,13 @@
 import {
-  $halt,
   Child,
   ComponentGenerator,
-  getForceUpdate,
+  requireForceUpdate,
+  requireHalt,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useStable,
-  useState,
 } from "yract-beta";
 import {
   NavigationStatusContext,
@@ -25,7 +24,6 @@ export function* useCreatePreloadingContext(
   const preloadingCtx = yield* useContext(NavigationStatusContext);
   const { current: subscribers } = yield* useRef(new Set<() => void>());
   const initial = yield* useRef(true);
-  console.log("loading", loading, "unmounted", unmounted);
   const getState = yield* useStable((): PreloadingStatus => {
     if (unmounted) return "UNMOUNTING";
     if (loading) return "UPDATING";
@@ -56,7 +54,7 @@ export function* useCreatePreloadingContext(
 
 export function* useHandleInitialLoad(
   routes: PreparedRoute[],
-  onPreload: Child,
+  onBeforeLoad: Child,
   pathname: string,
   search: any,
   hash: string,
@@ -70,16 +68,14 @@ export function* useHandleInitialLoad(
     Promise<unknown>
   >;
   if (!promises.length) return;
-  const forceUpdate = yield* getForceUpdate();
-  Promise.all(promises).then(() => forceUpdate());
-  yield* $halt(onPreload);
+  Promise.all(promises).then(yield* requireForceUpdate());
+  yield* requireHalt(onBeforeLoad);
 }
-export function* $getLoaderPromise(routes: PreparedRoute[]) {
+export function* useLoadRoute(routes: PreparedRoute[]) {
   const [route, ...rest] = routes;
   const loads = yield* useRef(0);
   const { pathname, search, hash } = yield* useContext(RouteContext);
   const load = route.load({ pathname, hash, search });
-
   if (load) {
     loads.current++;
   }
@@ -94,13 +90,7 @@ export function* $getLoaderPromise(routes: PreparedRoute[]) {
 
 export function* useNavigationStatus() {
   const { getState, subscribe } = yield* useContext(NavigationStatusContext);
-  const [_, setChanges] = yield* useState(0);
-
-  yield* useEffect(() => {
-    return subscribe(() => {
-      console.log("-------Change to:-------", getState());
-      void setChanges((prev) => prev + 1);
-    });
-  });
+  const forceUpdate = yield* requireForceUpdate();
+  yield* useEffect(() => subscribe(forceUpdate));
   return getState();
 }

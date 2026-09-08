@@ -6,6 +6,7 @@
  * across all columns (datalist-style filtering).
  */
 import {
+  $id,
   ComponentProps,
   useDefer,
   useEffect,
@@ -14,8 +15,9 @@ import {
   useStable,
   useState,
 } from "yract-beta";
-import { getPersonRows } from "../global-state";
-import { PersonRow } from "../types";
+import { BreadCrumbs, Crumb, Window, WindowBar, WindowBody } from "../../dos";
+import { getPersonRows } from "../../global-state";
+import { PersonRow } from "../../types";
 
 /* ── Data generation ── */
 
@@ -202,6 +204,7 @@ function* TableBody({ rows }: { rows: readonly PersonRow[] }) {
 /* ── Main demo ── */
 
 export function* DeferredDemo() {
+  const titleId = yield* $id();
   const [search, setSearch] = yield* useState("");
   const [sortDir, setSortDir] = yield* useState<SortDir>("asc");
 
@@ -237,7 +240,7 @@ export function* DeferredDemo() {
   const [ticks, setTicks] = yield* useState([{ id: "a", tick: Date.now() }]);
   yield* useEffect(() => {
     const handle = setInterval(() => {
-      setTicks((prev) => [
+      void setTicks((prev) => [
         ...prev.slice(Math.max(0, prev.length - 100)),
         { id: `${Math.random()}`, tick: Date.now() },
       ]);
@@ -247,37 +250,51 @@ export function* DeferredDemo() {
   const start = yield* useRef(Date.now());
 
   return (
-    <section aria-label="Deferred table example">
-      <h2>Deferred Table ({rows.length} rows)</h2>
-      <p>Tick {ticks[ticks.length - 1].tick}</p>
-      <p>
-        Wrapping the table in <code>&lt;Deferred&gt;</code> keeps the input responsive while 5 000
-        rows re-render. The table fades while deferred.
-      </p>
-      <div
-        style={{ display: "flex", gap: "0.75rem", marginBottom: "0.75rem", alignItems: "center" }}
-      >
-        <input
-          data-testid="search-input"
-          type="text"
-          placeholder="Search all columns..."
-          value={search}
-          onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
-          style={{
-            padding: "0.4rem 0.6rem",
-            borderRadius: "4px",
-            border: "1px solid #ccc",
-            flex: "1",
-            maxWidth: "300px",
-          }}
-        />
-        <span data-testid="row-count" style={{ fontSize: "0.85rem", color: "#666" }}>
-          {filtered.length} / {rows.length} rows
-        </span>
-      </div>
-      <Example rows={filtered} sortDir={sortDir} onSort={updateSortDir} search={search} />
-      <TickChart entries={ticks} start={start.current} />
-    </section>
+    <>
+      <BreadCrumbs label="Location" hint="/deferred">
+        <Crumb>yract-beta</Crumb>
+        <Crumb>Defer Table</Crumb>
+      </BreadCrumbs>
+      <Window labelledBy={titleId}>
+        <WindowBar title="Defer Table" titleId={titleId} aside="/deferred" />
+        <WindowBody>
+          <h2>Deferred Table ({rows.length} rows)</h2>
+          <p>Tick {ticks[ticks.length - 1].tick}</p>
+          <p>
+            Wrapping the table in <code>&lt;Deferred&gt;</code> keeps the input responsive while 5
+            000 rows re-render. The table fades while deferred.
+          </p>
+          <div
+            style={{
+              display: "flex",
+              gap: "0.75rem",
+              marginBottom: "0.75rem",
+              alignItems: "center",
+            }}
+          >
+            <input
+              data-testid="search-input"
+              type="text"
+              placeholder="Search all columns..."
+              value={search}
+              onInput={(e) => setSearch((e.target as HTMLInputElement).value)}
+              style={{
+                padding: "0.4rem 0.6rem",
+                borderRadius: "4px",
+                border: "1px solid #ccc",
+                flex: "1",
+                maxWidth: "300px",
+              }}
+            />
+            <span data-testid="row-count" style={{ fontSize: "0.85rem", color: "#666" }}>
+              {filtered.length} / {rows.length} rows
+            </span>
+          </div>
+          <Example rows={filtered} sortDir={sortDir} onSort={updateSortDir} search={search} />
+          <TickChart entries={ticks} start={start.current} />
+        </WindowBody>
+      </Window>
+    </>
   );
 }
 

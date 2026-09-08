@@ -1,5 +1,5 @@
 import { useContext, useState } from "yract-beta";
-import { type Theme, ThemeContext, themeStyles } from "./ContextDemo.shared";
+import { type Theme, ThemeContext, themeStyles } from "../contexts";
 
 function* SiblingConsumerA() {
   const theme = yield* useContext(ThemeContext);

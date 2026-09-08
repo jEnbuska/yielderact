@@ -10,3 +10,13 @@ export const themeStyles: Record<Theme, { background: string; color: string; bor
   light: { background: "#f9f9f9", color: "#111", border: "1px solid #ccc" },
   dark: { background: "#222", color: "#eee", border: "1px solid #555" },
 };
+
+export type AppState = {
+  user: { name: string; role: string };
+  count: number;
+};
+
+export const AppCtx = createContext<AppState>({
+  user: { name: "Alice", role: "admin" },
+  count: 0,
+});

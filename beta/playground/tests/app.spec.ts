@@ -2,9 +2,9 @@ import { expect, test } from "@playwright/test";
 import { goToApp } from "./helpers";
 
 test.describe("App shell", () => {
-  test("loads and shows the heading", async ({ page }) => {
+  test("loads and shows the shell", async ({ page }) => {
     await goToApp(page);
-    await expect(page.getByTestId("app-heading")).toHaveText("yract-beta playground");
+    await expect(page.getByTestId("app-tablist")).toBeVisible();
     await page.screenshot({ path: "test-results/app-loaded.png" });
   });
 

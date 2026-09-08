@@ -1,5 +1,5 @@
 import { useContext, useRef } from "yract-beta";
-import { AppCtx } from "./LazyContextDemo.shared";
+import { AppCtx } from "../contexts";
 import { RenderBadge } from "./RenderBadge";
 
 export function* TransformConsumer() {

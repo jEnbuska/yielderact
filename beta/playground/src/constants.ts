@@ -9,6 +9,7 @@ type TabKey<T extends string> = Uppercase<DashToUnderscore<T>>;
 function toTabKey<T extends string>(tab: string): TabKey<T> {
   return tab.toUpperCase().replaceAll("-", "_") as TabKey<T>;
 }
+
 export const tabs = [
   { id: "counter", label: "Counter" },
   { id: "todos", label: "Todo List" },
@@ -22,6 +23,7 @@ export const tabs = [
   { id: "deferred", label: "Defer Table" },
   { id: "slots", label: "Slots" },
   { id: "await", label: "Await" },
+  { id: "dos", label: "DOS Kit" },
 ] as const;
 export const tabPaths: Record<TabKey<Tab>, Path<Tab>> = Object.fromEntries(
   Object.values(tabs).map((tab) => [toTabKey(tab.id), `/${tab.id}`]),

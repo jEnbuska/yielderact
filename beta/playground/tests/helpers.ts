@@ -3,7 +3,7 @@ import type { Page } from "@playwright/test";
 /** Navigate to the app and wait for it to be ready. */
 export async function goToApp(page: Page) {
   await page.goto("/");
-  await page.waitForSelector('[data-testid="app-heading"]');
+  await page.waitForSelector('[data-testid="app-tablist"]');
 }
 
 /** Map of tab labels used in tests → their data-testid values. */

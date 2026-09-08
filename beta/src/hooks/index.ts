@@ -8,5 +8,6 @@ export { useState } from "./state";
 export { useDefer } from "./defer";
 export { $load } from "./load";
 export { $halted } from "./halted";
-export { $halt } from "./halt";
-export { getForceUpdate } from "./forceUpdate";
+export { requireHalt } from "./halt";
+export { requireForceUpdate } from "./forceUpdate";
+export { $render } from "./render";
