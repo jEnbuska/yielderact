@@ -63,9 +63,7 @@ export function* BreadCrumbs({ label, hint, children }: BreadCrumbsProps) {
       onKeydown={onKeydown}
     >
       {children}
-      <span className="dos-statusbar__hint" shown={hint !== undefined}>
-        {hint}
-      </span>
+      {!!hint && <span className="dos-statusbar__hint">{hint}</span>}
     </div>
   );
 }

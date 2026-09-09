@@ -15,7 +15,6 @@ export const tabs = [
   { id: "todos", label: "Todo List" },
   { id: "theme", label: "Context / Theme" },
   { id: "hooks", label: "Hooks Showcase" },
-  { id: "shown", label: "shown prop" },
   { id: "effect", label: "$effect" },
   { id: "context", label: "Context Scoping" },
   { id: "lazy-ctx", label: "Lazy Context" },

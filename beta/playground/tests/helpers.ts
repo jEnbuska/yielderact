@@ -14,7 +14,6 @@ const tabIds: Record<string, string> = {
   "Data Fetcher": "tab-data",
   useResolveRaw: "tab-raw",
   "Hooks Showcase": "tab-hooks",
-  "shown prop": "tab-shown",
   useRender: "tab-confirm",
   useEffect: "tab-effect",
   // "UI Patch": "tab-transition", // TODO: Restore when $patch is re-implemented (#163)

@@ -162,29 +162,43 @@ export function draftToIntent(draft: Draft, key: string, index: number, parentPa
   same.index = index;
   return same;
 }
-export function childToIntent(child: NonNullable<Child>): Intent {
-  if (typeof child !== "object") {
-    return asTextIntent(`${child}`, 0, getTextSlotKey(0), "");
+
+function getRenderableChild(child: Child): Exclude<Child, boolean | undefined | null> {
+  switch (child) {
+    case false:
+    case true:
+    case undefined:
+    case null:
+      return "";
+    default:
+      return child;
   }
-  switch (child.type) {
+}
+
+export function childToIntent(child: Child): Intent {
+  let intentChild = getRenderableChild(child);
+  if (typeof intentChild !== "object") {
+    return asTextIntent(`${intentChild}`, 0, getTextSlotKey(0), "");
+  }
+  switch (intentChild.type) {
     case componentSlotType: {
-      child = ensureFreshComponentDraft(child);
-      return draftToIntent(child, getComponentSlotKey(child, 0), 0, "");
+      intentChild = ensureFreshComponentDraft(intentChild);
+      return draftToIntent(intentChild, getComponentSlotKey(intentChild, 0), 0, "");
     }
     case elementSlotType: {
-      child = ensureFreshElementDraft(child);
-      return draftToIntent(child, getElementSlotKey(child, 0), 0, "");
+      child = ensureFreshElementDraft(intentChild);
+      return draftToIntent(intentChild, getElementSlotKey(intentChild, 0), 0, "");
     }
     case fragmentSlotType: {
-      child = ensureFreshFragmentDraft(child);
-      return draftToIntent(child, getFragmentSlotKey(child, 0), 0, "");
+      intentChild = ensureFreshFragmentDraft(intentChild);
+      return draftToIntent(intentChild, getFragmentSlotKey(intentChild, 0), 0, "");
     }
     case contextSlotType: {
-      child = ensureFreshContextDraft(child);
-      return draftToIntent(child, getContextSlotKey(child, 0), 0, "");
+      intentChild = ensureFreshContextDraft(intentChild);
+      return draftToIntent(intentChild, getContextSlotKey(intentChild, 0), 0, "");
     }
     default: {
-      throw new Error(`Invalid child type ${JSON.stringify(child satisfies never)}`);
+      throw new Error(`Invalid child type ${JSON.stringify(intentChild satisfies never)}`);
     }
   }
 }
@@ -196,48 +210,50 @@ export function childrenToIntents(
   if (children.length === 0) return emptyMap;
   const intents = new Map<string, Intent>();
   for (let index = 0; index < children.length; index++) {
-    let child = children[index] ?? "";
+    let child = children[index];
     if (isArrayChildren(child)) {
       const key = getArrayFragmentSlotKey(index);
       intents.set(key, arrayAsFragmentIntent(child, key, index, parentPath));
       continue;
     }
-    if (typeof child !== "object") {
-      const text = `${child}`;
+    let intentChild = getRenderableChild(child);
+    if (typeof intentChild !== "object") {
+      const text = `${intentChild}`;
       const key = getTextSlotKey(index);
       intents.set(key, asTextIntent(text, index, key, parentPath));
       continue;
     }
-    switch (child.type) {
+    switch (intentChild.type) {
       case componentSlotType: {
-        child = ensureFreshComponentDraft(child);
-        const key = getComponentSlotKey(child, index);
-        intents.set(key, draftToIntent(child, key, index, parentPath));
+        intentChild = ensureFreshComponentDraft(intentChild);
+        const key = getComponentSlotKey(intentChild, index);
+        intents.set(key, draftToIntent(intentChild, key, index, parentPath));
         break;
       }
       case elementSlotType: {
-        child = ensureFreshElementDraft(child);
-        const key = getElementSlotKey(child, index);
-        intents.set(key, draftToIntent(child, key, index, parentPath));
+        intentChild = ensureFreshElementDraft(intentChild);
+        const key = getElementSlotKey(intentChild, index);
+        intents.set(key, draftToIntent(intentChild, key, index, parentPath));
         break;
       }
       case fragmentSlotType: {
-        child = ensureFreshFragmentDraft(child);
-        const key = getFragmentSlotKey(child, index);
-        intents.set(key, draftToIntent(child, key, index, parentPath));
+        intentChild = ensureFreshFragmentDraft(intentChild);
+        const key = getFragmentSlotKey(intentChild, index);
+        intents.set(key, draftToIntent(intentChild, key, index, parentPath));
         break;
       }
       case contextSlotType: {
-        child = ensureFreshContextDraft(child);
-        const key = getContextSlotKey(child, index);
-        intents.set(key, draftToIntent(child, key, index, parentPath));
+        intentChild = ensureFreshContextDraft(intentChild);
+        const key = getContextSlotKey(intentChild, index);
+        intents.set(key, draftToIntent(intentChild, key, index, parentPath));
         break;
       }
       default: {
-        throw new Error(`Invalid child type ${JSON.stringify(child satisfies never)}`);
+        throw new Error(`Invalid child type ${JSON.stringify(intentChild satisfies never)}`);
       }
     }
   }
+
   return intents;
 }
 

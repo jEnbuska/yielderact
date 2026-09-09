@@ -16,7 +16,6 @@ test.describe("App shell", () => {
     await expect(page.getByTestId("tab-todos")).toBeVisible();
     await expect(page.getByTestId("tab-theme")).toBeVisible();
     await expect(page.getByTestId("tab-hooks")).toBeVisible();
-    await expect(page.getByTestId("tab-shown")).toBeVisible();
     await expect(page.getByTestId("tab-effect")).toBeVisible();
     await expect(page.getByTestId("tab-context")).toBeVisible();
     await expect(page.getByTestId("tab-lazy-ctx")).toBeVisible();

@@ -13,9 +13,8 @@
  * When `invalid` is set the control points at the error instead of the
  * description, so a screen reader reads the problem rather than the hint.
  */
+import type { Children, PropsWithChildren, SyntheticEvent } from "yract-beta";
 import { $id, useContext } from "yract-beta";
-import type { Children, PropsWithChildren } from "yract-beta";
-import type { SyntheticEvent } from "yract-beta";
 import { FieldContext } from "./contexts";
 
 export interface FieldProps extends PropsWithChildren {
@@ -55,8 +54,9 @@ export function* FieldDescription({ children }: PropsWithChildren) {
 /** Error text. Renders nothing unless its `Field` is marked invalid. */
 export function* FieldError({ children }: PropsWithChildren) {
   const { errorId, invalid } = yield* useContext(FieldContext);
+  if (!invalid) return null;
   return (
-    <p className="dos-error" id={errorId} shown={invalid}>
+    <p className="dos-error" id={errorId}>
       {children}
     </p>
   );

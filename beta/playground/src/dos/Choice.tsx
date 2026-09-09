@@ -36,9 +36,11 @@ export function* CheckboxGroup({ legend, description, row, children }: GroupProp
     >
       <legend className="dos-legend">{legend}</legend>
       <div className={row ? "dos-group dos-group--row" : "dos-group"}>{children}</div>
-      <p className="dos-desc" id={descriptionId} shown={description !== undefined}>
-        {description}
-      </p>
+      {!!description && (
+        <p className="dos-desc" id={descriptionId}>
+          {description}
+        </p>
+      )}
     </fieldset>
   );
 }
@@ -93,9 +95,11 @@ export function* RadioGroup({
       >
         <legend className="dos-legend">{legend}</legend>
         <div className={row ? "dos-group dos-group--row" : "dos-group"}>{children}</div>
-        <p className="dos-desc" id={descriptionId} shown={description !== undefined}>
-          {description}
-        </p>
+        {!!description && (
+          <p className="dos-desc" id={descriptionId}>
+            {description}
+          </p>
+        )}
       </fieldset>
     </RadioGroupContext>
   );

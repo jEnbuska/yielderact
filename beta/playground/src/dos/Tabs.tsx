@@ -17,8 +17,8 @@
  * it from outside. Arrow keys move between tabs and select as they go, which
  * is what a reader expects when the panels are cheap to render.
  */
-import { $id, useContext, useState } from "yract-beta";
 import type { PropsWithChildren } from "yract-beta";
+import { $id, useContext, useState } from "yract-beta";
 import { TabsContext } from "./contexts";
 import { useRoving } from "./roving";
 
@@ -94,7 +94,7 @@ export function* Tab({ value, children }: TabProps) {
  * Panel for the tab with the matching value. Focusable, so a keyboard user
  * lands on the content after tabbing off the strip.
  *
- * Unselected panels are removed from the DOM by `shown`, which leaves the
+ * Unselected panels return `null`, which leaves the
  * unselected tabs' `aria-controls` pointing at ids that are not there. ARIA
  * ignores an IDREF that does not resolve, so this costs nothing — and keeping
  * three hidden panels mounted to avoid it would cost more.
@@ -102,6 +102,7 @@ export function* Tab({ value, children }: TabProps) {
 export function* TabPanel({ value, children }: PropsWithChildren & { value: string }) {
   const { selected, baseId } = yield* useContext(TabsContext);
 
+  if (selected !== value) return null;
   return (
     <div
       className="dos-tabpanel"
@@ -109,7 +110,6 @@ export function* TabPanel({ value, children }: PropsWithChildren & { value: stri
       id={`${baseId}panel-${value}`}
       aria-labelledby={`${baseId}tab-${value}`}
       tabIndex={0}
-      shown={selected === value}
     >
       {children}
     </div>

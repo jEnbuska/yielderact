@@ -14,12 +14,9 @@ describe("diffElementProps", () => {
       ).toBeNull();
     });
 
-    it("ignores reserved props (key, deps, ref, shown) on both sides", () => {
+    it("ignores reserved props (key, deps, ref) on both sides", () => {
       expect(
-        diffElementProps(
-          { id: "a", key: "k1", deps: [1], shown: true },
-          { id: "a", key: "k2", deps: [2], shown: false },
-        ),
+        diffElementProps({ id: "a", key: "k1", deps: [1] }, { id: "a", key: "k2", deps: [2] }),
       ).toBeNull();
     });
 

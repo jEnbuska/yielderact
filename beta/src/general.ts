@@ -56,7 +56,7 @@ export function shallowEqual(a: Record<string, unknown>, b: Record<string, unkno
   return true;
 }
 
-export const frameworkProps: Set<string> = new Set(["shown", "key", "deps"] satisfies Array<
+export const frameworkProps: Set<string> = new Set(["key", "deps"] satisfies Array<
   keyof FrameworkProps
 >);
 export function propsEquals(

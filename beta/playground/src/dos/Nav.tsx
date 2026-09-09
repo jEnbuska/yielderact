@@ -25,9 +25,7 @@ export function* Nav({ label, brand, sticky, children, ...rest }: NavProps) {
       aria-label={label}
       data-testid={rest["data-testid"]}
     >
-      <span className="dos-nav-bar__brand" shown={brand !== undefined}>
-        {brand}
-      </span>
+      {!!brand && <span className="dos-nav-bar__brand">{brand}</span>}
       {children}
       <span className="dos-nav-bar__spacer" />
     </nav>

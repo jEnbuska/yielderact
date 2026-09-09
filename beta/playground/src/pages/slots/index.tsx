@@ -37,9 +37,7 @@ export function* SlotsDemo() {
             <SlotComponent>{["tex3", "text4"]}</SlotComponent>
             <SlotComponent>
               <SlotComponent>
-                text5
-                <SlotComponent shown={false} children={[<SlotComponent children={null} />]} />
-                text6
+                text5 text6
                 <SlotComponent children={""} />
                 <SlotComponent>
                   <SlotComponent children={[""]} />

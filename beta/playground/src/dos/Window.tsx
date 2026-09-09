@@ -38,7 +38,7 @@ export function* WindowBar({ title, aside, titleId }: WindowBarProps) {
   return (
     <div className="dos-win__bar">
       <span id={titleId}>{title}</span>
-      <span shown={aside !== undefined}>{aside}</span>
+      {!!aside && <span>{aside}</span>}
     </div>
   );
 }

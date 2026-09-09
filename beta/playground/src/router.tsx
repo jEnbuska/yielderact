@@ -70,12 +70,6 @@ export const Router = createRouter<Search>(
           },
         },
         {
-          path: tabPaths.SHOWN,
-          component: {
-            lazy: () => import("./pages/shown").then((exp) => exp.ShownDemo),
-          },
-        },
-        {
           path: tabPaths.SLOTS,
           component: {
             lazy: () => import("./pages/slots").then((exp) => exp.SlotsDemo),

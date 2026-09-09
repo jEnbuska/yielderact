@@ -10,7 +10,6 @@ export type Children = Child | ReadonlyArray<Children>;
 
 export interface FrameworkProps {
   key?: string;
-  shown?: boolean;
   deps?: DependencyList;
 }
 

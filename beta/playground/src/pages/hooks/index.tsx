@@ -88,9 +88,11 @@ export function* HooksShowcase() {
               </li>
             ))}
           </ul>
-          <p shown={filtered.length === 0} data-testid="hooks-no-results" style={{ color: "#888" }}>
-            No fruits match "{query}".
-          </p>
+          {filtered.length === 0 && (
+            <p data-testid="hooks-no-results" style={{ color: "#888" }}>
+              No fruits match "{query}".
+            </p>
+          )}
 
           {/* $ref: render count is tracked without triggering a re-render */}
           <p

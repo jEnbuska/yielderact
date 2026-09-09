@@ -8,7 +8,6 @@ import type { ContextHookState } from "./hooks/context";
 
 export interface ContextProps<T = unknown> {
   key?: string;
-  shown?: boolean;
   value: T;
   children: Children;
 }

@@ -68,16 +68,14 @@ export function* SidebarLink({
     >
       <span>
         {children}
-        <span className="dos-sr-only" shown={disabled === true}>
-          {` (${disabledReason})`}
+        {!!disabled && <span className="dos-sr-only">{` (${disabledReason})`}</span>}
+      </span>
+      {count !== undefined && (
+        <span className="dos-sidebar__count" aria-hidden="true">
+          {count}
         </span>
-      </span>
-      <span className="dos-sidebar__count" aria-hidden="true" shown={count !== undefined}>
-        {count}
-      </span>
-      <span className="dos-sr-only" shown={count !== undefined}>
-        {`, ${count} items`}
-      </span>
+      )}
+      {count !== undefined && <span className="dos-sr-only">{`, ${count} items`}</span>}
     </Link>
   );
 }

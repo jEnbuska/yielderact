@@ -25,7 +25,6 @@ export function jsx<T extends keyof JSX.IntrinsicElements>(
   key?: string,
 ): Draft | null;
 export function jsx(node: any, props: any, key?: string): Draft | null {
-  if (props.shown === false) return null;
   switch (typeof node) {
     case "function": {
       return asComponentDraft(props.key ?? key, node, props);
@@ -63,7 +62,6 @@ export function jsxs(
 ): Draft | null;
 export function jsxs(node: any, props: any, key?: string): Child {
   key = props.key ?? key;
-  if (props.shown === false) return null;
   switch (typeof node) {
     case "function": {
       return asComponentDraft(key, node, props);

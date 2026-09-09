@@ -57,7 +57,6 @@ function isReservedProp(key: string): boolean {
     case "key":
     case "deps":
     case "ref":
-    case "shown":
     case "children":
       return true;
     default:

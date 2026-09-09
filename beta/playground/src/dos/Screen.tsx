@@ -16,9 +16,11 @@ export interface ScreenProps extends PropsWithChildren {
 export function* Screen({ mainId, skipLabel = "Skip to content", children }: ScreenProps) {
   return (
     <div className="dos">
-      <a className="dos-skip" href={`#${mainId}`} shown={mainId !== undefined}>
-        {skipLabel}
-      </a>
+      {!!mainId && (
+        <a className="dos-skip" href={`#${mainId}`}>
+          {skipLabel}
+        </a>
+      )}
       {children}
     </div>
   );

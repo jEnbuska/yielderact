@@ -70,9 +70,9 @@ export type SlotElement<T extends SlotType> = T extends ElementSlotType ? string
 export type SlotText<T extends SlotType> = T extends TextSlotType ? string : undefined;
 
 export type SlotProps<T extends SlotType> = T extends ComponentSlotType
-  ? Record<string, unknown> & { deps?: DependencyList; shown?: boolean; key?: string }
+  ? Record<string, unknown> & { deps?: DependencyList; key?: string }
   : T extends ContextSlotType
-    ? { deps?: DependencyList; shown?: boolean; key?: string; value: unknown }
+    ? { deps?: DependencyList; key?: string; value: unknown }
     : T extends ElementSlotType
       ? Record<string, unknown> & { ref?: RefLike; children?: SlotChildren<T> }
       : undefined;
