@@ -1,0 +1,1451 @@
+/* ============================================================
+   dos.css — a 16-color text-mode UI kit
+   Single theme by design: the screen is always the blue screen.
+
+   Selector policy: class selectors only. No element types, no `*`,
+   no `:root`. State hooks are attributes that carry meaning to
+   assistive tech ([aria-current], [aria-selected], [disabled]).
+
+   Unit policy: em only. Every length resolves against the element's
+   own font-size, so the whole kit scales with the reader's text size.
+   Each rule notes the px it was authored against.
+   ============================================================ */
+
+.dos {
+  /* EGA/CGA 16-color palette */
+  --dos-black: #000000;
+  --dos-blue: #0000aa;
+  --dos-green: #00aa00;
+  --dos-cyan: #00aaaa;
+  --dos-red: #aa0000;
+  --dos-magenta: #aa00aa;
+  --dos-brown: #aa5500;
+  --dos-gray: #aaaaaa;
+  --dos-dkgray: #555555;
+  --dos-hi-blue: #5555ff;
+  --dos-hi-green: #55ff55;
+  --dos-hi-cyan: #55ffff;
+  --dos-hi-red: #ff5555;
+  --dos-yellow: #ffff55;
+  --dos-white: #ffffff;
+
+  /* Roles */
+  --dos-screen-bg: var(--dos-blue);
+  --dos-screen-fg: #d8d8ec;
+  --dos-muted-fg: #262626;
+  --dos-screen-muted: #9c9cc4;
+  --dos-panel-bg: var(--dos-gray);
+  --dos-panel-fg: var(--dos-black);
+  --dos-bevel-light: var(--dos-white);
+  --dos-bevel-dark: var(--dos-dkgray);
+  --dos-accent: var(--dos-cyan);
+  --dos-cyan-shadow: #005555;
+
+  /* Metrics — em, so a bevel thickens with the text it frames */
+  --dos-bevel: 0.14em;
+  --dos-shadow: 0.4em 0.4em 0 rgba(0, 0, 0, 0.45);
+  --dos-focus: 0.14em;
+
+  --dos-font-ui: "IBM Plex Mono", "Courier New", Courier, monospace;
+  --dos-font-display: "Press Start 2P", "Courier New", Courier, monospace;
+
+  box-sizing: border-box;
+  background: var(--dos-screen-bg);
+  color: var(--dos-screen-fg);
+  font-family: var(--dos-font-ui);
+  font-size: 0.9375em;
+  line-height: 1.65;
+}
+
+/* ---------- Type ---------- */
+
+.dos-h1 {
+  box-sizing: border-box;
+  font-family: var(--dos-font-display);
+  font-size: 1.4667em;
+  font-weight: 400;
+  line-height: 1.7;
+  text-wrap: balance;
+  margin: 0;
+}
+
+.dos-h2 {
+  box-sizing: border-box;
+  font-family: var(--dos-font-display);
+  font-size: 0.8667em;
+  font-weight: 400;
+  line-height: 1.8;
+  text-wrap: balance;
+  margin: 0;
+}
+
+.dos-h3 {
+  box-sizing: border-box;
+  font-family: var(--dos-font-ui);
+  font-size: 1em;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  margin: 0;
+}
+
+.dos-h1--screen,
+.dos-h2--screen,
+.dos-h3--screen {
+  color: var(--dos-white);
+}
+
+.dos-text {
+  box-sizing: border-box;
+  margin: 0;
+  max-width: 37em;
+  overflow-wrap: break-word;
+}
+
+.dos-small {
+  font-size: 0.8667em;
+  color: var(--dos-muted-fg);
+}
+
+.dos-link {
+  color: var(--dos-hi-cyan);
+  text-decoration: underline;
+}
+.dos-link:hover {
+  background: var(--dos-hi-cyan);
+  color: var(--dos-blue);
+  text-decoration: none;
+}
+.dos-link:focus-visible {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+  outline-offset: 0.14em;
+}
+
+.dos-link--panel {
+  color: #00494f;
+}
+.dos-link--panel:hover {
+  background: var(--dos-black);
+  color: var(--dos-hi-cyan);
+}
+
+.dos-rule {
+  box-sizing: border-box;
+  border: 0;
+  border-top: 0.1333em solid var(--dos-dkgray);
+  margin: 0;
+}
+
+.dos-code {
+  box-sizing: border-box;
+  overflow-wrap: break-word;
+  font-family: var(--dos-font-ui);
+  font-size: inherit;
+  background: var(--dos-black);
+  color: var(--dos-hi-green);
+  padding: 0 0.4em;
+}
+
+.dos-kbd {
+  box-sizing: border-box;
+  font-family: var(--dos-font-ui);
+  font-size: inherit;
+  background: var(--dos-black);
+  color: var(--dos-gray);
+  padding: 0 0.4em;
+}
+
+.dos-quote {
+  box-sizing: border-box;
+  margin: 0;
+  padding-left: 0.9333em;
+  border-left: 0.2667em solid var(--dos-cyan);
+  color: var(--dos-muted-fg);
+}
+
+.dos-bullets {
+  margin: 0;
+  padding-left: 1.3333em;
+  list-style: none;
+}
+.dos-bullets__item::before {
+  content: "\25A0  " / "";
+  color: var(--dos-cyan);
+}
+
+.dos-numbers {
+  margin: 0;
+  padding-left: 1.8667em;
+}
+
+/* ---------- Window / panel ---------- */
+
+.dos-win {
+  box-sizing: border-box;
+  background: var(--dos-panel-bg);
+  color: var(--dos-panel-fg);
+  border-top: var(--dos-bevel) solid var(--dos-bevel-light);
+  border-left: var(--dos-bevel) solid var(--dos-bevel-light);
+  border-right: var(--dos-bevel) solid var(--dos-bevel-dark);
+  border-bottom: var(--dos-bevel) solid var(--dos-bevel-dark);
+  box-shadow: var(--dos-shadow);
+}
+
+.dos-win--nested {
+  box-shadow: 0.28em 0.28em 0 rgba(0, 0, 0, 0.45);
+}
+
+.dos-win__bar {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1em;
+  background: var(--dos-blue);
+  color: var(--dos-white);
+  font-size: 0.8em;
+  padding: 0.3333em 0.8333em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.dos-win__bar::before {
+  content: "\25A0" / "";
+  color: var(--dos-hi-cyan);
+}
+
+.dos-win__body {
+  box-sizing: border-box;
+  padding: 1.0667em;
+  display: flex;
+  flex-direction: column;
+  gap: 1.0667em;
+}
+
+.dos-well {
+  box-sizing: border-box;
+  background: var(--dos-white);
+  border-top: var(--dos-bevel) solid var(--dos-bevel-dark);
+  border-left: var(--dos-bevel) solid var(--dos-bevel-dark);
+  border-right: var(--dos-bevel) solid var(--dos-bevel-light);
+  border-bottom: var(--dos-bevel) solid var(--dos-bevel-light);
+  padding: 0.8em;
+}
+
+.dos-well--flush {
+  padding: 0.2667em;
+}
+
+.dos-term {
+  box-sizing: border-box;
+  background: var(--dos-black);
+  color: var(--dos-gray);
+  font-family: var(--dos-font-ui);
+  font-size: 0.9333em;
+  border: var(--dos-bevel) solid var(--dos-dkgray);
+  padding: 0.8571em;
+  white-space: pre-wrap;
+  margin: 0;
+  line-height: 1.6;
+  overflow-x: auto;
+}
+
+.dos-term__hi {
+  color: var(--dos-white);
+}
+.dos-term__ok {
+  color: var(--dos-hi-green);
+}
+.dos-term__warn {
+  color: var(--dos-yellow);
+}
+.dos-term__err {
+  color: var(--dos-hi-red);
+}
+
+/* ---------- Menu bar / status bar ---------- */
+
+.dos-menubar {
+  box-sizing: border-box;
+  display: flex;
+  background: var(--dos-gray);
+  color: var(--dos-black);
+  font-size: 0.8667em;
+  gap: 1.5385em;
+  padding: 0.2308em 0.7692em;
+}
+
+.dos-menubar__item {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  padding: 0 0.3077em;
+}
+
+.dos-menubar__item:hover {
+  background: var(--dos-black);
+  color: var(--dos-gray);
+}
+.dos-menubar__item:focus-visible {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+  outline-offset: -0.1538em;
+}
+
+.dos-statusbar {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  background: var(--dos-gray);
+  color: var(--dos-black);
+  font-size: 0.8667em;
+  gap: 0.3077em 1.3846em;
+  padding: 0.2308em 0.7692em;
+}
+
+.dos-statusbar__item {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  padding: 0 0.4615em;
+}
+
+.dos-statusbar__item:hover {
+  background: var(--dos-black);
+  color: var(--dos-gray);
+}
+.dos-statusbar__item:focus-visible {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+  outline-offset: -0.1538em;
+}
+
+.dos-statusbar__hint {
+  margin-left: auto;
+  color: var(--dos-muted-fg);
+}
+
+/* ---------- Nav ---------- */
+
+.dos-nav-bar {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  background: var(--dos-black);
+  border-top: 0.1333em solid var(--dos-dkgray);
+  border-bottom: 0.2667em solid var(--dos-hi-cyan);
+}
+
+.dos-nav-bar--page {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-top: 0;
+}
+
+.dos-nav-bar__brand {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  background: var(--dos-hi-cyan);
+  color: var(--dos-black);
+  font-size: 0.8667em;
+  font-weight: 600;
+  gap: 0.6154em;
+  padding: 0.5385em 1.3846em;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dos-nav-bar__brand::before {
+  content: "\25A0" / "";
+}
+
+.dos-nav-bar__link {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  color: var(--dos-white);
+  font-size: 0.9333em;
+  padding: 0.5em 1.4286em;
+  letter-spacing: 0.08em;
+  text-decoration: none;
+  border-right: 0.1429em solid var(--dos-dkgray);
+}
+
+.dos-nav-bar__link:hover {
+  background: var(--dos-hi-cyan);
+  color: var(--dos-black);
+}
+.dos-nav-bar__link:focus-visible {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+  outline-offset: -0.2143em;
+}
+
+.dos-nav-bar__link[aria-current="page"] {
+  background: var(--dos-hi-cyan);
+  color: var(--dos-black);
+  font-weight: 600;
+}
+
+.dos-nav-bar__spacer {
+  flex: 1;
+}
+
+.dos-sidebar {
+  box-sizing: border-box;
+  background: var(--dos-black);
+  display: flex;
+  flex-direction: column;
+  gap: 0.0667em;
+  padding: 0.6667em 0 0.9333em;
+  border-right: 0.2667em solid var(--dos-hi-cyan);
+  border-top: 0.1333em solid var(--dos-dkgray);
+  border-bottom: 0.1333em solid var(--dos-dkgray);
+  /* Follows the page while the demos scroll past. `dvh` tracks the visible
+     viewport, so a mobile URL bar collapsing does not clip the last link.
+     `align-self: start` stops the grid row from stretching it — sticky needs
+     the item to be shorter than its track — and `height` then fills the
+     viewport so the panel does not end under the last link. */
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100dvh;
+  overflow-y: auto;
+}
+
+.dos-sidebar__group {
+  box-sizing: border-box;
+  margin: 0;
+  color: var(--dos-hi-cyan);
+  font-family: var(--dos-font-ui);
+  font-size: 0.7333em;
+  font-weight: 600;
+  padding: 1.0909em 1.4545em 0.3636em;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.dos-sidebar__link {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--dos-white);
+  font-size: 0.9333em;
+  gap: 1em;
+  padding: 0.3571em 1.1429em 0.3571em 0.8571em;
+  text-decoration: none;
+  border-left: 0.2857em solid transparent;
+}
+
+.dos-sidebar__link:hover {
+  background: var(--dos-dkgray);
+}
+.dos-sidebar__link:focus-visible {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+  outline-offset: -0.2143em;
+}
+
+.dos-sidebar__link[aria-current="page"] {
+  background: var(--dos-hi-cyan);
+  color: var(--dos-black);
+  border-left-color: var(--dos-white);
+  font-weight: 600;
+}
+
+.dos-sidebar__link[aria-disabled="true"] {
+  color: #8a8a8a;
+  pointer-events: none;
+}
+
+.dos-sidebar__count {
+  font-size: 0.8571em;
+  color: var(--dos-hi-cyan);
+  font-variant-numeric: tabular-nums;
+}
+.dos-sidebar__link:hover .dos-sidebar__count {
+  color: var(--dos-white);
+}
+.dos-sidebar__link[aria-current="page"] .dos-sidebar__count {
+  color: var(--dos-black);
+}
+
+.dos-shell {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 14.6667em minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+  min-height: 14.6667em;
+  align-items: start;
+}
+
+.dos-shell__main > * {
+  min-width: 0;
+  /* Content column caps at 51.2em (768px at the kit's 15px base) and centres
+     in whatever space is left beside the sidebar. The cap is on the children,
+     not the column, so the blue screen still bleeds to the edge. */
+  width: 100%;
+  max-width: 51.2em;
+  margin-inline: auto;
+}
+
+.dos-shell__main {
+  box-sizing: border-box;
+  background: var(--dos-blue);
+  color: var(--dos-screen-fg);
+  display: flex;
+  flex-direction: column;
+  gap: 0.8em;
+  /* Grid and flex items default to `min-width: auto`, i.e. min-content — one
+     wide child (a chart, a table) would otherwise widen this column and push
+     the whole page into a horizontal scroll. */
+  min-width: 0;
+  padding: 1.0667em 1.2em;
+  border-top: 0.1333em solid var(--dos-dkgray);
+  border-right: 0.1333em solid var(--dos-dkgray);
+  border-bottom: 0.1333em solid var(--dos-dkgray);
+}
+
+.dos-stage {
+  box-sizing: border-box;
+  background: var(--dos-blue);
+  padding: 1.2em;
+}
+.dos-stage--flush {
+  padding: 0;
+}
+
+.dos-crumbs {
+  box-sizing: border-box;
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  margin: 0;
+  padding: 0;
+  font-size: 0.8667em;
+  gap: 0.6154em;
+  color: var(--dos-muted-fg);
+}
+
+.dos-crumbs__item[aria-current="page"] {
+  color: var(--dos-black);
+  font-weight: 600;
+}
+.dos-crumbs__item + .dos-crumbs__item::before {
+  content: "\\" / "";
+  margin-right: 0.6154em;
+  color: var(--dos-dkgray);
+}
+
+.dos-crumbs--screen {
+  color: var(--dos-screen-fg);
+}
+.dos-crumbs--screen .dos-crumbs__item[aria-current="page"] {
+  color: var(--dos-white);
+}
+.dos-crumbs--screen .dos-crumbs__item + .dos-crumbs__item::before {
+  color: var(--dos-screen-muted);
+}
+
+/* ---------- Tabs ---------- */
+
+.dos-tabs {
+  box-sizing: border-box;
+  display: flex;
+  border-bottom: 0.1333em solid var(--dos-hi-cyan);
+}
+
+.dos-tab {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  font-family: var(--dos-font-ui);
+  font-size: 0.9333em;
+  padding: 0.3571em 1.1429em;
+  color: var(--dos-hi-cyan);
+  border-top: 0.1429em solid var(--dos-hi-cyan);
+  border-left: 0.1429em solid var(--dos-hi-cyan);
+  border-right: 0.1429em solid var(--dos-hi-cyan);
+  margin-bottom: -0.1429em;
+}
+
+.dos-tab + .dos-tab {
+  border-left-width: 0;
+}
+
+.dos-tab:hover {
+  background: var(--dos-hi-cyan);
+  color: var(--dos-black);
+}
+.dos-tab:focus-visible {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+  outline-offset: -0.2143em;
+}
+
+.dos-tab[aria-selected="true"],
+.dos-tab[aria-selected="true"]:hover {
+  background: var(--dos-blue);
+  color: var(--dos-white);
+  border-bottom: 0.1429em solid var(--dos-blue);
+  cursor: default;
+}
+
+.dos-tabpanel {
+  box-sizing: border-box;
+  padding-top: 0.9333em;
+}
+
+/* ---------- Buttons ---------- */
+
+.dos-btn {
+  all: unset;
+  box-sizing: border-box;
+  cursor: pointer;
+  display: inline-block;
+  font-family: var(--dos-font-ui);
+  font-size: 0.9333em;
+  line-height: 1.3;
+  padding: 0.4286em 1.2857em;
+  background: var(--dos-cyan);
+  color: var(--dos-black);
+  border-top: var(--dos-bevel) solid var(--dos-hi-cyan);
+  border-left: var(--dos-bevel) solid var(--dos-hi-cyan);
+  border-right: var(--dos-bevel) solid var(--dos-cyan-shadow);
+  border-bottom: var(--dos-bevel) solid var(--dos-cyan-shadow);
+}
+
+.dos-btn:hover {
+  background: var(--dos-hi-cyan);
+}
+
+.dos-btn:active {
+  border-top-color: var(--dos-cyan-shadow);
+  border-left-color: var(--dos-cyan-shadow);
+  border-right-color: var(--dos-hi-cyan);
+  border-bottom-color: var(--dos-hi-cyan);
+}
+
+.dos-btn:focus-visible {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+  outline-offset: 0.1429em;
+}
+
+.dos-btn--default {
+  background: var(--dos-gray);
+  border-top-color: var(--dos-white);
+  border-left-color: var(--dos-white);
+  border-right-color: var(--dos-dkgray);
+  border-bottom-color: var(--dos-dkgray);
+}
+
+.dos-btn--default:hover {
+  background: var(--dos-white);
+}
+
+.dos-btn--danger {
+  background: var(--dos-red);
+  color: var(--dos-white);
+  border-top-color: var(--dos-hi-red);
+  border-left-color: var(--dos-hi-red);
+  border-right-color: #550000;
+  border-bottom-color: #550000;
+}
+
+.dos-btn--danger:hover {
+  background: var(--dos-hi-red);
+  color: var(--dos-black);
+}
+
+.dos-btn[disabled] {
+  color: var(--dos-dkgray);
+  cursor: not-allowed;
+  background: var(--dos-gray);
+}
+
+/* ---------- Forms ---------- */
+
+.dos-field {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.1333em;
+}
+
+.dos-label {
+  box-sizing: border-box;
+  font-size: 0.8em;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dos-black);
+}
+
+.dos-desc {
+  box-sizing: border-box;
+  margin: 0;
+  font-size: 0.8667em;
+  line-height: 1.5;
+  color: var(--dos-muted-fg);
+  max-width: 32em;
+}
+
+.dos-error {
+  box-sizing: border-box;
+  margin: 0;
+  font-size: 0.8667em;
+  line-height: 1.5;
+  color: #7a0000;
+  font-weight: 600;
+}
+
+.dos-error::before {
+  content: "! " / "";
+}
+
+.dos-input,
+.dos-select,
+.dos-textarea {
+  box-sizing: border-box;
+  font-family: var(--dos-font-ui);
+  font-size: 0.9333em;
+  line-height: 1.4;
+  padding: 0.3571em 0.5714em;
+  background: var(--dos-black);
+  color: var(--dos-white);
+  border-top: var(--dos-bevel) solid var(--dos-bevel-dark);
+  border-left: var(--dos-bevel) solid var(--dos-bevel-dark);
+  border-right: var(--dos-bevel) solid var(--dos-bevel-light);
+  border-bottom: var(--dos-bevel) solid var(--dos-bevel-light);
+  width: 100%;
+}
+
+.dos-input::placeholder,
+.dos-textarea::placeholder {
+  color: #8f8f8f;
+}
+
+.dos-input:focus,
+.dos-select:focus,
+.dos-textarea:focus {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+  outline-offset: 0;
+}
+
+.dos-input[aria-invalid="true"] {
+  border-color: var(--dos-red);
+  color: var(--dos-hi-red);
+}
+
+.dos-select {
+  -webkit-appearance: none;
+  appearance: none;
+  background-image: none;
+  padding-right: 2.4286em;
+}
+
+.dos-select-wrap {
+  box-sizing: border-box;
+  position: relative;
+}
+
+.dos-select-wrap::after {
+  content: "\25BC" / "";
+  position: absolute;
+  font-size: 0.7333em;
+  right: 0.1818em;
+  top: 0.1818em;
+  bottom: 0.1818em;
+  width: 2.5455em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--dos-gray);
+  color: var(--dos-red);
+  border-top: 0.1818em solid var(--dos-white);
+  border-left: 0.1818em solid var(--dos-white);
+  border-right: 0.1818em solid var(--dos-dkgray);
+  border-bottom: 0.1818em solid var(--dos-dkgray);
+  pointer-events: none;
+}
+
+.dos-textarea {
+  resize: vertical;
+  min-height: 6em;
+}
+
+.dos-fieldset {
+  box-sizing: border-box;
+  border: 0.1333em solid var(--dos-dkgray);
+  padding: 0.9333em 1.0667em 1.0667em;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6667em;
+}
+
+.dos-legend {
+  box-sizing: border-box;
+  font-size: 0.8em;
+  font-weight: 600;
+  padding: 0 0.6667em;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--dos-black);
+}
+
+/* ---------- Checkbox & radio: drawn, not typed ---------- */
+
+.dos-check {
+  box-sizing: border-box;
+  display: flex;
+  align-items: flex-start;
+  font-size: 0.9333em;
+  gap: 0.7143em;
+  padding: 0.0714em 0.4286em 0.0714em 0.1429em;
+  cursor: pointer;
+  line-height: 1.5;
+}
+
+.dos-check:hover {
+  background: var(--dos-white);
+}
+
+.dos-check__input {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 1em;
+  margin: 0.1429em 0 0;
+  flex: none;
+  width: 1.4286em;
+  height: 1.4286em;
+  cursor: pointer;
+  position: relative;
+  background: var(--dos-white);
+  border-top: var(--dos-bevel) solid var(--dos-bevel-dark);
+  border-left: var(--dos-bevel) solid var(--dos-bevel-dark);
+  border-right: var(--dos-bevel) solid var(--dos-bevel-light);
+  border-bottom: var(--dos-bevel) solid var(--dos-bevel-light);
+}
+
+.dos-check__input:focus-visible {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+  outline-offset: 0.1429em;
+}
+
+/* Stepped tick, built from cells that scale with the text */
+.dos-check__input--checkbox::after {
+  content: "";
+  position: absolute;
+  left: 0.0714em;
+  top: 0.2143em;
+  width: 0.1429em;
+  height: 0.1429em;
+  background: var(--dos-black);
+  opacity: 0;
+  box-shadow:
+    0 0.2857em 0 var(--dos-black),
+    0.1429em 0.4286em 0 var(--dos-black),
+    0.2857em 0.5714em 0 var(--dos-black),
+    0.4286em 0.4286em 0 var(--dos-black),
+    0.5714em 0.2857em 0 var(--dos-black),
+    0.7143em 0.1429em 0 var(--dos-black),
+    0.8571em 0 0 var(--dos-black);
+}
+
+/* Diamond, so a radio never reads as a checkbox */
+.dos-check__input--radio::after {
+  content: "";
+  position: absolute;
+  left: 0.5em;
+  top: 0.2143em;
+  width: 0.1429em;
+  height: 0.1429em;
+  background: var(--dos-black);
+  opacity: 0;
+  box-shadow:
+    -0.1429em 0.1429em 0 var(--dos-black),
+    0 0.1429em 0 var(--dos-black),
+    0.1429em 0.1429em 0 var(--dos-black),
+    -0.2857em 0.2857em 0 var(--dos-black),
+    -0.1429em 0.2857em 0 var(--dos-black),
+    0 0.2857em 0 var(--dos-black),
+    0.1429em 0.2857em 0 var(--dos-black),
+    0.2857em 0.2857em 0 var(--dos-black),
+    -0.1429em 0.4286em 0 var(--dos-black),
+    0 0.4286em 0 var(--dos-black),
+    0.1429em 0.4286em 0 var(--dos-black),
+    0 0.5714em 0 var(--dos-black);
+}
+
+.dos-check__input:checked::after {
+  opacity: 1;
+}
+
+.dos-check__input[disabled] {
+  background: var(--dos-gray);
+  cursor: not-allowed;
+}
+.dos-check__input[disabled] ~ .dos-check__text {
+  color: var(--dos-dkgray);
+}
+
+.dos-group {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5333em;
+}
+.dos-group--row {
+  flex-direction: row;
+  flex-wrap: wrap;
+  gap: 0.5333em 1.4667em;
+}
+
+/* ---------- Range ---------- */
+
+.dos-range {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 1em;
+  width: 100%;
+  background: transparent;
+  height: 1.4667em;
+  cursor: pointer;
+}
+
+.dos-range:focus-visible {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+}
+.dos-range::-webkit-slider-runnable-track {
+  height: 0.8em;
+  background: var(--dos-white);
+  border: 0.1333em solid var(--dos-dkgray);
+}
+.dos-range::-moz-range-track {
+  height: 0.8em;
+  background: var(--dos-white);
+  border: 0.1333em solid var(--dos-dkgray);
+}
+.dos-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0.9333em;
+  height: 1.4667em;
+  margin-top: -0.4667em;
+  background: var(--dos-cyan);
+  border-top: 0.1333em solid var(--dos-hi-cyan);
+  border-left: 0.1333em solid var(--dos-hi-cyan);
+  border-right: 0.1333em solid var(--dos-cyan-shadow);
+  border-bottom: 0.1333em solid var(--dos-cyan-shadow);
+}
+.dos-range::-moz-range-thumb {
+  border-radius: 0;
+  width: 0.9333em;
+  height: 1.4667em;
+  background: var(--dos-cyan);
+  border-top: 0.1333em solid var(--dos-hi-cyan);
+  border-left: 0.1333em solid var(--dos-hi-cyan);
+  border-right: 0.1333em solid var(--dos-cyan-shadow);
+  border-bottom: 0.1333em solid var(--dos-cyan-shadow);
+}
+
+/* ---------- Loaders ---------- */
+
+.dos-progress {
+  -webkit-appearance: none;
+  appearance: none;
+  box-sizing: border-box;
+  font-family: inherit;
+  font-size: 1em;
+  width: 100%;
+  height: 1.6em;
+  display: block;
+  background: var(--dos-white);
+  border-top: var(--dos-bevel) solid var(--dos-bevel-dark);
+  border-left: var(--dos-bevel) solid var(--dos-bevel-dark);
+  border-right: var(--dos-bevel) solid var(--dos-bevel-light);
+  border-bottom: var(--dos-bevel) solid var(--dos-bevel-light);
+}
+
+.dos-progress::-webkit-progress-bar {
+  background: var(--dos-white);
+}
+.dos-progress::-webkit-progress-value {
+  background: var(--dos-blue);
+}
+.dos-progress::-moz-progress-bar {
+  background: var(--dos-blue);
+}
+
+.dos-loader-train {
+  box-sizing: border-box;
+  height: 1.6em;
+  background: var(--dos-white);
+  border-top: var(--dos-bevel) solid var(--dos-bevel-dark);
+  border-left: var(--dos-bevel) solid var(--dos-bevel-dark);
+  border-right: var(--dos-bevel) solid var(--dos-bevel-light);
+  border-bottom: var(--dos-bevel) solid var(--dos-bevel-light);
+  overflow: hidden;
+}
+
+.dos-loader-train::before {
+  content: "";
+  display: block;
+  width: 34%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--dos-blue) 0 0.8em,
+    var(--dos-white) 0.8em 1.0667em
+  );
+  animation: dos-train 1.4s steps(8, end) infinite;
+}
+
+@keyframes dos-train {
+  from {
+    transform: translateX(-40%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
+.dos-spinner {
+  display: inline-block;
+  color: var(--dos-hi-cyan);
+  width: 0.6em;
+}
+.dos-spinner::after {
+  content: "|";
+  animation: dos-spin 0.6s steps(1, end) infinite;
+}
+
+@keyframes dos-spin {
+  0% {
+    content: "|";
+  }
+  25% {
+    content: "/";
+  }
+  50% {
+    content: "-";
+  }
+  75% {
+    content: "\\";
+  }
+}
+
+.dos-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1em;
+  vertical-align: -0.15em;
+  background: var(--dos-gray);
+  animation: dos-blink 1s steps(1, end) infinite;
+}
+
+@keyframes dos-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dos-loader-train::before,
+  .dos-spinner::after,
+  .dos-cursor {
+    animation: none;
+  }
+  .dos-spinner::after {
+    content: "-";
+  }
+}
+
+/* ---------- Badges ---------- */
+
+.dos-badge {
+  box-sizing: border-box;
+  display: inline-block;
+  font-size: 0.7333em;
+  font-weight: 600;
+  padding: 0 0.7273em;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: var(--dos-dkgray);
+  color: var(--dos-white);
+}
+
+.dos-badge--ok {
+  background: var(--dos-green);
+  color: var(--dos-white);
+}
+.dos-badge--warn {
+  background: var(--dos-brown);
+  color: var(--dos-white);
+}
+.dos-badge--error {
+  background: var(--dos-red);
+  color: var(--dos-white);
+}
+.dos-badge--info {
+  background: var(--dos-cyan);
+  color: var(--dos-black);
+}
+
+/* ---------- Alert ---------- */
+
+.dos-alert {
+  box-sizing: border-box;
+  display: flex;
+  font-size: 0.9333em;
+  gap: 0.8571em;
+  padding: 0.7143em 0.8571em;
+  border: 0.1429em solid var(--dos-red);
+  background: var(--dos-white);
+  color: var(--dos-black);
+}
+
+.dos-alert::before {
+  content: "\26A0" / "";
+  color: var(--dos-red);
+  flex: none;
+}
+
+/* ---------- Table ---------- */
+
+.dos-table {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 30em;
+  font-size: 0.9333em;
+  font-variant-numeric: tabular-nums;
+  /* Cells carry only right/bottom borders; the table draws the other two
+     edges, which reproduces `border-collapse: collapse` without a table. */
+  border-top: 0.1429em solid var(--dos-dkgray);
+  border-left: 0.1429em solid var(--dos-dkgray);
+}
+
+.dos-table__caption {
+  box-sizing: border-box;
+  padding: 0.2143em 0.8571em;
+}
+
+.dos-table__row {
+  display: grid;
+  grid-template-columns: var(--dos-table-cols, 1fr);
+}
+
+/* Only body rows are skippable: a header may be sticky and must always paint. */
+.dos-table--skippable .dos-table__body .dos-table__row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--dos-table-row-h);
+}
+
+.dos-table__cell {
+  box-sizing: border-box;
+  border-right: 0.1429em solid var(--dos-dkgray);
+  border-bottom: 0.1429em solid var(--dos-dkgray);
+  padding: 0.2143em 0.8571em;
+  text-align: left;
+}
+
+.dos-table__head-cell {
+  box-sizing: border-box;
+  font-size: 0.8571em;
+  border-right: 0.1667em solid var(--dos-dkgray);
+  border-bottom: 0.1667em solid var(--dos-dkgray);
+  padding: 0.25em 1em;
+  text-align: left;
+  background: var(--dos-dkgray);
+  color: var(--dos-white);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+.dos-table__head--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.dos-table__head-cell--sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.dos-table__head-cell--sortable:focus-visible {
+  outline: 0.1429em solid var(--dos-white);
+  outline-offset: -0.2857em;
+}
+
+.dos-table__row:hover {
+  background: var(--dos-white);
+}
+.dos-table__cell--num {
+  text-align: right;
+}
+.dos-table__cell--center {
+  text-align: center;
+}
+
+/* ---------- List rows ---------- */
+
+.dos-list {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dos-list__row {
+  box-sizing: border-box;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--dos-font-ui);
+  font-size: 0.9333em;
+  gap: 1.1429em;
+  padding: 0.2857em 0.7143em;
+  color: var(--dos-black);
+}
+
+.dos-list__row:hover {
+  background: var(--dos-dkgray);
+  color: var(--dos-white);
+}
+.dos-list__row[aria-selected="true"] {
+  background: var(--dos-blue);
+  color: var(--dos-white);
+}
+.dos-list__row:focus-visible {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+  outline-offset: -0.2143em;
+}
+
+/* ---------- Spec list ---------- */
+
+.dos-spec {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: 14em minmax(0, 1fr);
+  gap: 1.3333em 1.4667em;
+  align-items: start;
+  margin: 0;
+}
+
+.dos-spec__term {
+  box-sizing: border-box;
+  padding-top: 0.1333em;
+}
+.dos-spec__example {
+  box-sizing: border-box;
+  margin: 0;
+  min-width: 0;
+}
+.dos-spec__term .dos-desc {
+  margin-top: 0.3077em;
+}
+
+.dos-tag {
+  box-sizing: border-box;
+  display: inline-block;
+  font-family: var(--dos-font-ui);
+  font-size: 0.8em;
+  line-height: 1.6;
+  padding: 0.0833em 0.5833em;
+  background: var(--dos-black);
+  color: var(--dos-hi-green);
+  white-space: nowrap;
+}
+
+.dos-tag + .dos-tag {
+  margin-left: 0.3333em;
+}
+
+/* ---------- Row utility ---------- */
+
+.dos-row {
+  box-sizing: border-box;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8em;
+  margin: 0;
+}
+.dos-row--tight {
+  gap: 0.5333em;
+}
+
+/* ---------- Accessibility ---------- */
+
+.dos-skip {
+  position: absolute;
+  left: -625em;
+  top: 0;
+  z-index: 40;
+  background: var(--dos-yellow);
+  color: var(--dos-black);
+  font-size: 0.9333em;
+  padding: 0.5714em 1.1429em;
+  text-decoration: none;
+}
+
+.dos-skip:focus {
+  left: 0.5714em;
+  top: 0.5714em;
+}
+
+.dos-scroll {
+  box-sizing: border-box;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.dos-scroll:focus-visible {
+  outline: var(--dos-focus) solid var(--dos-yellow);
+  outline-offset: 0.1333em;
+}
+
+.dos-sr-only {
+  position: absolute;
+  width: 0.0625em;
+  height: 0.0625em;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (forced-colors: active) {
+  .dos-btn,
+  .dos-tab,
+  .dos-check__input,
+  .dos-input,
+  .dos-select,
+  .dos-textarea {
+    border-color: ButtonBorder;
+  }
+  .dos-check__input:checked::after {
+    background: ButtonText;
+    box-shadow: none;
+  }
+  .dos-nav-bar__link[aria-current="page"],
+  .dos-sidebar__link[aria-current="page"],
+  .dos-tab[aria-selected="true"] {
+    forced-color-adjust: none;
+  }
+}
+
+/* ---------- Devices ---------- */
+
+@media (pointer: coarse) {
+  .dos-check {
+    padding: 0.4286em 0.5714em;
+    gap: 0.8571em;
+  }
+  .dos-check__input {
+    width: 1.8571em;
+    height: 1.8571em;
+  }
+  .dos-check__input--checkbox::after {
+    left: 0.2857em;
+    top: 0.4286em;
+  }
+  .dos-check__input--radio::after {
+    left: 0.7143em;
+    top: 0.4286em;
+  }
+  .dos-btn {
+    padding: 0.7857em 1.5714em;
+  }
+  .dos-tab {
+    padding: 0.7857em 1.2857em;
+  }
+  .dos-nav-bar__link {
+    padding: 0.8571em 1.4286em;
+  }
+  .dos-sidebar__link {
+    padding: 0.7143em 1.1429em 0.7143em 0.8571em;
+  }
+  .dos-list__row {
+    padding: 0.7143em 0.8571em;
+  }
+  .dos-menubar__item,
+  .dos-statusbar__item {
+    padding: 0.4615em 0.7692em;
+  }
+  .dos-range {
+    height: 2.2667em;
+  }
+}
+
+@media (max-width: 43.75em) {
+  .dos-spec {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.4em 0;
+  }
+  .dos-spec__example {
+    padding-bottom: 0.8em;
+  }
+}
+
+@media (max-width: 40em) {
+  .dos-shell {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  /* No room for a side rail on a phone. The demos are all on one page, so
+     dropping it costs no reachability — scrolling gets you everywhere. */
+  .dos-sidebar {
+    display: none;
+  }
+}
+
+@media (max-width: 32.5em) {
+  .dos-win {
+    box-shadow: 0.2em 0.2em 0 rgba(0, 0, 0, 0.45);
+  }
+  .dos-win__body {
+    padding: 0.8em;
+  }
+  .dos-h1 {
+    font-size: 1.1333em;
+    line-height: 1.8;
+  }
+  .dos-h2 {
+    font-size: 0.8em;
+  }
+}
+
+/* ---------- Scrolling ---------- */
+
+/* Smooth-scrolls fragment links (and scrollIntoView) to their section.
+   Gated on `no-preference` rather than switched off under `reduce`, so the
+   default for anyone who has expressed no preference is still smooth while
+   motion-sensitive readers get an instant jump. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ---------- Stacked demo sections ---------- */
+
+.dos-demo {
+  box-sizing: border-box;
+  display: block;
+  /* Clears the sticky chrome when a sidebar link jumps to this section. */
+  scroll-margin-top: 1em;
+}
+
+.dos-demo + .dos-demo {
+  margin-top: 2em;
+}

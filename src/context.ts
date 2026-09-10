@@ -18,11 +18,11 @@ export interface Context<T = unknown> {
 
 /**
  * A context entry produced by calling a context object with a value.
- * Passed to the `$context` framework prop to provide context to a subtree.
+ * Passed to the `context` framework prop to provide context to a subtree.
  *
  * @example
  * const ThemeCtx = createContext<'light' | 'dark'>('light');
- * <Child $context={ThemeCtx('dark')} />
+ * <Child context={ThemeCtx('dark')} />
  */
 export interface ContextEntry<T = unknown> {
   readonly ctx: Context<T>;
@@ -31,12 +31,12 @@ export interface ContextEntry<T = unknown> {
 
 /**
  * A callable context object returned by `createContext`.
- * Call it with a value to produce a `ContextEntry` for the `$context` prop.
+ * Call it with a value to produce a `ContextEntry` for the `context` prop.
  * Use `useContext` to consume the value.
  *
  * @example
  * const ThemeCtx = createContext<'light' | 'dark'>('light');
- * <Child $context={ThemeCtx('dark')} />
+ * <Child context={ThemeCtx('dark')} />
  */
 export interface PublicContext<T> extends Context<T> {
   (value: T): ContextEntry<T>;
@@ -62,14 +62,14 @@ interface UseContextDescriptor {
  * Create a new context with a default value.
  *
  * Call the returned context with a value to produce a `ContextEntry`
- * for the `$context` prop. Use `useContext` to consume the value.
+ * for the `context` prop. Use `useContext` to consume the value.
  *
  * @example
  * const ThemeCtx = createContext<'light' | 'dark'>('light');
  *
  * function* App() {
  *   const [theme] = yield* useState<'light' | 'dark'>('light');
- *   return <Child $context={ThemeCtx(theme)} />;
+ *   return <Child context={ThemeCtx(theme)} />;
  * }
  *
  * function* Child() {

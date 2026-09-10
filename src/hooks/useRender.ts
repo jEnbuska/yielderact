@@ -110,7 +110,7 @@ export function* useRender<T>(
     const rawChild = isInline
       ? (fnOrChild as UseRenderFn<T>)({ resume: resumeCallback })
       : (fnOrChild as Child);
-    // Attach resume context via $context on the child VNode so nested
+    // Attach resume context via context on the child VNode so nested
     // components can access `resume` via useResume().
     yield withContextEntry(rawChild, resumeEntry);
   }
@@ -163,7 +163,7 @@ function isVNode(child: Child): child is VNode {
   return child !== null && child !== undefined && typeof child === "object";
 }
 
-/** Merge a ContextEntry into a child's $context prop. */
+/** Merge a ContextEntry into a child's context prop. */
 function withContextEntry(child: Child, entry: ContextEntry): Child {
   if (!isVNode(child)) return child;
   const existing = child.props.$context;
