@@ -1,7 +1,7 @@
 /**
- * EffectDemo – demonstrates `$effect` for side-effects.
+ * EffectDemo – demonstrates `useEffect` for side-effects.
  *
- * Beta's `$effect` does NOT accept a returned cleanup function — instead it
+ * Beta's `useEffect` does NOT accept a returned cleanup function — instead it
  * receives an `AbortSignal` that fires when the effect should tear down
  * (deps change or unmount). Use `signal.addEventListener("abort", ...)` for
  * cleanup, or pass the signal to APIs that already understand it (fetch,
@@ -53,15 +53,15 @@ export function* EffectDemo() {
 
   return (
     <Window>
-      <WindowBar title="$effect" aside="/effect" />
+      <WindowBar title="useeffect" aside="/effect" />
       <WindowBody>
         <h2>
-          <code>$effect</code>
+          <code>useEffect</code>
         </h2>
 
         <h3>1. Interval timer (effect with cleanup)</h3>
         <p>
-          The timer starts an <code>setInterval</code> in a <code>$effect</code> with{" "}
+          The timer starts an <code>setInterval</code> in a <code>useEffect</code> with{" "}
           <code>[]</code> deps. The interval is cleared when the component unmounts.
         </p>
         <label

@@ -7,29 +7,26 @@
  */
 import {
   Children,
+  ComponentProps,
   createContext,
   PropsWithChildren,
-  RefObject,
   useContext,
   useId,
   useRef,
 } from "yract-beta";
 
-export interface WindowProps extends PropsWithChildren {
-  id?: string;
+export interface WindowProps extends ComponentProps<"section"> {
   /** Shallower drop shadow, for a window nested inside another panel. */
   nested?: boolean;
-  ref?: RefObject<HTMLElement | undefined>;
 }
 
-export function* Window({ id, nested, children, ...rest }: WindowProps) {
+export function* Window({ nested, children, ...rest }: WindowProps) {
   const titleId = yield* useId();
   const ctx = yield* useRef({ titleId });
   return (
     <section
       {...rest}
       className={nested ? "dos-win dos-win--nested" : "dos-win"}
-      id={id}
       aria-labelledby={titleId}
     >
       <WindowContext value={ctx.current}>{children}</WindowContext>

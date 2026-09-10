@@ -23,7 +23,7 @@ const demos = [
   { id: "counter", label: "Counter", Demo: Counter },
   { id: "todos", label: "Todo List", Demo: TodoList },
   { id: "hooks", label: "Hooks Showcase", Demo: HooksShowcase },
-  { id: "effect", label: "$effect", Demo: EffectDemo },
+  { id: "effect", label: "useEffect", Demo: EffectDemo },
   { id: "context", label: "Context Scoping", Demo: ContextDemo },
   { id: "lazy-ctx", label: "Lazy Context", Demo: LazyContextDemo },
   { id: "key-shuffle", label: "Key Shuffle", Demo: KeyShuffleDemo },

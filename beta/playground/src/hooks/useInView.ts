@@ -1,11 +1,12 @@
-import { useEffect, useRef, useState } from "yract-beta";
+import { useEffect, useState } from "yract-beta";
+import { useWeakRef } from "../../../src/hooks/weakRef";
 
 export function* useInView<T extends HTMLElement | SVGElement>(options?: IntersectionObserverInit) {
-  const ref = yield* useRef<T | undefined>(undefined);
+  const ref = yield* useWeakRef<T>();
   const [inView, setInView] = yield* useState(false);
 
   yield* useEffect(() => {
-    const el = ref.current;
+    const el = ref.current.deref();
     if (!el) return undefined;
     const io = new IntersectionObserver(([entry]) => void setInView(entry.isIntersecting), options);
     io.observe(el);

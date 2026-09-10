@@ -12,7 +12,7 @@ import type { TagNamespace } from "../render/elements/namespaces";
 import { type AnyElement, nodeNameSpace } from "../render/elements/namespaces";
 import type { UIAction } from "./actions";
 import {
-  isRefProps,
+  isWeakRefProp,
   prepareCreate,
   prepareInsert,
   prepareMove,
@@ -43,7 +43,7 @@ function prepareFiber(fiber: ComponentFiber) {
   fiber.instances = instances?.size ? new Map() : undefined;
   // TODO I think this might go wrong
   fiber.unmountInstances = instances?.size ? new Map(instances) : undefined;
-  fiber.nextRefs = undefined;
+  fiber.refsToAssign = undefined;
   fiber.preparedSlots ??= new Map<string, Slot>();
   fiber.nextInstances = undefined;
   return fiber;
@@ -162,7 +162,7 @@ function mountIntent(
       stagingDom.appendChild(headNode);
       ns = nodeNameSpace(headNode as any);
       intent.slots = mount(children, fiber, headNode, headNode, path, ns, ctx);
-      if (isRefProps(props)) handleUpdateRef(fiber, intent);
+      if (isWeakRefProp(props)) handleUpdateRef(fiber, intent);
       return;
     }
     case fragmentSlotType: {
@@ -208,7 +208,7 @@ function buildIntentToSlot(
       ns = nodeNameSpace(headNode as AnyElement);
       intent.slots = mount(children, fiber, headNode, headNode, path, ns, ctx);
       const { props } = intent;
-      if (isRefProps(props)) handleUpdateRef(fiber, intent);
+      if (isWeakRefProp(props)) handleUpdateRef(fiber, intent);
       uiActions.push(prepareInsert(parentDom, headNode, beforeNode));
       return;
     }
@@ -247,7 +247,7 @@ function updateSlot<T extends SlotType>(
       const ns = nodeNameSpace(headNode);
       slot.slots = reconcile(uiActions, fiber, children, headNode, path, slots, ns, null, ctx);
       const patch = diffElementProps(prevProps, props);
-      if (isRefProps(slot.props)) handleUpdateRef(fiber, slot);
+      if (isWeakRefProp(slot.props)) handleUpdateRef(fiber, slot);
       if (patch) uiActions.push(prepareUpdate(slot, patch));
       return;
     }

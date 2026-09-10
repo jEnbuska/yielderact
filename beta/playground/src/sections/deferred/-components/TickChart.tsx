@@ -31,7 +31,7 @@ type TickChartProps = {
 
 export function* TickChart({ width = 1080, height = 300, start }: TickChartProps) {
   const [ref, inView] = yield* useInView<SVGSVGElement>();
-  const [entries, setEntries] = yield* useState([{ id: "a", tick: Date.now() }]);
+  const [entries, setEntries] = yield* useState(() => [{ id: "a", tick: Date.now() }]);
   yield* useEffect(() => {
     if (!inView) return;
     const handle = setInterval(() => {

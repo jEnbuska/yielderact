@@ -9,6 +9,7 @@
  */
 import type { SyntheticEvent } from "./events";
 import type { Children, FrameworkProps } from "./jsx";
+import { WeakRefLike } from "./render/element-props";
 
 // ---------------------------------------------------------------------------
 // CSS Properties
@@ -637,7 +638,7 @@ export interface AriaAttributes {
 export interface HTMLAttributes<T extends HTMLElement = HTMLElement>
   extends FrameworkProps, AriaAttributes, EventHandlers<T> {
   /** Ref object — set to the DOM element on mount, undefined on unmount. */
-  ref?: { current: T | undefined };
+  ref?: WeakRefLike<T>;
   /**
    * JSX children. Uses the unprefixed `children` name (not `children`)
    * because TypeScript's automatic JSX runtime hardcodes `children` as the
@@ -1145,7 +1146,7 @@ export interface VideoHTMLAttributes extends HTMLAttributes<HTMLVideoElement> {
 export interface SVGAttributes<T extends SVGElement = SVGElement>
   extends FrameworkProps, AriaAttributes, EventHandlers<T> {
   /** Ref object — set to the SVG element on mount, undefined on unmount. */
-  ref?: { current: T | undefined };
+  ref?: WeakRefLike<T>;
   /** JSX children. See `HTMLAttributes.children` for why this isn't `children`. */
   children?: Children;
   className?: string;

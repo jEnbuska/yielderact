@@ -7,7 +7,7 @@
  */
 import { beforeEach, describe, expect, it } from "vitest";
 import { DelegationRoot, getHandlers } from "../render/delegation";
-import { type ElementPatch, type RefLike, updateElementProps } from "../render/element-props";
+import { type ElementPatch, updateElementProps, type WeakRefLike } from "../render/element-props";
 
 function makeRoot(): { container: Element; delegationRoot: DelegationRoot } {
   const container = document.createElement("div");
@@ -207,8 +207,8 @@ describe("updateElementProps: refSwap", () => {
     const el = document.createElement("div");
     container.appendChild(el);
 
-    const prev: RefLike = { current: el };
-    const next: RefLike = { current: null };
+    const prev: WeakRefLike = { current: el };
+    const next: WeakRefLike = { current: null };
 
     updateElementProps(el, { refSwap: { prev, next } }, delegationRoot);
 
@@ -221,7 +221,7 @@ describe("updateElementProps: refSwap", () => {
     const el = document.createElement("div");
     container.appendChild(el);
 
-    const next: RefLike = { current: null };
+    const next: WeakRefLike = { current: null };
     updateElementProps(el, { refSwap: { prev: undefined, next } }, delegationRoot);
 
     expect(next.current).toBe(el);
@@ -232,7 +232,7 @@ describe("updateElementProps: refSwap", () => {
     const el = document.createElement("div");
     container.appendChild(el);
 
-    const prev: RefLike = { current: el };
+    const prev: WeakRefLike = { current: el };
     updateElementProps(el, { refSwap: { prev, next: undefined } }, delegationRoot);
 
     expect(prev.current).toBeUndefined();
@@ -264,7 +264,7 @@ describe("updateElementProps: bucket ordering", () => {
     const nextHandler = () => {};
     updateElementProps(el, { setEvents: { onClick: prevHandler } }, delegationRoot);
 
-    const nextRef: RefLike = { current: null };
+    const nextRef: WeakRefLike = { current: null };
     updateElementProps(
       el,
       {

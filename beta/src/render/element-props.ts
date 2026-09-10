@@ -140,11 +140,12 @@ function unRegisterElementEvent(el: AnyElement, propKey: string): void {
 /** Local shape for the `ref` prop — the universal `VNodeProps` type doesn't
  * declare `ref` (it lives on `HTMLAttributes`/`SVGAttributes` only), so the
  * runtime accesses it through this lightweight cast. */
-export type RefLike = { current: unknown };
-export function assertIsRefLike(value: unknown): asserts value is RefLike {
-  if (value && typeof value === "object" && "current" in value) return;
-  throw new Error(`Invalid ref ${value}`);
-}
+export type WeakRefLike<T extends WeakKey = WeakKey> = Readonly<Record<symbol, boolean>> & {
+  get current(): {
+    deref(): undefined | T;
+  };
+  set current(value: T | undefined);
+};
 
 // ── Attribute writes ───────────────────────────────────────────────────────
 
@@ -262,7 +263,7 @@ export interface ElementPatch {
   removeEvents?: string[];
   setEvents?: Record<string, (e: SyntheticEvent) => void>;
   style?: Record<string, unknown> | null;
-  refSwap?: { prev?: RefLike; next?: RefLike };
+  refSwap?: { prev?: WeakRefLike; next?: WeakRefLike };
 }
 
 /**
@@ -368,8 +369,8 @@ export function diffElementProps(
   // here so refSwap is the only code path that touches refs. `undefined`
   // refs are treated as "unset" — `Object.is(undefined, undefined)` is true
   // so a prev-unset/next-unset transition never produces a swap.
-  const prevRef = prevProps["ref"] as RefLike | undefined;
-  const nextRef = nextProps["ref"] as RefLike | undefined;
+  const prevRef = prevProps["ref"] as WeakRefLike | undefined;
+  const nextRef = nextProps["ref"] as WeakRefLike | undefined;
   if (!Object.is(prevRef, nextRef)) {
     ensure().refSwap = { prev: prevRef, next: nextRef };
   }

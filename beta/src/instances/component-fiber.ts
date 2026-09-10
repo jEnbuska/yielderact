@@ -5,7 +5,7 @@ import type { UIAction } from "../reconciler/actions";
 import { mountFiber, reconcilerFiber } from "../reconciler/reconciler";
 import { PROPS_REASON } from "../render-reasons";
 import type { ComponentSlotType, ContextSlotType, Slot } from "../slots/slot";
-import type { RefLike } from "../render/element-props";
+import type { WeakRefLike } from "../render/element-props";
 import type { AnyElement, TagNamespace } from "../render/elements/namespaces";
 import type { DependencyList, DraftBy } from "../general-types";
 import { depsChanged, shallowEqual, stripFrameworkProps } from "../general";
@@ -33,8 +33,7 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
   renderReasons = new Set<symbol>();
   resolveReasons?: Set<symbol> = undefined;
   effectReasons?: Set<symbol> = undefined;
-  refs?: Map<AnyElement, RefLike> = undefined;
-  nextRefs?: Map<AnyElement, RefLike> = undefined;
+  refsToAssign?: Map<WeakRefLike, AnyElement> = undefined;
   slot?: Slot = undefined;
   pendingSlot?: Slot = undefined;
   protected props: TProps;
@@ -107,6 +106,13 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     (this.effectReasons ??= new Set()).add(reason);
     this.rctx.scheduler.scheduleEffect(this);
   }
+  stack(): string {
+    let str = this.parent?.stack() ?? "";
+    str += "\t".repeat(this.depth);
+    str += `<${this.component.name}>`;
+    str += "\n";
+    return str;
+  }
 
   render() {
     if (!this.propsPrepared) {
@@ -138,8 +144,9 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     } else {
       scheduler.unscheduleUnmountChildren(this);
     }
-    const { nextRefs, uiActions } = this;
-    if (uiActions!.length || nextRefs) {
+    const { refsToAssign, uiActions } = this;
+
+    if (uiActions!.length || refsToAssign) {
       scheduler.scheduleUiUpdate(this);
     } else {
       this.preparedSlots?.clear();

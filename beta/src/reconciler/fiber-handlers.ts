@@ -8,7 +8,7 @@ import type {
   TextSlotType,
 } from "../slots/slot";
 import { extendIntentNodes, extendIntentWithInstance, type Slot } from "../slots/slot";
-import type { TagNamespace } from "../render/elements/namespaces";
+import type { AnyElement, TagNamespace } from "../render/elements/namespaces";
 import type { ContextMap } from "../render/types";
 import { MOUNT_REASON } from "../render-reasons";
 import type {
@@ -19,6 +19,7 @@ import type {
 } from "./actions";
 import { prepareSlotNodes, updateWithPreparedSlot } from "../slots/utils";
 import { createFiber } from "../instances/register-create";
+import { WeakRefLike } from "../render/element-props";
 
 export function handleMountSlot(
   fiber: ComponentFiber,
@@ -89,5 +90,6 @@ export function handleUpdateSlotProps(
 
 export function handleUpdateRef(fiber: ComponentFiber, slot: Intent<ElementSlotType>) {
   const { headNode, props } = slot;
-  (fiber.nextRefs ??= new Map()).set(headNode!, props.ref!);
+  const refs = (fiber.refsToAssign ??= new Map<WeakRefLike, AnyElement>());
+  refs.set(props.ref!, headNode!);
 }

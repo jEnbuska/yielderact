@@ -213,7 +213,14 @@ export class Scheduler {
           continue;
         }
 
-        this.renderFiber(next);
+        try {
+          this.renderFiber(next);
+        } catch (cause) {
+          throw new Error(
+            `Failed to render component ${next.component.name} at:${"\n"}${next.stack()}`,
+            { cause },
+          );
+        }
       }
     }
     queues.length = 0;
@@ -305,16 +312,10 @@ export class Scheduler {
     parents.clear();
   }
   private static unmountLeafsFirst(next: ComponentFiber): void {
-    const { instances, hookStates, refs } = next;
+    const { instances, hookStates } = next;
     if (instances) {
       for (const next of instances.values()) {
         this.unmountLeafsFirst(next);
-      }
-    }
-    if (refs) {
-      for (const [element, ref] of refs) {
-        if (element !== ref.current) continue;
-        ref.current = undefined;
       }
     }
 
@@ -350,11 +351,11 @@ export class Scheduler {
     members.clear();
     for (let i = 0; i < queues.length; i++) {
       const queue = queues[i]!;
-      for (const next of queue) {
-        if (next.unmounted) continue;
-        next.preparedSlots?.clear();
-        const { uiActions, refs, nextRefs } = next;
-        if (uiActions?.length) {
+      for (const fiber of queue) {
+        if (fiber.unmounted) continue;
+        fiber.preparedSlots?.clear();
+        const { uiActions, refsToAssign } = fiber;
+        if (uiActions) {
           for (const action of uiActions) {
             switch (action.type) {
               case "MOVE": {
@@ -374,29 +375,20 @@ export class Scheduler {
               }
               case "UPDATE": {
                 const { slot, patch } = action;
-                updateElementProps(slot.headNode, patch, next.rctx.delegationRoot);
+                updateElementProps(slot.headNode, patch, fiber.rctx.delegationRoot);
                 break;
               }
             }
           }
-          next.slot = next.pendingSlot;
-          next.uiActions = undefined;
+          fiber.uiActions = undefined;
+          fiber.slot = fiber.pendingSlot;
+          fiber.pendingSlot = undefined;
         }
 
-        if (refs) {
-          for (const [element, ref] of refs) {
-            if (nextRefs?.get(element) === ref) continue; // unchanged binding
-            if (ref.current === element) ref.current = undefined; // still ours to clear
-          }
+        if (refsToAssign) {
+          for (const [ref, element] of refsToAssign) ref.current = element;
+          fiber.refsToAssign = undefined;
         }
-        // Pass 2: assign all new refs
-        if (nextRefs) {
-          for (const [element, ref] of nextRefs) {
-            ref.current = element;
-          }
-        }
-        next.refs = next.nextRefs;
-        next.nextRefs = undefined;
       }
       queue.length = 0;
     }

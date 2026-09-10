@@ -4,6 +4,7 @@ import type { DelegationRoot } from "./delegation";
 import type { Scheduler } from "./scheduler";
 import type { DependencyList } from "yract-beta";
 import { $EFFECT, $ID, $LOAD, $MEMO, $REF, $STABLE, $STATE, $WEAK_REF } from "../hooks/constants";
+import { WeakRefLike } from "./element-props";
 
 export type ContextMap = Map<string, ContextProperties<unknown>>;
 
@@ -26,10 +27,9 @@ export interface RefHookState {
   current: unknown;
 }
 
-export interface WeakRefHookState {
+export interface WeakRefHookState<T extends WeakKey = WeakKey> {
   type: typeof $WEAK_REF;
-  get current(): WeakKey | undefined;
-  set current(value: WeakKey);
+  ref: WeakRefLike<T>;
 }
 
 export interface IdHookState {

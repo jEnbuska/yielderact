@@ -1,5 +1,4 @@
-import type { ElementPatch, RefLike } from "../render/element-props";
-import { assertIsRefLike } from "../render/element-props";
+import type { ElementPatch, WeakRefLike } from "../render/element-props";
 import type { TagNamespace } from "../render/elements/namespaces";
 import type {
   ElementSlotType,
@@ -106,15 +105,10 @@ export type RemoveSlotAction = Delegated<{
 export type UIAction =
   InsertAction | MoveAction | TextChangeAction | ElementUpdateAction | RemoveSlotAction;
 
-export function isRefProps<T extends Record<string, unknown>>(
+export function isWeakRefProp<T extends Record<string, unknown>>(
   props: T,
-): props is T & { ref?: RefLike } {
-  if ("ref" in props) {
-    const ref = props["ref"];
-    if (ref === undefined) return false;
-    assertIsRefLike(ref);
-    return true;
-  }
+): props is T & { ref: WeakRefLike } {
+  if ("ref" in props) return props["ref"] !== undefined;
   return false;
 }
 

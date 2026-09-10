@@ -34,8 +34,9 @@ export interface RefDescriptor {
   initialValue: unknown;
 }
 
-export interface WeakRefDescriptor {
+export interface WeakRefDescriptor<T extends WeakKey = WeakKey> {
   type: typeof $WEAK_REF;
+  initial?: T;
 }
 
 export interface IdDescriptor {
