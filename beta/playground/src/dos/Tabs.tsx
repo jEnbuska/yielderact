@@ -17,8 +17,8 @@
  * it from outside. Arrow keys move between tabs and select as they go, which
  * is what a reader expects when the panels are cheap to render.
  */
-import type { PropsWithChildren } from "yract-beta";
-import { $id, useContext, useState } from "yract-beta";
+import type { ComponentProps, PropsWithChildren } from "yract-beta";
+import { useContext, useId, useState } from "yract-beta";
 import { TabsContext } from "./contexts";
 import { useRoving } from "./roving";
 
@@ -27,32 +27,33 @@ export interface TabGroupProps extends PropsWithChildren {
   defaultValue: string;
   /** Names the tablist. Required — a bare tablist tells a screen reader nothing. */
   label: string;
-  /** Controlled selection. Pair with `onChange`. */
+  /** Controlled selection. Pair with `onValueChange`. */
   value?: string;
-  onChange?: (value: string) => void;
+  onValueChange?: (value: string) => void;
 }
 
-export function* TabGroup({ defaultValue, label, value, onChange, children }: TabGroupProps) {
-  const baseId = yield* $id();
+export function* TabGroup({ defaultValue, label, value, onValueChange, children }: TabGroupProps) {
+  const baseId = yield* useId();
   const [internal, setInternal] = yield* useState(defaultValue);
 
   const selected = value ?? internal;
 
   function select(next: string): void {
     if (value === undefined) void setInternal(next);
-    onChange?.(next);
+    onValueChange?.(next);
   }
 
   return <TabsContext value={{ selected, select, baseId, label }}>{children}</TabsContext>;
 }
 
 /** The strip itself. Holds only `Tab` children, as the role requires. */
-export function* TabList({ children }: PropsWithChildren) {
+export function* TabList({ children, ...rest }: ComponentProps<"div">) {
   const { label } = yield* useContext(TabsContext);
   const { containerRef, onKeydown } = yield* useRoving<HTMLDivElement>("horizontal");
 
   return (
     <div
+      {...rest}
       className="dos-tabs"
       role="tablist"
       aria-label={label}
@@ -64,17 +65,18 @@ export function* TabList({ children }: PropsWithChildren) {
   );
 }
 
-export interface TabProps extends PropsWithChildren {
+export interface TabProps extends ComponentProps<"button"> {
   /** Identifies the tab and links it to the panel with the same value. */
   value: string;
 }
 
-export function* Tab({ value, children }: TabProps) {
+export function* Tab({ value, children, ...rest }: TabProps) {
   const { selected, select, baseId } = yield* useContext(TabsContext);
   const isSelected = selected === value;
 
   return (
     <button
+      {...rest}
       className="dos-tab"
       type="button"
       role="tab"
@@ -99,12 +101,13 @@ export function* Tab({ value, children }: TabProps) {
  * ignores an IDREF that does not resolve, so this costs nothing — and keeping
  * three hidden panels mounted to avoid it would cost more.
  */
-export function* TabPanel({ value, children }: PropsWithChildren & { value: string }) {
+export function* TabPanel({ value, children, ...rest }: ComponentProps<"div"> & { value: string }) {
   const { selected, baseId } = yield* useContext(TabsContext);
 
   if (selected !== value) return null;
   return (
     <div
+      {...rest}
       className="dos-tabpanel"
       role="tabpanel"
       id={`${baseId}panel-${value}`}

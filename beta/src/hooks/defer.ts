@@ -1,6 +1,6 @@
 import type { ComponentGenerator, DraftBy } from "../general-types";
 import { useState } from "./state";
-import type { Child, Children, Component } from "../jsx";
+import type { Component, PropsWithChildren } from "../jsx";
 import { Fragment, jsx } from "../jsx-runtime";
 import { useStable } from "./stable";
 import type { ContextProperties } from "../context";
@@ -15,19 +15,22 @@ import { useEffect } from "./effect";
 import { useRef } from "./ref";
 import { $EFFECT } from "./constants";
 
-export function* useDefer(config?: {
-  disabled?: boolean;
-}): ComponentGenerator<[Component<{ children: Children; initial?: Child }>, boolean]> {
+export function* useDefer(
+  config: {
+    disabled?: boolean;
+  } = {},
+): ComponentGenerator<[Component<PropsWithChildren>, boolean]> {
   const [isDeferring, setDeferring] = yield* useState(false);
+  const { disabled } = config;
   return [
-    yield* useStable(function* Deferred({ children }) {
+    yield* useStable(function* Deferred({ children }: PropsWithChildren) {
       const mounted = yield* useRef(false);
       yield* useEffect(() => {
         mounted.current = true;
       });
       return jsx(Defer, {
         children,
-        ...config,
+        disabled,
         mounted: mounted.current,
         setDeferring,
       });
@@ -73,6 +76,8 @@ class DeferFiber extends ComponentFiber<DeferProps> {
     ns: TagNamespace,
   ) {
     const context: ContextProperties<boolean> = {
+      name: DeferContext.name,
+      Provider: DeferContext.Provider,
       version: 0,
       ref: {
         current: false,
@@ -82,7 +87,6 @@ class DeferFiber extends ComponentFiber<DeferProps> {
       },
       depth: (parent?.depth ?? -1) + 1,
       id: staticId,
-      Provider: DeferContext.Provider,
     };
     const extended = new Map(parentCtx);
 
@@ -123,7 +127,7 @@ class DeferFiber extends ComponentFiber<DeferProps> {
 }
 
 export const Defer = Object.assign(
-  function* Defer({ children }: { children: Children }) {
+  function* Defer({ children }: PropsWithChildren) {
     return jsx(Fragment, { children });
   },
   { Fiber: DeferFiber },

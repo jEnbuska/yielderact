@@ -64,6 +64,26 @@ function isReservedProp(key: string): boolean {
   }
 }
 
+/**
+ * Write a style object onto an element.
+ *
+ * `Object.assign(el.style, …)` silently drops CSS custom properties: they are
+ * not named members of `CSSStyleDeclaration`, so the assignment lands on the
+ * object as a plain expando and never reaches CSS. Custom properties have to
+ * go through `setProperty`, so route them there and assign the rest.
+ */
+function assignStyle(el: AnyElement, style: Record<string, unknown>): void {
+  for (const key in style) {
+    if (!key.startsWith("--")) continue;
+    const value = style[key];
+    el.style.setProperty(key, value === undefined ? "" : `${value}`);
+  }
+  for (const key in style) {
+    if (key.startsWith("--")) continue;
+    Object.assign(el.style, { [key]: style[key] });
+  }
+}
+
 function isPlainStyleObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
 }
@@ -140,7 +160,7 @@ function writeElementAttr(
       return el.setAttribute("class", String(value));
     }
     case "style": {
-      if (isPlainStyleObject(value)) Object.assign(el.style, value);
+      if (isPlainStyleObject(value)) assignStyle(el, value);
       else el.removeAttribute("style");
       return;
     }
@@ -376,7 +396,7 @@ export function updateElementProps(
   if (patch.style === null) {
     el.style.cssText = "";
   } else if (patch.style) {
-    Object.assign(el.style, patch.style);
+    assignStyle(el, patch.style);
   }
   if (patch.setAttrs) {
     for (const key in patch.setAttrs) {

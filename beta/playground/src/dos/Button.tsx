@@ -1,19 +1,16 @@
 /**
  * Button — cyan by default, gray for the secondary action, red for the one
  * that destroys something.
+ *
+ * `type`, `disabled`, `onClick`, `aria-*` and the rest come from the native
+ * button props; only `variant` is the kit's own.
  */
-import type { PropsWithChildren } from "yract-beta";
-import type { SEvent } from "yract-beta";
+import type { ComponentProps } from "yract-beta";
 
 export type ButtonVariant = "primary" | "default" | "danger";
 
-export interface ButtonProps extends PropsWithChildren {
+export interface ButtonProps extends ComponentProps<"button"> {
   variant?: ButtonVariant;
-  disabled?: boolean;
-  /** Submits the form it sits in. Defaults to a plain button. */
-  type?: "button" | "submit" | "reset";
-  onClick?: (event: SEvent<"click">) => void;
-  "aria-label"?: string;
 }
 
 const variantClass: Record<ButtonVariant, string> = {
@@ -22,22 +19,9 @@ const variantClass: Record<ButtonVariant, string> = {
   danger: "dos-btn dos-btn--danger",
 };
 
-export function* Button({
-  variant = "primary",
-  disabled,
-  type = "button",
-  onClick,
-  children,
-  ...rest
-}: ButtonProps) {
+export function* Button({ variant = "primary", type = "button", children, ...rest }: ButtonProps) {
   return (
-    <button
-      className={variantClass[variant]}
-      type={type}
-      disabled={disabled}
-      aria-label={rest["aria-label"]}
-      onClick={onClick}
-    >
+    <button {...rest} className={variantClass[variant]} type={type}>
       {children}
     </button>
   );

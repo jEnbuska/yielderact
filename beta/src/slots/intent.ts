@@ -163,42 +163,48 @@ export function draftToIntent(draft: Draft, key: string, index: number, parentPa
   return same;
 }
 
-function getRenderableChild(child: Child): Exclude<Child, boolean | undefined | null> {
-  switch (child) {
-    case false:
-    case true:
-    case undefined:
-    case null:
-      return "";
-    default:
-      return child;
+export function childToIntent(child: Child, index: number, parentPath: string): Intent {
+  child ??= "";
+  const type = typeof child;
+  if (type !== "object") {
+    let text: string;
+    switch (type) {
+      case "string":
+        text = child as string;
+        break;
+      case "boolean":
+        text = "";
+        break;
+      default:
+        text = `${child}`;
+    }
+    const key = getTextSlotKey(index);
+    return asTextIntent(text, index, key, parentPath);
   }
-}
-
-export function childToIntent(child: Child): Intent {
-  let intentChild = getRenderableChild(child);
-  if (typeof intentChild !== "object") {
-    return asTextIntent(`${intentChild}`, 0, getTextSlotKey(0), "");
-  }
-  switch (intentChild.type) {
+  child = child as Draft;
+  switch (child.type) {
     case componentSlotType: {
-      intentChild = ensureFreshComponentDraft(intentChild);
-      return draftToIntent(intentChild, getComponentSlotKey(intentChild, 0), 0, "");
+      child = ensureFreshComponentDraft(child);
+      const key = getComponentSlotKey(child, index);
+      return draftToIntent(child, key, index, parentPath);
     }
     case elementSlotType: {
-      child = ensureFreshElementDraft(intentChild);
-      return draftToIntent(intentChild, getElementSlotKey(intentChild, 0), 0, "");
+      child = ensureFreshElementDraft(child);
+      const key = getElementSlotKey(child, index);
+      return draftToIntent(child, key, index, parentPath);
     }
     case fragmentSlotType: {
-      intentChild = ensureFreshFragmentDraft(intentChild);
-      return draftToIntent(intentChild, getFragmentSlotKey(intentChild, 0), 0, "");
+      child = ensureFreshFragmentDraft(child);
+      const key = getFragmentSlotKey(child, index);
+      return draftToIntent(child, key, index, parentPath);
     }
     case contextSlotType: {
-      intentChild = ensureFreshContextDraft(intentChild);
-      return draftToIntent(intentChild, getContextSlotKey(intentChild, 0), 0, "");
+      child = ensureFreshContextDraft(child);
+      const key = getContextSlotKey(child, index);
+      return draftToIntent(child, key, index, parentPath);
     }
     default: {
-      throw new Error(`Invalid child type ${JSON.stringify(intentChild satisfies never)}`);
+      throw new Error(`Invalid child type ${JSON.stringify(child satisfies never)}`);
     }
   }
 }
@@ -216,42 +222,8 @@ export function childrenToIntents(
       intents.set(key, arrayAsFragmentIntent(child, key, index, parentPath));
       continue;
     }
-    let intentChild = getRenderableChild(child);
-    if (typeof intentChild !== "object") {
-      const text = `${intentChild}`;
-      const key = getTextSlotKey(index);
-      intents.set(key, asTextIntent(text, index, key, parentPath));
-      continue;
-    }
-    switch (intentChild.type) {
-      case componentSlotType: {
-        intentChild = ensureFreshComponentDraft(intentChild);
-        const key = getComponentSlotKey(intentChild, index);
-        intents.set(key, draftToIntent(intentChild, key, index, parentPath));
-        break;
-      }
-      case elementSlotType: {
-        intentChild = ensureFreshElementDraft(intentChild);
-        const key = getElementSlotKey(intentChild, index);
-        intents.set(key, draftToIntent(intentChild, key, index, parentPath));
-        break;
-      }
-      case fragmentSlotType: {
-        intentChild = ensureFreshFragmentDraft(intentChild);
-        const key = getFragmentSlotKey(intentChild, index);
-        intents.set(key, draftToIntent(intentChild, key, index, parentPath));
-        break;
-      }
-      case contextSlotType: {
-        intentChild = ensureFreshContextDraft(intentChild);
-        const key = getContextSlotKey(intentChild, index);
-        intents.set(key, draftToIntent(intentChild, key, index, parentPath));
-        break;
-      }
-      default: {
-        throw new Error(`Invalid child type ${JSON.stringify(intentChild satisfies never)}`);
-      }
-    }
+    const intent = childToIntent(child, index, parentPath);
+    intents.set(intent.key, intent);
   }
 
   return intents;

@@ -1,7 +1,7 @@
 /**
- * ThemeDemo – demonstrates createContext / $context with `yield* $state`.
+ * ThemeDemo – demonstrates createContext / $context with `yield* useState`.
  */
-import { $id, createContext, useContext, useState } from "yract-beta";
+import { createContext, useContext, useId, useState } from "yract-beta";
 
 type Theme = "light" | "dark";
 
@@ -13,8 +13,8 @@ const styles: Record<Theme, { background: string; color: string; border: string 
 };
 
 function* ThemedCard() {
-  const cardId = yield* $id();
-  const themeValueId = yield* $id();
+  const cardId = yield* useId();
+  const themeValueId = yield* useId();
 
   const theme = yield* useContext(ThemeContext);
   const s = styles[theme];
@@ -42,7 +42,7 @@ function* ThemedCard() {
 }
 
 export function* ThemeDemo() {
-  const toggleBtnId = yield* $id();
+  const toggleBtnId = yield* useId();
 
   const [theme, setTheme] = yield* useState<Theme>("light");
 

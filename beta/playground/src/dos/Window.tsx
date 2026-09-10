@@ -5,36 +5,48 @@
  * Pass `labelledBy` an id you also give the title, so the section is named for
  * assistive tech without inventing a heading the design does not show.
  */
-import type { Children, PropsWithChildren } from "yract-beta";
+import {
+  Children,
+  createContext,
+  PropsWithChildren,
+  RefObject,
+  useContext,
+  useId,
+  useRef,
+} from "yract-beta";
 
 export interface WindowProps extends PropsWithChildren {
   id?: string;
-  /** Id of the element naming this window, usually its `WindowBar` title. */
-  labelledBy?: string;
   /** Shallower drop shadow, for a window nested inside another panel. */
   nested?: boolean;
+  ref?: RefObject<HTMLElement | undefined>;
 }
 
-export function* Window({ id, labelledBy, nested, children }: WindowProps) {
+export function* Window({ id, nested, children, ...rest }: WindowProps) {
+  const titleId = yield* useId();
+  const ctx = yield* useRef({ titleId });
   return (
     <section
+      {...rest}
       className={nested ? "dos-win dos-win--nested" : "dos-win"}
       id={id}
-      aria-labelledby={labelledBy}
+      aria-labelledby={titleId}
     >
-      {children}
+      <WindowContext value={ctx.current}>{children}</WindowContext>
     </section>
   );
 }
+
+const WindowContext = createContext({ titleId: "" });
 
 export interface WindowBarProps {
   title: Children;
   /** Right-hand slot: a close glyph, a tag list, whatever the window needs. */
   aside?: Children;
-  titleId?: string;
 }
 
-export function* WindowBar({ title, aside, titleId }: WindowBarProps) {
+export function* WindowBar({ title, aside }: WindowBarProps) {
+  const { titleId } = yield* useContext(WindowContext);
   return (
     <div className="dos-win__bar">
       <span id={titleId}>{title}</span>

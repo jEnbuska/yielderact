@@ -13,7 +13,7 @@ import { $STATE } from "./constants";
  *
  * @example
  * function* Counter() {
- *   const [count, setCount] = yield* $state(0);
+ *   const [count, setCount] = yield* useState(0);
  *   return <button onClick={() => setCount((c) => c + 1)}>{count}</button>;
  * }
  */

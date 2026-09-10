@@ -34,9 +34,7 @@ export function handleMountSlot(
     instance.parentDom = parentDom;
     extendIntentWithInstance(intent, instance);
     fiber.unmountInstances?.delete(path);
-    if (instance.unmounted) {
-      instance.unmounted = false;
-    }
+    if (instance.unmounted) instance.unmounted = false;
     instance.setProps(intent);
   } else {
     instance = createFiber(extendIntentNodes(intent), ctx, fiber, fiber.rctx, parentDom, ns);
@@ -73,7 +71,7 @@ export function handleCreateNode(
   } else {
     resultSlot = prepareSlotNodes(slot, rctx.delegationRoot, ns);
   }
-  // preparedSlots!.set(path, resultSlot);
+  preparedSlots!.set(path, resultSlot);
   return resultSlot;
 }
 

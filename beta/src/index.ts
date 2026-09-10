@@ -6,17 +6,17 @@ export type { SEvent, SyntheticEvent } from "./events";
 export {
   useContext,
   useEffect,
-  $id,
+  useId,
   useMemo,
   useRef,
   useStable,
   useState,
   useDefer,
   type RefObject,
-  $load,
-  $halted,
+  useLoad,
+  requireIsHalted,
   requireHalt,
-  $render,
+  requireRender,
   requireForceUpdate,
 } from "./hooks";
 export {

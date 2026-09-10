@@ -13,7 +13,7 @@ function nextId(): string {
 /**
  * Stable unique ID hook. Returns a string ID that is stable across re-renders.
  */
-export function* $id(): ComponentGenerator<string> {
+export function* useId(): ComponentGenerator<string> {
   const desc: IdDescriptor = { type: $ID };
   const id = yield desc;
   return id as string;

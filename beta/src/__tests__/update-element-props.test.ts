@@ -62,6 +62,40 @@ describe("updateElementProps: style", () => {
   });
 });
 
+describe("updateElementProps: custom properties", () => {
+  it("sets a CSS custom property from the style object", () => {
+    const { container, delegationRoot } = makeRoot();
+    const el = document.createElement("div");
+    container.appendChild(el);
+
+    updateElementProps(el, { style: { "--dos-cols": "1fr 2fr" } }, delegationRoot);
+
+    expect(el.style.getPropertyValue("--dos-cols")).toBe("1fr 2fr");
+  });
+
+  it("sets custom properties alongside regular ones", () => {
+    const { container, delegationRoot } = makeRoot();
+    const el = document.createElement("div");
+    container.appendChild(el);
+
+    updateElementProps(el, { style: { "--gap": "4px", color: "rgb(255, 0, 0)" } }, delegationRoot);
+
+    expect(el.style.getPropertyValue("--gap")).toBe("4px");
+    expect(el.style.color).toBe("rgb(255, 0, 0)");
+  });
+
+  it("clears a custom property when the delta sets it to an empty string", () => {
+    const { container, delegationRoot } = makeRoot();
+    const el = document.createElement("div");
+    container.appendChild(el);
+
+    updateElementProps(el, { style: { "--gap": "4px" } }, delegationRoot);
+    updateElementProps(el, { style: { "--gap": "" } }, delegationRoot);
+
+    expect(el.style.getPropertyValue("--gap")).toBe("");
+  });
+});
+
 describe("updateElementProps: attrs", () => {
   it("writes setAttrs entries to the DOM", () => {
     const { container, delegationRoot } = makeRoot();

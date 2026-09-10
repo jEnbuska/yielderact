@@ -49,23 +49,25 @@ function prepareFiber(fiber: ComponentFiber) {
   return fiber;
 }
 
-export function mountFiberChildren(fiber: ComponentFiber, child: Child): Slot {
+export function mountFiber(fiber: ComponentFiber, child: Child): Slot {
+  // if (fiber.depth > 16) console.log("mount", fiber.component.name);
   const stagingDom = document.createDocumentFragment();
+
   const { parentDom, ns, ctx } = prepareFiber(fiber);
-  const intent = childToIntent(child);
+  const intent = childToIntent(child, 0, "");
   mountIntent(fiber, intent, ns, parentDom, stagingDom, ctx);
   fiber.instances = fiber.nextInstances;
+  // ComponentFiber.instances.set(stagingDom, fiber);
   fiber.uiActions = [prepareInsert(fiber.parentDom, stagingDom, fiber.tailNode)];
-
   return intent as Slot;
 }
 
-export function reconcileFiberChildren(fiber: ComponentFiber, child: Child): Slot {
+export function reconcilerFiber(fiber: ComponentFiber, child: Child): Slot {
   const { parentDom, slot, ns, tailNode, ctx } = prepareFiber(fiber);
-  //console.log("reconcile", fiber.component.name);
   const prevSlot = slot!;
-  const intent = childToIntent(child);
-  const uiActions: UIAction[] = (fiber.uiActions = []);
+  const intent = childToIntent(child, 0, "");
+  fiber.uiActions = [];
+  const uiActions: UIAction[] = fiber.uiActions;
   if (intent.key !== prevSlot.key) {
     uiActions.push(prepareRemove(prevSlot));
     buildIntentToSlot(uiActions, fiber, intent, ns, parentDom, tailNode, ctx);

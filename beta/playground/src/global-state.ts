@@ -1,66 +1,66 @@
 import { PersonRow } from "./types";
 
-let personRows: ReadonlyArray<PersonRow> = [];
+const FIRST_NAMES = [
+  "Alice",
+  "Bob",
+  "Carol",
+  "Dave",
+  "Eve",
+  "Frank",
+  "Grace",
+  "Hank",
+  "Iris",
+  "Jack",
+  "Kate",
+  "Leo",
+  "Mona",
+  "Nick",
+  "Olga",
+  "Pete",
+  "Quinn",
+  "Rita",
+  "Sam",
+  "Tina",
+  "Uma",
+  "Vic",
+  "Wendy",
+  "Xena",
+  "Yuri",
+  "Zara",
+];
 
-export async function createPersonRows(count: number) {
-  const FIRST_NAMES = [
-    "Alice",
-    "Bob",
-    "Carol",
-    "Dave",
-    "Eve",
-    "Frank",
-    "Grace",
-    "Hank",
-    "Iris",
-    "Jack",
-    "Kate",
-    "Leo",
-    "Mona",
-    "Nick",
-    "Olga",
-    "Pete",
-    "Quinn",
-    "Rita",
-    "Sam",
-    "Tina",
-    "Uma",
-    "Vic",
-    "Wendy",
-    "Xena",
-    "Yuri",
-    "Zara",
-  ];
+export const DEPARTMENTS = [
+  "Engineering",
+  "Sales",
+  "Marketing",
+  "Support",
+  "Finance",
+  "Legal",
+  "HR",
+  "Design",
+  "Operations",
+  "Research",
+];
 
-  const DEPARTMENTS = [
-    "Engineering",
-    "Sales",
-    "Marketing",
-    "Support",
-    "Finance",
-    "Legal",
-    "HR",
-    "Design",
-    "Operations",
-    "Research",
-  ];
-
-  const CITIES = [
-    "Helsinki",
-    "Berlin",
-    "London",
-    "Paris",
-    "Tokyo",
-    "New York",
-    "Sydney",
-    "Toronto",
-    "Mumbai",
-    "Seoul",
-  ];
-
+const CITIES = [
+  "Helsinki",
+  "Berlin",
+  "London",
+  "Paris",
+  "Tokyo",
+  "New York",
+  "Sydney",
+  "Toronto",
+  "Mumbai",
+  "Seoul",
+];
+export async function createPersonRows(count: number, signal: AbortSignal) {
   const rows: PersonRow[] = [];
   for (let i = 1; i <= count; i++) {
-    if (i % 5000 === 0) await new Promise((res) => setTimeout(res, 0));
+    if (i % 5000 === 0) {
+      if (signal.aborted) throw new Error("Signal abortedss");
+      await new Promise((res) => setTimeout(res, 0));
+    }
     rows.push({
       id: `${i}`,
       name: FIRST_NAMES[i % FIRST_NAMES.length]!,
@@ -68,9 +68,9 @@ export async function createPersonRows(count: number) {
       city: CITIES[i % CITIES.length]!,
     });
   }
-  personRows = rows;
+  return rows;
 }
 
-export function getPersonRows() {
-  return personRows;
+export function getPersonRows(count: number, signal: AbortSignal) {
+  return createPersonRows(count, signal);
 }

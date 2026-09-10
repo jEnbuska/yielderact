@@ -5,17 +5,18 @@
  * That is what keeps a ten-item menu bar from costing a keyboard user ten
  * presses to get past.
  */
-import type { Children, PropsWithChildren } from "yract-beta";
+import type { Children, ComponentProps } from "yract-beta";
 import { useRoving } from "./roving";
 
-export interface ToolbarProps extends PropsWithChildren {
+export interface ToolbarProps extends ComponentProps<"div"> {
   label: string;
 }
 
-export function* MenuBar({ label, children }: ToolbarProps) {
+export function* MenuBar({ label, children, ...rest }: ToolbarProps) {
   const { containerRef, onKeydown } = yield* useRoving<HTMLDivElement>("horizontal", true);
   return (
     <div
+      {...rest}
       className="dos-menubar"
       role="toolbar"
       aria-label={label}
@@ -27,21 +28,11 @@ export function* MenuBar({ label, children }: ToolbarProps) {
   );
 }
 
-export interface ToolbarItemProps extends PropsWithChildren {
-  onClick?: () => void;
-  /** Spoken name, when the visible label is an abbreviation or a glyph. */
-  "aria-label"?: string;
-}
+export interface ToolbarItemProps extends ComponentProps<"button"> {}
 
-export function* MenuBarItem({ onClick, children, ...rest }: ToolbarItemProps) {
+export function* MenuBarItem({ children, ...rest }: ToolbarItemProps) {
   return (
-    <button
-      className="dos-menubar__item"
-      type="button"
-      data-dos-item=""
-      aria-label={rest["aria-label"]}
-      onClick={onClick}
-    >
+    <button {...rest} className="dos-menubar__item" type="button" data-dos-item="">
       {children}
     </button>
   );
@@ -52,10 +43,11 @@ export interface BreadCrumbsProps extends ToolbarProps {
   hint?: Children;
 }
 
-export function* BreadCrumbs({ label, hint, children }: BreadCrumbsProps) {
+export function* BreadCrumbs({ label, hint, children, ...rest }: BreadCrumbsProps) {
   const { containerRef, onKeydown } = yield* useRoving<HTMLDivElement>("horizontal", true);
   return (
     <div
+      {...rest}
       className="dos-statusbar"
       role="toolbar"
       aria-label={label}
@@ -68,15 +60,9 @@ export function* BreadCrumbs({ label, hint, children }: BreadCrumbsProps) {
   );
 }
 
-export function* Crumb({ onClick, children, ...rest }: ToolbarItemProps) {
+export function* Crumb({ children, ...rest }: ToolbarItemProps) {
   return (
-    <button
-      className="dos-statusbar__item"
-      type="button"
-      data-dos-item=""
-      aria-label={rest["aria-label"]}
-      onClick={onClick}
-    >
+    <button {...rest} className="dos-statusbar__item" type="button" data-dos-item="">
       {children}
     </button>
   );

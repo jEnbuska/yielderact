@@ -349,8 +349,8 @@ export class Scheduler {
   private static applyUiActions({ queues, members }: Group) {
     members.clear();
     for (let i = 0; i < queues.length; i++) {
-      const group = queues[i]!;
-      for (const next of group) {
+      const queue = queues[i]!;
+      for (const next of queue) {
         if (next.unmounted) continue;
         next.preparedSlots?.clear();
         const { uiActions, refs, nextRefs } = next;
@@ -398,7 +398,7 @@ export class Scheduler {
         next.refs = next.nextRefs;
         next.nextRefs = undefined;
       }
-      group.length = 0;
+      queue.length = 0;
     }
   }
 

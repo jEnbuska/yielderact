@@ -179,7 +179,7 @@ export function runHooks(gen: ComponentGenerator<any>, instance: ComponentFiber)
       }
       case $$HALT: {
         instance.halted = true;
-        if (!instance.rendered) return value.initialFallback;
+        if (!instance.renders) return value.initialFallback;
         return instance.prevChild;
       }
       case $$RENDER: {

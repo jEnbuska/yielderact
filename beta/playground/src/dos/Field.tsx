@@ -13,50 +13,52 @@
  * When `invalid` is set the control points at the error instead of the
  * description, so a screen reader reads the problem rather than the hint.
  */
-import type { Children, PropsWithChildren, SyntheticEvent } from "yract-beta";
-import { $id, useContext } from "yract-beta";
+import type { Children, ComponentProps, SyntheticEvent } from "yract-beta";
+import { useContext, useId } from "yract-beta";
 import { FieldContext } from "./contexts";
 
-export interface FieldProps extends PropsWithChildren {
+export interface FieldProps extends ComponentProps<"div"> {
   invalid?: boolean;
 }
 
-export function* Field({ invalid = false, children }: FieldProps) {
-  const controlId = yield* $id();
-  const descriptionId = yield* $id();
-  const errorId = yield* $id();
+export function* Field({ invalid = false, children, ...rest }: FieldProps) {
+  const controlId = yield* useId();
+  const descriptionId = yield* useId();
+  const errorId = yield* useId();
 
   return (
     <FieldContext value={{ controlId, descriptionId, errorId, invalid }}>
-      <div className="dos-field">{children}</div>
+      <div {...rest} className="dos-field">
+        {children}
+      </div>
     </FieldContext>
   );
 }
 
-export function* FieldLabel({ children }: PropsWithChildren) {
+export function* FieldLabel({ children, ...rest }: ComponentProps<"label">) {
   const { controlId } = yield* useContext(FieldContext);
   return (
-    <label className="dos-label" htmlFor={controlId}>
+    <label {...rest} className="dos-label" htmlFor={controlId}>
       {children}
     </label>
   );
 }
 
-export function* FieldDescription({ children }: PropsWithChildren) {
+export function* FieldDescription({ children, ...rest }: ComponentProps<"p">) {
   const { descriptionId } = yield* useContext(FieldContext);
   return (
-    <p className="dos-desc" id={descriptionId}>
+    <p {...rest} className="dos-desc" id={descriptionId}>
       {children}
     </p>
   );
 }
 
 /** Error text. Renders nothing unless its `Field` is marked invalid. */
-export function* FieldError({ children }: PropsWithChildren) {
+export function* FieldError({ children, ...rest }: ComponentProps<"p">) {
   const { errorId, invalid } = yield* useContext(FieldContext);
   if (!invalid) return null;
   return (
-    <p className="dos-error" id={errorId}>
+    <p {...rest} className="dos-error" id={errorId}>
       {children}
     </p>
   );
@@ -66,49 +68,57 @@ function describedBy(invalid: boolean, descriptionId: string, errorId: string): 
   return invalid ? errorId : descriptionId;
 }
 
-export interface TextInputProps {
+export interface TextInputProps extends ComponentProps<"input"> {
   value: string;
-  /** Receives the new value, not the DOM event — the control unwraps it. */
-  onChange?: (value: string) => void;
-  placeholder?: string;
+  /**
+   * Receives the new value, not the DOM event — the control unwraps it.
+   * Named apart from the native `onChange`, which still passes through.
+   */
+  onValueChange?: (value: string) => void;
   type?: "text" | "email" | "password" | "search" | "tel" | "url";
 }
 
-export function* TextInput({ value, onChange, placeholder, type = "text" }: TextInputProps) {
+export function* TextInput({ value, onValueChange, type = "text", ...rest }: TextInputProps) {
   const { controlId, descriptionId, errorId, invalid } = yield* useContext(FieldContext);
   return (
     <input
+      {...rest}
       className="dos-input"
       id={controlId}
       type={type}
       value={value}
-      placeholder={placeholder}
       aria-invalid={invalid ? "true" : undefined}
       aria-describedby={describedBy(invalid, descriptionId, errorId)}
-      onInput={(event: SyntheticEvent<Event, HTMLInputElement>) =>
-        onChange?.(event.currentTarget?.value ?? "")
-      }
+      onInput={(event: SyntheticEvent<Event, HTMLInputElement>) => {
+        onValueChange?.(event.currentTarget?.value ?? "");
+      }}
     />
   );
 }
 
-export interface SelectProps extends PropsWithChildren {
+export interface SelectProps extends ComponentProps<"select"> {
   value: string;
-  onChange?: (value: string) => void;
+  /** Receives the new value. The native `onChange` still passes through. */
+  onValueChange?: (value: string) => void;
 }
 
-/** Native select behind a drawn arrow, so the platform picker still opens. */
-export function* Select({ value, onChange, children }: SelectProps) {
+/**
+ * Native select behind a drawn arrow, so the platform picker still opens.
+ * Rest props land on the `<select>`, not the presentational wrapper — that is
+ * the element a caller means when passing `aria-labelledby` or `disabled`.
+ */
+export function* Select({ value, onValueChange, children, ...rest }: SelectProps) {
   const { controlId, descriptionId, errorId, invalid } = yield* useContext(FieldContext);
   return (
     <div className="dos-select-wrap">
       <select
+        {...rest}
         className="dos-select"
         id={controlId}
         value={value}
         aria-describedby={describedBy(invalid, descriptionId, errorId)}
         onChange={(event: SyntheticEvent<Event, HTMLSelectElement>) =>
-          onChange?.(event.currentTarget?.value ?? "")
+          onValueChange?.(event.currentTarget?.value ?? "")
         }
       >
         {children}
@@ -117,47 +127,47 @@ export function* Select({ value, onChange, children }: SelectProps) {
   );
 }
 
-export interface TextAreaProps {
+export interface TextAreaProps extends ComponentProps<"textarea"> {
   value: string;
-  onChange?: (value: string) => void;
-  placeholder?: string;
-  rows?: number;
+  /** Receives the new value. The native `onChange` still passes through. */
+  onValueChange?: (value: string) => void;
 }
 
-export function* TextArea({ value, onChange, placeholder, rows }: TextAreaProps) {
+export function* TextArea({ value, onValueChange, ...rest }: TextAreaProps) {
   const { controlId, descriptionId, errorId, invalid } = yield* useContext(FieldContext);
   return (
     <textarea
+      {...rest}
       className="dos-textarea"
       id={controlId}
       value={value}
-      rows={rows}
-      placeholder={placeholder}
       aria-describedby={describedBy(invalid, descriptionId, errorId)}
       onInput={(event: SyntheticEvent<Event, HTMLTextAreaElement>) =>
-        onChange?.(event.currentTarget?.value ?? "")
+        onValueChange?.(event.currentTarget?.value ?? "")
       }
     />
   );
 }
 
-export interface RangeProps {
+export interface RangeProps extends ComponentProps<"input"> {
   value: number;
   min: number;
   max: number;
   step?: number;
-  onChange?: (value: number) => void;
-  /**
-   * Spoken value. Without it a screen reader announces a bare number and the
-   * listener never learns the unit.
-   */
-  valueText?: Children;
+  /** Receives the new value. The native `onChange` still passes through. */
+  onValueChange?: (value: number) => void;
 }
 
-export function* Range({ value, min, max, step = 1, onChange, valueText }: RangeProps) {
+/**
+ * Set `aria-valuetext` when the number needs a unit — without it a screen
+ * reader announces a bare number and the listener never learns what it counts.
+ */
+export function* Range({ value, min, max, step = 1, onValueChange, ...rest }: RangeProps) {
   const { controlId, descriptionId, errorId, invalid } = yield* useContext(FieldContext);
   return (
     <input
+      aria-describedby={describedBy(invalid, descriptionId, errorId)}
+      {...rest}
       className="dos-range"
       id={controlId}
       type="range"
@@ -165,10 +175,8 @@ export function* Range({ value, min, max, step = 1, onChange, valueText }: Range
       min={String(min)}
       max={String(max)}
       step={String(step)}
-      aria-valuetext={valueText === undefined ? undefined : String(valueText)}
-      aria-describedby={describedBy(invalid, descriptionId, errorId)}
       onInput={(event: SyntheticEvent<Event, HTMLInputElement>) =>
-        onChange?.(Number(event.currentTarget?.value ?? min))
+        onValueChange?.(Number(event.currentTarget?.value ?? min))
       }
     />
   );

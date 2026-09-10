@@ -14,11 +14,11 @@
  * `RadioGroup` supplies the shared `name` and the selected value through
  * context, which is what makes the radios one group rather than three.
  */
-import { $id, useContext } from "yract-beta";
-import type { Children, PropsWithChildren } from "yract-beta";
+import type { Children, ComponentProps } from "yract-beta";
+import { useContext, useId } from "yract-beta";
 import { RadioGroupContext } from "./contexts";
 
-export interface GroupProps extends PropsWithChildren {
+export interface GroupProps extends ComponentProps<"fieldset"> {
   /** Names the group. Rendered as the fieldset legend. */
   legend: Children;
   /** Note under the choices, tied to the fieldset with `aria-describedby`. */
@@ -27,10 +27,11 @@ export interface GroupProps extends PropsWithChildren {
   row?: boolean;
 }
 
-export function* CheckboxGroup({ legend, description, row, children }: GroupProps) {
-  const descriptionId = yield* $id();
+export function* CheckboxGroup({ legend, description, row, children, ...rest }: GroupProps) {
+  const descriptionId = yield* useId();
   return (
     <fieldset
+      {...rest}
       className="dos-fieldset"
       aria-describedby={description === undefined ? undefined : descriptionId}
     >
@@ -45,21 +46,21 @@ export function* CheckboxGroup({ legend, description, row, children }: GroupProp
   );
 }
 
-export interface CheckboxProps extends PropsWithChildren {
+export interface CheckboxProps extends ComponentProps<"input"> {
   checked: boolean;
-  onChange?: (checked: boolean) => void;
-  disabled?: boolean;
+  /** Receives the new state. The native `onChange` still passes through. */
+  onCheckedChange?: (checked: boolean) => void;
 }
 
-export function* Checkbox({ checked, onChange, disabled, children }: CheckboxProps) {
+export function* Checkbox({ checked, onCheckedChange, children, ...rest }: CheckboxProps) {
   return (
     <label className="dos-check">
       <input
+        {...rest}
         className="dos-check__input dos-check__input--checkbox"
         type="checkbox"
         checked={checked}
-        disabled={disabled}
-        onChange={() => onChange?.(!checked)}
+        onChange={() => onCheckedChange?.(!checked)}
       />
       <span className="dos-check__text">{children}</span>
     </label>
@@ -69,7 +70,8 @@ export function* Checkbox({ checked, onChange, disabled, children }: CheckboxPro
 export interface RadioGroupProps extends GroupProps {
   /** Value of the selected radio. */
   value: string;
-  onChange?: (value: string) => void;
+  /** Receives the new value. The native `onChange` still passes through. */
+  onValueChange?: (value: string) => void;
 }
 
 export function* RadioGroup({
@@ -77,19 +79,21 @@ export function* RadioGroup({
   description,
   row,
   value,
-  onChange,
+  onValueChange,
   children,
+  ...rest
 }: RadioGroupProps) {
-  const name = yield* $id();
-  const descriptionId = yield* $id();
+  const name = yield* useId();
+  const descriptionId = yield* useId();
 
   function select(next: string): void {
-    onChange?.(next);
+    onValueChange?.(next);
   }
 
   return (
     <RadioGroupContext value={{ name, value, select }}>
       <fieldset
+        {...rest}
         className="dos-fieldset"
         aria-describedby={description === undefined ? undefined : descriptionId}
       >
@@ -105,22 +109,21 @@ export function* RadioGroup({
   );
 }
 
-export interface RadioProps extends PropsWithChildren {
+export interface RadioProps extends ComponentProps<"input"> {
   value: string;
-  disabled?: boolean;
 }
 
-export function* Radio({ value, disabled, children }: RadioProps) {
+export function* Radio({ value, children, ...rest }: RadioProps) {
   const group = yield* useContext(RadioGroupContext);
   return (
     <label className="dos-check">
       <input
+        {...rest}
         className="dos-check__input dos-check__input--radio"
         type="radio"
         name={group.name}
         value={value}
         checked={group.value === value}
-        disabled={disabled}
         onChange={() => group.select(value)}
       />
       <span className="dos-check__text">{children}</span>

@@ -5,17 +5,17 @@
  * Composed: `<Sidebar label="Sections"><SidebarGroup>…</SidebarGroup>
  * <SidebarLink count={24} current>Users</SidebarLink></Sidebar>`.
  */
-import type { PropsWithChildren } from "yract-beta";
-import { Link } from "../fake-router/Link";
+import { useContext } from "yract-beta";
+import type { ComponentProps } from "yract-beta";
+import { ScreenContext } from "./Screen";
 
-export interface SidebarProps extends PropsWithChildren {
+export interface SidebarProps extends ComponentProps<"nav"> {
   label: string;
-  "data-testid"?: string;
 }
 
 export function* Sidebar({ label, children, ...rest }: SidebarProps) {
   return (
-    <nav className="dos-sidebar" aria-label={label} data-testid={rest["data-testid"]}>
+    <nav {...rest} className="dos-sidebar" aria-label={label}>
       {children}
     </nav>
   );
@@ -25,46 +25,40 @@ export function* Sidebar({ label, children, ...rest }: SidebarProps) {
  * Section heading inside the sidebar. It is a real heading, and returns its id
  * so the links under it can point at it with `aria-describedby`.
  */
-export function* SidebarGroup({ id, children }: PropsWithChildren & { id?: string }) {
+export function* SidebarGroup({ children, ...rest }: ComponentProps<"h3">) {
   return (
-    <h3 className="dos-sidebar__group" id={id}>
+    <h3 {...rest} className="dos-sidebar__group">
       {children}
     </h3>
   );
 }
 
-export interface SidebarLinkProps extends PropsWithChildren {
+export interface SidebarLinkProps extends ComponentProps<"a"> {
   href: string;
   current?: boolean;
   /** Item count. Announced as "…, 24 items" rather than a bare number. */
   count?: number;
-  /** Id of the `SidebarGroup` this link sits under. */
-  describedBy?: string;
+  /** `<a>` has no `disabled`, so the kit marks it with `aria-disabled`. */
   disabled?: boolean;
   /** Spoken-only note on why a disabled link cannot be followed. */
   disabledReason?: string;
-  "data-testid"?: string;
 }
 
 export function* SidebarLink({
-  href,
   current,
   count,
-  describedBy,
   disabled,
   disabledReason = "unavailable",
   children,
   ...rest
 }: SidebarLinkProps) {
   return (
-    <Link
+    <a
+      {...rest}
       className="dos-sidebar__link"
-      href={href}
       aria-current={current ? "page" : undefined}
-      aria-describedby={describedBy}
       aria-disabled={disabled ? "true" : undefined}
       tabIndex={disabled ? -1 : undefined}
-      data-testid={rest["data-testid"]}
     >
       <span>
         {children}
@@ -76,15 +70,24 @@ export function* SidebarLink({
         </span>
       )}
       {count !== undefined && <span className="dos-sr-only">{`, ${count} items`}</span>}
-    </Link>
+    </a>
   );
 }
 
 /** Two-column app shell: the sidebar beside the pane it drives. */
-export function* Shell({ children }: PropsWithChildren) {
-  return <div className="dos-shell">{children}</div>;
+export function* Shell({ children, ...rest }: ComponentProps<"div">) {
+  return (
+    <div {...rest} className="dos-shell">
+      {children}
+    </div>
+  );
 }
 
-export function* ShellMain({ children }: PropsWithChildren) {
-  return <div className="dos-shell__main">{children}</div>;
+export function* ShellMain({ children, ...rest }: ComponentProps<"div">) {
+  const { mainId } = yield* useContext(ScreenContext);
+  return (
+    <div {...rest} className="dos-shell__main" id={mainId}>
+      {children}
+    </div>
+  );
 }

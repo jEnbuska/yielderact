@@ -2,7 +2,7 @@ import { resolveContext } from "../context";
 import type { Child, Component } from "../jsx";
 import type { ContextMap, HookState, RenderContext } from "../render/types";
 import type { UIAction } from "../reconciler/actions";
-import { mountFiberChildren, reconcileFiberChildren } from "../reconciler/reconciler";
+import { mountFiber, reconcilerFiber } from "../reconciler/reconciler";
 import { PROPS_REASON } from "../render-reasons";
 import type { ComponentSlotType, ContextSlotType, Slot } from "../slots/slot";
 import type { RefLike } from "../render/element-props";
@@ -14,9 +14,9 @@ import { DeferContext } from "../hooks/defer";
 
 export class ComponentFiber<TProps extends Record<string, unknown> = Record<string, any>> {
   public halted: boolean = false;
-  public rendered: boolean | undefined = undefined;
+  public renders: number = 0;
   public readonly ns: TagNamespace;
-  public preparedSlots: Map<string, Slot> | undefined;
+  public preparedSlots: Map<string, Slot> | undefined = undefined;
 
   unmounted: boolean | undefined = undefined;
   readonly component: Component<any>;
@@ -43,6 +43,8 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
   readonly tailNode: Comment;
   prevChild?: Child;
 
+  static instances: WeakMap<Comment, ComponentFiber> = new WeakMap();
+
   deps?: DependencyList;
 
   readonly path: string;
@@ -57,6 +59,8 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
   ) {
     this.headNode = intent.headNode;
     this.tailNode = intent.tailNode;
+    ComponentFiber.instances.set(this.headNode, this);
+    ComponentFiber.instances.set(this.tailNode, this);
     this.path = intent.path;
     this.component = intent.component;
     this.parent = parent;
@@ -112,9 +116,9 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
     const generator = this.component(this.props);
     const child = runHooks(generator, this);
     if (!this.slot) {
-      this.pendingSlot = mountFiberChildren(this, child);
+      this.pendingSlot = mountFiber(this, child);
     } else {
-      this.pendingSlot = reconcileFiberChildren(this, child);
+      this.pendingSlot = reconcilerFiber(this, child);
     }
     this.prevChild = child;
     const { unmountInstances, rctx } = this;
@@ -142,14 +146,14 @@ export class ComponentFiber<TProps extends Record<string, unknown> = Record<stri
       scheduler.unscheduleUiUpdate(this);
     }
     this.renderReasons.clear();
-    this.rendered = true;
+    this.renders++;
   }
 
   unmount(): boolean | undefined {
     this.unmounted = true;
     const { scheduler } = this.rctx;
     if (this.renderReasons.size) scheduler.unscheduleRender(this);
-    return this.rendered;
+    return !!this.renders;
   }
 
   // Rename and flip to isMounted

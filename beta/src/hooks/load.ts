@@ -4,7 +4,7 @@ import type { LoadDescriptor } from "./types";
 
 import { $LOAD } from "./constants";
 
-export function* $load<TData, TError = any>(
+export function* useLoad<TData, TError = any>(
   promise: Promise<TData> | undefined,
 ): Generator<
   LoadDescriptor,

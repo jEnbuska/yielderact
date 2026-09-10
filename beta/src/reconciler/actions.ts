@@ -108,9 +108,10 @@ export type UIAction =
 
 export function isRefProps<T extends Record<string, unknown>>(
   props: T,
-): props is T & { ref: RefLike } {
+): props is T & { ref?: RefLike } {
   if ("ref" in props) {
     const ref = props["ref"];
+    if (ref === undefined) return false;
     assertIsRefLike(ref);
     return true;
   }

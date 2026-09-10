@@ -1,13 +1,13 @@
 export { useContext } from "./context";
 export { useEffect } from "./effect";
-export { $id } from "./id";
+export { useId } from "./id";
 export { useMemo } from "./memo";
 export { useRef, type RefObject } from "./ref";
 export { useStable } from "./stable";
 export { useState } from "./state";
 export { useDefer } from "./defer";
-export { $load } from "./load";
-export { $halted } from "./halted";
+export { useLoad } from "./load";
+export { requireIsHalted } from "./halted";
 export { requireHalt } from "./halt";
 export { requireForceUpdate } from "./forceUpdate";
-export { $render } from "./render";
+export { requireRender } from "./render";

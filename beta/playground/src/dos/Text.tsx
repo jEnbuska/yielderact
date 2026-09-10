@@ -4,109 +4,147 @@
  * `Heading` takes a `level`, which sets both the tag and the style, so the
  * document outline and the visual hierarchy cannot drift apart. Use `onScreen`
  * where the text sits on the blue ground rather than on a gray panel.
+ *
+ * Props extend the element each component returns; `...rest` is spread first so
+ * the kit's own className always wins.
  */
-import type { Children, PropsWithChildren } from "yract-beta";
+import type { Children, ComponentProps } from "yract-beta";
 
-export interface HeadingProps extends PropsWithChildren {
+export interface HeadingProps extends ComponentProps<"h1"> {
   level: 1 | 2 | 3;
   /** Lightens the text for the blue screen background. */
   onScreen?: boolean;
-  id?: string;
-  "data-testid"?: string;
 }
 
-export function* Heading({ level, onScreen, id, children, ...rest }: HeadingProps) {
+export function* Heading({ level, onScreen, children, ...rest }: HeadingProps) {
   const className = `dos-h${level}${onScreen ? ` dos-h${level}--screen` : ""}`;
-  const testId = rest["data-testid"];
   if (level === 1) {
     return (
-      <h1 className={className} id={id} data-testid={testId}>
+      <h1 {...rest} className={className}>
         {children}
       </h1>
     );
   }
   if (level === 2) {
     return (
-      <h2 className={className} id={id} data-testid={testId}>
+      <h2 {...rest} className={className}>
         {children}
       </h2>
     );
   }
   return (
-    <h3 className={className} id={id} data-testid={testId}>
+    <h3 {...rest} className={className}>
       {children}
     </h3>
   );
 }
 
-export function* Text({ children }: PropsWithChildren) {
-  return <p className="dos-text">{children}</p>;
+export function* Text({ children, ...rest }: ComponentProps<"p">) {
+  return (
+    <p {...rest} className="dos-text">
+      {children}
+    </p>
+  );
 }
 
-export function* Small({ children }: PropsWithChildren) {
-  return <small className="dos-small">{children}</small>;
+export function* Small({ children, ...rest }: ComponentProps<"small">) {
+  return (
+    <small {...rest} className="dos-small">
+      {children}
+    </small>
+  );
 }
 
-export interface LinkProps extends PropsWithChildren {
+export interface LinkProps extends ComponentProps<"a"> {
   href: string;
   /** Darker link colour, for use on the gray panel rather than the blue screen. */
   onPanel?: boolean;
-  "aria-label"?: string;
 }
 
-export function* Link({ href, onPanel, children, ...rest }: LinkProps) {
+export function* Link({ onPanel, children, ...rest }: LinkProps) {
   return (
-    <a
-      className={onPanel ? "dos-link dos-link--panel" : "dos-link"}
-      href={href}
-      aria-label={rest["aria-label"]}
-    >
+    <a {...rest} className={onPanel ? "dos-link dos-link--panel" : "dos-link"}>
       {children}
     </a>
   );
 }
 
-export function* Rule() {
-  return <hr className="dos-rule" />;
+export function* Rule(props: ComponentProps<"hr">) {
+  return <hr {...props} className="dos-rule" />;
 }
 
-export function* Code({ children }: PropsWithChildren) {
-  return <code className="dos-code">{children}</code>;
+export function* Code({ children, ...rest }: ComponentProps<"code">) {
+  return (
+    <code {...rest} className="dos-code">
+      {children}
+    </code>
+  );
 }
 
-export function* Kbd({ children }: PropsWithChildren) {
-  return <kbd className="dos-kbd">{children}</kbd>;
+export function* Kbd({ children, ...rest }: ComponentProps<"kbd">) {
+  return (
+    <kbd {...rest} className="dos-kbd">
+      {children}
+    </kbd>
+  );
 }
 
-export function* Quote({ children }: PropsWithChildren) {
-  return <blockquote className="dos-quote">{children}</blockquote>;
+export function* Quote({ children, ...rest }: ComponentProps<"blockquote">) {
+  return (
+    <blockquote {...rest} className="dos-quote">
+      {children}
+    </blockquote>
+  );
 }
 
-export function* BulletList({ children }: PropsWithChildren) {
-  return <ul className="dos-bullets">{children}</ul>;
+export function* BulletList({ children, ...rest }: ComponentProps<"ul">) {
+  return (
+    <ul {...rest} className="dos-bullets">
+      {children}
+    </ul>
+  );
 }
 
-export function* BulletItem({ children }: PropsWithChildren) {
-  return <li className="dos-bullets__item">{children}</li>;
+export function* BulletItem({ children, ...rest }: ComponentProps<"li">) {
+  return (
+    <li {...rest} className="dos-bullets__item">
+      {children}
+    </li>
+  );
 }
 
-export function* Tag({ children }: PropsWithChildren) {
-  return <span className="dos-tag">{children}</span>;
+export function* Tag({ children, ...rest }: ComponentProps<"span">) {
+  return (
+    <span {...rest} className="dos-tag">
+      {children}
+    </span>
+  );
 }
 
-export interface RowProps extends PropsWithChildren {
+export interface RowProps extends ComponentProps<"div"> {
   /** Tighter gap, for pills and badges rather than buttons. */
   tight?: boolean;
 }
 
-export function* Row({ tight, children }: RowProps) {
-  return <div className={tight ? "dos-row dos-row--tight" : "dos-row"}>{children}</div>;
+export function* Row({ tight, children, ...rest }: RowProps) {
+  return (
+    <div {...rest} className={tight ? "dos-row dos-row--tight" : "dos-row"}>
+      {children}
+    </div>
+  );
 }
 
 /**
  * Visually hidden text that screen readers still announce. Use it to spell out
  * something the design conveys with position or colour alone.
  */
-export function* ScreenReaderOnly({ children }: { children: Children }) {
-  return <span className="dos-sr-only">{children}</span>;
+export function* ScreenReaderOnly({
+  children,
+  ...rest
+}: ComponentProps<"span"> & { children: Children }) {
+  return (
+    <span {...rest} className="dos-sr-only">
+      {children}
+    </span>
+  );
 }

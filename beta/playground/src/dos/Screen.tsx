@@ -4,41 +4,56 @@
  * Every other component reads its palette and font from the `.dos` custom
  * properties declared here, so a DOS interface must live inside one of these.
  * `Stage` is a patch of bare screen for chrome that sits outside a window.
+ *
+ * Props extend the element each component returns, so anything the DOM accepts
+ * passes straight through. `...rest` is spread first, so the props the kit owns
+ * (className, role, aria-*) always win over a caller trying to override them.
  */
-import type { PropsWithChildren } from "yract-beta";
+import { createContext, useId, useRef } from "yract-beta";
+import type { ComponentProps } from "yract-beta";
 
-export interface ScreenProps extends PropsWithChildren {
-  /** Skip-link target id, so keyboard users can jump past the chrome. */
-  mainId?: string;
+export interface ScreenProps extends ComponentProps<"div"> {
   skipLabel?: string;
 }
 
-export function* Screen({ mainId, skipLabel = "Skip to content", children }: ScreenProps) {
+export const ScreenContext = createContext({ mainId: "" });
+
+export function* Screen({ skipLabel = "Skip to content", children, ...rest }: ScreenProps) {
+  const mainId = yield* useId();
+  const ref = yield* useRef({ mainId });
   return (
-    <div className="dos">
-      {!!mainId && (
+    <div {...rest} className="dos">
+      {!!skipLabel && (
         <a className="dos-skip" href={`#${mainId}`}>
           {skipLabel}
         </a>
       )}
+      <ScreenContext value={ref.current}>{children}</ScreenContext>
+    </div>
+  );
+}
+
+export interface StageProps extends ComponentProps<"div"> {
+  /** Drop the padding, for chrome that should meet the stage edges. */
+  flush?: boolean;
+}
+
+export function* Stage({ flush, children, ...rest }: StageProps) {
+  return (
+    <div {...rest} className={flush ? "dos-stage dos-stage--flush" : "dos-stage"}>
       {children}
     </div>
   );
 }
 
-export interface StageProps extends PropsWithChildren {
-  /** Drop the padding, for chrome that should meet the stage edges. */
-  flush?: boolean;
-}
-
-export function* Stage({ flush, children }: StageProps) {
-  return <div className={flush ? "dos-stage dos-stage--flush" : "dos-stage"}>{children}</div>;
+export interface ScrollProps extends ComponentProps<"div"> {
+  label: string;
 }
 
 /** Horizontal scroll container. Focusable, so a keyboard can scroll it too. */
-export function* Scroll({ label, children }: PropsWithChildren & { label: string }) {
+export function* Scroll({ label, children, ...rest }: ScrollProps) {
   return (
-    <div className="dos-scroll" role="region" aria-label={label} tabIndex={0}>
+    <div {...rest} className="dos-scroll" role="region" aria-label={label} tabIndex={0}>
       {children}
     </div>
   );

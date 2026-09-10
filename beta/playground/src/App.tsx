@@ -1,46 +1,57 @@
 /**
  * App — the playground shell, built from the DOS kit.
  *
- * Chrome only: the demo navigation stacked down the left. Each page under
- * `pages/` frames itself and renders its own breadcrumbs, so the shell does
- * not decide how a demo presents its own content.
+ * Every demo is mounted at once, stacked down the page. The sidebar is an
+ * in-page table of contents: each link jumps to its section rather than
+ * swapping the content, so there is no router and no route state.
  */
-import { $id, useContext } from "yract-beta";
-import { Screen, Shell, ShellMain, Sidebar, SidebarLink } from "./dos";
+import { Screen, Shell, ShellMain, Sidebar } from "./dos";
 import "./dos/styles.css";
-import { OutletContext } from "./fake-router/contexts";
-import { useNavigationStatus } from "./fake-router/hooks";
-import { tabs } from "./constants";
-import { useActiveTab } from "./hooks";
+import { AwaitDemo } from "./sections/await";
+import { ContextDemo } from "./sections/context";
+import { Counter } from "./sections/counter";
+import { DeferredDemo } from "./sections/deferred";
+import { DosDemo } from "./sections/dos";
+import { EffectDemo } from "./sections/effect";
+import { HooksShowcase } from "./sections/hooks";
+import { KeyShuffleDemo } from "./sections/key-shuffle";
+import { LazyContextDemo } from "./sections/lazy-ctx";
+import { TodoList } from "./sections/todos";
+import { SideBarHashLink } from "./components/SideBarHashLink";
+
+const demos = [
+  { id: "counter", label: "Counter", Demo: Counter },
+  { id: "todos", label: "Todo List", Demo: TodoList },
+  { id: "hooks", label: "Hooks Showcase", Demo: HooksShowcase },
+  { id: "effect", label: "$effect", Demo: EffectDemo },
+  { id: "context", label: "Context Scoping", Demo: ContextDemo },
+  { id: "lazy-ctx", label: "Lazy Context", Demo: LazyContextDemo },
+  { id: "key-shuffle", label: "Key Shuffle", Demo: KeyShuffleDemo },
+  { id: "deferred", label: "Defer Table", Demo: DeferredDemo },
+  { id: "await", label: "Await", Demo: AwaitDemo },
+  { id: "dos", label: "DOS Kit", Demo: DosDemo },
+] as const;
 
 export function* App() {
-  const mainId = yield* $id();
-  const status = yield* useNavigationStatus();
-  const outlet = yield* useContext(OutletContext);
-
-  const activeTab = yield* useActiveTab();
-  const idle = status === "IDLE";
-
   return (
-    <Screen mainId={mainId}>
+    <Screen skipLabel={"Skip to main"}>
       <Shell>
         <Sidebar label="Demos" data-testid="app-tablist">
-          {tabs.map((tab) => (
-            <SidebarLink
-              key={tab.id}
-              href={`/${tab.id}`}
-              current={activeTab.id === tab.id}
-              data-testid={`tab-${tab.id}`}
-            >
-              {tab.label}
-            </SidebarLink>
+          {demos.map(({ id, label }) => (
+            <SideBarHashLink key={id} targetId={id}>
+              {label}
+            </SideBarHashLink>
           ))}
         </Sidebar>
-
         <ShellMain>
-          <div id={mainId} style={{ opacity: idle ? 1 : 0.4 }}>
-            <div id="example-panel">{outlet}</div>
-          </div>
+          {demos
+            .filter((it) => it.id === "deferred")
+            .map(({ id, Demo }) => (
+              <section key={`${id}`} id={id} className="dos-demo" aria-label={id}>
+                <Demo />
+              </section>
+            ))}
+          <button onClick={() => window.location.reload()}>Refresh</button>
         </ShellMain>
       </Shell>
     </Screen>

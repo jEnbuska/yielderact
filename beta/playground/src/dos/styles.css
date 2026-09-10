@@ -403,6 +403,16 @@
   border-right: 0.2667em solid var(--dos-hi-cyan);
   border-top: 0.1333em solid var(--dos-dkgray);
   border-bottom: 0.1333em solid var(--dos-dkgray);
+  /* Follows the page while the demos scroll past. `dvh` tracks the visible
+     viewport, so a mobile URL bar collapsing does not clip the last link.
+     `align-self: start` stops the grid row from stretching it — sticky needs
+     the item to be shorter than its track — and `height` then fills the
+     viewport so the panel does not end under the last link. */
+  position: sticky;
+  top: 0;
+  align-self: start;
+  height: 100dvh;
+  overflow-y: auto;
 }
 
 .dos-sidebar__group {
@@ -466,7 +476,19 @@
   box-sizing: border-box;
   display: grid;
   grid-template-columns: 14.6667em minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   min-height: 14.6667em;
+  align-items: start;
+}
+
+.dos-shell__main > * {
+  min-width: 0;
+  /* Content column caps at 51.2em (768px at the kit's 15px base) and centres
+     in whatever space is left beside the sidebar. The cap is on the children,
+     not the column, so the blue screen still bleeds to the edge. */
+  width: 100%;
+  max-width: 51.2em;
+  margin-inline: auto;
 }
 
 .dos-shell__main {
@@ -476,6 +498,10 @@
   display: flex;
   flex-direction: column;
   gap: 0.8em;
+  /* Grid and flex items default to `min-width: auto`, i.e. min-content — one
+     wide child (a chart, a table) would otherwise widen this column and push
+     the whole page into a horizontal scroll. */
+  min-width: 0;
   padding: 1.0667em 1.2em;
   border-top: 0.1333em solid var(--dos-dkgray);
   border-right: 0.1333em solid var(--dos-dkgray);
@@ -1095,16 +1121,36 @@
 
 .dos-table {
   box-sizing: border-box;
-  border-collapse: collapse;
   width: 100%;
   min-width: 30em;
   font-size: 0.9333em;
   font-variant-numeric: tabular-nums;
+  /* Cells carry only right/bottom borders; the table draws the other two
+     edges, which reproduces `border-collapse: collapse` without a table. */
+  border-top: 0.1429em solid var(--dos-dkgray);
+  border-left: 0.1429em solid var(--dos-dkgray);
+}
+
+.dos-table__caption {
+  box-sizing: border-box;
+  padding: 0.2143em 0.8571em;
+}
+
+.dos-table__row {
+  display: grid;
+  grid-template-columns: var(--dos-table-cols, 1fr);
+}
+
+/* Only body rows are skippable: a header may be sticky and must always paint. */
+.dos-table--skippable .dos-table__body .dos-table__row {
+  content-visibility: auto;
+  contain-intrinsic-size: auto var(--dos-table-row-h);
 }
 
 .dos-table__cell {
   box-sizing: border-box;
-  border: 0.1429em solid var(--dos-dkgray);
+  border-right: 0.1429em solid var(--dos-dkgray);
+  border-bottom: 0.1429em solid var(--dos-dkgray);
   padding: 0.2143em 0.8571em;
   text-align: left;
 }
@@ -1112,7 +1158,8 @@
 .dos-table__head-cell {
   box-sizing: border-box;
   font-size: 0.8571em;
-  border: 0.1667em solid var(--dos-dkgray);
+  border-right: 0.1667em solid var(--dos-dkgray);
+  border-bottom: 0.1667em solid var(--dos-dkgray);
   padding: 0.25em 1em;
   text-align: left;
   background: var(--dos-dkgray);
@@ -1122,11 +1169,30 @@
   font-weight: 600;
 }
 
+.dos-table__head--sticky {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+.dos-table__head-cell--sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.dos-table__head-cell--sortable:focus-visible {
+  outline: 0.1429em solid var(--dos-white);
+  outline-offset: -0.2857em;
+}
+
 .dos-table__row:hover {
   background: var(--dos-white);
 }
 .dos-table__cell--num {
   text-align: right;
+}
+.dos-table__cell--center {
+  text-align: center;
 }
 
 /* ---------- List rows ---------- */
@@ -1336,9 +1402,10 @@
   .dos-shell {
     grid-template-columns: minmax(0, 1fr);
   }
+  /* No room for a side rail on a phone. The demos are all on one page, so
+     dropping it costs no reachability — scrolling gets you everywhere. */
   .dos-sidebar {
-    border-right: 0;
-    border-bottom: 0.2667em solid var(--dos-hi-cyan);
+    display: none;
   }
 }
 
@@ -1356,4 +1423,29 @@
   .dos-h2 {
     font-size: 0.8em;
   }
+}
+
+/* ---------- Scrolling ---------- */
+
+/* Smooth-scrolls fragment links (and scrollIntoView) to their section.
+   Gated on `no-preference` rather than switched off under `reduce`, so the
+   default for anyone who has expressed no preference is still smooth while
+   motion-sensitive readers get an instant jump. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ---------- Stacked demo sections ---------- */
+
+.dos-demo {
+  box-sizing: border-box;
+  display: block;
+  /* Clears the sticky chrome when a sidebar link jumps to this section. */
+  scroll-margin-top: 1em;
+}
+
+.dos-demo + .dos-demo {
+  margin-top: 2em;
 }
