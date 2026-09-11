@@ -115,7 +115,7 @@ export function* KeyShuffleDemo() {
             data-testid="add-btn"
             onClick={() => {
               const next = ALL_IDS.find((id) => !order.includes(id));
-              if (next) setOrder([...order, next]);
+              if (next) void setOrder([...order, next]);
             }}
           >
             Add
@@ -123,7 +123,7 @@ export function* KeyShuffleDemo() {
           <button
             data-testid="remove-last-btn"
             onClick={() => {
-              if (order.length > 0) setOrder(order.slice(0, -1));
+              if (order.length > 0) void setOrder(order.slice(0, -1));
             }}
           >
             Remove last

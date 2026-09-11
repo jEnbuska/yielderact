@@ -1,5 +1,5 @@
 import { SidebarLink } from "../dos";
-import { Children } from "yract";
+import type { Children } from "yract";
 
 type OwnProps = {
   targetId: string;

@@ -54,9 +54,10 @@ export interface StableDescriptor {
   fn: (...args: unknown[]) => unknown;
 }
 
+export type EffectCallback = ((signal: AbortSignal) => void | Promise<void> | (() => unknown))
 export interface EffectDescriptor {
   type: typeof $EFFECT;
-  fn: () => void | (() => void);
+  fn: EffectCallback;
   deps: DependencyList;
 }
 

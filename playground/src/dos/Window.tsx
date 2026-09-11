@@ -5,15 +5,8 @@
  * Pass `labelledBy` an id you also give the title, so the section is named for
  * assistive tech without inventing a heading the design does not show.
  */
-import {
-  Children,
-  ComponentProps,
-  createContext,
-  PropsWithChildren,
-  useContext,
-  useId,
-  useRef,
-} from "yract";
+import type { Children, ComponentProps, PropsWithChildren } from "yract";
+import { createContext, useContext, useId, useRef } from "yract";
 
 export interface WindowProps extends ComponentProps<"section"> {
   /** Shallower drop shadow, for a window nested inside another panel. */

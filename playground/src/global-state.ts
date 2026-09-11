@@ -1,4 +1,4 @@
-import { PersonRow } from "./types";
+import type { PersonRow } from "./types";
 
 const FIRST_NAMES = [
   "Alice",

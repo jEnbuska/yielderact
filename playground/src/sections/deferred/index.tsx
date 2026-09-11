@@ -9,8 +9,9 @@ import { useEffect, useMemo, useRef, useStable, useState } from "yract";
 import { Window, WindowBar, WindowBody } from "../../dos";
 import { getPersonRows } from "../../global-state";
 import { TickChart } from "./-components/TickChart";
-import { PersonTable, SortDir } from "./-components/PersonTable";
-import { PersonRow } from "../../types";
+import type { SortDir } from "./-components/PersonTable";
+import { PersonTable } from "./-components/PersonTable";
+import type { PersonRow } from "../../types";
 import { PersonFiltering } from "./-components/PersonFiltering";
 
 /* ── Table row ── */
@@ -26,12 +27,9 @@ export function* DeferredDemo() {
   const [count, _setCount] = yield* useState(40_000);
 
   const [rows, setRows] = yield* useState<PersonRow[] | undefined>(undefined);
-  yield* useEffect(() => {
-    const abortController = new AbortController();
-    getPersonRows(15_000, abortController.signal).then((rows) => {
-      void setRows(rows);
-    });
-    return () => abortController.abort();
+  yield* useEffect(async(signal) => {
+    const rows = await getPersonRows(15_000, signal);
+    void setRows(rows)
   }, [count]);
 
   const filtered = yield* useMemo(
@@ -62,7 +60,7 @@ export function* DeferredDemo() {
   });
 
   const updateSortDir = yield* useStable(() => {
-    setSortDir((dir) => {
+    void setSortDir((dir) => {
       console.log("SET SORT");
       if (dir === "desc") return "asc";
       return "desc";

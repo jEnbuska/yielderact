@@ -70,7 +70,7 @@ export function* TodoList() {
             value={inputValue}
             placeholder="New todo…"
             onInput={(e) => {
-              setState({ ...state, inputValue: e.currentTarget?.value ?? "" });
+              void setState({ ...state, inputValue: e.currentTarget?.value ?? "" });
             }}
             onKeydown={(e) => {
               if (e.nativeEvent.key === "Enter") addTodo();

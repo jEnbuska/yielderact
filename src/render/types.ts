@@ -14,6 +14,7 @@ import type {
   $WEAK_REF,
 } from "../hooks/constants";
 import type { WeakRefLike } from "./element-props";
+import type { EffectCallback } from "../hooks/types";
 
 export type ContextMap = Map<string, ContextProperties<unknown>>;
 
@@ -62,7 +63,7 @@ export interface EffectHookState {
   type: typeof $EFFECT;
   deps: DependencyList;
   identifier: symbol;
-  fn: () => void | (() => void);
+  fn: EffectCallback;
   controller?: AbortController;
   dirty?: boolean;
 }

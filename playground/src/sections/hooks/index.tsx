@@ -25,7 +25,6 @@ const FRUITS = [
 ];
 
 export function* HooksShowcase() {
-  const titleId = yield* useId();
   // $id: stable unique ID used to associate the <label> with the <input>
   const inputId = yield* useId();
 

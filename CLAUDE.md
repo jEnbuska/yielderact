@@ -16,7 +16,7 @@
 
 1.  **Branch Sync:** `git fetch origin dev && git rebase origin/dev`
 2.  **Dead Code Check:** `npm run knip`
-3.  **Lint & Format:** `npm run lint:fix`
+3.  **Lint & Format:** `npm run fix`
 4.  **Type Check & Build:** `npm run build`
 5.  **Type Check Playground:** `npm run typecheck:playground`
 6.  **Unit Tests:** `npm test`
@@ -67,6 +67,7 @@ Each branch gets its own worktree under `.worktrees/feat/` so multiple Claude Co
 - `npm run knip` — Detect dead code, unused exports, and unused dependencies (Knip)
 - `npm run lint` — Lint (oxlint, type-aware)
 - `npm run lint:fix` — Auto-fix lint issues
+- `npm run fix` — Auto-fix lint issues, then format (lint first: `--fix` can leave code needing a reformat)
 - `npm run format` — Format (oxfmt)
 - `npm run format:check` — Check formatting without writing
 - `npm test -- <path>` — Run specific test file
