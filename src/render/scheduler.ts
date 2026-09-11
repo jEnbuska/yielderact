@@ -1,157 +1,406 @@
-/**
- * scheduler.ts — Cooperative scheduler for rendering.
- *
- * Work is queued via `scheduleUpdate(instance)` which adds the instance
- * to a single pending set.
- *
- * The scheduler processes all pending work in a single
- * `beginBatch()`/`commitBatch()` cycle so DOM mutations are applied
- * atomically.
- *
- * **Time-slicing (async mode):** The scheduler yields to the browser
- * every ~5ms via `MessageChannel`, keeping the UI responsive.
- *
- * **Sync mode** (default): The work loop runs to completion without
- * yielding, preserving synchronous rendering for tests and simple apps.
- */
+import type { ComponentFiber } from "../instances/component-fiber";
+import { createResolvable } from "../create-resolvable";
+import { effectResolver } from "../hooks/effect";
+import { stateResolver } from "../hooks/state";
+import { insertBefore, moveSlot, removeSlotNodes } from "../reconciler/dom-updates";
+import { updateElementProps } from "./element-props";
+import { $EFFECT, $STATE } from "../hooks/constants";
 
-import { resolveCtx } from "../context";
-import { beginBatch, commitBatch } from "./commit-queue";
-import { RenderCtx, requireActiveRenderCtx, setActiveRenderCtx } from "./state";
-import type { ComponentInstance, RenderContext } from "./types";
-
-/** Time budget per work chunk in milliseconds. */
-const timeSlice = 5;
-
-// ── Public API ───────────────────────────────────────────────────────────────
-
-/**
- * Schedule a rerender for `instance`.
- *
- * If the scheduler is already processing, the instance is queued and will
- * be picked up by the running work loop.
- *
- * @param instance - The ComponentInstance to rerender.
- */
-export function scheduleUpdate(instance: ComponentInstance): void {
-  const rctx = resolveCtx(instance.capturedCtx, RenderCtx);
-
-  rctx.pendingUpdates.add(instance);
-
-  if (!rctx.isProcessing) {
-    rctx.isProcessing = true;
-    setActiveRenderCtx(rctx);
-    runLoop(rctx);
+function insertSorted(groups: Group, instance: ComponentFiber): void {
+  const { depth } = instance;
+  const { members } = groups;
+  const scheduled = members.get(instance);
+  if (scheduled) return;
+  members.set(instance, true);
+  if (scheduled === false) return;
+  const { queues } = groups;
+  while (queues.length <= depth) {
+    queues.push([]);
   }
+  queues[depth]!.push(instance);
 }
 
-/**
- * Run all pending work synchronously, ignoring time slicing.
- *
- * Essential for tests and for event handlers that need immediate DOM
- * updates. Optionally accepts a function to execute before flushing
- * (e.g., a click that triggers a setState).
- *
- * During `fn`, processing is suppressed so multiple setState calls
- * are batched into a single processing pass.
- */
-export function flushSync(fn?: () => void): void {
-  const rctx = requireActiveRenderCtx();
-  const { syncMode: prevSync } = rctx;
-  rctx.syncMode = true;
+function last<T>(array: T[]): T {
+  return array[array.length - 1]!;
+}
 
-  if (fn) {
-    // Suppress immediate processing during fn so all setState calls batch.
-    const { isProcessing: wasProcessing } = rctx;
-    rctx.isProcessing = true;
-    try {
-      fn();
-    } finally {
-      rctx.isProcessing = wasProcessing;
+const SLICE_MS = 20;
+
+type Group<T extends ComponentFiber = ComponentFiber> = {
+  queues: Array<Array<T>>;
+  members: Map<T, boolean>;
+};
+
+function createPrimaryRenderResolvable(): PromiseWithResolvers<void> & { subscribed: boolean } {
+  return Object.assign(createResolvable(), { subscribed: false });
+}
+
+export class Scheduler {
+  private _rendering = "";
+  get rendering() {
+    return this._rendering;
+  }
+
+  private readonly primaryRenderGroup: Group = { queues: [], members: new Map() };
+  private readonly secondaryRenderGroup: Group = { queues: [], members: new Map() };
+
+  private readonly tertiaryRenderGroup: Group = { queues: [], members: new Map() };
+
+  private readonly syncParentsWithUnmounted = new Set<ComponentFiber>();
+  private readonly deferredParentsWithUnmounted = new Set<ComponentFiber>();
+
+  private readonly uiSyncGroup: Group = { queues: [], members: new Map() };
+  private readonly uiDeferredGroup: Group = { queues: [], members: new Map() };
+
+  private readonly effectSyncGroup: Group = { queues: [], members: new Map() };
+  private readonly effectDeferredGroup: Group = { queues: [], members: new Map() };
+
+  private resolveGroup: Group = { queues: [], members: new Map() };
+
+  private resolvable = createResolvable();
+  private primaryRenderResolvable = createPrimaryRenderResolvable();
+
+  private workYieldDeadline = Infinity;
+
+  constructor() {
+    void this.resolvable.promise.then(this.run);
+  }
+
+  scheduleRender(instance: ComponentFiber, deferred = instance.isDeferred()): void {
+    if (deferred) {
+      insertSorted(this.secondaryRenderGroup, instance);
+      this.tertiaryRenderGroup.members.delete(instance);
+    } else {
+      insertSorted(this.primaryRenderGroup, instance);
+      if (this.primaryRenderResolvable.subscribed) {
+        this.primaryRenderResolvable.resolve();
+        this.primaryRenderResolvable = createPrimaryRenderResolvable();
+      }
+    }
+    this.resolvable.resolve();
+  }
+
+  scheduleUnmountChildren(instance: ComponentFiber, deferred = instance.isDeferred()): void {
+    if (deferred) this.deferredParentsWithUnmounted.add(instance);
+    else this.syncParentsWithUnmounted.add(instance);
+  }
+
+  unscheduleUnmountChildren(instance: ComponentFiber, deferred = instance.isDeferred()): void {
+    if (deferred) this.deferredParentsWithUnmounted.delete(instance);
+    else this.syncParentsWithUnmounted.delete(instance);
+  }
+
+  unscheduleRender(instance: ComponentFiber, deferred = instance.isDeferred()): void {
+    if (deferred) this.secondaryRenderGroup.members.delete(instance);
+    else this.primaryRenderGroup.members.delete(instance);
+  }
+
+  scheduleEffect(instance: ComponentFiber, deferred = instance.isDeferred()): void {
+    if (deferred) insertSorted(this.effectDeferredGroup, instance);
+    else insertSorted(this.effectSyncGroup, instance);
+    this.resolvable.resolve();
+  }
+
+  scheduleResolve(instance: ComponentFiber): void {
+    insertSorted(this.resolveGroup, instance);
+    this.resolvable.resolve();
+  }
+
+  unscheduleResolve(instance: ComponentFiber): void {
+    this.resolveGroup.members.delete(instance);
+  }
+
+  scheduleUiUpdate(instance: ComponentFiber, deferred = instance.isDeferred()): void {
+    if (deferred) insertSorted(this.uiDeferredGroup, instance);
+    else insertSorted(this.uiSyncGroup, instance);
+  }
+
+  unscheduleUiUpdate(instance: ComponentFiber, deferred = instance.isDeferred()): void {
+    if (deferred) this.uiDeferredGroup.members.delete(instance);
+    else this.uiSyncGroup.members.delete(instance);
+  }
+
+  awaitChannel = new MessageChannel();
+  private async checkAwait(): Promise<void> {
+    if (Date.now() > this.workYieldDeadline) {
+      const { promise, resolve } = createResolvable<unknown>();
+      const { port1, port2 } = this.awaitChannel;
+      port1.onmessage = resolve;
+      port2.postMessage(null);
+      await promise;
+      this.workYieldDeadline = Date.now() + SLICE_MS;
     }
   }
 
-  if (!rctx.isProcessing && rctx.pendingUpdates.size > 0) {
-    rctx.isProcessing = true;
-    runLoop(rctx);
-  }
+  private run = async (): Promise<void> => {
+    while (true) {
+      this.workYieldDeadline = Date.now() + SLICE_MS;
 
-  rctx.syncMode = prevSync;
-}
+      const {
+        uiSyncGroup,
+        uiDeferredGroup,
+        primaryRenderGroup,
+        secondaryRenderGroup,
+        tertiaryRenderGroup,
+        effectSyncGroup,
+        effectDeferredGroup,
+        syncParentsWithUnmounted,
+        deferredParentsWithUnmounted,
+      } = this;
+      while (
+        primaryRenderGroup.members.size ||
+        secondaryRenderGroup.members.size ||
+        tertiaryRenderGroup.members.size
+      ) {
+        this.processPrimaryRenderGroups();
+        Scheduler.applyUiActions(uiSyncGroup);
+        Scheduler.unmountParentsUnmountedChildren(syncParentsWithUnmounted);
+        Scheduler.precessEffects(effectSyncGroup);
+        await this.processSecondaryRenderGroups();
+        if (primaryRenderGroup.members.size) continue;
+        await this.processTertiaryRenderGroups();
+      }
+      Scheduler.setUnmountedChildrenUnmounted(deferredParentsWithUnmounted);
+      Scheduler.applyUiActions(uiDeferredGroup);
+      secondaryRenderGroup.members.clear();
+      const { resolveGroup } = this;
+      this.resolveGroup = { members: new Map(), queues: [] };
 
-/**
- * Flush any pending work for a specific render context.
- *
- * Called by the event dispatch system after a delegated event has been
- * fully dispatched. Unlike `flushSync()`, this takes an explicit
- * `RenderContext` rather than reading the active context pointer, which
- * is important when an event handler in root A might have changed the
- * active context to root B.
- *
- * @internal
- */
-export function flushPendingWork(rctx: RenderContext): void {
-  if (rctx.pendingUpdates.size > 0) {
-    setActiveRenderCtx(rctx);
-    rctx.isProcessing = true;
-    runLoop(rctx);
-  }
-}
+      Scheduler.unmountParentsUnmountedChildren(deferredParentsWithUnmounted);
+      Scheduler.precessEffects(effectDeferredGroup);
+      Scheduler.processStates(resolveGroup);
+      if (
+        !primaryRenderGroup.members.size &&
+        !secondaryRenderGroup.members.size &&
+        !tertiaryRenderGroup.members.size &&
+        !effectSyncGroup.members.size &&
+        !effectDeferredGroup.members.size &&
+        !this.resolveGroup.members.size
+      ) {
+        this.resolvable = createResolvable();
+      }
+      await this.resolvable.promise;
+    }
+  };
 
-// ── Work loop ────────────────────────────────────────────────────────────────
-
-/**
- * The main work loop. Processes all pending instances in a single
- * `beginBatch()`/`commitBatch()` cycle for atomic DOM commits.
- *
- * Handles:
- * - Resume after yield (continues partially-processed set).
- * - Time-slicing (yields to browser in async mode).
- */
-function runLoop(rctx: RenderContext): void {
-  const deadline = performance.now() + timeSlice;
-
-  beginBatch();
-
-  while (rctx.pendingUpdates.size > 0) {
-    // SAFETY: size > 0 guarantees .next().value is defined
-    const instance = rctx.pendingUpdates.values().next().value as ComponentInstance;
-    rctx.pendingUpdates.delete(instance);
-
-    void instance.executeRerender();
-
-    // Time-slicing (async mode only): yield to browser if deadline exceeded.
-    if (!rctx.syncMode && rctx.pendingUpdates.size > 0 && performance.now() >= deadline) {
-      commitBatch();
-      yieldToBrowser(rctx);
-      return; // exit — the MessageChannel callback resumes via runLoop
+  cleanupInstancesSchedules(instance: ComponentFiber, deferred: boolean): void {
+    if (deferred) {
+      this.effectDeferredGroup.members.delete(instance);
+      this.uiDeferredGroup.members.delete(instance);
+    } else {
+      this.effectSyncGroup.members.delete(instance);
+      this.uiSyncGroup.members.delete(instance);
     }
   }
 
-  // All instances processed — commit the batch.
-  commitBatch();
-  rctx.isProcessing = false;
-}
+  private renderFiber(next: ComponentFiber) {
+    this._rendering = next.component.name;
+    next.render();
+    this._rendering = "";
+  }
 
-/**
- * Yield to the browser, then resume the work loop.
- *
- * Uses `MessageChannel` for minimal-latency scheduling (same technique
- * as React's scheduler).
- */
-function yieldToBrowser(rctx: RenderContext): void {
-  if (typeof MessageChannel !== "undefined") {
-    const mc = new MessageChannel();
-    mc.port1.onmessage = () => {
-      setActiveRenderCtx(rctx);
-      runLoop(rctx);
-    };
-    mc.port2.postMessage(null);
-  } else {
-    // Fallback for environments without MessageChannel.
-    setTimeout(() => {
-      setActiveRenderCtx(rctx);
-      runLoop(rctx);
-    }, 0);
+  private processPrimaryRenderGroups() {
+    const { members, queues } = this.primaryRenderGroup;
+    while (members.size) {
+      const group = last(queues);
+
+      if (!group.length) queues.pop();
+      while (group.length) {
+        const next = group.pop()!;
+        if (!members.delete(next)) continue;
+        if (next.isUnmounted()) {
+          this.cleanupInstancesSchedules(next, false);
+          continue;
+        }
+
+        try {
+          this.renderFiber(next);
+        } catch (cause) {
+          throw new Error(
+            `Failed to render component ${next.component.name} at:${"\n"}${next.stack()}`,
+            { cause },
+          );
+        }
+      }
+    }
+    queues.length = 0;
+  }
+
+  private async processSecondaryRenderGroups() {
+    const { members: primaryMembers } = this.primaryRenderGroup;
+    const { members, queues } = this.secondaryRenderGroup;
+    while (members.size) {
+      const group = last(queues);
+      if (!group.length) {
+        queues.pop();
+        continue;
+      }
+      while (group.length) {
+        if (primaryMembers.size) return;
+        const next = group.pop()!;
+        const scheduled = members.get(next);
+        if (scheduled === undefined) continue;
+        members.delete(next);
+        if (!scheduled) continue;
+        if (next.isUnmounted()) {
+          insertSorted(this.tertiaryRenderGroup, next);
+          continue;
+        }
+        if (!next.isDeferred()) return this.scheduleRender(next);
+        this.renderFiber(next);
+        await this.checkAwait();
+      }
+    }
+    queues.length = 0;
+  }
+
+  private async processTertiaryRenderGroups() {
+    const { members: primaryMembers } = this.primaryRenderGroup;
+    const { members: secondaryMembers } = this.secondaryRenderGroup;
+    const { members, queues } = this.tertiaryRenderGroup;
+    while (members.size) {
+      const group = last(queues);
+      if (!group.length) {
+        queues.pop();
+        continue;
+      }
+      while (group.length) {
+        if (primaryMembers.size || secondaryMembers.size) return;
+        const next = group.pop()!;
+        if (!members.delete(next)) continue;
+        if (next.isUnmounted()) {
+          this.cleanupInstancesSchedules(next, true);
+          continue;
+        }
+        if (!next.isDeferred()) return this.scheduleRender(next);
+        this.renderFiber(next);
+        await this.checkAwait();
+      }
+    }
+    queues.length = 0;
+  }
+
+  static setUnmountedChildrenUnmounted(parents: Iterable<ComponentFiber>) {
+    for (const next of parents) {
+      const { instances, unmountInstances } = next;
+      if (unmountInstances) {
+        for (const child of unmountInstances.values()) {
+          instances?.delete(child.path);
+          Scheduler.setUnmountedRecursively(child);
+        }
+      }
+    }
+  }
+
+  static setUnmountedRecursively(instance: ComponentFiber) {
+    instance.unmounted = true;
+    const { instances } = instance;
+    if (instances) {
+      for (const child of instances.values()) {
+        Scheduler.setUnmountedRecursively(child);
+      }
+    }
+  }
+
+  private static unmountParentsUnmountedChildren(parents: Set<ComponentFiber>) {
+    for (const next of parents) {
+      if (next.unmountInstances) {
+        for (const child of next.unmountInstances.values()) Scheduler.unmountLeafsFirst(child);
+        next.unmountInstances.clear();
+      }
+    }
+    parents.clear();
+  }
+  private static unmountLeafsFirst(next: ComponentFiber): void {
+    const { instances, hookStates } = next;
+    if (instances) {
+      for (const next of instances.values()) {
+        this.unmountLeafsFirst(next);
+      }
+    }
+
+    if (hookStates) {
+      for (const state of hookStates) {
+        switch (state.type) {
+          case $EFFECT:
+            state.controller?.abort();
+            break;
+          case $STATE:
+            state.pendingResolve = undefined;
+            break;
+        }
+      }
+    }
+  }
+
+  private static precessEffects({ queues, members }: Group) {
+    for (let i = queues.length - 1; i >= 0; i--) {
+      const group = queues[i]!;
+      for (const next of group) {
+        if (next.unmounted) continue;
+        if (!members.get(next)) continue;
+        next.effectReasons?.clear();
+        next.hookStates?.forEach(effectResolver);
+      }
+      group.length = 0;
+    }
+    members.clear();
+  }
+
+  private static applyUiActions({ queues, members }: Group) {
+    members.clear();
+    for (let i = 0; i < queues.length; i++) {
+      const queue = queues[i]!;
+      for (const fiber of queue) {
+        if (fiber.unmounted) continue;
+        fiber.preparedSlots?.clear();
+        const { uiActions, refsToAssign } = fiber;
+        if (uiActions) {
+          for (const action of uiActions) {
+            switch (action.type) {
+              case "MOVE": {
+                moveSlot(action.slot, action.parentDom, action.before);
+                break;
+              }
+              case "REMOVE":
+                removeSlotNodes(action.slot);
+                break;
+              case "INSERT":
+                insertBefore(action.parentDom, action.node, action.before);
+                break;
+              case "TEXT": {
+                const { slot } = action;
+                slot.headNode.textContent = slot.text;
+                break;
+              }
+              case "UPDATE": {
+                const { slot, patch } = action;
+                updateElementProps(slot.headNode, patch, fiber.rctx.delegationRoot);
+                break;
+              }
+            }
+          }
+          fiber.uiActions = undefined;
+          fiber.slot = fiber.pendingSlot;
+          fiber.pendingSlot = undefined;
+        }
+
+        if (refsToAssign) {
+          for (const [ref, element] of refsToAssign) ref.current = element;
+          fiber.refsToAssign = undefined;
+        }
+      }
+      queue.length = 0;
+    }
+  }
+
+  private static processStates({ queues }: Group) {
+    for (const group of queues) {
+      for (const next of group) {
+        if (next.unmounted) continue;
+        next.resolveReasons?.clear();
+        next.hookStates?.forEach(stateResolver);
+      }
+    }
   }
 }

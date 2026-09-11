@@ -8,7 +8,8 @@
  * @module jsx-types
  */
 import type { SyntheticEvent } from "./events";
-import type { SpecialProps } from "./jsx";
+import type { Children, FrameworkProps } from "./jsx";
+import type { WeakRefLike } from "./render/element-props";
 
 // ---------------------------------------------------------------------------
 // CSS Properties
@@ -33,8 +34,12 @@ export interface CSSProperties {
   alignContent?: string;
   alignItems?: string;
   alignSelf?: string;
+  alignmentBaseline?: string;
   all?: string;
+  anchorName?: string;
+  anchorScope?: string;
   animation?: string;
+  animationComposition?: string;
   animationDelay?: string;
   animationDirection?: string;
   animationDuration?: string;
@@ -42,7 +47,12 @@ export interface CSSProperties {
   animationIterationCount?: string | number;
   animationName?: string;
   animationPlayState?: string;
+  animationRange?: string;
+  animationRangeEnd?: string;
+  animationRangeStart?: string;
+  animationTimeline?: string;
   animationTimingFunction?: string;
+  animationTrigger?: string;
   appearance?: string;
   aspectRatio?: string | number;
   backdropFilter?: string;
@@ -50,13 +60,17 @@ export interface CSSProperties {
   background?: string;
   backgroundAttachment?: string;
   backgroundBlendMode?: string;
-  backgroundColor?: string;
   backgroundClip?: string;
+  backgroundColor?: string;
   backgroundImage?: string;
   backgroundOrigin?: string;
   backgroundPosition?: string;
+  backgroundPositionX?: string;
+  backgroundPositionY?: string;
   backgroundRepeat?: string;
   backgroundSize?: string;
+  baselineShift?: string;
+  baselineSource?: string;
   blockSize?: string | number;
   border?: string;
   borderBlock?: string;
@@ -79,7 +93,14 @@ export interface CSSProperties {
   borderBottomWidth?: string | number;
   borderCollapse?: string;
   borderColor?: string;
+  borderEndEndRadius?: string | number;
+  borderEndStartRadius?: string | number;
   borderImage?: string;
+  borderImageOutset?: string | number;
+  borderImageRepeat?: string;
+  borderImageSlice?: string | number;
+  borderImageSource?: string;
+  borderImageWidth?: string | number;
   borderInline?: string;
   borderInlineColor?: string;
   borderInlineEnd?: string;
@@ -101,7 +122,10 @@ export interface CSSProperties {
   borderRightColor?: string;
   borderRightStyle?: string;
   borderRightWidth?: string | number;
+  borderShape?: string;
   borderSpacing?: string | number;
+  borderStartEndRadius?: string | number;
+  borderStartStartRadius?: string | number;
   borderStyle?: string;
   borderTop?: string;
   borderTopColor?: string;
@@ -111,36 +135,80 @@ export interface CSSProperties {
   borderTopWidth?: string | number;
   borderWidth?: string | number;
   bottom?: string | number;
+  boxDecorationBreak?: string;
   boxShadow?: string;
   boxSizing?: string;
   breakAfter?: string;
   breakBefore?: string;
   breakInside?: string;
   captionSide?: string;
+  caretAnimation?: string;
   caretColor?: string;
+  caretShape?: string;
   clear?: string;
   clip?: string;
   clipPath?: string;
+  clipRule?: string;
   color?: string;
+  colorInterpolation?: string;
+  colorInterpolationFilters?: string;
   colorScheme?: string;
   columnCount?: string | number;
   columnFill?: string;
   columnGap?: string | number;
+  columnHeight?: string | number;
   columnRule?: string;
   columnRuleColor?: string;
   columnRuleStyle?: string;
   columnRuleWidth?: string | number;
   columnSpan?: string;
   columnWidth?: string | number;
+  columnWrap?: string;
   columns?: string;
   contain?: string;
+  containIntrinsicBlockSize?: string | number;
+  containIntrinsicHeight?: string | number;
+  containIntrinsicInlineSize?: string | number;
+  containIntrinsicSize?: string | number;
+  containIntrinsicWidth?: string | number;
+  container?: string;
+  containerName?: string;
+  containerType?: string;
   content?: string;
+  contentVisibility?: string;
+  cornerBlockEndShape?: string;
+  cornerBlockStartShape?: string;
+  cornerBottomLeftShape?: string;
+  cornerBottomRightShape?: string;
+  cornerBottomShape?: string;
+  cornerEndEndShape?: string;
+  cornerEndStartShape?: string;
+  cornerInlineEndShape?: string;
+  cornerInlineStartShape?: string;
+  cornerLeftShape?: string;
+  cornerRightShape?: string;
+  cornerShape?: string;
+  cornerStartEndShape?: string;
+  cornerStartStartShape?: string;
+  cornerTopLeftShape?: string;
+  cornerTopRightShape?: string;
+  cornerTopShape?: string;
   counterIncrement?: string;
   counterReset?: string;
+  counterSet?: string;
   cursor?: string;
+  cx?: string | number;
+  cy?: string | number;
+  d?: string;
   direction?: string;
   display?: string;
+  dominantBaseline?: string;
+  dynamicRangeLimit?: string;
   emptyCells?: string;
+  fieldSizing?: string;
+  fill?: string;
+  fillOpacity?: string | number;
+  fillRule?: string;
   filter?: string;
   flex?: string | number;
   flexBasis?: string | number;
@@ -150,20 +218,34 @@ export interface CSSProperties {
   flexShrink?: number;
   flexWrap?: string;
   float?: string;
+  floodColor?: string;
+  floodOpacity?: string | number;
   font?: string;
   fontFamily?: string;
   fontFeatureSettings?: string;
   fontKerning?: string;
+  fontLanguageOverride?: string;
+  fontOpticalSizing?: string;
+  fontPalette?: string;
   fontSize?: string | number;
   fontSizeAdjust?: string | number;
   fontStretch?: string;
   fontStyle?: string;
   fontSynthesis?: string;
+  fontSynthesisSmallCaps?: string;
+  fontSynthesisStyle?: string;
+  fontSynthesisWeight?: string;
   fontVariant?: string;
+  fontVariantAlternates?: string;
   fontVariantCaps?: string;
+  fontVariantEastAsian?: string;
+  fontVariantEmoji?: string;
+  fontVariantLigatures?: string;
   fontVariantNumeric?: string;
+  fontVariantPosition?: string;
   fontVariationSettings?: string;
   fontWeight?: string | number;
+  forcedColorAdjust?: string;
   gap?: string | number;
   grid?: string;
   gridArea?: string;
@@ -172,17 +254,24 @@ export interface CSSProperties {
   gridAutoRows?: string;
   gridColumn?: string;
   gridColumnEnd?: string | number;
+  gridColumnGap?: string | number;
   gridColumnStart?: string | number;
+  gridGap?: string | number;
   gridRow?: string;
   gridRowEnd?: string | number;
+  gridRowGap?: string | number;
   gridRowStart?: string | number;
   gridTemplate?: string;
   gridTemplateAreas?: string;
   gridTemplateColumns?: string;
   gridTemplateRows?: string;
   height?: string | number;
+  hyphenateCharacter?: string;
+  hyphenateLimitChars?: string | number;
   hyphens?: string;
+  imageOrientation?: string;
   imageRendering?: string;
+  initialLetter?: string | number;
   inlineSize?: string | number;
   inset?: string | number;
   insetBlock?: string | number;
@@ -191,12 +280,18 @@ export interface CSSProperties {
   insetInline?: string | number;
   insetInlineEnd?: string | number;
   insetInlineStart?: string | number;
+  interactivity?: string;
+  interestDelay?: string;
+  interestDelayEnd?: string;
+  interestDelayStart?: string;
+  interpolateSize?: string;
   isolation?: string;
   justifyContent?: string;
   justifyItems?: string;
   justifySelf?: string;
   left?: string | number;
   letterSpacing?: string | number;
+  lightingColor?: string;
   lineBreak?: string;
   lineHeight?: string | number;
   listStyle?: string;
@@ -214,25 +309,60 @@ export interface CSSProperties {
   marginLeft?: string | number;
   marginRight?: string | number;
   marginTop?: string | number;
+  marker?: string;
+  markerEnd?: string;
+  markerMid?: string;
+  markerStart?: string;
+  mask?: string;
+  maskClip?: string;
+  maskComposite?: string;
+  maskImage?: string;
+  maskMode?: string;
+  maskOrigin?: string;
+  maskPosition?: string;
+  maskRepeat?: string;
+  maskSize?: string;
+  maskType?: string;
+  mathDepth?: string | number;
+  mathShift?: string;
+  mathStyle?: string;
+  maxBlockSize?: string | number;
   maxHeight?: string | number;
+  maxInlineSize?: string | number;
   maxWidth?: string | number;
+  minBlockSize?: string | number;
   minHeight?: string | number;
+  minInlineSize?: string | number;
   minWidth?: string | number;
   mixBlendMode?: string;
   objectFit?: string;
   objectPosition?: string;
+  offset?: string;
+  offsetAnchor?: string;
+  offsetDistance?: string | number;
+  offsetPath?: string;
+  offsetPosition?: string;
+  offsetRotate?: string;
   opacity?: number | string;
   order?: number;
+  orphans?: string | number;
   outline?: string;
   outlineColor?: string;
   outlineOffset?: string | number;
   outlineStyle?: string;
   outlineWidth?: string | number;
   overflow?: string;
+  overflowAnchor?: string;
+  overflowBlock?: string;
+  overflowClipMargin?: string | number;
+  overflowInline?: string;
   overflowWrap?: string;
   overflowX?: string;
   overflowY?: string;
+  overlay?: string;
   overscrollBehavior?: string;
+  overscrollBehaviorBlock?: string;
+  overscrollBehaviorInline?: string;
   overscrollBehaviorX?: string;
   overscrollBehaviorY?: string;
   padding?: string | number;
@@ -246,6 +376,11 @@ export interface CSSProperties {
   paddingLeft?: string | number;
   paddingRight?: string | number;
   paddingTop?: string | number;
+  page?: string;
+  pageBreakAfter?: string;
+  pageBreakBefore?: string;
+  pageBreakInside?: string;
+  paintOrder?: string;
   perspective?: string | number;
   perspectiveOrigin?: string;
   placeContent?: string;
@@ -253,42 +388,119 @@ export interface CSSProperties {
   placeSelf?: string;
   pointerEvents?: string;
   position?: string;
+  positionAnchor?: string;
+  positionArea?: string;
+  positionTry?: string;
+  positionTryFallbacks?: string;
+  positionTryOrder?: string;
+  positionVisibility?: string;
+  printColorAdjust?: string;
   quotes?: string;
+  r?: string | number;
+  readingFlow?: string;
+  readingOrder?: string;
   resize?: string;
   right?: string | number;
   rotate?: string;
   rowGap?: string | number;
+  rubyAlign?: string;
+  rubyPosition?: string;
+  rx?: string | number;
+  ry?: string | number;
   scale?: string | number;
   scrollBehavior?: string;
+  scrollInitialTarget?: string;
   scrollMargin?: string | number;
+  scrollMarginBlock?: string | number;
+  scrollMarginBlockEnd?: string | number;
+  scrollMarginBlockStart?: string | number;
   scrollMarginBottom?: string | number;
+  scrollMarginInline?: string | number;
+  scrollMarginInlineEnd?: string | number;
+  scrollMarginInlineStart?: string | number;
   scrollMarginLeft?: string | number;
   scrollMarginRight?: string | number;
   scrollMarginTop?: string | number;
+  scrollMarkerGroup?: string;
   scrollPadding?: string | number;
+  scrollPaddingBlock?: string | number;
+  scrollPaddingBlockEnd?: string | number;
+  scrollPaddingBlockStart?: string | number;
   scrollPaddingBottom?: string | number;
+  scrollPaddingInline?: string | number;
+  scrollPaddingInlineEnd?: string | number;
+  scrollPaddingInlineStart?: string | number;
   scrollPaddingLeft?: string | number;
   scrollPaddingRight?: string | number;
   scrollPaddingTop?: string | number;
   scrollSnapAlign?: string;
   scrollSnapStop?: string;
   scrollSnapType?: string;
+  scrollTargetGroup?: string;
+  scrollTimeline?: string;
+  scrollTimelineAxis?: string;
+  scrollTimelineName?: string;
+  scrollbarColor?: string;
+  scrollbarGutter?: string;
+  scrollbarWidth?: string;
+  shapeImageThreshold?: string | number;
+  shapeMargin?: string | number;
   shapeOutside?: string;
+  shapeRendering?: string;
+  stopColor?: string;
+  stopOpacity?: string | number;
+  stroke?: string;
+  strokeDasharray?: string;
+  strokeDashoffset?: string | number;
+  strokeLinecap?: string;
+  strokeLinejoin?: string;
+  strokeMiterlimit?: string | number;
+  strokeOpacity?: string | number;
+  strokeWidth?: string | number;
   tabSize?: string | number;
   tableLayout?: string;
   textAlign?: string;
   textAlignLast?: string;
+  textAnchor?: string;
+  textAutospace?: string;
+  textBox?: string;
+  textBoxEdge?: string;
+  textBoxTrim?: string;
+  textCombineUpright?: string;
   textDecoration?: string;
   textDecorationColor?: string;
   textDecorationLine?: string;
+  textDecorationSkipInk?: string;
   textDecorationStyle?: string;
   textDecorationThickness?: string | number;
+  textEmphasis?: string;
+  textEmphasisColor?: string;
+  textEmphasisPosition?: string;
+  textEmphasisStyle?: string;
   textIndent?: string | number;
+  textJustify?: string;
+  textOrientation?: string;
   textOverflow?: string;
   textRendering?: string;
   textShadow?: string;
+  textSizeAdjust?: string;
+  textSpacingTrim?: string;
   textTransform?: string;
   textUnderlineOffset?: string | number;
+  textUnderlinePosition?: string;
+  textWrap?: string;
+  textWrapMode?: string;
+  textWrapStyle?: string;
+  timelineScope?: string;
+  timelineTrigger?: string;
+  timelineTriggerActivationRange?: string;
+  timelineTriggerActivationRangeEnd?: string;
+  timelineTriggerActivationRangeStart?: string;
+  timelineTriggerActiveRange?: string;
+  timelineTriggerActiveRangeEnd?: string;
+  timelineTriggerActiveRangeStart?: string;
+  timelineTriggerName?: string;
+  timelineTriggerSource?: string;
   top?: string | number;
   touchAction?: string;
   transform?: string;
@@ -296,20 +508,37 @@ export interface CSSProperties {
   transformOrigin?: string;
   transformStyle?: string;
   transition?: string;
+  transitionBehavior?: string;
   transitionDelay?: string;
   transitionDuration?: string;
   transitionProperty?: string;
   transitionTimingFunction?: string;
+  translate?: string;
+  triggerScope?: string;
   unicodeBidi?: string;
   userSelect?: string;
+  vectorEffect?: string;
   verticalAlign?: string | number;
+  viewTimeline?: string;
+  viewTimelineAxis?: string;
+  viewTimelineInset?: string | number;
+  viewTimelineName?: string;
+  viewTransitionClass?: string;
+  viewTransitionGroup?: string;
+  viewTransitionName?: string;
+  viewTransitionScope?: string;
   visibility?: string;
   whiteSpace?: string;
+  whiteSpaceCollapse?: string;
+  widows?: string | number;
   width?: string | number;
   willChange?: string;
   wordBreak?: string;
   wordSpacing?: string | number;
+  wordWrap?: string;
   writingMode?: string;
+  x?: string | number;
+  y?: string | number;
   zIndex?: string | number;
   zoom?: string | number;
   /** CSS custom properties (variables), e.g. `'--primary-color': '#3498db'`. */
@@ -390,6 +619,7 @@ export interface AriaAttributes {
   "aria-valuemin"?: number;
   "aria-valuenow"?: number;
   "aria-valuetext"?: string;
+  role?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -406,9 +636,18 @@ export interface AriaAttributes {
  * element, used to narrow `event.currentTarget` in event handlers.
  */
 export interface HTMLAttributes<T extends HTMLElement = HTMLElement>
-  extends SpecialProps<T>,
-    AriaAttributes,
-    EventHandlers<T> {
+  extends FrameworkProps, AriaAttributes, EventHandlers<T> {
+  /** Ref object — set to the DOM element on mount, undefined on unmount. */
+  ref?: WeakRefLike<T>;
+  /**
+   * JSX children. Uses the unprefixed `children` name (not `children`)
+   * because TypeScript's automatic JSX runtime hardcodes `children` as the
+   * synthesized children prop name when validating intrinsic elements.
+   * `LibraryManagedAttributes` only bridges this for components, so HTML
+   * elements have to expose `children` directly. Optional on every HTML
+   * element; void elements are not yet enforced.
+   */
+  children?: Children;
   // ── Global HTML attributes ───────────────────────────────────────────────
   autoCapitalize?: string;
   autoFocus?: boolean;
@@ -425,7 +664,6 @@ export interface HTMLAttributes<T extends HTMLElement = HTMLElement>
   lang?: string;
   nonce?: string;
   popover?: string;
-  role?: string;
   slot?: string;
   spellCheck?: boolean;
   style?: CSSProperties;
@@ -906,9 +1144,11 @@ export interface VideoHTMLAttributes extends HTMLAttributes<HTMLVideoElement> {
 
 /** Presentation attributes shared by all SVG elements. */
 export interface SVGAttributes<T extends SVGElement = SVGElement>
-  extends SpecialProps<T>,
-    AriaAttributes,
-    EventHandlers<T> {
+  extends FrameworkProps, AriaAttributes, EventHandlers<T> {
+  /** Ref object — set to the SVG element on mount, undefined on unmount. */
+  ref?: WeakRefLike<T>;
+  /** JSX children. See `HTMLAttributes.children` for why this isn't `children`. */
+  children?: Children;
   className?: string;
   id?: string;
   style?: CSSProperties;

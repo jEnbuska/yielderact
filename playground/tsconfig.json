@@ -1,0 +1,21 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["@types/web"],
+    "jsx": "react-jsx",
+    "jsxImportSource": "yract",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "paths": {
+      "yract": ["../src/index.ts"],
+      "yract/jsx-runtime": ["../src/jsx-runtime.ts"],
+      "yract/jsx-dev-runtime": ["../src/jsx-runtime.ts"]
+    }
+  },
+  "include": ["src"]
+}

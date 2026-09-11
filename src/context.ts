@@ -1,210 +1,59 @@
-import { $USE_CONTEXT, type ContextDescriptor } from "./hooks/descriptors";
-import type { ComponentGenerator } from "./hooks/types";
-import { depsChanged } from "./hooks/types";
+import type { Children, Component } from "./jsx";
+import { Fragment } from "./jsx";
+import { randomId } from "./general";
+import { jsx } from "./jsx-runtime";
+import type { ContextMap } from "./render/types";
+import type { ComponentGenerator } from "./general-types";
+import type { ContextHookState } from "./hooks/context";
 
-// ---------------------------------------------------------------------------
-// Public types
-// ---------------------------------------------------------------------------
-
-/**
- * A context object. Holds only the default value.
- *
- * Internal contexts use this
- * minimal shape — they are not callable.
- */
-export interface Context<T = unknown> {
-  readonly defaultValue: T;
+export interface ContextProps<T = unknown> {
+  key?: string;
+  value: T;
+  children: Children;
 }
 
-/**
- * A context entry produced by calling a context object with a value.
- * Passed to the `context` framework prop to provide context to a subtree.
- *
- * @example
- * const ThemeCtx = createContext<'light' | 'dark'>('light');
- * <Child context={ThemeCtx('dark')} />
- */
-export interface ContextEntry<T = unknown> {
-  readonly ctx: Context<T>;
-  readonly value: T;
-}
-
-/**
- * A callable context object returned by `createContext`.
- * Call it with a value to produce a `ContextEntry` for the `context` prop.
- * Use `useContext` to consume the value.
- *
- * @example
- * const ThemeCtx = createContext<'light' | 'dark'>('light');
- * <Child context={ThemeCtx('dark')} />
- */
-export interface PublicContext<T> extends Context<T> {
-  (value: T): ContextEntry<T>;
-}
-
-// ---------------------------------------------------------------------------
-// Internal descriptor type for useContext (carries optional selector/transform)
-// ---------------------------------------------------------------------------
-
-/** @internal */
-interface UseContextDescriptor {
-  type: typeof $USE_CONTEXT;
-  ctx: Context;
-  selector?: (ctx: unknown) => unknown[];
-  transform?: (...args: unknown[]) => unknown;
-}
-
-// ---------------------------------------------------------------------------
-// Public API
-// ---------------------------------------------------------------------------
-
-/**
- * Create a new context with a default value.
- *
- * Call the returned context with a value to produce a `ContextEntry`
- * for the `context` prop. Use `useContext` to consume the value.
- *
- * @example
- * const ThemeCtx = createContext<'light' | 'dark'>('light');
- *
- * function* App() {
- *   const [theme] = yield* useState<'light' | 'dark'>('light');
- *   return <Child context={ThemeCtx(theme)} />;
- * }
- *
- * function* Child() {
- *   const theme = yield* useContext(ThemeCtx);
- *   return <div className={theme}>hello</div>;
- * }
- */
-export function createContext<T>(defaultValue: T): PublicContext<T> {
-  const ctx: PublicContext<T> = Object.assign((value: T): ContextEntry<T> => ({ ctx, value }), {
-    defaultValue: defaultValue,
-  } satisfies Context<T>);
-  return ctx;
-}
-
-/**
- * Consume a context value inside a component.
- * Must be called with `yield*` inside a component or hook.
- *
- * The renderer intercepts the yielded descriptor, looks up the current context
- * value, and sends it back — the hook then returns it to the component.
- *
- * **Overload 1 — no selector (current behavior):**
- * The component rerenders whenever the Provider's `value` reference changes.
- *
- * **Overload 2 — selector only:**
- * `selector` is called on each new Provider value. The component only rerenders
- * when the selected deps array changes (shallow comparison via `depsChanged`).
- * The full context value is still returned.
- *
- * **Overload 3 — selector + transform:**
- * Same rerender guard as overload 2; additionally the *return value* is
- * `transform(...selectorDeps)` instead of the raw context value.
- *
- * @example
- * // 1. Always rerenders on context change
- * const ctx = yield* useContext(MyCtx);
- *
- * // 2. Rerenders only when currentGroup changes; returns full ctx
- * const { currentGroup } = yield* useContext(MyCtx, (c) => [c.currentGroup]);
- *
- * // 3. Rerenders only when currentGroup changes; returns the group directly
- * const group = yield* useContext(MyCtx, (c) => [c.currentGroup], (...args) => args[0]);
- */
-export function useContext<T>(ctx: Context<T>): ComponentGenerator<T>;
-export function useContext<T>(
-  ctx: Context<T>,
-  selector: (ctx: T) => unknown[],
-): ComponentGenerator<T>;
-export function useContext<T, D extends unknown[], R>(
-  ctx: Context<T>,
-  selector: (ctx: T) => D,
-  transform: (...args: D) => R,
-): ComponentGenerator<R>;
-export function* useContext<T, D extends unknown[], R>(
-  ctx: Context<T>,
-  selector?: (ctx: T) => D,
-  transform?: (...args: D) => R,
-): ComponentGenerator<T | R> {
-  const value = yield {
-    type: $USE_CONTEXT,
-    ctx: ctx as Context,
-    selector: selector as UseContextDescriptor["selector"],
-    transform: transform as UseContextDescriptor["transform"],
-  };
-  return value as T | R;
-}
-
-// ---------------------------------------------------------------------------
-// UseContext hook state & handler
-// ---------------------------------------------------------------------------
-
-/**
- * Persistent hook state stored for a `useContext` call.
- *
- * Stored in `ComponentInstance.hookStates[hookIndex]` for each `useContext` hook.
- * The reconciler reads these entries to determine whether a context change
- * requires a rerender (by checking `selector` and `lastDeps`).
- *
- * @internal
- */
-export type UseContextState = {
-  kind: typeof $USE_CONTEXT;
-  /** The context object this hook subscribes to. */
-  ctx: Context;
-  /** Optional selector function — extracts deps from the context value. */
-  selector?: (ctx: unknown) => unknown[];
-  /** Optional transform function — computes the returned value from deps. */
-  transform?: (...args: unknown[]) => unknown;
-  /** The last computed deps array (from `selector`). Used by `depsChanged`. */
-  lastDeps?: unknown[];
-  /** The last returned value (raw context value, or `transform(…deps)`). */
-  lastResult: unknown;
+export type Context<T = any> = ContextProperties<T> & {
+  (props: ContextProps<T>): ComponentGenerator;
 };
 
-/** @internal */
-export function processContext(
-  descriptor: ContextDescriptor,
-  prev: UseContextState | undefined,
-  rawValue: unknown,
-): UseContextState {
-  const context = descriptor.ctx as Context;
-  const selector = descriptor.selector as UseContextDescriptor["selector"];
-  const transform = descriptor.transform as UseContextDescriptor["transform"];
+export type ContextProperties<T> = {
+  ref: { current: T };
+  version: number;
+  name: string;
+  subscribe: (state: ContextHookState) => () => void;
+  depth: number;
+  id: string;
+  Provider: Component<ContextProps<T>>;
+};
 
-  if (!selector) {
-    return { kind: $USE_CONTEXT, ctx: context, lastResult: rawValue };
+function getDefaultValue<T>(defaultValue: (() => T) | T): T {
+  if (defaultValue === "function") {
+    return (defaultValue as any)() as T;
   }
-
-  const newDeps = selector(rawValue);
-  if (prev?.selector && !depsChanged(prev.lastDeps, newDeps)) {
-    return prev;
-  }
-  const result = transform ? transform(...newDeps) : rawValue;
-  return {
-    kind: $USE_CONTEXT,
-    ctx: context,
-    selector,
-    transform,
-    lastDeps: newDeps,
-    lastResult: result,
-  };
+  return defaultValue as T;
 }
 
-// ---------------------------------------------------------------------------
-// Internal helpers used by the renderer
-// ---------------------------------------------------------------------------
+export function createContext<T>(defaultValue: (() => T) | T): Context<T>;
+export function createContext<T>(defaultValue: (() => T) | T, name: Capitalize<string>): Context<T>;
+export function createContext(...args: any[]): any {
+  const [defaultValue, name = ""] = args;
+  const providerName = `${name}Provider`;
+  const withProvider = {
+    *[providerName]({ children }: { children: Children }) {
+      return jsx(Fragment, { children });
+    },
+  };
+  return {
+    ref: { current: getDefaultValue(defaultValue) },
+    subscribe: () => () => {},
+    depth: -1,
+    id: randomId(),
+    name: `${name}Context`,
+    Provider: withProvider[providerName],
+  } as any;
+}
 
-/**
- * Resolve the effective value for `ctx` from `map`, falling back to the
- * context's `defaultValue` when no Provider has supplied a value.
- *
- * TODO: eliminate in favor of `yield* getContext()` in generator code.
- * Kept for synchronous code that cannot yield (hooks, helpers, scheduler).
- * @internal
- */
-export function resolveCtx<T>(map: ReadonlyMap<Context, unknown>, ctx: Context<T>): T {
-  return (map.has(ctx) ? map.get(ctx) : ctx.defaultValue) as T;
+export function resolveContext<T>(map: ContextMap | undefined, ctx: Context<T>): T {
+  const handle = map?.get(ctx.id);
+  return (handle?.ref.current as T) ?? ctx.ref.current;
 }

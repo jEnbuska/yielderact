@@ -11,18 +11,18 @@ npm ci --prefix examples
 
 ## Commands
 
-| Command | Description |
-| :--- | :--- |
-| `npm run build` | Compile TypeScript to `dist/` |
-| `npm run typecheck` | Type-check including test files (no emit) |
-| `npm run typecheck:examples` | Type-check example components |
-| `npm test` | Run Vitest unit tests (jsdom) |
-| `npm run test:visual` | Run Playwright visual tests |
-| `npm run knip` | Detect dead code and unused exports |
-| `npm run lint` | Check lint and formatting (Biome) |
-| `npm run lint:fix` | Auto-fix lint and formatting issues |
-| `npm run format` | Auto-fix formatting only |
-| `npm test -- <path>` | Run a specific test file |
+| Command                      | Description                               |
+| :--------------------------- | :---------------------------------------- |
+| `npm run build`              | Compile TypeScript to `dist/`             |
+| `npm run typecheck`          | Type-check including test files (no emit) |
+| `npm run typecheck:examples` | Type-check example components             |
+| `npm test`                   | Run Vitest unit tests (jsdom)             |
+| `npm run test:visual`        | Run Playwright visual tests               |
+| `npm run knip`               | Detect dead code and unused exports       |
+| `npm run lint`               | Check lint and formatting (Biome)         |
+| `npm run lint:fix`           | Auto-fix lint and formatting issues       |
+| `npm run format`             | Auto-fix formatting only                  |
+| `npm test -- <path>`         | Run a specific test file                  |
 
 ## Before opening a PR
 
@@ -47,18 +47,18 @@ If any step fails, fix and re-run the full sequence.
 
 ## Project structure
 
-| Path | Description |
-| :--- | :--- |
-| `src/jsx.ts` | VNode types, `createElement`, `createPortal` |
-| `src/jsx-types.ts` | HTML/SVG attribute type definitions |
-| `src/jsx-runtime.ts` | Automatic JSX transform (`jsx`, `jsxs`, `jsxDEV`) |
-| `src/events.ts` | `SyntheticEvent` type and proxy-based event wrapper |
-| `src/context.ts` | `createContext`, `useContext`, context map helpers |
-| `src/index.ts` | Public API re-exports |
-| `src/render/` | Renderer: mount, reconciler, scheduler, patches, delegation |
-| `src/hooks/` | Hook implementations (`useState`, `useEffect`, etc.) |
-| `examples/` | Demo app with tabbed component examples |
-| `docs/` | API reference and design documentation |
+| Path                 | Description                                                 |
+| :------------------- | :---------------------------------------------------------- |
+| `src/jsx.ts`         | VNode types, `createElement`, `createPortal`                |
+| `src/jsx-types.ts`   | HTML/SVG attribute type definitions                         |
+| `src/jsx-runtime.ts` | Automatic JSX transform (`jsx`, `jsxs`, `jsxDEV`)           |
+| `src/events.ts`      | `SyntheticEvent` type and proxy-based event wrapper         |
+| `src/context.ts`     | `createContext`, `useContext`, context map helpers          |
+| `src/index.ts`       | Public API re-exports                                       |
+| `src/render/`        | Renderer: mount, reconciler, scheduler, patches, delegation |
+| `src/hooks/`         | Hook implementations (`useState`, `useEffect`, etc.)        |
+| `examples/`          | Demo app with tabbed component examples                     |
+| `docs/`              | API reference and design documentation                      |
 
 ## JSX configuration
 

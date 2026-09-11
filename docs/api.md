@@ -21,15 +21,15 @@
    - [useResolveRaw](#useresolveraw)
    - [useRender](#userender)
    - [useResume](#useresume)
-   - [useUIPatch](#useuipatch) *(disabled — #163)*
-   - [usePatchContext](#usepatchcontext) *(disabled — #163)*
+   - [useUIPatch](#useuipatch) _(disabled — #163)_
+   - [usePatchContext](#usepatchcontext) _(disabled — #163)_
 6. [Context](#context)
    - [createContext](#createcontext)
    - [useContext](#usecontext)
 7. [Portals](#portals)
    - [createPortal](#createportal)
-8. [UI patches](#ui-patches) *(disabled — #163)*
-   - [startUIPatch / commitUIPatch](#startuipatch--commituipatch) *(disabled — #163)*
+8. [UI patches](#ui-patches) _(disabled — #163)_
+   - [startUIPatch / commitUIPatch](#startuipatch--commituipatch) _(disabled — #163)_
 9. [Special props](#special-props)
 10. [Events](#events)
 11. [Design decisions](#design-decisions)
@@ -102,7 +102,7 @@ function* List() {
 ```
 
 ```tsx
-import { createElement, Fragment } from 'yract';
+import { createElement, Fragment } from "yract";
 ```
 
 ### Automatic transform
@@ -249,7 +249,7 @@ function* UserProfile({ id }: { id: string }) {
     [id],
   );
 
-  return <p>{data ?? 'Loading…'}</p>;
+  return <p>{data ?? "Loading…"}</p>;
 }
 ```
 
@@ -448,11 +448,11 @@ function* DeleteButton() {
 
 ```tsx
 function* Form() {
-  const answer = yield* useRender<'yes' | 'no'>(
+  const answer = yield* useRender<"yes" | "no">(
     ({ resume }) => (
       <div>
-        <button onClick={() => resume('yes')}>Yes</button>
-        <button onClick={() => resume('no')}>No</button>
+        <button onClick={() => resume("yes")}>Yes</button>
+        <button onClick={() => resume("no")}>No</button>
       </div>
     ),
     [],
@@ -476,7 +476,7 @@ Returns the `resume` callback injected by the nearest parent `useRender` call (V
 ```tsx
 function* Modal() {
   const resume = yield* useResume<string>();
-  return <button onClick={() => resume('done')}>Close</button>;
+  return <button onClick={() => resume("done")}>Close</button>;
 }
 ```
 
@@ -580,10 +580,10 @@ Creates a context with a default value. The returned object exposes a `Provider`
 **Returns** `PublicContext<T>` — `{ Provider, _defaultValue }`
 
 ```tsx
-const ThemeCtx = createContext<'light' | 'dark'>('light');
+const ThemeCtx = createContext<"light" | "dark">("light");
 
 function* App() {
-  const [theme, setTheme] = yield* useState<'light' | 'dark'>('light');
+  const [theme, setTheme] = yield* useState<"light" | "dark">("light");
   return (
     <ThemeCtx.Provider value={theme}>
       <Page />
@@ -650,11 +650,11 @@ createPortal(children, container, key?)
 
 Creates a portal VNode that renders `children` into `container`.
 
-| Parameter   | Type               | Description                                        |
-| ----------- | ------------------ | -------------------------------------------------- |
-| `children`  | `Child \| Child[]` | The children to render into the container          |
-| `container` | `Element`          | The target DOM element (outside the render root)   |
-| `key`       | `string?`          | Optional reconciliation key                        |
+| Parameter   | Type               | Description                                      |
+| ----------- | ------------------ | ------------------------------------------------ |
+| `children`  | `Child \| Child[]` | The children to render into the container        |
+| `container` | `Element`          | The target DOM element (outside the render root) |
+| `key`       | `string?`          | Optional reconciliation key                      |
 
 **Returns** `VNode` — a portal VNode (type = `Portal` symbol)
 
@@ -662,7 +662,7 @@ Creates a portal VNode that renders `children` into `container`.
 
 ```tsx
 function* App() {
-  const modalRoot = document.getElementById('modal-root')!;
+  const modalRoot = document.getElementById("modal-root")!;
   return (
     <div>
       <h1>App</h1>
@@ -677,7 +677,7 @@ function* App() {
 Context flows through the component tree, not the DOM tree. A portaled child reads context from its logical parent:
 
 ```tsx
-const ThemeCtx = createContext<'light' | 'dark'>('light');
+const ThemeCtx = createContext<"light" | "dark">("light");
 
 function* ThemeReader() {
   const theme = yield* useContext(ThemeCtx);
@@ -688,8 +688,8 @@ function* App() {
   return (
     <ThemeCtx.Provider value="dark">
       {createPortal(
-        <ThemeReader />,  // reads "dark" from context
-        document.getElementById('portal-target')!,
+        <ThemeReader />, // reads "dark" from context
+        document.getElementById("portal-target")!,
       )}
     </ThemeCtx.Provider>
   );
@@ -706,15 +706,14 @@ function* App() {
   return (
     <>
       <button onClick={() => setShowModal((v) => !v)}>Toggle</button>
-      {showModal
-        ? createPortal(<Modal />, document.getElementById('modal-root')!)
-        : null}
+      {showModal ? createPortal(<Modal />, document.getElementById("modal-root")!) : null}
     </>
   );
 }
 ```
 
 > **Notes:**
+>
 > - A comment node placeholder is inserted in the original DOM position for reconciliation tracking.
 > - Event delegation works inside portals — `onClick` and other delegated events fire normally.
 > - `$deferred` and `$shown` props work on portal children as expected. <!-- $patch also worked here but is temporarily disabled (#163) -->
@@ -799,9 +798,9 @@ Replaces the default shallow-equal props check with a dependency-array compariso
 
 Useful when a parent passes new object references on every render but the component only cares about a subset of values.
 
-| Parameter | Type         | Description                                     |
-| --------- | ------------ | ----------------------------------------------- |
-| `$deps`   | `unknown[]`  | Dependency array compared via shallow `Object.is` |
+| Parameter | Type        | Description                                       |
+| --------- | ----------- | ------------------------------------------------- |
+| `$deps`   | `unknown[]` | Dependency array compared via shallow `Object.is` |
 
 ```tsx
 function* Parent() {
@@ -810,12 +809,7 @@ function* Parent() {
 
   // ExpensiveChild only rerenders when `relevant` changes,
   // even though `data` is a new object reference every render.
-  return (
-    <ExpensiveChild
-      data={{ relevant, irrelevant }}
-      $deps={[relevant]}
-    />
-  );
+  return <ExpensiveChild data={{ relevant, irrelevant }} $deps={[relevant]} />;
 }
 ```
 
@@ -914,10 +908,10 @@ Assigns the DOM element to `myRef.current` after mount. Use with `useRef`.
 All `onXxx` props receive a `SyntheticEvent` wrapping the native DOM event.
 
 ```tsx
-import type { SyntheticEvent } from 'yract';
+import type { SyntheticEvent } from "yract";
 
 function* TextInput() {
-  const [value, setValue] = yield* useState('');
+  const [value, setValue] = yield* useState("");
   return (
     <input value={value} onChange={(e: SyntheticEvent<InputEvent>) => setValue(e.target.value)} />
   );

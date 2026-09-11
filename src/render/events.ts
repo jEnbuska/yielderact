@@ -6,10 +6,11 @@
  * This module tracks the wrapper functions so they can be removed when
  * props change or the element is unmounted.
  *
- * For delegated events, see `delegation.ts` and `dispatch.ts`.
+ * For delegated events, see `actions.ts` and `dispatch.ts`.
  */
 
 import { createSyntheticEvent, type SyntheticEvent } from "../events";
+import type { AnyElement } from "./elements/namespaces";
 
 /**
  * Maps each DOM element to its currently-registered non-delegated event
@@ -52,7 +53,7 @@ export function addNonDelegatedListener(
  * @param eventName - Lowercase event name (must match the name used in
  *   `addNonDelegatedListener`).
  */
-export function removeNonDelegatedListener(el: Element, eventName: string): void {
+export function removeNonDelegatedListener(el: AnyElement, eventName: string): void {
   const wrapper = listenerWrappers.get(el)?.get(eventName);
   if (!wrapper) return;
   el.removeEventListener(eventName, wrapper);

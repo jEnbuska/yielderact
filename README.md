@@ -47,7 +47,7 @@ No manual imports needed — the automatic JSX transform handles everything. Ful
 With the classic transform, import at the top of every JSX file:
 
 ```ts
-import { createElement, Fragment } from 'yract';
+import { createElement, Fragment } from "yract";
 ```
 
 </details>
@@ -57,18 +57,14 @@ import { createElement, Fragment } from 'yract';
 ## Quick start
 
 ```tsx
-import { createRoot, useState } from 'yract';
+import { createRoot, useState } from "yract";
 
 function* Counter() {
   const [count, setCount] = yield* useState(0);
-  return (
-    <button onClick={() => setCount((c) => c + 1)}>
-      Clicked {count} times
-    </button>
-  );
+  return <button onClick={() => setCount((c) => c + 1)}>Clicked {count} times</button>;
 }
 
-const root = createRoot(document.getElementById('root')!);
+const root = createRoot(document.getElementById("root")!);
 root.render(<Counter />);
 ```
 
@@ -102,9 +98,9 @@ Available hooks: `useState`, `useEffect`, `useRef`, `useId`, `useMemo`, `useReso
 Pass data through the tree without prop-drilling.
 
 ```tsx
-import { createContext, useContext } from 'yract';
+import { createContext, useContext } from "yract";
 
-const ThemeCtx = createContext<'light' | 'dark'>('light');
+const ThemeCtx = createContext<"light" | "dark">("light");
 
 function* ThemedButton() {
   const theme = yield* useContext(ThemeCtx);
@@ -163,13 +159,13 @@ function* App() {
 Render children into a DOM node outside the render root:
 
 ```tsx
-import { createPortal } from 'yract';
+import { createPortal } from "yract";
 
 function* App() {
   return (
     <div>
       <h1>App</h1>
-      {createPortal(<Modal />, document.getElementById('modal-root')!)}
+      {createPortal(<Modal />, document.getElementById("modal-root")!)}
     </div>
   );
 }

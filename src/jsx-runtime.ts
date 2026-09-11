@@ -1,40 +1,87 @@
-/**
- * JSX automatic runtime – used when `jsxImportSource` is set to `"yract"`.
- *
- * With this runtime you can write JSX without an explicit import of
- * `createElement` in every file. Instead, add to your tsconfig / babel config:
- *
- *   { "jsxImportSource": "yract" }
- *
- * or at the top of a file:
- *
- *   /\*\* \@jsxImportSource yract \*\/
- */
-import { type Child, createElement, Fragment, Portal, type VNode } from "./jsx";
+import type { Child, Children, Component, FrameworkProps, PropsWithChildren } from "./jsx";
+import { Fragment } from "./jsx";
+import type { Context, ContextProps } from "./context";
+import type { Draft } from "./slots/draft";
+import { asComponentDraft, asContextDraft, asElementDraft, asFragmentDraft } from "./slots/draft";
+import { getIntentChildren } from "./slots/intent";
 
-export { Fragment, Portal };
+export { Fragment };
 
-/** Used by the JSX transform for single-child expressions. */
+export function jsx<P extends Record<string, any>>(
+  node: Component<Omit<P, keyof FrameworkProps>>,
+  props: (P & FrameworkProps) | null,
+  key?: string,
+): Draft | null;
+export function jsx<T>(node: Context<T>, props: FrameworkProps & ContextProps<T>): Draft | null;
+
 export function jsx(
-  type: VNode["type"],
-  props: { children?: Child | Child[] } & Record<string, unknown>,
-  key?: string | number | null,
-): VNode {
-  const { children, ...rest } = props;
-  // The automatic JSX transform extracts `key` and passes it as the third
-  // argument. Map it to `key` (string only) for our reconciler.
-  if (key != null) rest["key"] = String(key);
-  if (children === undefined) {
-    return createElement(type, rest);
+  node: typeof Fragment,
+  props: (Omit<FrameworkProps, "deps"> & { children?: Children }) | null,
+  key?: string,
+): Draft | null;
+export function jsx<T extends keyof JSX.IntrinsicElements>(
+  node: T,
+  props: (Omit<FrameworkProps, "deps"> & JSX.IntrinsicElements[T] & { children?: Children }) | null,
+  key?: string,
+): Draft | null;
+export function jsx(node: any, props: any, key?: string): Draft | null {
+  switch (typeof node) {
+    case "function": {
+      return asComponentDraft(props.key ?? key, node, props);
+    }
+    case "string": {
+      return asElementDraft(props.key ?? key, node, props, getIntentChildren(props.children));
+    }
+    case "symbol": {
+      return asFragmentDraft(props.key ?? key, getIntentChildren(props.children));
+    }
+    case "object": {
+      return asContextDraft(props.key ?? key, node, props);
+    }
+    default: {
+      throw new Error(`Invalid JSX node type "${typeof node}"`);
+    }
   }
-  if (Array.isArray(children)) {
-    return createElement(type, rest, ...children);
-  }
-  return createElement(type, rest, children);
 }
 
-/** Used by the JSX transform for multi-child expressions (static children). */
-export const jsxs = jsx;
+export function jsxs<P extends Record<string, any>>(
+  type: Component<Omit<P, keyof FrameworkProps>>,
+  props: P & FrameworkProps,
+  key?: string,
+): Draft | null;
+export function jsxs<T>(type: Context<T>, props: FrameworkProps & ContextProps<T>): Draft;
+export function jsxs<T extends keyof JSX.IntrinsicElements>(
+  type: T,
+  props: Omit<FrameworkProps, "deps"> & JSX.IntrinsicElements[T] & PropsWithChildren,
+  key?: string,
+): Draft | null;
+export function jsxs(
+  type: typeof Fragment,
+  props: Omit<FrameworkProps, "deps"> & PropsWithChildren,
+  key?: string,
+): Draft | null;
+export function jsxs(node: any, props: any, key?: string): Child {
+  key = props.key ?? key;
+  switch (typeof node) {
+    case "function": {
+      return asComponentDraft(key, node, props);
+    }
+    case "string": {
+      return asElementDraft(key, node, props, props.children);
+    }
+    case "symbol": {
+      return asFragmentDraft(key, props.children);
+    }
+    case "object": {
+      return asContextDraft(key, node, props);
+    }
+    default: {
+      throw new Error(`Invalid JSX node type "${typeof node}"`);
+    }
+  }
+}
 
-/** Used by the JSX transform in development mode. */
-export const jsxDEV = jsx;
+export const jsxDEV = (node: any, props: any, key: string | undefined, staticChildren: boolean) => {
+  if (staticChildren) return jsxs(node, props, key);
+  return jsx(node, props, key);
+};

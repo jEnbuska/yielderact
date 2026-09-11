@@ -1,36 +1,105 @@
+import type { Context } from "../context";
+
+import type { DependencyList } from "yract";
 import type { Child } from "../jsx";
-import type { HookDescriptor } from "./descriptors";
+import type {
+  $$FORCE_UPDATE,
+  $$HALT,
+  $$HALTED,
+  $$RENDER,
+  $CONTEXT,
+  $EFFECT,
+  $ID,
+  $LOAD,
+  $MEMO,
+  $REF,
+  $STABLE,
+  $STATE,
+  $WEAK_REF,
+} from "./constants";
+import { hookTypes } from "./constants";
 
-/**
- * Hook dependency list type, aligned with React 19's `DependencyList`.
- *
- * A read-only array of values compared via shallow `Object.is` by the
- * renderer. Hooks re-run only when at least one element changes.
- */
-export type DependencyList = readonly unknown[];
+export type HookType = (typeof hookTypes)[number];
 
-/**
- * Generator type returned by hook functions and component bodies.
- *
- * `TReturn` (first param) is what the generator returns — typically `Child`
- * for components or a hook-specific result type.
- *
- * `TYield` (second param) is the set of values the generator may yield.
- * Defaults to `HookDescriptor | Child` — the full union a component body
- * can produce via `yield*` delegation.
- */
-export type ComponentGenerator<TReturn, TYield = HookDescriptor | Child> = Generator<
-  TYield,
-  TReturn,
-  unknown
->;
+export const HOOK_TYPES: ReadonlySet<HookType> = new Set<HookType>(hookTypes);
 
-/** Returns true when the dependency arrays differ (shallow Object.is comparison). */
-export function depsChanged(prev: DependencyList | undefined, next: DependencyList): boolean {
-  if (prev === undefined) return true;
-  if (prev.length !== next.length) return true;
-  for (let i = 0; i < prev.length; i++) {
-    if (!Object.is(prev[i], next[i])) return true;
-  }
-  return false;
+export interface StateDescriptor {
+  type: typeof $STATE;
+  initialValue: unknown;
+  deps: DependencyList;
 }
+
+export interface RefDescriptor {
+  type: typeof $REF;
+  initialValue: unknown;
+}
+
+export interface WeakRefDescriptor<T extends WeakKey = WeakKey> {
+  type: typeof $WEAK_REF;
+  initial?: T;
+}
+
+export interface IdDescriptor {
+  type: typeof $ID;
+}
+
+export interface MemoDescriptor {
+  type: typeof $MEMO;
+  fn: (...args: unknown[]) => unknown;
+  deps: DependencyList;
+}
+
+export interface StableDescriptor {
+  type: typeof $STABLE;
+  fn: (...args: unknown[]) => unknown;
+}
+
+export interface EffectDescriptor {
+  type: typeof $EFFECT;
+  fn: () => void | (() => void);
+  deps: DependencyList;
+}
+
+export interface ContextDescriptor {
+  type: typeof $CONTEXT;
+  ctx: Context;
+  depsSelector?: (ctx: unknown) => unknown[];
+  transform?: (...args: unknown[]) => unknown;
+}
+
+export interface LoadDescriptor {
+  type: typeof $LOAD;
+  promise?: Promise<any>;
+}
+
+export interface RenderDescriptor {
+  type: typeof $$RENDER;
+  child: Child;
+}
+
+export interface HaltDescriptor {
+  type: typeof $$HALT;
+  initialFallback?: Child;
+}
+
+export interface HaltedDescriptor {
+  type: typeof $$HALTED;
+}
+export interface ForceUpdateDescriptor {
+  type: typeof $$FORCE_UPDATE;
+}
+
+export type HookDescriptor =
+  | StateDescriptor
+  | RefDescriptor
+  | WeakRefDescriptor
+  | IdDescriptor
+  | MemoDescriptor
+  | StableDescriptor
+  | EffectDescriptor
+  | ContextDescriptor
+  | LoadDescriptor
+  | RenderDescriptor
+  | HaltDescriptor
+  | HaltedDescriptor
+  | ForceUpdateDescriptor;
