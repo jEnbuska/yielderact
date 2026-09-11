@@ -3,6 +3,9 @@
   "version": "0.1.0",
   "description": "JSX UI library focused on ease of use and easy to understanding the internals of the library it self",
   "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
   "files": [
     "dist"
   ],
@@ -31,8 +34,8 @@
     "test:visual": "npm test --prefix playground",
     "lint": "oxlint --type-aware",
     "lint:fix": "oxlint --fix",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "oxfmt",
+    "format:check": "oxfmt --check",
     "knip": "knip"
   },
   "repository": {
@@ -55,8 +58,8 @@
   "devDependencies": {
     "jsdom": "^29.0.2",
     "knip": "^6.14.2",
+    "oxfmt": "^0.67.0",
     "oxlint": "^1.42.0",
-    "prettier": "^3.9.6",
     "typescript": "^7.0.2",
     "vitest": "^4.1.5"
   }

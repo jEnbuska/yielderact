@@ -2,11 +2,30 @@ import type { Children, FrameworkProps } from "./jsx";
 import type { DependencyList } from "./general-types";
 import type { ComponentSlotType, ContextSlotType, SlotProps } from "./slots/slot";
 
+/**
+ * `Map.prototype.getOrInsertComputed` without the engine requirement — that
+ * method needs V8 14.6 (Node 26), which puts it out of reach on current LTS.
+ *
+ * Uses `has` rather than a truthiness check on `get`, so a computed
+ * `undefined` is cached instead of recomputed on every call, matching the
+ * built-in's semantics.
+ */
+export function getOrInsertComputed<K extends object, V>(
+  map: WeakMap<K, V>,
+  key: K,
+  compute: (key: K) => V,
+): V {
+  if (map.has(key)) return map.get(key)!;
+  const value = compute(key);
+  map.set(key, value);
+  return value;
+}
+
 const _values = new WeakMap<ReadonlyMap<any, any>, any[]>();
 const _valuesReversed = new WeakMap<ReadonlyMap<any, any>, any[]>();
 
 export function getMapValuesReversed<T>(map: ReadonlyMap<any, T>): T[] {
-  return _valuesReversed.getOrInsertComputed(map, mapValuesReversed);
+  return getOrInsertComputed(_valuesReversed, map, mapValuesReversed);
 }
 
 function mapValuesReversed<T>(map: ReadonlyMap<any, T>) {
@@ -14,7 +33,7 @@ function mapValuesReversed<T>(map: ReadonlyMap<any, T>) {
 }
 
 export function getMapValues<T>(map: ReadonlyMap<any, T>): T[] {
-  return _values.getOrInsertComputed(map, mapValues);
+  return getOrInsertComputed(_values, map, mapValues);
 }
 
 function mapValues<T>(map: ReadonlyMap<string, T>) {

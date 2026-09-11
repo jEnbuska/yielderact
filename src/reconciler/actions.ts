@@ -103,7 +103,11 @@ export type RemoveSlotAction = Delegated<{
 }>;
 
 export type UIAction =
-  InsertAction | MoveAction | TextChangeAction | ElementUpdateAction | RemoveSlotAction;
+  | InsertAction
+  | MoveAction
+  | TextChangeAction
+  | ElementUpdateAction
+  | RemoveSlotAction;
 
 export function isWeakRefProp<T extends Record<string, unknown>>(
   props: T,

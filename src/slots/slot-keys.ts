@@ -1,12 +1,12 @@
-import { randomId } from "../general";
+import { getOrInsertComputed, randomId } from "../general";
 import type { Draft } from "./draft";
 import type { ComponentSlotType, ContextSlotType, ElementSlotType, FragmentSlotType } from "./slot";
 import type { Component } from "yract";
 
-const componentIdMap = new WeakMap<Component<any>>();
+const componentIdMap = new WeakMap<Component<any>, string>();
 
 export function getComponentSlotKey(draft: Draft<ComponentSlotType>, index: number): string {
-  const slotId = componentIdMap.getOrInsertComputed(draft.component, randomId);
+  const slotId = getOrInsertComputed(componentIdMap, draft.component, randomId);
   const componentKey = draft._key ?? index;
   return `"${slotId}""${typeof componentKey}"${componentKey}`;
 }

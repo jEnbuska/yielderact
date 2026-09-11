@@ -13,14 +13,14 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
-      # Node 26 is required, not preferred: src/general.ts and
-      # src/slots/slot-keys.ts call Map.prototype.getOrInsertComputed, which
-      # ships in V8 14.6. The whole Node 24 line is pinned to V8 13.6, so it
-      # cannot run this package at any patch level.
+      # Node 24 (current LTS) matches `engines` and `.nvmrc`. The source
+      # itself only needs Node 22 — `toReversed` and `Promise.withResolvers`
+      # are the newest APIs it uses — so this is a policy floor, not a
+      # technical one.
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 26
+          node-version: 24
           cache: npm
 
       - name: Install dependencies
@@ -65,7 +65,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: 26
+          node-version: 24
           cache: npm
 
       - name: Install root dependencies

@@ -8,7 +8,7 @@
 2.  **STRICT EXECUTION POLICY:** Follow the sequence below for every PR.
 3.  **INSTRUCTION MAINTENANCE:** This file must stay current. If you encounter a process issue, add a new feature, or change a public API, you MUST propose an update to this `CLAUDE.md` file in the same PR.
 4.  **NPM ONLY:** Never use `npx`. Use `npm run <script>`.
-5.  **NODE 26 REQUIRED:** `src/general.ts` and `src/slots/slot-keys.ts` call `Map.prototype.getOrInsertComputed`, which ships in V8 14.6. Node 24 is pinned to V8 13.6 and cannot run this package at any patch level.
+5.  **NODE 24 (CURRENT LTS):** Develop and test on Node 24. `engines` and `.nvmrc` declare it and CI runs it. This is a policy floor, not a technical one — the source needs nothing newer than Node 22 (`Array.prototype.toReversed`, `Promise.withResolvers`), so a failing test on an older runtime is a real failure, not a version mismatch.
 
 ## STRICT EXECUTION POLICY
 
@@ -67,7 +67,7 @@ Each branch gets its own worktree under `.worktrees/feat/` so multiple Claude Co
 - `npm run knip` — Detect dead code, unused exports, and unused dependencies (Knip)
 - `npm run lint` — Lint (oxlint, type-aware)
 - `npm run lint:fix` — Auto-fix lint issues
-- `npm run format` — Format (Prettier)
+- `npm run format` — Format (oxfmt)
 - `npm run format:check` — Check formatting without writing
 - `npm test -- <path>` — Run specific test file
 
@@ -145,7 +145,7 @@ function* Counter(_props: object) {
 
 - **Self-Updating Documentation:** If you discover a "gotcha" or a more efficient way to run this project, update the "Non-Obvious Rules" or "Execution Policy" in this file immediately.
 - **NPM Script Policy:** Never use `npx`. Always use the existing `npm run` scripts to ensure version consistency.
-- **Linting:** oxlint (`.oxlintrc.json`) lints; Prettier (`.prettierrc.json`) formats. They are separate tools — `lint` does not check formatting, so run `format:check` too.
+- **Linting:** oxlint (`.oxlintrc.json`) lints; oxfmt (`.oxfmtrc.json`) formats. They are separate tools — `lint` does not check formatting, so run `format:check` too.
 - **TypeScript:** Strictly typed; `any` is forbidden. `noUncheckedIndexedAccess` and `noPropertyAccessFromIndexSignature` are enabled.
 - **Prefer `satisfies` over `as`:** Strongly avoid `as` type assertions. Use `satisfies` to validate that a value conforms to a type without silencing the type checker. Only use `as` where genuine type narrowing is required (e.g., DOM element downcasts, narrowing `T | undefined` to `T`, casting `unknown` from external APIs, generator yield values). Never use `as` when `satisfies` would work.
 - **Special Props:** Always support the `shown={boolean}` prop (no `$` prefix — see `FrameworkProps` in `jsx.ts`, alongside `key` and `deps`).
