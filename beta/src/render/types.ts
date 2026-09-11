@@ -3,8 +3,8 @@ import type { ContextHookState } from "../hooks/context";
 import type { DelegationRoot } from "./delegation";
 import type { Scheduler } from "./scheduler";
 import type { DependencyList } from "yract-beta";
-import { $EFFECT, $ID, $LOAD, $MEMO, $REF, $STABLE, $STATE, $WEAK_REF } from "../hooks/constants";
-import { WeakRefLike } from "./element-props";
+import type { $EFFECT, $ID, $LOAD, $MEMO, $REF, $STABLE, $STATE, $WEAK_REF } from "../hooks/constants";
+import type { WeakRefLike } from "./element-props";
 
 export type ContextMap = Map<string, ContextProperties<unknown>>;
 

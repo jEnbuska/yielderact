@@ -13,13 +13,14 @@ async function flush(ticks = 4): Promise<void> {
 }
 
 describe("smoke: elements", () => {
-  it("renders a simple element into a container", () => {
+  it("renders a simple element into a container", async () => {
     const container = document.createElement("div");
     render(<div id="hello">hi</div>, container);
+    await flush();
     expect(container.querySelector("#hello")?.textContent).toBe("hi");
   });
 
-  it("applies a style prop object to el.style", () => {
+  it("applies a style prop object to el.style", async () => {
     const container = document.createElement("div");
     render(
       <div data-testid="styled" style={{ color: "rgb(255, 0, 0)", paddingLeft: "4px" }}>
@@ -27,6 +28,7 @@ describe("smoke: elements", () => {
       </div>,
       container,
     );
+    await flush();
     const el = container.querySelector<HTMLDivElement>('[data-testid="styled"]');
     expect(el).not.toBeNull();
     expect(el?.style.color).toBe("rgb(255, 0, 0)");

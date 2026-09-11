@@ -44,14 +44,12 @@ export function* App() {
           ))}
         </Sidebar>
         <ShellMain>
-          {demos
-            .filter((it) => it.id === "deferred")
-            .map(({ id, Demo }) => (
-              <section key={`${id}`} id={id} className="dos-demo" aria-label={id}>
-                <Demo />
-              </section>
-            ))}
-          <button onClick={() => window.location.reload()}>Refresh</button>
+          {demos.map(({ id, Demo }) => (
+            <section key={`${id}`} id={id} className="dos-demo" aria-label={id}>
+              <Demo />
+              <button onClick={() => window.location.reload()}>Refresh</button>
+            </section>
+          ))}
         </ShellMain>
       </Shell>
     </Screen>

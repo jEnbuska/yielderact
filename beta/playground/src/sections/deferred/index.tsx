@@ -11,6 +11,7 @@ import { getPersonRows } from "../../global-state";
 import { TickChart } from "./-components/TickChart";
 import { PersonTable, SortDir } from "./-components/PersonTable";
 import { PersonRow } from "../../types";
+import { PersonFiltering } from "./-components/PersonFiltering";
 
 /* ── Table row ── */
 
@@ -78,27 +79,11 @@ export function* DeferredDemo() {
           Wrapping the table in <code>&lt;Deferred&gt;</code> keeps the input responsive while 5 000
           rows re-render. The table fades while deferred.
         </p>
-        <div
-          style={{
-            display: "flex",
-            gap: "0.75rem",
-            marginBottom: "0.75rem",
-            alignItems: "center",
-          }}
-        >
-          <input
-            data-testid="search-input"
-            type="text"
-            placeholder="Search all columns..."
-            value={search}
-            onInput={(e) => {
-              void setSearch(e.currentTarget?.value ?? "");
-            }}
-          />
-          <span data-testid="row-count" style={{ fontSize: "0.85rem", color: "#666" }}>
-            {filtered?.length} / {rows?.length} rows
-          </span>
-        </div>
+        <PersonFiltering
+          value={search}
+          setValue={setSearch}
+          matches={`${filtered?.length ?? 0}/${rows?.length ?? 0}`}
+        />
         <PersonTable
           rows={filtered}
           sortDir={sortDir}

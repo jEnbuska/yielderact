@@ -13,7 +13,7 @@
  * When `invalid` is set the control points at the error instead of the
  * description, so a screen reader reads the problem rather than the hint.
  */
-import type { Children, ComponentProps, SyntheticEvent } from "yract-beta";
+import type { ComponentProps, SyntheticEvent } from "yract-beta";
 import { useContext, useId } from "yract-beta";
 import { FieldContext } from "./contexts";
 

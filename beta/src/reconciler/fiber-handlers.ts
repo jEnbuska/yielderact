@@ -19,7 +19,7 @@ import type {
 } from "./actions";
 import { prepareSlotNodes, updateWithPreparedSlot } from "../slots/utils";
 import { createFiber } from "../instances/register-create";
-import { WeakRefLike } from "../render/element-props";
+import type { WeakRefLike } from "../render/element-props";
 
 export function handleMountSlot(
   fiber: ComponentFiber,

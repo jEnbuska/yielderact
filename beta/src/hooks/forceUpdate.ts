@@ -1,4 +1,4 @@
-import { ComponentGenerator } from "yract-beta";
+import type { ComponentGenerator } from "yract-beta";
 import { $$FORCE_UPDATE } from "./constants";
 
 export function* requireForceUpdate(): ComponentGenerator<() => void> {

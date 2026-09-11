@@ -9,7 +9,7 @@
  */
 import type { SyntheticEvent } from "./events";
 import type { Children, FrameworkProps } from "./jsx";
-import { WeakRefLike } from "./render/element-props";
+import type { WeakRefLike } from "./render/element-props";
 
 // ---------------------------------------------------------------------------
 // CSS Properties

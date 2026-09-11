@@ -37,6 +37,36 @@ jobs:
       - name: Build
         run: npm run build
 
+  beta:
+    name: Beta package (Node 26)
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Node 26 is required, not preferred: src/general.ts and
+      # src/slots/slot-keys.ts call Map.prototype.getOrInsertComputed, which
+      # ships in V8 14.6. The whole Node 24 line is pinned to V8 13.6, so it
+      # cannot run this package at any patch level.
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: 26
+          cache: npm
+          cache-dependency-path: beta/package-lock.json
+
+      - name: Install dependencies
+        working-directory: beta
+        run: npm ci
+
+      - name: Type check
+        working-directory: beta
+        run: npm run typecheck
+
+      - name: Test
+        working-directory: beta
+        run: npm test
+
   visual:
     name: Visual Tests (${{ matrix.browser }})
     runs-on: ubuntu-latest

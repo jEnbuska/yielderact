@@ -1,9 +1,8 @@
 import { PersonRow } from "../../../types";
 import { useDefer, useMemo, useRef } from "yract-beta";
 import {
+  LoaderTrain,
   Select,
-  Spinner,
-  Status,
   Table,
   TableBody,
   TableCell,
@@ -67,33 +66,18 @@ export function* PersonTable({
           <TableHeadCell id="persons-department">Department</TableHeadCell>
           <TableHeadCell>City</TableHeadCell>
           <TableHeadCell align="center">Mounted at</TableHeadCell>
-          <TableHeadCell align="center">Total renders</TableHeadCell>
+          <TableHeadCell align="center">Re-renders</TableHeadCell>
         </TableRow>
       </TableHead>
       <Defer>
         {!sortedRows ? (
-          <Status>
-            <Spinner /> Deferred rendering…
-          </Status>
+          <LoaderTrain label={"Deferred rendering…"} />
         ) : (
-          <Wrapper1 rows={sortedRows} updatePerson={updatePerson} />
+          <PersonTableBody rows={sortedRows} updatePerson={updatePerson} />
         )}
       </Defer>
     </Table>
   );
-}
-
-function* Wrapper1(props: { rows: readonly PersonRow[]; updatePerson: UpdatePerson }) {
-  return <Wrapper2 {...props} />;
-}
-function* Wrapper2(props: { rows: readonly PersonRow[]; updatePerson: UpdatePerson }) {
-  return <Wrapper3 {...props} />;
-}
-function* Wrapper3(props: { rows: readonly PersonRow[]; updatePerson: UpdatePerson }) {
-  return <Wrapper4 {...props} />;
-}
-function* Wrapper4(props: { rows: readonly PersonRow[]; updatePerson: UpdatePerson }) {
-  return <PersonTableBody {...props} />;
 }
 function* PersonTableBody({
   rows,

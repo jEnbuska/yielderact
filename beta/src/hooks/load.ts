@@ -1,5 +1,5 @@
-import { ComponentFiber } from "../instances/component-fiber";
-import { LoadState } from "../render/types";
+import type { ComponentFiber } from "../instances/component-fiber";
+import type { LoadState } from "../render/types";
 import type { LoadDescriptor } from "./types";
 
 import { $LOAD } from "./constants";
@@ -66,8 +66,9 @@ async function handleResolveLoad(
   } catch (error: any) {
     resolved.set(promise, { data: undefined, error });
   } finally {
-    if (state.promise !== descriptor.promise) return;
-    instance.unscheduleRender(state.identifier);
+    if (state.promise === descriptor.promise) {
+      instance.unscheduleRender(state.identifier);
+    }
   }
 }
 
@@ -80,7 +81,8 @@ async function handleAwaitLoad(
   try {
     await promise;
   } finally {
-    if (state.promise !== descriptor.promise) return;
-    instance.unscheduleRender(state.identifier);
+    if (state.promise === descriptor.promise) {
+      instance.unscheduleRender(state.identifier);
+    }
   }
 }

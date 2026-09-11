@@ -2,7 +2,7 @@ import type { Context } from "../context";
 
 import type { DependencyList } from "yract-beta";
 import type { Child } from "../jsx";
-import {
+import type {
   $$FORCE_UPDATE,
   $$HALT,
   $$HALTED,
@@ -15,7 +15,8 @@ import {
   $REF,
   $STABLE,
   $STATE,
-  $WEAK_REF,
+  $WEAK_REF} from "./constants";
+import {
   hookTypes,
 } from "./constants";
 

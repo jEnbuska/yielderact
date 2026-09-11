@@ -29,18 +29,31 @@ type TickChartProps = {
   start: number;
 };
 
+type Tick = { id: string; tick: number };
 export function* TickChart({ width = 1080, height = 300, start }: TickChartProps) {
   const [ref, inView] = yield* useInView<SVGSVGElement>();
-  const [entries, setEntries] = yield* useState(() => [{ id: "a", tick: Date.now() }]);
+  const [entries, setEntries] = yield* useState<Tick[]>(() => [{ id: "a", tick: Date.now() }]);
   yield* useEffect(() => {
     if (!inView) return;
-    const handle = setInterval(() => {
-      void setEntries((prev) => [
-        ...prev.slice(Math.max(0, prev.length - 100)),
-        { id: `${Math.random()}`, tick: Date.now() },
-      ]);
-    }, 100);
-    return () => clearInterval(handle);
+    let buffer: Tick[] = [];
+    function addTick() {
+      buffer.push({ id: `${Math.random()}`, tick: Date.now() });
+    }
+
+    const addTicksHandle = setInterval(addTick, 50);
+    const updateStateHandle = setInterval(() => {
+      void setEntries((prevEntries) => {
+        const nextEntries = [...prevEntries, ...buffer].slice(
+          Math.max(0, prevEntries.length - 150),
+        );
+        buffer = [];
+        return nextEntries;
+      });
+    }, 1000);
+    return () => {
+      clearInterval(addTicksHandle);
+      clearInterval(updateStateHandle);
+    };
   }, [inView]);
   const points = yield* useMemo(() => {
     if (entries.length < 2) return [];

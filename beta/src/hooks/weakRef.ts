@@ -1,8 +1,8 @@
 import type { WeakRefHookState } from "../render/types";
 
 import { $WEAK_REF } from "./constants";
-import { WeakRefDescriptor } from "./types";
-import { WeakRefLike } from "../render/element-props";
+import type { WeakRefDescriptor } from "./types";
+import type { WeakRefLike } from "../render/element-props";
 
 export function* useWeakRef<T extends WeakKey>(
   initial?: T,
